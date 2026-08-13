@@ -38,6 +38,14 @@ export interface SourceConfig {
   implicitFtps?: boolean;
 }
 
+/** Retry behaviour for temporary faults (spec sections 65-66). */
+export interface RetryConfig {
+  /** Total attempts including the first one. */
+  attempts: number;
+  /** Delay before attempt 2, 3, ... in seconds. */
+  delaysSeconds: number[];
+}
+
 export interface StabilityCheckConfig {
   enabled: boolean;
   intervalSeconds: number;
@@ -84,6 +92,11 @@ export interface TransferJob {
   encryptionConfig: EncryptionConfig;
   sourceSuccessAction: SourceSuccessAction;
   sourceArchiveDirectory?: string;
+  /** Files processed at the same time; defaults to 3 (spec section 79). */
+  maxConcurrentFiles?: number;
+  /** Defaults to three attempts at 0, 5 and 15 seconds (spec section 65). */
+  retry?: RetryConfig;
+
   executionMode: ExecutionMode;
   schedule?: JobSchedule;
   lastExecutionAt?: Date;

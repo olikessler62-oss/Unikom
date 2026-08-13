@@ -23,22 +23,33 @@ test('the staging directory is created per run below the staging root', async ()
 test('downloads are staged under a .part name', async () => {
   const root = await tempRoot();
   const stagingDirectory = await service.prepareStagingDirectory(root, 'TR-008');
-  const stagedPath = service.stagedPathFor(stagingDirectory, 'ORDER_001.csv');
+  const stagedPath = service.stagedPathFor(stagingDirectory, 'ORDER_001.csv', 'file-1');
 
-  assert.equal(stagedPath, path.join(stagingDirectory, 'ORDER_001.csv.part'));
+  assert.equal(stagedPath, path.join(stagingDirectory, 'file-1-ORDER_001.csv.part'));
+});
+
+test('equally named files from different directories do not collide', async () => {
+  const root = await tempRoot();
+  const stagingDirectory = await service.prepareStagingDirectory(root, 'TR-008b');
+
+  const first = service.stagedPathFor(stagingDirectory, 'ORDER_001.csv', 'file-1');
+  const second = service.stagedPathFor(stagingDirectory, 'ORDER_001.csv', 'file-2');
+
+  assert.notEqual(first, second, 'two staged files must never share a path');
 });
 
 test('a remote name cannot stage outside the staging directory', async () => {
   const root = await tempRoot();
   const stagingDirectory = await service.prepareStagingDirectory(root, 'TR-009');
 
-  assert.throws(() => service.stagedPathFor(stagingDirectory, '../../escaped.csv'), UnsafeFilenameError);
+  assert.throws(() => service.stagedPathFor(stagingDirectory, '../../escaped.csv', 'file-1'), UnsafeFilenameError);
+  assert.throws(() => service.stagedPathFor(stagingDirectory, 'sub\\escaped.csv', 'file-1'), UnsafeFilenameError);
 });
 
 test('a staged file is moved to its final path', async () => {
   const root = await tempRoot();
   const stagingDirectory = await service.prepareStagingDirectory(root, 'TR-010');
-  const stagedPath = service.stagedPathFor(stagingDirectory, 'ORDER_001.csv');
+  const stagedPath = service.stagedPathFor(stagingDirectory, 'ORDER_001.csv', 'file-1');
   const finalPath = path.join(root, 'dest', 'ORDER_001.csv');
 
   await fs.writeFile(stagedPath, 'customer;amount\nA;42\n');

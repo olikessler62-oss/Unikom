@@ -158,7 +158,22 @@ test('identical content under a different name is not transferred twice', async 
 
   assert.equal(result.filesSucceeded, 1);
   assert.equal(result.filesSkipped, 1);
-  assert.match(result.outcomes[1].message, /Identical content/);
+  // Which of the two wins depends on scheduling, so assert on the pair.
+  const skipped = result.outcomes.find((outcome) => outcome.status === FileTransferStatus.SKIPPED);
+  assert.match(skipped?.message ?? '', /[Ii]dentical content/);
+});
+
+test('the same filename in two subdirectories is two different files', async () => {
+  const harness = await setup({ includeSubdirectories: true, conflictStrategy: 'RENAME', maxConcurrentFiles: 1 });
+  await fs.mkdir(path.join(harness.sourceDirectory, 'kunde-a'), { recursive: true });
+  await fs.mkdir(path.join(harness.sourceDirectory, 'kunde-b'), { recursive: true });
+  await fs.writeFile(path.join(harness.sourceDirectory, 'kunde-a', 'ORDER_001.csv'), 'customer;amount\nA;1\n');
+  await fs.writeFile(path.join(harness.sourceDirectory, 'kunde-b', 'ORDER_001.csv'), 'customer;amount\nB;2\n');
+
+  const result = await harness.service.execute(harness.job, harness.adapter);
+
+  assert.equal(result.filesSucceeded, 2, 'the second file must not count as a duplicate of the first');
+  assert.deepEqual((await fs.readdir(harness.destinationDirectory)).sort(), ['ORDER_001.csv', 'ORDER_001_001.csv']);
 });
 
 test('an existing destination file is skipped by default', async () => {

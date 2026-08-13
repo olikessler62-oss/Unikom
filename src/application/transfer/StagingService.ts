@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { resolveWithin } from '../../infrastructure/filesystem/SafePath.js';
+import { assertSafeFilename, resolveWithin } from '../../infrastructure/filesystem/SafePath.js';
 
 /**
  * Internal working directory for a run (spec sections 42-43). Files are only
@@ -17,9 +17,15 @@ export class StagingService {
   /**
    * Path a download writes to. The `.part` suffix marks the file as unfinished
    * so a crash cannot leave something that looks complete (spec section 82).
+   *
+   * The name is prefixed with the transfer's own id because a file name is not
+   * unique within a run: with `includeSubdirectories` the same name can appear
+   * in several directories, and two of them staged under one path would
+   * overwrite each other.
    */
-  stagedPathFor(stagingDirectory: string, filename: string): string {
-    return `${resolveWithin(stagingDirectory, filename)}.part`;
+  stagedPathFor(stagingDirectory: string, filename: string, transferFileId: string): string {
+    assertSafeFilename(filename);
+    return resolveWithin(stagingDirectory, `${transferFileId}-${filename}.part`);
   }
 
   /**

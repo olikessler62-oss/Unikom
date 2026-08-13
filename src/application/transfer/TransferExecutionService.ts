@@ -23,7 +23,41 @@ import { FileStabilityService } from './FileStabilityService.js';
 import { FileIntegrityService } from './FileIntegrityService.js';
 import { DuplicateDetectionService } from './DuplicateDetectionService.js';
 import { StagingService } from './StagingService.js';
+import { DEFAULT_RETRY_CONFIG, RetryPolicy } from './RetryPolicy.js';
 import { noopEventListener, type TransferEventListener, type TransferEventName } from './TransferEvents.js';
+
+/** System default from spec section 79; parallelism is never unbounded. */
+export const DEFAULT_MAX_CONCURRENT_FILES = 3;
+
+/**
+ * Directory a file actually sits in. With `includeSubdirectories` the job's
+ * source directory is not specific enough: two files of the same name in two
+ * subdirectories would otherwise share one identity and the second would be
+ * discarded as a duplicate of the first (spec section 40).
+ */
+function directoryOf(file: SourceFile, fallback: string): string {
+  const separator = Math.max(file.fullPath.lastIndexOf('/'), file.fullPath.lastIndexOf('\\'));
+
+  if (separator < 0) {
+    return fallback;
+  }
+
+  return file.fullPath.slice(0, separator) || '/';
+}
+
+/**
+ * State shared by all files of one run. The two claim sets keep concurrent
+ * files from stepping on each other: without them two files with identical
+ * content would both be stored, and two RENAME conflicts would pick the same
+ * free name.
+ */
+interface RunContext {
+  runId: string;
+  stagingDirectory: string;
+  claimedHashes: Set<string>;
+  claimedDestinations: Set<string>;
+  retry: RetryPolicy;
+}
 
 export interface FileOutcome {
   filename: string;
@@ -58,6 +92,8 @@ export interface TransferExecutionDependencies {
   /** Root of the internal working area; `staging/<run-id>` is created below it. */
   stagingRoot?: string;
   events?: TransferEventListener;
+  /** Injectable so tests do not wait out the real retry delays. */
+  retryWait?: (milliseconds: number) => Promise<void>;
 }
 
 export interface TransferExecutionOptions {
@@ -85,6 +121,7 @@ export class TransferExecutionService {
   private readonly encryptionKeyProvider: EncryptionKeyProvider;
   private readonly stagingRoot: string;
   private readonly emit: TransferEventListener;
+  private readonly retryWait?: (milliseconds: number) => Promise<void>;
 
   constructor(dependencies: TransferExecutionDependencies) {
     this.transferFileRepository = dependencies.transferFileRepository;
@@ -98,6 +135,7 @@ export class TransferExecutionService {
     this.encryptionKeyProvider = dependencies.encryptionKeyProvider ?? new UnavailableEncryptionKeyProvider();
     this.stagingRoot = dependencies.stagingRoot ?? path.join(process.cwd(), 'application-data');
     this.emit = dependencies.events ?? noopEventListener;
+    this.retryWait = dependencies.retryWait;
   }
 
   async execute(
@@ -110,14 +148,41 @@ export class TransferExecutionService {
 
     this.event('TRANSFER_RUN_STARTED', runId, job, undefined, `Transfer run started for job ${job.name}`);
 
+    const retry = new RetryPolicy(job.retry ?? DEFAULT_RETRY_CONFIG, this.retryWait);
+
     const connectionTest = await sourceAdapter.testConnection();
     if (!connectionTest.ok) {
       return this.finish(runId, job, TransferRunStatus.FAILED, 0, 0, [], `Connection failed: ${connectionTest.message}`);
     }
 
-    const discovered = (await sourceAdapter.listFiles(job.sourceDirectory, job.includeSubdirectories)).filter(
-      (file) => !file.isDirectory
-    );
+    let discovered: SourceFile[];
+    try {
+      discovered = await retry.run(
+        async () => (await sourceAdapter.listFiles(job.sourceDirectory, job.includeSubdirectories)).filter(
+          (file) => !file.isDirectory
+        ),
+        ({ attempt, delaySeconds }) => {
+          void sourceAdapter.dispose?.();
+          this.event(
+            'TRANSFER_RUN_STARTED',
+            runId,
+            job,
+            undefined,
+            `Listing the source failed on attempt ${attempt}, retrying in ${delaySeconds}s`
+          );
+        }
+      );
+    } catch (error) {
+      return this.finish(
+        runId,
+        job,
+        TransferRunStatus.FAILED,
+        0,
+        0,
+        [],
+        `Listing the source directory failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
 
     const selected = discovered.filter((file) => {
       const result = this.fileSelectionService.evaluate(file, this.criteriaFor(job), now);
@@ -145,14 +210,18 @@ export class TransferExecutionService {
 
     await this.ensureDestinationDirectory(job);
     const stagingDirectory = await this.stagingService.prepareStagingDirectory(this.stagingRoot, runId);
-    const outcomes: FileOutcome[] = [];
 
+    const context: RunContext = {
+      runId,
+      stagingDirectory,
+      claimedHashes: new Set(),
+      claimedDestinations: new Set(),
+      retry,
+    };
+
+    let outcomes: FileOutcome[];
     try {
-      for (const file of selected) {
-        this.event('FILE_SELECTED', runId, job, file.name, 'File selected for transfer');
-        // A single failing file must never stop the remaining ones (section 62).
-        outcomes.push(await this.processFile(file, job, sourceAdapter, runId, stagingDirectory));
-      }
+      outcomes = await this.processConcurrently(selected, job, sourceAdapter, context);
     } finally {
       await this.stagingService.cleanup(stagingDirectory);
     }
@@ -160,21 +229,49 @@ export class TransferExecutionService {
     return this.finish(runId, job, undefined, discovered.length, selected.length, outcomes);
   }
 
+  /**
+   * Processes several files at once but never without a limit (spec section 79).
+   * Results keep the discovery order so a run report stays readable.
+   */
+  private async processConcurrently(
+    files: SourceFile[],
+    job: TransferJob,
+    sourceAdapter: SourceAdapter,
+    context: RunContext
+  ): Promise<FileOutcome[]> {
+    const limit = Math.max(1, job.maxConcurrentFiles ?? DEFAULT_MAX_CONCURRENT_FILES);
+    const outcomes = new Array<FileOutcome>(files.length);
+    let next = 0;
+
+    const worker = async (): Promise<void> => {
+      for (let index = next++; index < files.length; index = next++) {
+        const file = files[index];
+        this.event('FILE_SELECTED', context.runId, job, file.name, 'File selected for transfer');
+        // A single failing file must never stop the remaining ones (section 62).
+        outcomes[index] = await this.processFile(file, job, sourceAdapter, context);
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(limit, files.length) }, worker));
+    return outcomes;
+  }
+
   private async processFile(
     file: SourceFile,
     job: TransferJob,
     sourceAdapter: SourceAdapter,
-    runId: string,
-    stagingDirectory: string
+    context: RunContext
   ): Promise<FileOutcome> {
+    const { runId, stagingDirectory } = context;
     const startedAt = new Date();
     const transferFileId = randomUUID();
+    const sourcePath = directoryOf(file, job.sourceDirectory);
 
     const record = (status: FileTransferStatus, patch: Partial<TransferFile> = {}): TransferFile => ({
       id: transferFileId,
       transferRunId: runId,
       jobId: job.id,
-      sourcePath: job.sourceDirectory,
+      sourcePath,
       sourceFilename: file.name,
       sourceSize: file.size,
       sourceLastModified: file.lastModified,
@@ -197,18 +294,34 @@ export class TransferExecutionService {
       }
       this.event('FILE_STABLE', runId, job, file.name, stability.message);
 
-      const knownSourceFile = await this.duplicateDetectionService.checkSourceFile(job.id, job.sourceDirectory, file);
+      const knownSourceFile = await this.duplicateDetectionService.checkSourceFile(job.id, sourcePath, file);
       if (knownSourceFile.duplicate) {
         await this.transferFileRepository.save(record(FileTransferStatus.SKIPPED, { resolution: 'DUPLICATE' }));
         return { filename: file.name, status: FileTransferStatus.SKIPPED, message: knownSourceFile.message };
       }
 
       // Download into staging under a validated name (sections 42 and 96).
-      let stagedPath = this.stagingService.stagedPathFor(stagingDirectory, file.name);
-      const download = await sourceAdapter.downloadFile(file, stagedPath);
-      if (!download.ok) {
-        throw new Error(download.message);
-      }
+      let stagedPath = this.stagingService.stagedPathFor(stagingDirectory, file.name, transferFileId);
+      await context.retry.run(
+        async () => {
+          const download = await sourceAdapter.downloadFile(file, stagedPath);
+          if (!download.ok) {
+            throw new Error(download.message);
+          }
+        },
+        ({ attempt, error, delaySeconds }) => {
+          // A dropped connection cannot be reused; the adapter reconnects lazily.
+          void sourceAdapter.dispose?.();
+          this.event(
+            'FILE_FAILED',
+            runId,
+            job,
+            file.name,
+            `Attempt ${attempt} failed with a temporary error, retrying in ${delaySeconds}s: ` +
+              `${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      );
       this.event('FILE_DOWNLOADED', runId, job, file.name, 'Download completed');
 
       const verification = await this.integrityService.verifyFile(stagedPath, { expectedSize: file.size });
@@ -218,7 +331,14 @@ export class TransferExecutionService {
       this.event('FILE_VALIDATED', runId, job, file.name, 'Integrity check passed, SHA-256 calculated');
 
       const knownContent = await this.duplicateDetectionService.checkContent(job.id, verification.sha256);
-      if (knownContent.duplicate) {
+      // Claiming the hash right after the repository check closes the window in
+      // which two concurrently processed files with identical content would
+      // both pass. There is no await between the check and the claim, so this
+      // is atomic for the run.
+      const contentAlreadyClaimed = context.claimedHashes.has(verification.sha256);
+      context.claimedHashes.add(verification.sha256);
+
+      if (knownContent.duplicate || contentAlreadyClaimed) {
         // Recording the resolution here is what stops the next run from
         // downloading this file again just to hash it (spec section 39).
         await this.transferFileRepository.save(
@@ -228,7 +348,9 @@ export class TransferExecutionService {
           filename: file.name,
           status: FileTransferStatus.SKIPPED,
           sha256: verification.sha256,
-          message: knownContent.message,
+          message: contentAlreadyClaimed
+            ? 'Identical content was already taken over earlier in this run'
+            : knownContent.message,
         };
       }
 
@@ -249,7 +371,7 @@ export class TransferExecutionService {
         this.event('FILE_ENCRYPTED', runId, job, file.name, 'AES-256-GCM encryption completed');
       }
 
-      const destination = await this.resolveDestinationPath(job, finalFilename);
+      const destination = await this.resolveDestinationPath(job, finalFilename, context);
       if (destination.skip) {
         await this.transferFileRepository.save(record(FileTransferStatus.SKIPPED, { sha256: verification.sha256 }));
         return {
@@ -344,11 +466,27 @@ export class TransferExecutionService {
 
   private async resolveDestinationPath(
     job: TransferJob,
-    filename: string
+    filename: string,
+    context: RunContext
   ): Promise<{ path: string; skip: boolean }> {
-    const target = resolveWithin(job.destinationDirectory, filename);
+    /**
+     * Claims a name for this run. Check and claim must not be separated by an
+     * await, otherwise two concurrent files both see the name as free and pick
+     * it. Returns false when someone else already holds it.
+     */
+    const claim = (candidate: string): boolean => {
+      if (context.claimedDestinations.has(candidate)) {
+        return false;
+      }
 
-    if (!(await this.exists(target))) {
+      context.claimedDestinations.add(candidate);
+      return true;
+    };
+
+    const target = resolveWithin(job.destinationDirectory, filename);
+    const claimedTarget = claim(target);
+
+    if (claimedTarget && !(await this.exists(target))) {
       return { path: target, skip: false };
     }
 
@@ -364,11 +502,13 @@ export class TransferExecutionService {
     const stem = path.basename(filename, extension);
 
     for (let counter = 1; counter <= 999; counter += 1) {
-      const candidate = `${stem}_${String(counter).padStart(3, '0')}${extension}`;
-      const candidatePath = resolveWithin(job.destinationDirectory, candidate);
+      const candidate = resolveWithin(
+        job.destinationDirectory,
+        `${stem}_${String(counter).padStart(3, '0')}${extension}`
+      );
 
-      if (!(await this.exists(candidatePath))) {
-        return { path: candidatePath, skip: false };
+      if (claim(candidate) && !(await this.exists(candidate))) {
+        return { path: candidate, skip: false };
       }
     }
 
