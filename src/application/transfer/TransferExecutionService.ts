@@ -164,7 +164,7 @@ export class TransferExecutionService {
         ({ attempt, delaySeconds }) => {
           void sourceAdapter.dispose?.();
           this.event(
-            'TRANSFER_RUN_STARTED',
+            'FILE_RETRYING',
             runId,
             job,
             undefined,
@@ -313,7 +313,7 @@ export class TransferExecutionService {
           // A dropped connection cannot be reused; the adapter reconnects lazily.
           void sourceAdapter.dispose?.();
           this.event(
-            'FILE_FAILED',
+            'FILE_RETRYING',
             runId,
             job,
             file.name,

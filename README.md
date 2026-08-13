@@ -19,7 +19,7 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 165 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 205 Tests, inklusive echter SFTP- und FTPS-Protokolltests
 npm run dev       # Beispiellauf mit lokaler Quelle
 npm run build     # Produktivbuild nach dist/ (ohne Tests)
 ```
@@ -44,13 +44,34 @@ Geht der Schlüssel verloren, sind alle gespeicherten Zugangsdaten unbrauchbar
 und müssen neu hinterlegt werden. Die bereits übertragenen Dateien sind davon
 nicht betroffen — außer sie wurden verschlüsselt abgelegt.
 
+## Logging und Historie
+
+Jeder Transfer wird protokolliert — in die Datenbank und optional auf die
+Konsole. Die Level sind `DEBUG`, `INFO`, `WARNING` und `ERROR`; im Betrieb gilt
+standardmäßig `INFO`.
+
+```bash
+UNIKOM_LOG_LEVEL=DEBUG npm run dev
+```
+
+`DEBUG` erklärt zusätzlich für jede gefundene Datei, warum sie ausgewählt oder
+verworfen wurde — das ist der schnellste Weg, einen Filter zu prüfen, der nicht
+wie erwartet greift. Ein Wiederholungsversuch nach einem temporären Fehler
+erscheint als `WARNING`, nicht als `ERROR`: Der Lauf ist zu diesem Zeitpunkt
+noch in Ordnung.
+
+Über den `TransferHistoryService` sind Laufübersicht, Laufdetail mit Dateien und
+Protokoll, fehlgeschlagene Dateien sowie die Kennzahlen des Dashboards
+abrufbar. Das Protokoll wächst mit jedem Lauf; `pruneLogs(datum)` entfernt alte
+Einträge.
+
 ## Datenablage
 
 Alles Dauerhafte liegt unter `application-data/`:
 
 | Inhalt | Ablage |
 | ------ | ------ |
-| Jobs, Läufe, Zugangsdaten, Datei-Historie | `unikom.db` (SQLite) |
+| Jobs, Läufe, Zugangsdaten, Datei-Historie, Protokoll | `unikom.db` (SQLite) |
 | Arbeitsverzeichnis während eines Laufs | `staging/<run-id>/` |
 
 Das Staging-Verzeichnis wird nach jedem Lauf geleert. Dateien erreichen das
@@ -87,5 +108,8 @@ den jeweiligen Quell-Adaptern.
 ## Stand
 
 Umgesetzt sind die Phasen 1 bis 11 der Spec mit Ausnahme benutzerdefinierter
-Cron-Ausdrücke. Nicht enthalten sind bislang: Retry für temporäre Fehler (§65),
-begrenzte Parallelverarbeitung (§79) und die Oberfläche (§83–94).
+Cron-Ausdrücke (§21), die derzeit einen klaren Fehler auslösen statt still
+falsch zu rechnen. Offen ist die Oberfläche (§83–94).
+
+Der Scheduler läuft, solange `startPolling()` aktiv ist; ein Dienst-Wrapper für
+Windows oder systemd existiert noch nicht.

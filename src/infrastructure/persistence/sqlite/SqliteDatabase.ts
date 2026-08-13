@@ -42,6 +42,20 @@ CREATE TABLE IF NOT EXISTS transfer_runs (
 CREATE INDEX IF NOT EXISTS ix_runs_job     ON transfer_runs(job_id);
 CREATE INDEX IF NOT EXISTS ix_runs_started ON transfer_runs(started_at);
 
+CREATE TABLE IF NOT EXISTS transfer_logs (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp  TEXT NOT NULL,
+  level      TEXT NOT NULL,
+  job_id     TEXT,
+  run_id     TEXT,
+  filename   TEXT,
+  message    TEXT NOT NULL,
+  context    TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_logs_run       ON transfer_logs(run_id, id);
+CREATE INDEX IF NOT EXISTS ix_logs_job       ON transfer_logs(job_id, timestamp);
+CREATE INDEX IF NOT EXISTS ix_logs_timestamp ON transfer_logs(timestamp);
+
 CREATE TABLE IF NOT EXISTS transfer_files (
   id                    TEXT PRIMARY KEY,
   transfer_run_id       TEXT NOT NULL,

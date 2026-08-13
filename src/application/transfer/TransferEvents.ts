@@ -13,6 +13,8 @@ export type TransferEventName =
   | 'FILE_ENCRYPTED'
   | 'FILE_STORED'
   | 'FILE_COMPLETED'
+  /** A temporary fault is about to be retried; not a failure yet (section 65). */
+  | 'FILE_RETRYING'
   | 'FILE_FAILED'
   | 'STEP_1_COMPLETED'
   | 'TRANSFER_RUN_COMPLETED';

@@ -1,18 +1,24 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createPersistentApplication } from './application/runtime/UnikomApplication.js';
-import type { TransferEvent } from './application/transfer/TransferEvents.js';
+import { ConsoleLogger } from './infrastructure/logging/ConsoleLogger.js';
+import type { LogLevel } from './domain/logging/LogEntry.js';
 import type { TransferJob } from './domain/transfer/TransferJob.js';
 
 const DATA_DIRECTORY = path.resolve('application-data');
 const SOURCE_DIRECTORY = path.resolve('demo', 'source');
 const DESTINATION_DIRECTORY = path.resolve('demo', 'incoming');
 
-function formatEvent(event: TransferEvent): string {
-  const timestamp = new Date().toISOString().slice(11, 19);
-  const subject = event.filename ? ` ${event.filename}` : '';
-  return `${timestamp}  ${event.name}${subject} — ${event.message}`;
-}
+/** `UNIKOM_LOG_LEVEL=DEBUG npm run dev` shows why each file was rejected. */
+const LOG_LEVEL = (process.env.UNIKOM_LOG_LEVEL as LogLevel | undefined) ?? 'INFO';
+
+const DEMO_FILES: Record<string, string> = {
+  'ORDER_001.csv': 'customer;amount\nA;42\n',
+  'ORDER_002.csv': 'customer;amount\nB;17\n',
+  // Neither of these may be picked up: wrong prefix, and an unfinished upload.
+  'INVOICE_001.csv': 'ignored\n',
+  'ORDER_003.csv.part': 'still uploading\n',
+};
 
 function demoJob(): TransferJob {
   return {
@@ -48,14 +54,6 @@ function demoJob(): TransferJob {
   };
 }
 
-const DEMO_FILES: Record<string, string> = {
-  'ORDER_001.csv': 'customer;amount\nA;42\n',
-  'ORDER_002.csv': 'customer;amount\nB;17\n',
-  // Neither of these may be picked up: wrong prefix, and an unfinished upload.
-  'INVOICE_001.csv': 'ignored\n',
-  'ORDER_003.csv.part': 'still uploading\n',
-};
-
 /**
  * Only creates what is missing. Rewriting the files on every start would change
  * their modification time, which makes them look like new files to the identity
@@ -74,35 +72,54 @@ async function seedSourceDirectory(): Promise<void> {
   }
 }
 
+function formatDuration(milliseconds: number | undefined): string {
+  return milliseconds === undefined ? '—' : `${(milliseconds / 1000).toFixed(1)}s`;
+}
+
 async function bootstrap(): Promise<void> {
   await seedSourceDirectory();
 
   const application = createPersistentApplication(DATA_DIRECTORY, {
-    events: (event) => console.log(formatEvent(event)),
+    logLevel: LOG_LEVEL,
+    logger: new ConsoleLogger(),
   });
 
   const existing = await application.jobRepository.getById('job-demo-001');
   if (!existing) {
     await application.jobRepository.save(demoJob());
-    console.log('Job neu angelegt.\n');
-  } else {
-    console.log(`Job aus ${DATA_DIRECTORY} geladen — letzter Lauf: ${existing.lastExecutionAt?.toISOString() ?? 'nie'}\n`);
   }
 
+  console.log(`Unikom — Quelle: ${SOURCE_DIRECTORY}`);
+  console.log(`Unikom — Ziel:   ${DESTINATION_DIRECTORY}`);
+  console.log(`Unikom — Log-Level: ${LOG_LEVEL} (mit UNIKOM_LOG_LEVEL=DEBUG mehr Details)\n`);
+
   await application.runtime.bootstrap.reconstructSchedules(new Date());
-  const run = await application.runtime.orchestrator.runJobNow('job-demo-001');
+  await application.runtime.orchestrator.runJobNow('job-demo-001');
 
-  const stored = await application.jobRepository.getById('job-demo-001');
-  const transferred = await fs.readdir(DESTINATION_DIRECTORY).catch(() => []);
-  const history = await application.runRepository.listByJob('job-demo-001');
+  const statistics = await application.historyService.statistics();
+  const history = await application.historyService.listRuns('job-demo-001', 5);
 
-  console.log('\nRun:', run?.id);
-  console.log('Status:', run?.status);
-  console.log('Gefunden:', run?.filesFound, '· Übernommen:', run?.filesSucceeded, '· Übersprungen:', run?.filesSkipped);
-  console.log('Im Ziel:', transferred.join(', ') || '(leer)');
-  console.log('Läufe insgesamt:', history.length);
-  console.log('Nächste Ausführung:', stored?.nextExecutionAt?.toISOString() ?? '(kein Zeitplan)');
-  console.log('\nTipp: "npm run dev" erneut ausführen — die Dateien werden dann als Duplikate übersprungen.');
+  console.log('\n── Historie ──────────────────────────────────────────────');
+  for (const run of history) {
+    console.log(
+      `${run.startedAt.toISOString().slice(0, 19).replace('T', ' ')}  ` +
+        `${run.status.padEnd(22)}  Dauer ${formatDuration(run.durationMs).padStart(6)}  ` +
+        `gefunden ${run.filesFound}  übernommen ${run.filesSucceeded}  übersprungen ${run.filesSkipped}  ` +
+        `fehlgeschlagen ${run.filesFailed}`
+    );
+  }
+
+  console.log('\n── Dashboard ─────────────────────────────────────────────');
+  console.log(`Aktive Jobs:                ${statistics.activeJobs}`);
+  console.log(`Heute ausgeführte Läufe:    ${statistics.runsToday}`);
+  console.log(`Heute übernommene Dateien:  ${statistics.filesTransferredToday}`);
+  console.log(`Fehlgeschlagene Dateien:    ${statistics.filesFailedToday}`);
+
+  for (const next of statistics.nextExecutions) {
+    console.log(`Nächste Ausführung:         ${next.jobName} um ${next.nextExecutionAt.toISOString()}`);
+  }
+
+  application.close();
 }
 
 void bootstrap().catch((error: unknown) => {
