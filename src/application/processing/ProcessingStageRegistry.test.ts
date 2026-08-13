@@ -156,6 +156,26 @@ test('a stage that rewrites the file must supply the new hash', async () => {
   );
 });
 
+test('encrypting keeps the checksum, because only the representation changed', async () => {
+  const registry = new ProcessingStageRegistry(allFeatures());
+  registry.register({
+    name: 'encrypt-result',
+    requiredFeature: 'ENCRYPTION',
+    process: async (incoming) =>
+      advanceContext(incoming, {
+        currentFilePath: 'D:/Incoming/ORDER_001.csv.enc',
+        currentFilename: 'ORDER_001.csv.enc',
+        encrypted: true,
+      }),
+  });
+
+  const result = await registry.run(context());
+
+  // The checksum identifies the content, and the content is the same one.
+  assert.equal(result.sha256, 'a'.repeat(64));
+  assert.equal(result.encrypted, true);
+});
+
 test('rewriting the file with a new hash is accepted', async () => {
   const registry = new ProcessingStageRegistry(allFeatures());
   registry.register({

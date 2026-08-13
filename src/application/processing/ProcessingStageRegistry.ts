@@ -63,13 +63,18 @@ export class ProcessingStageRegistry {
  * Otherwise the context would carry a checksum belonging to the previous file,
  * and every later stage — and the export at the end of the chain — would
  * confirm an integrity that nobody ever checked.
+ *
+ * Encrypting and decrypting are the exception, and a deliberate one: they
+ * change how the content is represented, not the content itself. The checksum
+ * is the identity of the content (see FileProcessingContext.sha256), so it has
+ * to survive both. A stage says so by flipping `encrypted`.
  */
 function assertFileAndHashAgree(
   stage: string,
   before: FileProcessingContext,
   after: FileProcessingContext
 ): void {
-  if (after.currentFilePath === before.currentFilePath) {
+  if (after.currentFilePath === before.currentFilePath || after.encrypted !== before.encrypted) {
     return;
   }
 

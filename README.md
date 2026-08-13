@@ -19,7 +19,7 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 229 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 236 Tests, inklusive echter SFTP- und FTPS-Protokolltests
 npm run dev       # Beispiellauf mit lokaler Quelle
 npm run build     # Produktivbuild nach dist/ (ohne Tests)
 ```
@@ -74,7 +74,7 @@ immer enthalten.
 | Modul | Inhalt |
 | ----- | ------ |
 | `REMOTE_SOURCES` | Entfernte Quellen: SFTP und FTPS |
-| `ENCRYPTION` | Verschlüsselte Ablage (AES-256-GCM) |
+| `ENCRYPTION` | Verschlüsselte Ablage, Entschlüsselung in der Kette, erneute Verschlüsselung vor der Auslieferung (AES-256-GCM) |
 | `STEP_2_CONSOLIDATION` | Konsolidierung, Korrektur, Anreicherung, Datensatz-Dubletten |
 | `STEP_3_FILE_EXPORT` | Export in Dateiformate |
 | `STEP_3_DATABASE_MIGRATION` | Migration in Datenbanktabellen |
@@ -134,6 +134,31 @@ registriert, die Quelldatei bereits archiviert oder gelöscht. Der Fehler wird
 als `PROCESSING_STAGE_FAILED` gemeldet und protokolliert, der Transfer aber
 nicht rückwirkend für fehlgeschlagen erklärt.
 
+### Verschlüsselung in der Kette
+
+Eine verschlüsselt abgelegte Datei kann keine Stufe direkt lesen. Dafür gibt es
+zwei Stufen, beide im Modul `ENCRYPTION` — wer das Schloss kauft, bekommt auch
+den Schlüssel:
+
+| Stufe | Aufgabe |
+| ----- | ------- |
+| `DecryptForProcessingStage` | Entschlüsselt für die folgenden Stufen. Als erste registrieren. |
+| `EncryptResultStage` | Verschlüsselt das Ergebnis vor der Auslieferung. Als letzte registrieren. |
+
+Der Klartext entsteht **ausschließlich im Staging-Verzeichnis**, das am Ende
+jedes Laufs gelöscht wird. Die verschlüsselte Datei im Zielverzeichnis bleibt
+unangetastet — die Zusage aus §45, dass im Ziel kein Klartext liegt, gilt
+weiter, auch während Step 2 auf dem Inhalt arbeitet.
+
+`EncryptResultStage` bekommt **einen eigenen Schlüssel je Ziel**, nicht den des
+Quell-Jobs. Eine Datei, die an einen Empfänger geht, muss von diesem lesbar
+sein; mit unserem Schlüssel wäre sie es nicht.
+
+Beim Entschlüsseln wird geprüft, ob der Inhalt der Prüfsumme entspricht, die
+Step 1 vor dem Verschlüsseln festgehalten hat. Ein falscher Schlüssel oder eine
+veränderte Datei fällt damit auf, bevor eine Folgestufe darauf aufsetzt — und
+hinterlässt keinen halb geschriebenen Klartext.
+
 ## Datenablage
 
 Alles Dauerhafte liegt unter `application-data/`:
@@ -184,9 +209,20 @@ falsch zu rechnen. Damit ist auch Kriterium 41 erfüllt: Step 2 kann an
 `STEP_1_COMPLETED` angeschlossen werden, und der Vertrag dafür existiert.
 
 Offen ist die Oberfläche (§83–94). Für Step 2 und Step 3 stehen Vertrag,
-Registry und Lizenzprüfung bereit; die Stufen selbst sind noch nicht gebaut.
-Eine Stufe, die eine verschlüsselt abgelegte Datei lesen will, braucht dafür
-zusätzlich eine Entschlüsselung — die gibt es bisher nicht.
+Registry, Lizenzprüfung sowie Ver- und Entschlüsselung in der Kette bereit; die
+fachlichen Stufen selbst sind noch nicht gebaut.
+
+Geplant, aber noch nicht als Modul angelegt: ein entferntes **Ziel** für Step 3
+(Upload nach SFTP/FTPS). Das ist eine andere Fähigkeit als `REMOTE_SOURCES`,
+das ausschließlich eingehend arbeitet — Hochladen schreibt in ein fremdes
+System, mit eigener Konfliktstrategie und eigener Fehlerbehandlung. Es wird
+daher ein eigenes, getrennt lizenziertes Modul. Der Name steht erst im Code,
+wenn die Fähigkeit existiert; jedes Modul in `FEATURES` wird auch tatsächlich
+irgendwo geprüft.
+
+Ebenfalls vorgesehen: Einstellungen später über Supabase. Weil die Persistenz
+hinter Repository-Schnittstellen liegt, ist das eine weitere Implementierung
+neben SQLite und kein Umbau.
 
 Der Scheduler läuft, solange `startPolling()` aktiv ist; ein Dienst-Wrapper für
 Windows oder systemd existiert noch nicht.
