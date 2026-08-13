@@ -12,7 +12,7 @@ export class SourceAdapterFactory {
   static create(config: SourceConfig, credentials: SourceCredentials = {}): SourceAdapter {
     switch (config.type) {
       case 'LOCAL':
-        return new LocalSourceAdapter();
+        return new LocalSourceAdapter(config.directory);
       case 'SFTP':
         return new SftpSourceAdapter(config, credentials);
       case 'FTPS':

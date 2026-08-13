@@ -5,8 +5,57 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 
 export class LocalSourceAdapter implements SourceAdapter {
+  /**
+   * The configured directory. Optional only because older callers built this
+   * adapter without one; without it a connection test cannot say anything.
+   */
+  constructor(private readonly directory?: string) {}
+
+  /**
+   * Really looks. This used to answer "successful" unconditionally, which is
+   * the worst possible answer for a button labelled "test connection": somebody
+   * mistypes a path, is told it is fine, saves the job, and finds out at three
+   * in the morning that nothing was ever picked up.
+   */
   async testConnection(): Promise<ConnectionTestResult> {
-    return { ok: true, message: 'Local source connection successful' };
+    if (!this.directory) {
+      return { ok: false, message: 'No source directory is configured' };
+    }
+
+    let entries;
+
+    try {
+      entries = await fs.readdir(this.directory, { withFileTypes: true });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+
+      if (code === 'ENOENT') {
+        return { ok: false, message: `The directory ${this.directory} does not exist` };
+      }
+
+      if (code === 'ENOTDIR') {
+        return { ok: false, message: `${this.directory} is a file, not a directory` };
+      }
+
+      if (code === 'EACCES' || code === 'EPERM') {
+        return { ok: false, message: `No permission to read ${this.directory}` };
+      }
+
+      return {
+        ok: false,
+        message: `${this.directory} cannot be read: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+
+    const filesFound = entries.filter((entry) => entry.isFile()).length;
+
+    return {
+      ok: true,
+      message: `Directory ${this.directory} can be read`,
+      // Section 52: the editor shows this, so a directory that is reachable but
+      // empty looks different from one that has something in it.
+      filesFound,
+    };
   }
 
   async listFiles(directory: string, recursive: boolean): Promise<SourceFile[]> {

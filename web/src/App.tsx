@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import { ChangePasswordScreen } from './screens/ChangePasswordScreen.js';
 import { DashboardScreen } from './screens/DashboardScreen.js';
+import { JobsScreen } from './screens/JobsScreen.js';
+import { JobEditorScreen } from './screens/job/JobEditorScreen.js';
 import { LoginScreen } from './screens/LoginScreen.js';
 import { useSession } from './session/useSession.js';
 import type { Permission } from './api/types.js';
@@ -22,10 +24,15 @@ const AREAS: Area[] = [
   { id: 'users', label: 'Benutzer', permission: 'MANAGE_USERS' },
 ];
 
+/** Which screen is open. Deliberately plain state, not a routing library. */
+type View = { area: string; editingJob?: string };
+
 export function App() {
   const session = useSession();
-  const [area, setArea] = useState('dashboard');
+  const [view, setView] = useState<View>({ area: 'dashboard' });
   const [changingPassword, setChangingPassword] = useState(false);
+  const area = view.area;
+  const setArea = (next: string): void => setView({ area: next });
 
   if (session.state.status === 'loading') {
     return <div className="empty">Wird geladen …</div>;
@@ -86,11 +93,29 @@ export function App() {
 
       <main className="main">
         <div className="main__header">
-          <h1>{current?.label ?? 'Unikom'}</h1>
+          <h1>
+            {view.editingJob
+              ? view.editingJob === 'new'
+                ? 'Neuer Job'
+                : 'Job bearbeiten'
+              : (current?.label ?? 'Unikom')}
+          </h1>
         </div>
 
-        {current?.id === 'dashboard' ? (
+        {view.editingJob ? (
+          <JobEditorScreen
+            jobId={view.editingJob}
+            onDone={() => setView({ area: 'jobs' })}
+          />
+        ) : current?.id === 'dashboard' ? (
           <DashboardScreen />
+        ) : current?.id === 'jobs' ? (
+          <JobsScreen
+            canManage={session.may('MANAGE_JOBS')}
+            canRun={session.may('RUN_JOBS')}
+            onEdit={(jobId) => setView({ area: 'jobs', editingJob: jobId })}
+            onShowHistory={() => setArea('history')}
+          />
         ) : (
           <div className="card empty">Dieser Bereich wird gerade gebaut.</div>
         )}

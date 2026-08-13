@@ -55,8 +55,8 @@ async function writeFiles(directory: string, files: Record<string, string>): Pro
 }
 
 /** Wraps the local adapter and records how many downloads overlap. */
-function observingAdapter(delayMs = 20): { adapter: SourceAdapter; peak: () => number } {
-  const local = new LocalSourceAdapter();
+function observingAdapter(sourceDirectory: string, delayMs = 20): { adapter: SourceAdapter; peak: () => number } {
+  const local = new LocalSourceAdapter(sourceDirectory);
   let active = 0;
   let peak = 0;
 
@@ -91,7 +91,7 @@ test('several files are processed at the same time', async () => {
     'ORDER_006.csv': 'f;6\n',
   });
 
-  const observer = observingAdapter();
+  const observer = observingAdapter(harness.sourceDirectory);
   const result = await harness.build().execute(harness.job, observer.adapter);
 
   assert.equal(result.filesSucceeded, 6);
@@ -108,7 +108,7 @@ test('parallelism never exceeds the configured limit', async () => {
     'ORDER_005.csv': 'e;5\n',
   });
 
-  const observer = observingAdapter();
+  const observer = observingAdapter(harness.sourceDirectory);
   await harness.build().execute(harness.job, observer.adapter);
 
   assert.ok(observer.peak() <= 2, `expected at most 2 concurrent downloads, saw ${observer.peak()}`);
@@ -118,7 +118,7 @@ test('a limit of one processes strictly in sequence', async () => {
   const harness = await setup({ maxConcurrentFiles: 1 });
   await writeFiles(harness.sourceDirectory, { 'ORDER_001.csv': 'a;1\n', 'ORDER_002.csv': 'b;2\n' });
 
-  const observer = observingAdapter();
+  const observer = observingAdapter(harness.sourceDirectory);
   await harness.build().execute(harness.job, observer.adapter);
 
   assert.equal(observer.peak(), 1);
@@ -133,7 +133,7 @@ test('the outcome order follows the discovery order despite parallelism', async 
     'ORDER_004.csv': 'd;4\n',
   });
 
-  const result = await harness.build().execute(harness.job, observingAdapter().adapter);
+  const result = await harness.build().execute(harness.job, observingAdapter(harness.sourceDirectory).adapter);
 
   assert.deepEqual(
     result.outcomes.map((outcome) => outcome.filename),
@@ -151,7 +151,7 @@ test('identical content is stored once even when processed concurrently', async 
     'ORDER_004.csv': same,
   });
 
-  const result = await harness.build().execute(harness.job, observingAdapter().adapter);
+  const result = await harness.build().execute(harness.job, observingAdapter(harness.sourceDirectory).adapter);
 
   assert.equal(result.filesSucceeded, 1, 'the duplicate check must not be defeated by parallelism');
   assert.equal(result.filesSkipped, 3);
@@ -170,7 +170,7 @@ test('concurrent name conflicts each get their own name', async () => {
     'kunde-b/ORDER_001.csv': 'b;2\n',
   });
 
-  const result = await harness.build().execute(harness.job, observingAdapter().adapter);
+  const result = await harness.build().execute(harness.job, observingAdapter(harness.sourceDirectory).adapter);
 
   assert.equal(result.filesSucceeded, 2);
   const stored = (await fs.readdir(harness.destinationDirectory)).sort();
@@ -181,7 +181,7 @@ test('a temporary download failure is retried and then succeeds', async () => {
   const harness = await setup();
   await writeFiles(harness.sourceDirectory, { 'ORDER_001.csv': 'a;1\n' });
 
-  const local = new LocalSourceAdapter();
+  const local = new LocalSourceAdapter(harness.sourceDirectory);
   let attempts = 0;
   const flakyAdapter: SourceAdapter = {
     testConnection: () => local.testConnection(),
@@ -206,7 +206,7 @@ test('a permanent download failure is not retried', async () => {
   const harness = await setup();
   await writeFiles(harness.sourceDirectory, { 'ORDER_001.csv': 'a;1\n' });
 
-  const local = new LocalSourceAdapter();
+  const local = new LocalSourceAdapter(harness.sourceDirectory);
   let attempts = 0;
   const rejectingAdapter: SourceAdapter = {
     testConnection: () => local.testConnection(),
@@ -228,7 +228,7 @@ test('a retry reconnects instead of reusing the broken connection', async () => 
   const harness = await setup();
   await writeFiles(harness.sourceDirectory, { 'ORDER_001.csv': 'a;1\n' });
 
-  const local = new LocalSourceAdapter();
+  const local = new LocalSourceAdapter(harness.sourceDirectory);
   let attempts = 0;
   let disposals = 0;
   const flakyAdapter: SourceAdapter = {
@@ -261,7 +261,7 @@ test('a job without an explicit limit uses the system default of three', async (
     'ORDER_005.csv': 'e;5\n',
   });
 
-  const observer = observingAdapter();
+  const observer = observingAdapter(harness.sourceDirectory);
   await harness.build().execute(harness.job, observer.adapter);
 
   assert.ok(observer.peak() <= 3, `expected at most 3 concurrent downloads, saw ${observer.peak()}`);

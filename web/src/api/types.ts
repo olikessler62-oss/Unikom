@@ -47,25 +47,85 @@ export interface Tenant {
   jobCount?: number;
 }
 
+export type SourceType = 'LOCAL' | 'SFTP' | 'FTPS';
+
+export interface SourceConfig {
+  type: SourceType;
+  directory: string;
+  recursive?: boolean;
+  host?: string;
+  port?: number;
+  timeoutSeconds?: number;
+  /** `SHA256:<base64>`, the way OpenSSH prints it. */
+  hostKeyFingerprint?: string;
+  allowUnknownHostKey?: boolean;
+  validateCertificates?: boolean;
+  trustedCertificate?: string;
+  implicitFtps?: boolean;
+}
+
+export interface Schedule {
+  type: 'INTERVAL' | 'HOURLY' | 'DAILY' | 'WEEKLY' | 'CRON';
+  intervalMinutes?: number;
+  executionTime?: string;
+  weekdays?: number[];
+  cronExpression?: string;
+  timezone: string;
+  missedRunPolicy: 'SKIP';
+}
+
 export interface Job {
   id: string;
   tenantId: string;
   name: string;
   description?: string;
   enabled: boolean;
-  sourceType: 'LOCAL' | 'SFTP' | 'FTPS';
+
+  sourceType: SourceType;
+  sourceConfig: SourceConfig;
   sourceDirectory: string;
-  destinationDirectory: string;
+  credentialId?: string;
+  includeSubdirectories: boolean;
+
   filenamePrefix?: string;
+  caseSensitivePrefix: boolean;
   allowedExtensions: string[];
+  ignoredTemporaryExtensions: string[];
+  minimumFileAgeSeconds: number;
+  stabilityCheck: {
+    enabled: boolean;
+    intervalSeconds: number;
+    requiredStableChecks: number;
+    compareSize: boolean;
+    compareLastModified: boolean;
+  };
+
+  destinationDirectory: string;
+  createDestinationDirectory: boolean;
   conflictStrategy: 'SKIP' | 'OVERWRITE' | 'RENAME';
-  sourceSuccessAction: 'KEEP' | 'MOVE' | 'DELETE';
   encryptionConfig: { enabled: boolean; provider: 'NONE' | 'AES_256_GCM'; keyCredentialId?: string };
+  sourceSuccessAction: 'KEEP' | 'MOVE' | 'DELETE';
+  sourceArchiveDirectory?: string;
+
+  maxConcurrentFiles?: number;
+  detectContentDuplicates?: boolean;
+  retention?: { logDays?: number; historyDays?: number };
+
   executionMode: 'MANUAL' | 'AUTOMATIC' | 'MANUAL_AND_AUTOMATIC';
+  schedule?: Schedule;
   nextExecutionAt?: string;
   lastExecutionAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+
   /** Filled by the list: modules this job needs but the licence lacks. */
   missingFeatures?: Feature[];
+}
+
+export interface ConnectionTestResult {
+  ok: boolean;
+  message: string;
+  filesFound?: number;
 }
 
 export type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'PARTIAL_SUCCESS' | 'FAILED' | 'CANCELLED';

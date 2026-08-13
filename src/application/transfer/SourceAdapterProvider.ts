@@ -16,21 +16,42 @@ import type { CredentialService } from '../credentials/CredentialService.js';
  * a job written straight into the database. No adapter is built for a module
  * that is missing, so the capability does not exist rather than being hidden.
  */
+/**
+ * What building an adapter actually needs. Named separately so the job editor
+ * can test a connection before there is a job to test it with (spec section 52)
+ * - and so the checks below apply to that test exactly as they do to a run.
+ */
+export interface SourceDescription {
+  /** Only for messages; a job being edited may not have a name yet. */
+  name: string;
+  tenantId: string;
+  sourceType: TransferJob['sourceType'];
+  sourceConfig: TransferJob['sourceConfig'];
+  credentialId?: string;
+}
+
 export class SourceAdapterProvider {
   constructor(
     private readonly credentialService?: CredentialService,
     private readonly features: FeatureSet = allFeatures()
   ) {}
 
-  async forJob(job: TransferJob): Promise<SourceAdapter> {
-    if ((job.sourceType === 'SFTP' || job.sourceType === 'FTPS') && !this.features.isEnabled('REMOTE_SOURCES')) {
-      throw new FeatureNotLicensedError('REMOTE_SOURCES', `Connecting job "${job.name}" to ${job.sourceType}`);
-    }
-
-    return SourceAdapterFactory.create(job.sourceConfig, await this.resolveCredentials(job));
+  forJob(job: TransferJob): Promise<SourceAdapter> {
+    return this.forSource(job);
   }
 
-  private async resolveCredentials(job: TransferJob): Promise<SourceCredentials> {
+  async forSource(source: SourceDescription): Promise<SourceAdapter> {
+    if (
+      (source.sourceType === 'SFTP' || source.sourceType === 'FTPS') &&
+      !this.features.isEnabled('REMOTE_SOURCES')
+    ) {
+      throw new FeatureNotLicensedError('REMOTE_SOURCES', `Connecting "${source.name}" to ${source.sourceType}`);
+    }
+
+    return SourceAdapterFactory.create(source.sourceConfig, await this.resolveCredentials(source));
+  }
+
+  private async resolveCredentials(job: SourceDescription): Promise<SourceCredentials> {
     if (job.sourceType === 'LOCAL' || !job.credentialId) {
       return {};
     }

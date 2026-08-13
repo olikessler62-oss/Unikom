@@ -66,6 +66,8 @@ export interface UnikomApplication {
   /** The operator's own clients ("Mandant"); always at least the standard one. */
   tenantService: TenantService;
   tenantRepository: TenantRepository;
+  /** Builds source adapters including their resolved credentials. */
+  adapterProvider: SourceAdapterProvider;
   logger: Logger;
   runtime: JobRuntimeService;
   /** Releases the storage handle; a no-op for the in-memory variant. */
@@ -129,6 +131,9 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
   );
 
   const userService = new UserService(wiring.userRepository, wiring.sessionRepository);
+  // Hoisted so the job editor can test a connection through the same path a
+  // run would take, licence and tenant checks included.
+  const adapterProvider = new SourceAdapterProvider(credentialService, features);
 
   return {
     jobRepository: wiring.jobRepository,
@@ -152,6 +157,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     ),
     tenantService: new TenantService(wiring.tenantRepository, wiring.jobRepository),
     tenantRepository: wiring.tenantRepository,
+    adapterProvider,
     logger,
     historyService: new TransferHistoryService(
       wiring.runRepository,
@@ -163,7 +169,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
       runRepository: wiring.runRepository,
       transferFileRepository: wiring.transferFileRepository,
       encryptionKeyProvider: options.encryptionKeyProvider ?? new CredentialEncryptionKeyProvider(credentialService),
-      adapterProvider: new SourceAdapterProvider(credentialService, features),
+      adapterProvider,
       // Every pipeline event becomes a log entry; extra listeners still see it.
       events: combineEventListeners(createTransferEventLogger(logger), options.events),
       stagingRoot: options.stagingRoot ?? defaultStagingRoot,

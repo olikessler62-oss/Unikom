@@ -75,7 +75,7 @@ async function setup(jobOverrides: Partial<TransferJob> = {}): Promise<Harness> 
     ...jobOverrides,
   };
 
-  return { root, sourceDirectory, destinationDirectory, repository, events, service, job, adapter: new LocalSourceAdapter() };
+  return { root, sourceDirectory, destinationDirectory, repository, events, service, job, adapter: new LocalSourceAdapter(sourceDirectory) };
 }
 
 async function writeSourceFile(harness: Harness, name: string, content = CONTENT): Promise<void> {
@@ -308,7 +308,7 @@ test('one failing file does not stop the remaining files', async () => {
   await writeSourceFile(harness, 'ORDER_002.csv', 'customer;amount\nB;2\n');
   await writeSourceFile(harness, 'ORDER_003.csv', 'customer;amount\nC;3\n');
 
-  const local = new LocalSourceAdapter();
+  const local = new LocalSourceAdapter(harness.sourceDirectory);
   const failingAdapter: SourceAdapter = {
     testConnection: () => local.testConnection(),
     listFiles: (directory, recursive) => local.listFiles(directory, recursive),
@@ -371,7 +371,7 @@ test('an unstable file waits for the next scheduler run', async () => {
   });
   await writeSourceFile(harness, 'ORDER_001.csv');
 
-  const local = new LocalSourceAdapter();
+  const local = new LocalSourceAdapter(harness.sourceDirectory);
   let listings = 0;
   const growingAdapter: SourceAdapter = {
     testConnection: () => local.testConnection(),

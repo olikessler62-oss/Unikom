@@ -1,5 +1,6 @@
 import type { UnikomApplication } from '../../../application/runtime/UnikomApplication.js';
 import { requiredFeaturesFor } from '../../../application/licensing/JobLicensing.js';
+import { DEFAULT_TENANT_ID } from '../../../domain/tenants/Tenant.js';
 import type { TransferJob } from '../../../domain/transfer/TransferJob.js';
 import { ApiError, created, ok, requireObject, type Route } from '../Http.js';
 
@@ -58,6 +59,30 @@ export function jobRoutes(application: UnikomApplication): Route[] {
         }
 
         return ok({ ...job, requiredFeatures: requiredFeaturesFor(job) });
+      },
+    },
+    {
+      // Before the pattern with an id, so "test-connection" is not read as one.
+      method: 'POST',
+      pattern: '/api/jobs/test-connection',
+      authorization: 'MANAGE_JOBS',
+      handle: async ({ body }) => {
+        const input = requireObject(body, 'The connection test');
+        const adapter = await application.adapterProvider.forSource({
+          name: typeof input.name === 'string' ? input.name : 'Neuer Job',
+          tenantId: typeof input.tenantId === 'string' ? input.tenantId : DEFAULT_TENANT_ID,
+          sourceType: input.sourceType as TransferJob['sourceType'],
+          sourceConfig: input.sourceConfig as TransferJob['sourceConfig'],
+          credentialId: typeof input.credentialId === 'string' ? input.credentialId : undefined,
+        });
+
+        try {
+          // The adapter reports rather than throws, so a wrong host reads as a
+          // result the editor can show instead of as a failure.
+          return ok(await adapter.testConnection());
+        } finally {
+          await adapter.dispose?.();
+        }
       },
     },
     {
