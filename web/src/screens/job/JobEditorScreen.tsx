@@ -108,7 +108,7 @@ export function JobEditorScreen({ jobId, onDone }: Props) {
           hint={
             tenant?.rootDirectory
               ? `Das Zielverzeichnis muss innerhalb von ${tenant.rootDirectory} liegen.`
-              : 'Für diesen Mandanten ist kein Wurzelverzeichnis festgelegt.'
+              : 'Für diesen Mandanten ist kein Root-Verzeichnis festgelegt.'
           }
         >
           <select value={job.tenantId} onChange={(event) => change({ tenantId: event.target.value })}>

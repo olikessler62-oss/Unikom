@@ -104,7 +104,7 @@ export function TenantsScreen({ canManage }: Props) {
           </Field>
 
           <Field
-            label="Wurzelverzeichnis"
+            label="Root-Verzeichnis"
             hint="Alle Zielverzeichnisse dieses Mandanten müssen darin liegen — so kann ein Tippfehler die Daten nicht bei einem anderen Kunden ablegen. Leer lassen, wenn keine Trennung nötig ist."
           >
             <input
@@ -145,7 +145,7 @@ export function TenantsScreen({ canManage }: Props) {
             <thead>
               <tr>
                 <th>Mandant</th>
-                <th>Wurzelverzeichnis</th>
+                <th>Root-Verzeichnis</th>
                 <th className="numeric">Jobs</th>
                 <th>Status</th>
                 {canManage && <th />}

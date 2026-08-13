@@ -191,9 +191,9 @@ Ein Mandant klammert:
 | --- | --- |
 | **Jobs** | Jeder Job gehört genau einem Mandanten |
 | **Zugangsdaten** | Eigene je Mandant; ohne Zuordnung gelten sie für alle |
-| **Zielverzeichnis** | Optionales Wurzelverzeichnis, das erzwungen wird |
+| **Zielverzeichnis** | Optionales Root-Verzeichnis, das erzwungen wird |
 
-Das Wurzelverzeichnis ist der wichtigste Teil. Ohne es sind Quell- und
+Das Root-Verzeichnis ist der wichtigste Teil. Ohne es sind Quell- und
 Zielverzeichnis freie Textfelder, und ein Tippfehler legt Dateien von Kunde A im
 Ordner von Kunde B ab, ohne dass es jemand merkt. Ist es gesetzt, wird bei jedem
 Speichern geprüft, dass das Ziel darin liegt — und zwei Mandanten dürfen sich
