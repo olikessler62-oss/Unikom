@@ -73,6 +73,35 @@ CREATE INDEX IF NOT EXISTS ix_files_run      ON transfer_files(transfer_run_id);
 CREATE INDEX IF NOT EXISTS ix_files_status   ON transfer_files(status);
 CREATE INDEX IF NOT EXISTS ix_files_sha256   ON transfer_files(job_id, sha256);
 CREATE INDEX IF NOT EXISTS ix_files_identity ON transfer_files(job_id, source_path, source_filename);
+
+-- Users and sessions get explicit columns rather than a document blob, for the
+-- same reason as credentials: no code path can dump the row and take the
+-- password hash along by accident.
+CREATE TABLE IF NOT EXISTS users (
+  id                    TEXT PRIMARY KEY,
+  username              TEXT NOT NULL,
+  username_lower        TEXT NOT NULL UNIQUE,
+  display_name          TEXT NOT NULL,
+  role                  TEXT NOT NULL,
+  password_hash         TEXT NOT NULL,
+  must_change_password  INTEGER NOT NULL,
+  enabled               INTEGER NOT NULL,
+  failed_login_attempts INTEGER NOT NULL,
+  locked_until          TEXT,
+  last_login_at         TEXT,
+  created_at            TEXT NOT NULL,
+  updated_at            TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash   TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  expires_at   TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_sessions_user    ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS ix_sessions_expires ON sessions(expires_at);
 -- ix_files_started is created by migrate(), because on an older database the
 -- column it indexes only exists after the migration has added it.
 `;
