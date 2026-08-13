@@ -2,12 +2,13 @@ import type { TransferFileRepository } from '../../domain/transfer/TransferFileR
 import type { TransferJobRepository } from '../../domain/transfer/TransferJobRepository.js';
 import type { TransferRunRepository } from '../../domain/transfer/TransferRunRepository.js';
 import type { EncryptionKeyProvider } from '../../domain/encryption/EncryptionKeyProvider.js';
-import { FileTransferFileRepository } from '../../infrastructure/persistence/FileTransferFileRepository.js';
-import { FileTransferJobRepository } from '../../infrastructure/persistence/FileTransferJobRepository.js';
-import { FileTransferRunRepository } from '../../infrastructure/persistence/FileTransferRunRepository.js';
 import { InMemoryTransferFileRepository } from '../../infrastructure/persistence/InMemoryTransferFileRepository.js';
 import { InMemoryTransferJobRepository } from '../../infrastructure/persistence/InMemoryTransferJobRepository.js';
 import { InMemoryTransferRunRepository } from '../../infrastructure/persistence/InMemoryTransferRunRepository.js';
+import { openDatabase } from '../../infrastructure/persistence/sqlite/SqliteDatabase.js';
+import { SqliteTransferFileRepository } from '../../infrastructure/persistence/sqlite/SqliteTransferFileRepository.js';
+import { SqliteTransferJobRepository } from '../../infrastructure/persistence/sqlite/SqliteTransferJobRepository.js';
+import { SqliteTransferRunRepository } from '../../infrastructure/persistence/sqlite/SqliteTransferRunRepository.js';
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
 import { JobRuntimeService } from './JobRuntimeService.js';
 
@@ -16,6 +17,8 @@ export interface UnikomApplication {
   runRepository: TransferRunRepository;
   transferFileRepository: TransferFileRepository;
   runtime: JobRuntimeService;
+  /** Releases the storage handle; a no-op for the in-memory variant. */
+  close(): void;
 }
 
 export interface ApplicationOptions {
@@ -25,18 +28,20 @@ export interface ApplicationOptions {
 }
 
 /**
- * Production wiring: jobs, runs and the processed-file registry all live in
- * `dataDirectory`, so schedules and transfer history survive a restart
- * (spec sections 31, 39 and 110). The staging area sits in the same directory
- * as `staging/<run-id>` (section 43).
+ * Production wiring. Jobs, runs and the processed-file registry live in a
+ * SQLite database inside `dataDirectory`, so schedules and history survive a
+ * restart (spec sections 31, 39 and 110) and duplicate lookups hit an index
+ * instead of scanning the whole history (section 101). The staging area sits
+ * in the same directory as `staging/<run-id>` (section 43).
  */
 export function createPersistentApplication(
   dataDirectory: string,
   options: ApplicationOptions = {}
 ): UnikomApplication {
-  const jobRepository = new FileTransferJobRepository(dataDirectory);
-  const runRepository = new FileTransferRunRepository(dataDirectory);
-  const transferFileRepository = new FileTransferFileRepository(dataDirectory);
+  const database = openDatabase(dataDirectory);
+  const jobRepository = new SqliteTransferJobRepository(database);
+  const runRepository = new SqliteTransferRunRepository(database);
+  const transferFileRepository = new SqliteTransferFileRepository(database);
 
   return {
     jobRepository,
@@ -49,6 +54,7 @@ export function createPersistentApplication(
       events: options.events,
       stagingRoot: options.stagingRoot ?? dataDirectory,
     }),
+    close: () => database.close(),
   };
 }
 
@@ -69,5 +75,6 @@ export function createInMemoryApplication(options: ApplicationOptions = {}): Uni
       events: options.events,
       stagingRoot: options.stagingRoot,
     }),
+    close: () => {},
   };
 }

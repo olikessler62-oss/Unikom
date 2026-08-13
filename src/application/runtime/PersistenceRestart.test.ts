@@ -109,7 +109,7 @@ test('the processed file registry survives the restart', async () => {
   assert.ok(registered.startedAt instanceof Date);
 });
 
-test('the data directory holds one file per collection', async () => {
+test('the data directory holds the database and a clean staging area', async () => {
   const { dataDirectory, sourceDirectory, destinationDirectory } = await workspace();
   await fs.writeFile(path.join(sourceDirectory, 'ORDER_001.csv'), 'customer;amount\nA;42\n');
 
@@ -119,15 +119,12 @@ test('the data directory holds one file per collection', async () => {
   );
   await application.runtime.orchestrator.runJobNow('customer-a', new Date('2026-08-13T06:45:00.000Z'));
 
-  const stored = (await fs.readdir(dataDirectory)).sort();
+  const stored = await fs.readdir(dataDirectory);
 
-  assert.deepEqual(stored.filter((entry) => entry.endsWith('.json')), [
-    'transfer-files.json',
-    'transfer-jobs.json',
-    'transfer-runs.json',
-  ]);
+  assert.ok(stored.includes('unikom.db'));
   // The staging root stays, but no run leftovers may remain inside it.
   assert.deepEqual(await fs.readdir(path.join(dataDirectory, 'staging')), []);
+  application.close();
 });
 
 test('a file whose timestamp changed is downloaded once, not on every run', async () => {
