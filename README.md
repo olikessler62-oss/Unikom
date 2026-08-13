@@ -1,4 +1,4 @@
-# UNikom
+# Unikom
 
 Dieses Projekt ist die technische Umsetzung für die in [Specs/FR_001_FOUND_STEP1.md](Specs/FR_001_FOUND_STEP1.md) definierte Step-1-Anforderung: Automatisierte Dateiübernahme mit überprüfbaren Filtern, Scheduler, Quellen-Adaptern und sicherer Ablage.
 
