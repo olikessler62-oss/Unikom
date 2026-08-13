@@ -27,4 +27,16 @@ export class InMemoryTransferFileRepository implements TransferFileRepository {
       (file) => isSuccessful(file) && file.jobId === jobId && file.sha256 === sha256
     );
   }
+
+  async deleteOlderThan(cutoff: Date, jobId: string): Promise<number> {
+    const expired = [...this.files.values()].filter(
+      (file) => file.jobId === jobId && file.startedAt.getTime() < cutoff.getTime()
+    );
+
+    for (const file of expired) {
+      this.files.delete(file.id);
+    }
+
+    return expired.length;
+  }
 }

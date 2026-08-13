@@ -86,10 +86,12 @@ export class SqliteTransferLogStore implements Logger, TransferLogRepository {
     return minimum ? entries.filter((entry) => isAtLeast(entry.level, minimum)) : entries;
   }
 
-  async deleteOlderThan(cutoff: Date): Promise<number> {
-    const result = this.database
-      .prepare('DELETE FROM transfer_logs WHERE timestamp < ?')
-      .run(cutoff.toISOString());
+  async deleteOlderThan(cutoff: Date, jobId?: string): Promise<number> {
+    const result = jobId
+      ? this.database
+          .prepare('DELETE FROM transfer_logs WHERE timestamp < ? AND job_id = ?')
+          .run(cutoff.toISOString(), jobId)
+      : this.database.prepare('DELETE FROM transfer_logs WHERE timestamp < ?').run(cutoff.toISOString());
 
     return Number(result.changes);
   }

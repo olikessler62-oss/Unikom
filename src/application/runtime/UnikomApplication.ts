@@ -23,6 +23,7 @@ import { CredentialService } from '../credentials/CredentialService.js';
 import { CompositeLogger, DEFAULT_LOG_LEVEL, LevelFilteredLogger } from '../logging/Loggers.js';
 import { combineEventListeners, createTransferEventLogger } from '../logging/TransferEventLogger.js';
 import { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
+import { RetentionService } from '../retention/RetentionService.js';
 import { TransferHistoryService } from '../transfer/TransferHistoryService.js';
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
 import { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
@@ -43,6 +44,8 @@ export interface UnikomApplication {
   features: FeatureSet;
   /** Stages behind STEP_1_COMPLETED; empty until step 2 or 3 register. */
   processingStages: ProcessingStageRegistry;
+  /** Deletes expired log and history entries; runs once a day via the scheduler. */
+  retentionService: RetentionService;
   logger: Logger;
   runtime: JobRuntimeService;
   /** Releases the storage handle; a no-op for the in-memory variant. */
@@ -69,6 +72,8 @@ export interface ApplicationOptions {
    * distribution build has to pass the customer's actual set here.
    */
   features?: FeatureSet;
+  /** Log retention for jobs that do not set one; defaults to 90 days. */
+  logRetentionDays?: number;
 }
 
 interface Wiring {
@@ -93,6 +98,12 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
 
   const features = options.features ?? allFeatures();
   const processingStages = new ProcessingStageRegistry(features);
+  const retentionService = new RetentionService(
+    wiring.jobRepository,
+    wiring.logStore,
+    wiring.transferFileRepository,
+    options.logRetentionDays
+  );
 
   return {
     jobRepository: wiring.jobRepository,
@@ -103,6 +114,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     credentialService,
     features,
     processingStages,
+    retentionService,
     jobService: new TransferJobService(wiring.jobRepository, features),
     logger,
     historyService: new TransferHistoryService(
@@ -121,6 +133,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
       stagingRoot: options.stagingRoot ?? defaultStagingRoot,
       features,
       processingStages,
+      retentionService,
     }),
     close: wiring.close,
   };

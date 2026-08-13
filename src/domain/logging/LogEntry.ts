@@ -41,6 +41,10 @@ export interface TransferLogQuery {
 
 export interface TransferLogRepository {
   list(query: TransferLogQuery): Promise<LogEntry[]>;
-  /** Retention: log volume grows with every scheduler run (spec section 82). */
-  deleteOlderThan(cutoff: Date): Promise<number>;
+  /**
+   * Retention: log volume grows with every scheduler run (spec section 82).
+   * Limited to one job when a retention period is configured per job; without
+   * `jobId` it covers the whole log.
+   */
+  deleteOlderThan(cutoff: Date, jobId?: string): Promise<number>;
 }

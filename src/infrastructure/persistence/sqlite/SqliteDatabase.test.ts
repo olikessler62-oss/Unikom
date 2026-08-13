@@ -39,6 +39,64 @@ test('opening an existing database keeps its contents', async () => {
   reopened.close();
 });
 
+test('a database from an earlier version gains the retention column', async () => {
+  const { directory, db } = await database();
+
+  // Recreate the old shape: no started_at, the date only inside the document.
+  db.exec('DROP TABLE transfer_files');
+  db.exec(
+    `CREATE TABLE transfer_files (
+       id TEXT PRIMARY KEY, transfer_run_id TEXT NOT NULL, job_id TEXT NOT NULL,
+       source_path TEXT NOT NULL, source_filename TEXT NOT NULL, sha256 TEXT,
+       status TEXT NOT NULL, resolution TEXT, document TEXT NOT NULL)`
+  );
+  db.prepare(
+    `INSERT INTO transfer_files
+       (id, transfer_run_id, job_id, source_path, source_filename, sha256, status, resolution, document)
+     VALUES (?, ?, ?, ?, ?, ?, 'SUCCESS', 'TRANSFERRED', ?)`
+  ).run(
+    'file-1',
+    'TR-1',
+    'job-1',
+    '/exports/orders',
+    'ORDER_001.csv',
+    'hash-1',
+    JSON.stringify({ id: 'file-1', startedAt: '2026-01-15T08:00:00.000Z' })
+  );
+  db.close();
+
+  const migrated = openDatabase(directory);
+  const row = migrated.prepare('SELECT id, started_at FROM transfer_files').get() as unknown as {
+    id: string;
+    started_at: string | null;
+  };
+
+  // The record survives, and its date is lifted out of the document, so
+  // retention on an existing installation does not start from scratch.
+  assert.equal(row.id, 'file-1');
+  assert.equal(row.started_at, '2026-01-15T08:00:00.000Z');
+
+  // Opening it a second time must not try the migration again.
+  migrated.close();
+  const reopened = openDatabase(directory);
+  assert.equal((reopened.prepare('SELECT COUNT(*) AS n FROM transfer_files').get() as unknown as { n: number }).n, 1);
+  reopened.close();
+});
+
+test('the retention delete uses an index instead of scanning', async () => {
+  const { db } = await database();
+
+  const plan = queryPlan(
+    db,
+    'DELETE FROM transfer_files WHERE job_id = ? AND started_at < ?',
+    'job-1',
+    '2026-01-01T00:00:00.000Z'
+  );
+
+  assert.match(plan, /USING INDEX ix_files_started/);
+  db.close();
+});
+
 test('the duplicate lookup uses an index instead of scanning', async () => {
   const { db } = await database();
 

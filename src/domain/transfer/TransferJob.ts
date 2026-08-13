@@ -46,6 +46,36 @@ export interface RetryConfig {
   delaysSeconds: number[];
 }
 
+/**
+ * How long records about transferred files are kept. Both stores hold file
+ * names, and a file name is regularly personal data — "Rechnung_Mueller.pdf"
+ * names a person. Keeping them without a stated period is hard to justify
+ * (Art. 5(1)(e) GDPR).
+ *
+ * The two settings are deliberately not one, because deleting them has very
+ * different consequences.
+ */
+export interface RetentionConfig {
+  /**
+   * Log entries older than this are deleted. This has no effect on transfers;
+   * only the trail of what happened gets shorter. Defaults to 90 days.
+   */
+  logDays?: number;
+  /**
+   * Records of taken-over files older than this are deleted. **This changes
+   * behaviour**: those records are the duplicate registry, so a file that is
+   * still lying in the source directory becomes unknown again and is taken over
+   * a second time.
+   *
+   * It only matters for `sourceSuccessAction: 'KEEP'`. A job that moves or
+   * deletes its source files has nothing left to pick up twice.
+   *
+   * Undefined means keep indefinitely — there is no safe default here, so the
+   * decision stays with whoever configures the job.
+   */
+  historyDays?: number;
+}
+
 export interface StabilityCheckConfig {
   enabled: boolean;
   intervalSeconds: number;
@@ -96,6 +126,8 @@ export interface TransferJob {
   maxConcurrentFiles?: number;
   /** Defaults to three attempts at 0, 5 and 15 seconds (spec section 65). */
   retry?: RetryConfig;
+  /** How long log and file history are kept; defaults to 90 days of log. */
+  retention?: RetentionConfig;
 
   executionMode: ExecutionMode;
   schedule?: JobSchedule;

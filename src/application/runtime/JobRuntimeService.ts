@@ -14,6 +14,7 @@ import type { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js
 import type { EncryptionKeyProvider } from '../../domain/encryption/EncryptionKeyProvider.js';
 import type { FeatureSet } from '../../domain/licensing/Feature.js';
 import type { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
+import type { RetentionService } from '../retention/RetentionService.js';
 import { RuntimeBootstrapService } from './RuntimeBootstrapService.js';
 
 export interface RuntimeOptions {
@@ -28,6 +29,8 @@ export interface RuntimeOptions {
   features?: FeatureSet;
   /** Stages behind STEP_1_COMPLETED; absent means Step 1 alone. */
   processingStages?: ProcessingStageRegistry;
+  /** Deletes expired log and history entries once a day; absent means never. */
+  retentionService?: RetentionService;
 }
 
 /**
@@ -36,6 +39,9 @@ export interface RuntimeOptions {
  */
 export class JobRuntimeService {
   private pollingTimer?: NodeJS.Timeout;
+  /** Calendar day the retention last ran on, so a tick a minute does not. */
+  private retentionAppliedOn?: string;
+  private readonly retentionService?: RetentionService;
 
   readonly orchestrator: TransferOrchestratorService;
   readonly bootstrap: RuntimeBootstrapService;
@@ -59,6 +65,7 @@ export class JobRuntimeService {
       runRepository
     );
     this.bootstrap = new RuntimeBootstrapService(jobRepository);
+    this.retentionService = options.retentionService;
   }
 
   /** Rebuilds the schedules and performs one scheduler tick. */
@@ -68,7 +75,35 @@ export class JobRuntimeService {
   }
 
   async runOnce(now: Date = new Date()): Promise<SchedulerTickResult> {
-    return this.orchestrator.runDueJobs(now);
+    const result = await this.orchestrator.runDueJobs(now);
+    await this.applyRetentionOncePerDay(now);
+
+    return result;
+  }
+
+  /**
+   * Runs after the transfers, not before: a run that just finished should show
+   * up in the history a user looks at, and deleting first would only ever hit
+   * the same records a moment later anyway.
+   *
+   * A failure here must not stop the scheduler. Retention is housekeeping; a
+   * full disk or a locked database is a reason to complain, not to stop
+   * transferring.
+   */
+  private async applyRetentionOncePerDay(now: Date): Promise<void> {
+    const today = now.toISOString().slice(0, 10);
+
+    if (!this.retentionService || this.retentionAppliedOn === today) {
+      return;
+    }
+
+    this.retentionAppliedOn = today;
+
+    try {
+      await this.retentionService.apply(now);
+    } catch (error) {
+      console.error('Retention failed:', error instanceof Error ? error.message : String(error));
+    }
   }
 
   startPolling(intervalMs = 60_000): NodeJS.Timeout {

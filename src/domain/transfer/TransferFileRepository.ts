@@ -13,4 +13,11 @@ export interface TransferFileRepository {
 
   /** Successful earlier transfer of the same content under any name (spec section 108). */
   findSuccessfulByHash(jobId: string, sha256: string): Promise<TransferFile | undefined>;
+
+  /**
+   * Removes records of one job that started before the cutoff. These records
+   * are also the duplicate registry, so deleting them makes the files they
+   * describe unknown again — see `RetentionConfig.historyDays`.
+   */
+  deleteOlderThan(cutoff: Date, jobId: string): Promise<number>;
 }

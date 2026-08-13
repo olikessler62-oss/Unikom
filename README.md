@@ -19,7 +19,7 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 236 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 247 Tests, inklusive echter SFTP- und FTPS-Protokolltests
 npm run dev       # Beispiellauf mit lokaler Quelle
 npm run build     # Produktivbuild nach dist/ (ohne Tests)
 ```
@@ -62,8 +62,42 @@ noch in Ordnung.
 
 Über den `TransferHistoryService` sind Laufübersicht, Laufdetail mit Dateien und
 Protokoll, fehlgeschlagene Dateien sowie die Kennzahlen des Dashboards
-abrufbar. Das Protokoll wächst mit jedem Lauf; `pruneLogs(datum)` entfernt alte
-Einträge.
+abrufbar.
+
+## Aufbewahrung
+
+Protokoll und Übernahme-Historie enthalten Dateinamen, und ein Dateiname ist
+regelmäßig ein Personenbezug — `Rechnung_Mueller_2026.pdf` nennt einen
+Menschen. Eine unbefristete Speicherung ist damit begründungsbedürftig
+(Art. 5 Abs. 1 lit. e DSGVO). Jeder Job kann deshalb festlegen, wie lange
+aufbewahrt wird:
+
+```typescript
+retention: { logDays: 90, historyDays: 365 }
+```
+
+Der `RetentionService` löscht Abgelaufenes; der Scheduler ruft ihn höchstens
+einmal pro Kalendertag auf. Schlägt das fehl, wird es gemeldet, aber der
+Betrieb läuft weiter — Aufräumen ist kein Grund, Übertragungen einzustellen.
+
+Die beiden Fristen sind bewusst getrennt, weil sie unterschiedlich folgenreich
+sind:
+
+| | Voreinstellung | Folge der Löschung |
+| --- | --- | --- |
+| `logDays` | 90 Tage | Nur die Spur wird kürzer. Keine Auswirkung auf Übertragungen. |
+| `historyDays` | unbegrenzt | **Verändert das Verhalten.** |
+
+Die Übernahme-Historie *ist* die Dublettenerkennung. Wird sie gelöscht, ist eine
+Datei, die noch in der Quelle liegt, wieder unbekannt und wird erneut geholt.
+Was dann passiert, hängt an der Konfliktstrategie: `SKIP` erkennt die Datei am
+Zielverzeichnis, es bleibt bei vergeblicher Übertragung. `RENAME` legt sie ein
+zweites Mal ab — dann steht derselbe Inhalt doppelt im Ziel.
+
+Betroffen ist nur `sourceSuccessAction: 'KEEP'`. Wer Quelldateien verschiebt
+oder löscht, hat nichts, was ein zweites Mal aufgesammelt werden könnte. Weil es
+hier keine unbedenkliche Voreinstellung gibt, bleibt `historyDays` leer, bis
+jemand sie bewusst setzt.
 
 ## Module
 

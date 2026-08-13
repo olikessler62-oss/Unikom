@@ -24,12 +24,13 @@ export class SqliteTransferFileRepository implements TransferFileRepository {
     this.database
       .prepare(
         `INSERT INTO transfer_files
-           (id, transfer_run_id, job_id, source_path, source_filename, sha256, status, resolution, document)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           (id, transfer_run_id, job_id, source_path, source_filename, sha256, status, resolution, started_at, document)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            sha256     = excluded.sha256,
            status     = excluded.status,
            resolution = excluded.resolution,
+           started_at = excluded.started_at,
            document   = excluded.document`
       )
       .run(
@@ -41,6 +42,7 @@ export class SqliteTransferFileRepository implements TransferFileRepository {
         nullable(file.sha256),
         file.status,
         nullable(file.resolution),
+        file.startedAt.toISOString(),
         JSON.stringify(file)
       );
 
@@ -80,6 +82,14 @@ export class SqliteTransferFileRepository implements TransferFileRepository {
     );
 
     return found;
+  }
+
+  async deleteOlderThan(cutoff: Date, jobId: string): Promise<number> {
+    const result = this.database
+      .prepare('DELETE FROM transfer_files WHERE job_id = ? AND started_at < ?')
+      .run(jobId, cutoff.toISOString());
+
+    return Number(result.changes);
   }
 
   private async query(sql: string, ...parameters: string[]): Promise<TransferFile[]> {

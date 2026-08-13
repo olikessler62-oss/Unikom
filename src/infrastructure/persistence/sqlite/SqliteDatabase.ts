@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS transfer_files (
   sha256                TEXT,
   status                TEXT NOT NULL,
   resolution            TEXT,
+  started_at            TEXT,
   document              TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_files_job      ON transfer_files(job_id);
@@ -72,7 +73,40 @@ CREATE INDEX IF NOT EXISTS ix_files_run      ON transfer_files(transfer_run_id);
 CREATE INDEX IF NOT EXISTS ix_files_status   ON transfer_files(status);
 CREATE INDEX IF NOT EXISTS ix_files_sha256   ON transfer_files(job_id, sha256);
 CREATE INDEX IF NOT EXISTS ix_files_identity ON transfer_files(job_id, source_path, source_filename);
+-- ix_files_started is created by migrate(), because on an older database the
+-- column it indexes only exists after the migration has added it.
 `;
+
+/**
+ * Changes to the schema that a database created by an earlier version does not
+ * have yet. `CREATE TABLE IF NOT EXISTS` leaves an existing table alone, so a
+ * new column has to be added explicitly.
+ *
+ * Each step has to tolerate having run before: the check is what the database
+ * actually looks like, not a stored version number, which cannot drift.
+ */
+function migrate(database: DatabaseSync): void {
+  if (!hasColumn(database, 'transfer_files', 'started_at')) {
+    database.exec('ALTER TABLE transfer_files ADD COLUMN started_at TEXT');
+    // Backfill from the document that has held the value all along, so the
+    // retention of an existing installation does not start from zero.
+    database.exec(
+      `UPDATE transfer_files
+       SET started_at = json_extract(document, '$.startedAt')
+       WHERE started_at IS NULL`
+    );
+  }
+
+  // Only now can the index exist: on an older database the column above was
+  // missing a moment ago, and creating the index in the schema would have made
+  // an existing installation fail to open at all.
+  database.exec('CREATE INDEX IF NOT EXISTS ix_files_started ON transfer_files(job_id, started_at)');
+}
+
+function hasColumn(database: DatabaseSync, table: string, column: string): boolean {
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all() as unknown as { name: string }[];
+  return columns.some((entry) => entry.name === column);
+}
 
 export const DATABASE_FILENAME = 'unikom.db';
 
@@ -85,6 +119,7 @@ export function openDatabase(dataDirectory: string): DatabaseSync {
   database.exec('PRAGMA journal_mode = WAL;');
   database.exec('PRAGMA synchronous = NORMAL;');
   database.exec(SCHEMA);
+  migrate(database);
 
   return database;
 }

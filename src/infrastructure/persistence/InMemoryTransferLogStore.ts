@@ -28,11 +28,13 @@ export class InMemoryTransferLogStore implements Logger, TransferLogRepository {
     return result.map((entry) => ({ ...entry }));
   }
 
-  async deleteOlderThan(cutoff: Date): Promise<number> {
+  async deleteOlderThan(cutoff: Date, jobId?: string): Promise<number> {
     const before = this.entries.length;
 
     for (let index = this.entries.length - 1; index >= 0; index -= 1) {
-      if (this.entries[index].timestamp.getTime() < cutoff.getTime()) {
+      const entry = this.entries[index];
+
+      if (entry.timestamp.getTime() < cutoff.getTime() && (jobId === undefined || entry.jobId === jobId)) {
         this.entries.splice(index, 1);
       }
     }
