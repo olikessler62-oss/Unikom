@@ -105,7 +105,16 @@ export function TenantsScreen({ canManage }: Props) {
 
           <Field
             label="Root-Verzeichnis"
-            hint="Alle Zielverzeichnisse dieses Mandanten müssen darin liegen — so kann ein Tippfehler die Daten nicht bei einem anderen Kunden ablegen. Leer lassen, wenn keine Trennung nötig ist."
+            hint={
+              <>
+                Jeder Job dieses Mandanten darf seine Dateien nur <strong>unterhalb dieses Ordners</strong> ablegen.
+                Ein Zielverzeichnis außerhalb wird beim Speichern abgelehnt — so landen die Daten dieses Kunden auch
+                bei einem Tippfehler nicht beim nächsten.
+                <br />
+                Leer lassen, wenn Sie nur eigene Daten verarbeiten. Dann gibt es niemanden, mit dem etwas verwechselt
+                werden könnte.
+              </>
+            }
           >
             <input
               value={draft.rootDirectory}

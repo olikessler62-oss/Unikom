@@ -126,8 +126,8 @@ export function JobEditorScreen({ jobId, onDone }: Props) {
           label="Mandant"
           hint={
             tenant?.rootDirectory
-              ? `Das Zielverzeichnis muss innerhalb von ${tenant.rootDirectory} liegen.`
-              : 'Für diesen Mandanten ist kein Root-Verzeichnis festgelegt.'
+              ? `Das Zielverzeichnis dieses Jobs muss unterhalb von ${tenant.rootDirectory} liegen — sonst wird das Speichern abgelehnt.`
+              : 'Für diesen Mandanten ist kein Root-Verzeichnis festgelegt, das Zielverzeichnis ist also frei wählbar.'
           }
         >
           <select value={job.tenantId} onChange={(event) => change({ tenantId: event.target.value })}>
