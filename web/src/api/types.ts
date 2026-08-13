@@ -144,6 +144,43 @@ export interface RunSummary {
   filesFailed: number;
 }
 
+export type FileStatus = 'PENDING' | 'IN_PROGRESS' | 'SUCCESS' | 'SKIPPED' | 'FAILED';
+
+export interface TransferFile {
+  id: string;
+  transferRunId: string;
+  jobId: string;
+  sourcePath: string;
+  sourceFilename: string;
+  sourceSize?: number;
+  destinationFilename?: string;
+  destinationSize?: number;
+  sha256?: string;
+  status: FileStatus;
+  resolution?: 'TRANSFERRED' | 'DUPLICATE';
+  errorCode?: string;
+  errorMessage?: string;
+  startedAt: string;
+  completedAt?: string;
+}
+
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR';
+
+export interface LogEntry {
+  timestamp: string;
+  level: LogLevel;
+  message: string;
+  jobId?: string;
+  runId?: string;
+  filename?: string;
+}
+
+export interface RunDetail extends RunSummary {
+  jobName?: string;
+  files: TransferFile[];
+  logs: LogEntry[];
+}
+
 export interface Dashboard {
   activeJobs: number;
   runsToday: number;

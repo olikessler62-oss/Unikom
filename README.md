@@ -19,7 +19,7 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 313 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 319 Tests, inklusive echter SFTP- und FTPS-Protokolltests
 npm run web:build # Oberfläche nach dist/web bauen
 npm run serve     # Server und Oberfläche auf http://127.0.0.1:8383
 npm run dev       # Beispiellauf mit lokaler Quelle, ohne Server

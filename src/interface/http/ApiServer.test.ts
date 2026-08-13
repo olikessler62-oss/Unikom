@@ -262,6 +262,32 @@ test('no credential secret ever leaves the server', async (t) => {
   assert.deepEqual(check.body, { resolvable: true });
 });
 
+test('a credential assigned to a client stays assigned to it', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'anna', 'ADMIN');
+  await client.login('anna');
+
+  const tenant = await client.application.tenantService.create({ name: 'Kunde A' });
+
+  // Both ways in have to carry the client. Dropping it would quietly turn one
+  // client's access data into something every other client may use.
+  const typed = await client.request('POST', '/api/credentials', {
+    body: { name: 'SFTP Kunde A', type: 'USERNAME_PASSWORD', tenantId: tenant.id, secret: 'geheim' },
+  });
+  assert.equal(typed.body.tenantId, tenant.id);
+
+  const generated = await client.request('POST', '/api/credentials', {
+    body: { name: 'Schlüssel Kunde A', type: 'ENCRYPTION_KEY', tenantId: tenant.id },
+  });
+  assert.equal(generated.body.tenantId, tenant.id, 'a generated key must not become shared by accident');
+
+  // And leaving it out really does mean shared.
+  const shared = await client.request('POST', '/api/credentials', {
+    body: { name: 'Übergreifend', type: 'ENCRYPTION_KEY' },
+  });
+  assert.equal(shared.body.tenantId, undefined);
+});
+
 test('a job needing a missing module is refused with the module named', async (t) => {
   const client = await harness(t, new StaticFeatureSet([]));
   await withUser(client, 'anna', 'ADMIN');

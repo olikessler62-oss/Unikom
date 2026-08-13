@@ -3,8 +3,12 @@ import { useState } from 'react';
 import { ChangePasswordScreen } from './screens/ChangePasswordScreen.js';
 import { DashboardScreen } from './screens/DashboardScreen.js';
 import { JobsScreen } from './screens/JobsScreen.js';
+import { HistoryScreen } from './screens/history/HistoryScreen.js';
 import { JobEditorScreen } from './screens/job/JobEditorScreen.js';
+import { CredentialsScreen } from './screens/CredentialsScreen.js';
 import { LoginScreen } from './screens/LoginScreen.js';
+import { TenantsScreen } from './screens/TenantsScreen.js';
+import { UsersScreen } from './screens/UsersScreen.js';
 import { useSession } from './session/useSession.js';
 import type { Permission } from './api/types.js';
 
@@ -25,7 +29,7 @@ const AREAS: Area[] = [
 ];
 
 /** Which screen is open. Deliberately plain state, not a routing library. */
-type View = { area: string; editingJob?: string };
+type View = { area: string; editingJob?: string; historyJob?: string };
 
 export function App() {
   const session = useSession();
@@ -114,8 +118,16 @@ export function App() {
             canManage={session.may('MANAGE_JOBS')}
             canRun={session.may('RUN_JOBS')}
             onEdit={(jobId) => setView({ area: 'jobs', editingJob: jobId })}
-            onShowHistory={() => setArea('history')}
+            onShowHistory={(jobId) => setView({ area: 'history', historyJob: jobId })}
           />
+        ) : current?.id === 'history' ? (
+          <HistoryScreen key={view.historyJob ?? 'all'} initialJobId={view.historyJob} />
+        ) : current?.id === 'tenants' ? (
+          <TenantsScreen canManage={session.may('MANAGE_CREDENTIALS')} />
+        ) : current?.id === 'credentials' ? (
+          <CredentialsScreen />
+        ) : current?.id === 'users' ? (
+          <UsersScreen ownUserId={identity.user.id} />
         ) : (
           <div className="card empty">Dieser Bereich wird gerade gebaut.</div>
         )}

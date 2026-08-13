@@ -41,11 +41,17 @@ export function credentialRoutes(application: UnikomApplication): Route[] {
       handle: async ({ body }) => {
         const input = requireObject(body, 'The credential');
         const type = requireType(requireString(input, 'type'));
+        // Absent means shared across all tenants, which is a real choice and
+        // not a fallback: dropping it silently would hand one client's access
+        // data to every other one.
+        const tenantId = optionalString(input, 'tenantId');
 
         // An invented passphrase is rarely as strong as it looks, so a key can
         // be generated instead of typed.
         if (type === 'ENCRYPTION_KEY' && input.secret === undefined) {
-          return created(await application.credentialService.createEncryptionKey(requireString(input, 'name')));
+          return created(
+            await application.credentialService.createEncryptionKey(requireString(input, 'name'), tenantId)
+          );
         }
 
         return created(
@@ -53,6 +59,7 @@ export function credentialRoutes(application: UnikomApplication): Route[] {
             name: requireString(input, 'name'),
             type,
             username: optionalString(input, 'username'),
+            tenantId,
             secret: requireString(input, 'secret'),
           })
         );

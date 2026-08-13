@@ -12,11 +12,23 @@ export interface MasterKeyProvider {
   getMasterKey(): Buffer;
 }
 
+/**
+ * The command that produces a usable key. It appears in the error message
+ * because that message is the first thing an operator sees when they try to
+ * store a credential on a fresh installation - and a message that names an
+ * internal function tells them nothing they can act on.
+ */
+export const MASTER_KEY_COMMAND =
+  `node -e "console.log(require('crypto').randomBytes(${MASTER_KEY_BYTES}).toString('base64'))"`;
+
 export class MissingMasterKeyError extends Error {
   constructor(variableName: string) {
     super(
-      `No master key configured. Set ${variableName} to a base64 encoded ${MASTER_KEY_BYTES} byte key. ` +
-        `A new one can be generated with generateMasterKey().`
+      `${variableName} is not set, so no credential can be stored. Generate a key with:
+  ${MASTER_KEY_COMMAND}
+` +
+        `Set it as the environment variable ${variableName} and restart Unikom. ` +
+        'Keep it safe: without it, stored credentials cannot be read again.'
     );
     this.name = 'MissingMasterKeyError';
   }
@@ -51,7 +63,8 @@ export class EnvironmentMasterKeyProvider implements MasterKeyProvider {
       // narrows it down beyond what the operator already knows.
       throw new Error(
         `${this.variableName} must decode to exactly ${MASTER_KEY_BYTES} bytes, but it does not. ` +
-          'Generate a new key with generateMasterKey().'
+          `Generate a valid key with:
+  ${MASTER_KEY_COMMAND}`
       );
     }
 
