@@ -17,6 +17,7 @@ import { SecretCipher } from '../../infrastructure/security/SecretCipher.js';
 import { CredentialEncryptionKeyProvider } from '../credentials/CredentialEncryptionKeyProvider.js';
 import { CredentialService } from '../credentials/CredentialService.js';
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
+import { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
 import { JobRuntimeService } from './JobRuntimeService.js';
 
 export interface UnikomApplication {
@@ -74,6 +75,7 @@ export function createPersistentApplication(
       runRepository,
       transferFileRepository,
       encryptionKeyProvider: options.encryptionKeyProvider ?? new CredentialEncryptionKeyProvider(credentialService),
+      adapterProvider: new SourceAdapterProvider(credentialService),
       events: options.events,
       stagingRoot: options.stagingRoot ?? dataDirectory,
     }),
@@ -103,6 +105,7 @@ export function createInMemoryApplication(options: ApplicationOptions = {}): Uni
       runRepository,
       transferFileRepository,
       encryptionKeyProvider: options.encryptionKeyProvider ?? new CredentialEncryptionKeyProvider(credentialService),
+      adapterProvider: new SourceAdapterProvider(credentialService),
       events: options.events,
       stagingRoot: options.stagingRoot,
     }),

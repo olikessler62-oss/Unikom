@@ -10,6 +10,7 @@ import {
   type SchedulerTickResult,
 } from '../transfer/TransferOrchestratorService.js';
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
+import type { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
 import type { EncryptionKeyProvider } from '../../domain/encryption/EncryptionKeyProvider.js';
 import { RuntimeBootstrapService } from './RuntimeBootstrapService.js';
 
@@ -17,6 +18,8 @@ export interface RuntimeOptions {
   transferFileRepository?: TransferFileRepository;
   runRepository?: TransferRunRepository;
   encryptionKeyProvider?: EncryptionKeyProvider;
+  /** Supplies source adapters including their resolved credentials. */
+  adapterProvider?: SourceAdapterProvider;
   stagingRoot?: string;
   events?: TransferEventListener;
 }
@@ -44,7 +47,7 @@ export class JobRuntimeService {
 
     this.orchestrator = new TransferOrchestratorService(
       jobRepository,
-      new JobExecutionService(jobRepository, transferExecutionService),
+      new JobExecutionService(jobRepository, transferExecutionService, options.adapterProvider),
       runRepository
     );
     this.bootstrap = new RuntimeBootstrapService(jobRepository);

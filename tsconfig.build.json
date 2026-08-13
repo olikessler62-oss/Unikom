@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "comment": "Production build: tests and their in-process servers must not ship.",
+  "exclude": ["src/**/*.test.ts", "src/testing/**"]
+}

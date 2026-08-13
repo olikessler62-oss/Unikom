@@ -4,15 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "check": "tsc --noEmit",
-    "test": "tsx --test \"src/**/*.test.ts\""
+    "test": "tsx --test --test-timeout=30000 \"src/**/*.test.ts\""
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/ssh2": "^1.15.5",
+    "@types/ssh2-sftp-client": "^9.0.6",
+    "ftp-srv": "^4.6.3",
+    "ssh2": "^1.17.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "basic-ftp": "^6.2.0",
+    "ssh2-sftp-client": "^12.1.1"
   }
 }

@@ -1,14 +1,20 @@
-import type { SourceAdapter } from '../../domain/source/SourceAdapter.js';
-import type { SourceConfig, TransferJob } from '../../domain/transfer/TransferJob.js';
+import type { TransferJob } from '../../domain/transfer/TransferJob.js';
 import type { TransferJobRepository } from '../../domain/transfer/TransferJobRepository.js';
 import { InMemoryTransferFileRepository } from '../../infrastructure/persistence/InMemoryTransferFileRepository.js';
-import { SourceAdapterFactory } from '../../infrastructure/sources/SourceAdapterFactory.js';
-import { TransferExecutionService, type TransferExecutionOptions, type TransferRunResult } from './TransferExecutionService.js';
+import { SourceAdapterProvider } from './SourceAdapterProvider.js';
+import {
+  TransferExecutionService,
+  type TransferExecutionOptions,
+  type TransferRunResult,
+} from './TransferExecutionService.js';
 
 /**
- * Resolves a job and its source adapter and hands both to the one shared
+ * Resolves a job, builds its source adapter and hands both to the one shared
  * pipeline. Scheduler, UI, CLI and API all enter here, so there is no separate
  * transfer logic for manual and automatic runs (spec section 28).
+ *
+ * It also owns the adapter's lifetime: whatever happens during the run, the
+ * network connection is closed again.
  */
 export class JobExecutionService {
   private readonly transferExecutionService: TransferExecutionService;
@@ -16,7 +22,7 @@ export class JobExecutionService {
   constructor(
     private readonly jobRepository: TransferJobRepository,
     transferExecutionService?: TransferExecutionService,
-    private readonly createAdapter: (config: SourceConfig) => SourceAdapter = SourceAdapterFactory.create
+    private readonly adapterProvider: SourceAdapterProvider = new SourceAdapterProvider()
   ) {
     this.transferExecutionService =
       transferExecutionService ??
@@ -33,7 +39,12 @@ export class JobExecutionService {
   }
 
   async execute(job: TransferJob, options: TransferExecutionOptions = {}): Promise<TransferRunResult> {
-    const adapter = this.createAdapter(job.sourceConfig);
-    return this.transferExecutionService.execute(job, adapter, options);
+    const adapter = await this.adapterProvider.forJob(job);
+
+    try {
+      return await this.transferExecutionService.execute(job, adapter, options);
+    } finally {
+      await adapter.dispose?.();
+    }
   }
 }

@@ -14,8 +14,28 @@ export interface SourceConfig {
   timeoutSeconds?: number;
   retryAttempts?: number;
   useSshPrivateKey?: boolean;
+
+  /**
+   * Expected SSH host key, as OpenSSH prints it: `SHA256:<base64>`.
+   * Without it the connection is refused unless `allowUnknownHostKey` is set,
+   * because host key verification may not be switched off silently (spec
+   * section 6).
+   */
+  hostKeyFingerprint?: string;
+  /** Deliberate, documented opt-out of host key verification. */
+  allowUnknownHostKey?: boolean;
+
   tls?: boolean;
+  /** TLS certificates are validated unless this is explicitly set to false. */
   validateCertificates?: boolean;
+  /**
+   * PEM certificate to trust in addition to the system store. This is how a
+   * server with a private or self-signed certificate is accepted without
+   * turning verification off altogether.
+   */
+  trustedCertificate?: string;
+  /** Implicit FTPS connects with TLS from the first byte (spec section 7). */
+  implicitFtps?: boolean;
 }
 
 export interface StabilityCheckConfig {
