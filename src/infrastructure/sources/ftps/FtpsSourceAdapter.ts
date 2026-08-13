@@ -2,37 +2,26 @@ import type { SourceAdapter, ConnectionTestResult, DownloadResult } from '../../
 import type { SourceConfig } from '../../../domain/transfer/TransferJob.js';
 import type { SourceFile } from '../../../domain/files/SourceFile.js';
 
+const NOT_IMPLEMENTED =
+  'The FTPS adapter is not implemented yet (spec section 7, phase 8). ' +
+  'It needs a real explicit-FTPS client including certificate validation before any job may use it.';
+
+/**
+ * Placeholder for the FTPS source. Like the SFTP adapter it reports failure
+ * rather than faking a successful transfer.
+ */
 export class FtpsSourceAdapter implements SourceAdapter {
   constructor(private readonly config: SourceConfig) {}
 
   async testConnection(): Promise<ConnectionTestResult> {
-    if (!this.config.host) {
-      return { ok: false, message: 'FTPS host is required' };
-    }
-
-    return {
-      ok: true,
-      message: `TLS connection to ${this.config.host}:${this.config.port ?? 990} validated`,
-    };
+    return { ok: false, message: NOT_IMPLEMENTED };
   }
 
-  async listFiles(directory: string, recursive: boolean): Promise<SourceFile[]> {
-    return [
-      {
-        name: 'ORDER_020.csv',
-        fullPath: `${directory}/ORDER_020.csv`,
-        size: 240,
-        lastModified: new Date(),
-        isDirectory: false,
-      },
-    ];
+  async listFiles(_directory: string, _recursive: boolean): Promise<SourceFile[]> {
+    throw new Error(NOT_IMPLEMENTED);
   }
 
-  async downloadFile(sourceFile: SourceFile, targetPath: string): Promise<DownloadResult> {
-    return {
-      ok: true,
-      message: `Downloaded ${sourceFile.name} from FTPS`,
-      localPath: targetPath,
-    };
+  async downloadFile(_sourceFile: SourceFile, _targetPath: string): Promise<DownloadResult> {
+    throw new Error(NOT_IMPLEMENTED);
   }
 }

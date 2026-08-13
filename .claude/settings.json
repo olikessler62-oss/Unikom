@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npm install)",
+      "Bash(npx tsx:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Edit(src/**)",
+      "Write(src/**)",
+      "Edit(package.json)",
+      "Edit(tsconfig.json)",
+      "Edit(README.md)"
+    ],
+    "deny": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(git rebase:*)"
+    ]
+  }
+}

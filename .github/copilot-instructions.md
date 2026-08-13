@@ -10,5 +10,6 @@
 
 ## Default behavior
 
-- Prefer asking before modifying or finalizing repo state.
-- Keep the user in the loop before any operation that changes repository history or remote state.
+- Prefer asking before modifying or finalizing repository state that changes history or remote state.
+- For ordinary code edits, continue with the requested work unless the change would affect Git history or the remote.
+- Keep the user informed before any operation that changes repository history or remote state.

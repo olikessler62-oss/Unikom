@@ -2,37 +2,27 @@ import type { SourceAdapter, ConnectionTestResult, DownloadResult } from '../../
 import type { SourceConfig } from '../../../domain/transfer/TransferJob.js';
 import type { SourceFile } from '../../../domain/files/SourceFile.js';
 
+const NOT_IMPLEMENTED =
+  'The SFTP adapter is not implemented yet (spec section 6, phase 7). ' +
+  'It needs a real SSH client including host key verification before any job may use it.';
+
+/**
+ * Placeholder for the SFTP source. It deliberately reports failure instead of
+ * pretending to transfer files: a job that silently claims success while
+ * nothing was downloaded would violate the core rule of spec section 116.
+ */
 export class SftpSourceAdapter implements SourceAdapter {
   constructor(private readonly config: SourceConfig) {}
 
   async testConnection(): Promise<ConnectionTestResult> {
-    if (!this.config.host) {
-      return { ok: false, message: 'SFTP host is required' };
-    }
-
-    return {
-      ok: true,
-      message: `Connection to ${this.config.host}:${this.config.port ?? 22} validated`,
-    };
+    return { ok: false, message: NOT_IMPLEMENTED };
   }
 
-  async listFiles(directory: string, recursive: boolean): Promise<SourceFile[]> {
-    return [
-      {
-        name: 'ORDER_010.csv',
-        fullPath: `${directory}/ORDER_010.csv`,
-        size: 150,
-        lastModified: new Date(),
-        isDirectory: false,
-      },
-    ];
+  async listFiles(_directory: string, _recursive: boolean): Promise<SourceFile[]> {
+    throw new Error(NOT_IMPLEMENTED);
   }
 
-  async downloadFile(sourceFile: SourceFile, targetPath: string): Promise<DownloadResult> {
-    return {
-      ok: true,
-      message: `Downloaded ${sourceFile.name} from SFTP`,
-      localPath: targetPath,
-    };
+  async downloadFile(_sourceFile: SourceFile, _targetPath: string): Promise<DownloadResult> {
+    throw new Error(NOT_IMPLEMENTED);
   }
 }

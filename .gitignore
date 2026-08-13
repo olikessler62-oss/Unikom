@@ -2,3 +2,12 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Internes Arbeitsverzeichnis der Anwendung (Staging, Spec Abschnitt 43)
+application-data/
+
+# Quell-/Zielverzeichnisse der Beispielausführung aus src/index.ts
+demo/
+
+# Lokale Claude-Code-Einstellungen; .claude/settings.json bleibt versioniert
+.claude/settings.local.json
