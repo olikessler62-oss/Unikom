@@ -117,3 +117,18 @@ export class SessionService {
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
+
+/**
+ * Companion token against cross-site requests, derived from the session token.
+ *
+ * The session cookie alone is not proof that a request was intended: a browser
+ * sends it with a request another site triggered too. This token has to travel
+ * in a header, which only our own page can set — and to compute it you need the
+ * session token, which sits in an httpOnly cookie that no foreign script reads.
+ *
+ * Derived rather than stored: no extra column, and the hash cannot be turned
+ * back into a session token if it ever ends up in a log.
+ */
+export function csrfTokenFor(sessionToken: string): string {
+  return createHash('sha256').update(`unikom-csrf:${sessionToken}`).digest('hex');
+}

@@ -19,10 +19,40 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 248 Tests, inklusive echter SFTP- und FTPS-Protokolltests
-npm run dev       # Beispiellauf mit lokaler Quelle
+npm test          # 294 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm run serve     # Server und Oberfläche auf http://127.0.0.1:8383
+npm run dev       # Beispiellauf mit lokaler Quelle, ohne Server
 npm run build     # Produktivbuild nach dist/ (ohne Tests)
 ```
+
+## Server und Anmeldung
+
+`npm run serve` startet Scheduler und Oberfläche gemeinsam. Beim allerersten
+Start erzeugt Unikom einen Administrator und zeigt dessen Passwort **einmalig**
+auf der Konsole; es muss bei der ersten Anmeldung geändert werden. Bis dahin
+darf die Sitzung nichts anderes als genau das.
+
+| Umgebungsvariable | Bedeutung |
+| ----------------- | --------- |
+| `UNIKOM_HOST` | Voreingestellt `127.0.0.1` |
+| `UNIKOM_PORT` | Voreingestellt `8383` |
+| `UNIKOM_BEHIND_TLS` | `true`, wenn ein Reverse Proxy TLS beendet |
+| `UNIKOM_DATA_DIRECTORY` | Ablage, voreingestellt `application-data` |
+
+Der Server **verweigert den Start**, wenn er an eine andere Adresse als
+`127.0.0.1` gebunden werden soll, ohne dass `UNIKOM_BEHIND_TLS` gesetzt ist:
+über einfaches HTTP wanderte das Anmeldepasswort sonst im Klartext durchs
+Firmennetz. Das ist eine Fehlermeldung und keine Dokumentationszeile, weil man
+Dokumentation überliest.
+
+Es gibt drei Rollen — `ADMIN`, `OPERATOR`, `VIEWER`. Zugangsdaten und
+Benutzerverwaltung bleiben beim Administrator; ein Operator legt Jobs an und
+startet sie, ein Viewer sieht zu. Geprüft wird an jedem Endpunkt, nicht in der
+Oberfläche: die entscheidet nur, was sie anzeigt.
+
+Die Anmeldung ist vollständig lokal. Sie darf von keinem Dienst im Netz
+abhängen — sonst stünde bei einem Produkt, dessen Zusage „Ihre Daten bleiben
+bei Ihnen" lautet, ausgerechnet der Zugang als Ausnahme da.
 
 ## Hauptschlüssel
 
@@ -238,12 +268,23 @@ Zielverzeichnis ausschließlich als fertiges, atomar verschobenes Ergebnis.
 ```text
 src/
   domain/          Modelle und Regeln (Transfer, Quelle, Zugangsdaten, Verschlüsselung,
-                   Module, Übergabevertrag)
+                   Module, Übergabevertrag, Benutzer)
   application/     Pipeline, Scheduler, Laufzeit, Credential-Verwaltung, Lizenzprüfung,
-                   Stufen-Registry
+                   Stufen-Registry, Aufbewahrung, Anmeldung
   infrastructure/  Quell-Adapter (Local/SFTP/FTPS), Persistenz, Krypto, Dateisystem
+  interface/       HTTP-API und Oberfläche
   testing/         Testhilfen inklusive echter SFTP- und FTPS-Server
 ```
+
+Die Oberfläche greift **ausschließlich über die API** zu, nie direkt auf ein
+Repository. Nicht wegen eines späteren Umzugs in die Cloud — den gibt es nicht,
+das Produkt ist lokal — sondern weil sich sonst Geschäftslogik in der
+Oberfläche ansammelt, wo sie nicht hingehört und nicht geprüft wird.
+
+Änderungen brauchen neben dem Sitzungs-Cookie ein Begleit-Token im Kopf
+`x-unikom-csrf`. Das Cookie allein ist kein Beleg dafür, dass eine Anfrage
+gewollt war — ein Browser schickt es auch bei einer Anfrage mit, die eine
+fremde Seite ausgelöst hat.
 
 Scheduler, UI, CLI und API laufen alle über denselben
 `TransferExecutionService` — es gibt keine getrennte Transferlogik für manuelle
