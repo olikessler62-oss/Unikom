@@ -1,0 +1,360 @@
+/*
+ * One stylesheet rather than a component library. The interface is forms,
+ * tables and a dashboard; a library would bring more decisions than it saves,
+ * and every one of them would have to be carried into step 2 and 3.
+ */
+
+:root {
+  --ink: #1b2430;
+  --ink-soft: #5a6675;
+  --line: #dfe4ea;
+  --surface: #ffffff;
+  --ground: #f4f6f8;
+  --accent: #1f5f8b;
+  --accent-soft: #e8f1f7;
+  --good: #2e7d52;
+  --warn: #a86a12;
+  --bad: #b3352c;
+  --radius: 6px;
+  --gap: 1rem;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--ground);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+h1 {
+  font-size: 1.4rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* ---------- Layout ---------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--ink);
+  color: #dbe2ea;
+  padding: 1.25rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar__brand {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0 1.25rem 1.25rem;
+  color: #ffffff;
+}
+
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.sidebar__link {
+  padding: 0.55rem 1.25rem;
+  color: #b9c4d0;
+  background: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar__link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar__link--active {
+  color: #ffffff;
+  border-left-color: #5aa9dd;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.sidebar__footer {
+  padding: 1rem 1.25rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.85rem;
+  color: #9aa7b4;
+}
+
+.main {
+  padding: 1.75rem 2rem;
+  max-width: 1100px;
+}
+
+.main__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--gap);
+  margin-bottom: 1.25rem;
+}
+
+/* ---------- Surfaces ---------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--gap);
+  margin-bottom: 1.5rem;
+}
+
+.figure__value {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.figure__label {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.figure__value--bad {
+  color: var(--bad);
+}
+
+/* ---------- Tables ---------- */
+
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-soft);
+  background: #fafbfc;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+td.numeric,
+th.numeric {
+  text-align: right;
+}
+
+/* ---------- Badges ---------- */
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.badge--good {
+  background: #e5f3ec;
+  color: var(--good);
+}
+
+.badge--warn {
+  background: #fbf0dd;
+  color: var(--warn);
+}
+
+.badge--bad {
+  background: #fbe9e7;
+  color: var(--bad);
+}
+
+.badge--muted {
+  background: #eef1f4;
+  color: var(--ink-soft);
+}
+
+/* ---------- Forms ---------- */
+
+label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field {
+  margin-bottom: 0.9rem;
+}
+
+.field__hint {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+  margin-top: 0.25rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+/* ---------- Messages ---------- */
+
+.notice {
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid;
+  margin-bottom: var(--gap);
+}
+
+.notice--error {
+  background: #fbe9e7;
+  border-color: #f0c2bd;
+  color: #8d2b23;
+}
+
+.notice--info {
+  background: var(--accent-soft);
+  border-color: #c5dcea;
+  color: #17475f;
+}
+
+.notice--warn {
+  background: #fbf0dd;
+  border-color: #ecd6ab;
+  color: #7d4f0d;
+}
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.muted {
+  color: var(--ink-soft);
+}
+
+/* ---------- Login ---------- */
+
+.login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.login__box {
+  width: min(400px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+}
+
+.login__brand {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

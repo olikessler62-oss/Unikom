@@ -19,11 +19,24 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 308 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 313 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm run web:build # Oberfläche nach dist/web bauen
 npm run serve     # Server und Oberfläche auf http://127.0.0.1:8383
 npm run dev       # Beispiellauf mit lokaler Quelle, ohne Server
 npm run build     # Produktivbuild nach dist/ (ohne Tests)
 ```
+
+Für die Arbeit an der Oberfläche:
+
+```bash
+npm run serve     # in einem Fenster
+npm run web:dev   # im zweiten, auf http://127.0.0.1:5173
+```
+
+Der Entwicklungsserver reicht `/api` an den laufenden Server durch, damit der
+Browser eine einzige Herkunft sieht und das Sitzungs-Cookie sich genauso
+verhält wie später im Betrieb. **Im Betrieb läuft nur ein Prozess:** der Server
+liefert die gebaute Oberfläche aus `dist/web` selbst aus.
 
 ## Server und Anmeldung
 
@@ -316,8 +329,10 @@ src/
   application/     Pipeline, Scheduler, Laufzeit, Credential-Verwaltung, Lizenzprüfung,
                    Stufen-Registry, Aufbewahrung, Anmeldung
   infrastructure/  Quell-Adapter (Local/SFTP/FTPS), Persistenz, Krypto, Dateisystem
-  interface/       HTTP-API und Oberfläche
+  interface/       HTTP-API und Auslieferung der Oberfläche
   testing/         Testhilfen inklusive echter SFTP- und FTPS-Server
+web/
+  src/             Oberfläche (React), gebaut nach dist/web
 ```
 
 Die Oberfläche greift **ausschließlich über die API** zu, nie direkt auf ein

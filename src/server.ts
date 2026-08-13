@@ -6,10 +6,13 @@ import {
   initialAdministratorNotice,
 } from './application/users/InitialAdministrator.js';
 import { ApiServer } from './interface/http/ApiServer.js';
+import { createStaticHandler } from './interface/http/StaticFiles.js';
 import { ConsoleLogger } from './infrastructure/logging/ConsoleLogger.js';
 import type { LogLevel } from './domain/logging/LogEntry.js';
 
 const DATA_DIRECTORY = path.resolve(process.env.UNIKOM_DATA_DIRECTORY ?? 'application-data');
+/** The built interface. `npm run web:build` puts it here. */
+const WEB_DIRECTORY = path.resolve(process.env.UNIKOM_WEB_DIRECTORY ?? 'dist/web');
 const LOG_LEVEL = (process.env.UNIKOM_LOG_LEVEL as LogLevel | undefined) ?? 'INFO';
 
 /**
@@ -46,7 +49,12 @@ async function main(): Promise<void> {
   await application.runtime.bootstrap.reconstructSchedules(new Date());
   application.runtime.startPolling(POLL_INTERVAL_MS);
 
-  const server = new ApiServer(application, { host: HOST, port: PORT, behindTls: BEHIND_TLS });
+  const server = new ApiServer(application, {
+    host: HOST,
+    port: PORT,
+    behindTls: BEHIND_TLS,
+    staticHandler: createStaticHandler(WEB_DIRECTORY),
+  });
   const { host, port } = await server.listen();
 
   console.log(`Unikom — Oberfläche auf http://${host}:${port}`);
