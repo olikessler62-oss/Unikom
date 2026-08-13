@@ -4,6 +4,7 @@ import type { TransferFileRepository } from '../../domain/transfer/TransferFileR
 import type { TransferJobRepository } from '../../domain/transfer/TransferJobRepository.js';
 import type { TransferRunRepository } from '../../domain/transfer/TransferRunRepository.js';
 import type { EncryptionKeyProvider } from '../../domain/encryption/EncryptionKeyProvider.js';
+import { allFeatures, type FeatureSet } from '../../domain/licensing/Feature.js';
 import { InMemoryCredentialRepository } from '../../infrastructure/persistence/InMemoryCredentialRepository.js';
 import { InMemoryTransferFileRepository } from '../../infrastructure/persistence/InMemoryTransferFileRepository.js';
 import { InMemoryTransferJobRepository } from '../../infrastructure/persistence/InMemoryTransferJobRepository.js';
@@ -21,9 +22,11 @@ import { CredentialEncryptionKeyProvider } from '../credentials/CredentialEncryp
 import { CredentialService } from '../credentials/CredentialService.js';
 import { CompositeLogger, DEFAULT_LOG_LEVEL, LevelFilteredLogger } from '../logging/Loggers.js';
 import { combineEventListeners, createTransferEventLogger } from '../logging/TransferEventLogger.js';
+import { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
 import { TransferHistoryService } from '../transfer/TransferHistoryService.js';
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
 import { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
+import { TransferJobService } from '../transfer/TransferJobService.js';
 import { JobRuntimeService } from './JobRuntimeService.js';
 
 export interface UnikomApplication {
@@ -34,6 +37,12 @@ export interface UnikomApplication {
   logRepository: TransferLogRepository;
   credentialService: CredentialService;
   historyService: TransferHistoryService;
+  /** Creates and changes jobs, and refuses those the licence does not cover. */
+  jobService: TransferJobService;
+  /** The modules this installation may use. */
+  features: FeatureSet;
+  /** Stages behind STEP_1_COMPLETED; empty until step 2 or 3 register. */
+  processingStages: ProcessingStageRegistry;
   logger: Logger;
   runtime: JobRuntimeService;
   /** Releases the storage handle; a no-op for the in-memory variant. */
@@ -54,6 +63,12 @@ export interface ApplicationOptions {
   logger?: Logger;
   events?: TransferEventListener;
   stagingRoot?: string;
+  /**
+   * The modules this installation may use. Defaults to all of them so that
+   * development, tests and the demo are not a licensing exercise — a
+   * distribution build has to pass the customer's actual set here.
+   */
+  features?: FeatureSet;
 }
 
 interface Wiring {
@@ -76,6 +91,9 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     options.logLevel ?? DEFAULT_LOG_LEVEL
   );
 
+  const features = options.features ?? allFeatures();
+  const processingStages = new ProcessingStageRegistry(features);
+
   return {
     jobRepository: wiring.jobRepository,
     runRepository: wiring.runRepository,
@@ -83,6 +101,9 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     credentialRepository: wiring.credentialRepository,
     logRepository: wiring.logStore,
     credentialService,
+    features,
+    processingStages,
+    jobService: new TransferJobService(wiring.jobRepository, features),
     logger,
     historyService: new TransferHistoryService(
       wiring.runRepository,
@@ -94,10 +115,12 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
       runRepository: wiring.runRepository,
       transferFileRepository: wiring.transferFileRepository,
       encryptionKeyProvider: options.encryptionKeyProvider ?? new CredentialEncryptionKeyProvider(credentialService),
-      adapterProvider: new SourceAdapterProvider(credentialService),
+      adapterProvider: new SourceAdapterProvider(credentialService, features),
       // Every pipeline event becomes a log entry; extra listeners still see it.
       events: combineEventListeners(createTransferEventLogger(logger), options.events),
       stagingRoot: options.stagingRoot ?? defaultStagingRoot,
+      features,
+      processingStages,
     }),
     close: wiring.close,
   };

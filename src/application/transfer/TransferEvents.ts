@@ -17,6 +17,9 @@ export type TransferEventName =
   | 'FILE_RETRYING'
   | 'FILE_FAILED'
   | 'STEP_1_COMPLETED'
+  /** A stage behind Step 1 finished or failed; Step 1 itself stays valid. */
+  | 'PROCESSING_STAGE_COMPLETED'
+  | 'PROCESSING_STAGE_FAILED'
   | 'TRANSFER_RUN_COMPLETED';
 
 export interface TransferEvent {

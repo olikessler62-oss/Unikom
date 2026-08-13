@@ -12,6 +12,8 @@ import {
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
 import type { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
 import type { EncryptionKeyProvider } from '../../domain/encryption/EncryptionKeyProvider.js';
+import type { FeatureSet } from '../../domain/licensing/Feature.js';
+import type { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
 import { RuntimeBootstrapService } from './RuntimeBootstrapService.js';
 
 export interface RuntimeOptions {
@@ -22,6 +24,10 @@ export interface RuntimeOptions {
   adapterProvider?: SourceAdapterProvider;
   stagingRoot?: string;
   events?: TransferEventListener;
+  /** Which modules this installation may use; defaults to all of them. */
+  features?: FeatureSet;
+  /** Stages behind STEP_1_COMPLETED; absent means Step 1 alone. */
+  processingStages?: ProcessingStageRegistry;
 }
 
 /**
@@ -43,6 +49,8 @@ export class JobRuntimeService {
       encryptionKeyProvider: options.encryptionKeyProvider,
       stagingRoot: options.stagingRoot,
       events: options.events,
+      features: options.features,
+      processingStages: options.processingStages,
     });
 
     this.orchestrator = new TransferOrchestratorService(

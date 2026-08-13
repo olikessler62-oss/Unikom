@@ -17,7 +17,11 @@ import {
   Aes256GcmEncryptionProvider,
   type EncryptionProvider as FileEncryptionProvider,
 } from '../../infrastructure/encryption/Aes256GcmEncryptionProvider.js';
+import { allFeatures, FeatureNotLicensedError, type FeatureSet } from '../../domain/licensing/Feature.js';
+import type { FileProcessingContext } from '../../domain/processing/FileProcessingContext.js';
+import { ProcessingStageError } from '../../domain/processing/ProcessingStage.js';
 import { resolveWithin } from '../../infrastructure/filesystem/SafePath.js';
+import type { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
 import { FileSelectionService } from './FileSelectionService.js';
 import { FileStabilityService } from './FileStabilityService.js';
 import { FileIntegrityService } from './FileIntegrityService.js';
@@ -94,6 +98,10 @@ export interface TransferExecutionDependencies {
   events?: TransferEventListener;
   /** Injectable so tests do not wait out the real retry delays. */
   retryWait?: (milliseconds: number) => Promise<void>;
+  /** Which modules this installation may use; defaults to all of them. */
+  features?: FeatureSet;
+  /** Stages that run behind STEP_1_COMPLETED; absent means Step 1 alone. */
+  processingStages?: ProcessingStageRegistry;
 }
 
 export interface TransferExecutionOptions {
@@ -122,6 +130,8 @@ export class TransferExecutionService {
   private readonly stagingRoot: string;
   private readonly emit: TransferEventListener;
   private readonly retryWait?: (milliseconds: number) => Promise<void>;
+  private readonly features: FeatureSet;
+  private readonly processingStages?: ProcessingStageRegistry;
 
   constructor(dependencies: TransferExecutionDependencies) {
     this.transferFileRepository = dependencies.transferFileRepository;
@@ -136,6 +146,8 @@ export class TransferExecutionService {
     this.stagingRoot = dependencies.stagingRoot ?? path.join(process.cwd(), 'application-data');
     this.emit = dependencies.events ?? noopEventListener;
     this.retryWait = dependencies.retryWait;
+    this.features = dependencies.features ?? allFeatures();
+    this.processingStages = dependencies.processingStages;
   }
 
   async execute(
@@ -357,7 +369,15 @@ export class TransferExecutionService {
       // Encryption happens while the file is still in staging, never after it
       // reached the destination (section 45).
       let finalFilename = file.name;
+      const stagedPathBeforeEncryption = stagedPath;
       if (job.encryptionConfig.enabled && job.encryptionConfig.provider === 'AES_256_GCM') {
+        if (!this.features.isEnabled('ENCRYPTION')) {
+          // Refusing here rather than storing in the clear: the job asked for
+          // an encrypted file, and quietly delivering an unencrypted one is
+          // the worse of the two outcomes.
+          throw new FeatureNotLicensedError('ENCRYPTION', `Storing "${file.name}" encrypted`);
+        }
+
         const key = await this.encryptionKeyProvider.getKey(job.encryptionConfig.keyCredentialId);
         const encryptedPath = `${stagedPath}.enc`;
         const encryption = await this.encryptionProvider.encrypt(stagedPath, encryptedPath, key);
@@ -405,14 +425,35 @@ export class TransferExecutionService {
         sha256: verification.sha256,
       });
 
+      // Everything from here on happens after Step 1 is finished and can no
+      // longer invalidate it; the source file has already been dealt with.
+      const stageMessage = await this.runProcessingStages(runId, job, file, {
+        runId,
+        jobId: job.id,
+        sourceFile: file,
+        originalFilename: file.name,
+        currentFilename: path.basename(destination.path),
+        temporaryPath: stagedPathBeforeEncryption,
+        currentFilePath: destination.path,
+        finalDestinationPath: destination.path,
+        fileSize: destinationStats.size,
+        sha256: verification.sha256,
+        encrypted: finalFilename !== file.name,
+        metadata: {},
+      });
+
       return {
         filename: file.name,
         status: FileTransferStatus.SUCCESS,
         destinationPath: destination.path,
         sha256: verification.sha256,
-        message: sourceActionMessage
-          ? `STEP_1_COMPLETED (${sourceActionMessage})`
-          : 'STEP_1_COMPLETED',
+        message: [
+          'STEP_1_COMPLETED',
+          sourceActionMessage ? `(${sourceActionMessage})` : undefined,
+          stageMessage,
+        ]
+          .filter(Boolean)
+          .join(' '),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -422,6 +463,41 @@ export class TransferExecutionService {
       this.event('FILE_FAILED', runId, job, file.name, message);
 
       return { filename: file.name, status: FileTransferStatus.FAILED, message };
+    }
+  }
+
+  /**
+   * Hands the finished file to the stages behind Step 1 (spec sections 75-76).
+   * Without registered stages this does nothing, which is the base product.
+   *
+   * A failing stage does not turn the transfer into a failure: Step 1 is
+   * complete and persisted, the source file is already archived or deleted, and
+   * reporting it as failed would invite a retry that re-downloads a file which
+   * arrived perfectly well. It is logged as an error and named in the outcome.
+   */
+  private async runProcessingStages(
+    runId: string,
+    job: TransferJob,
+    file: SourceFile,
+    context: FileProcessingContext
+  ): Promise<string | undefined> {
+    if (!this.processingStages || this.processingStages.isEmpty) {
+      return undefined;
+    }
+
+    try {
+      await this.processingStages.run(context, (stage) => {
+        this.event('PROCESSING_STAGE_COMPLETED', runId, job, file.name, `Stage "${stage}" completed`);
+      });
+
+      return undefined;
+    } catch (error) {
+      const stage = error instanceof ProcessingStageError ? error.stage : 'unknown';
+      const message = error instanceof Error ? error.message : String(error);
+
+      this.event('PROCESSING_STAGE_FAILED', runId, job, file.name, message, { stage });
+
+      return `- further processing failed in stage "${stage}"`;
     }
   }
 

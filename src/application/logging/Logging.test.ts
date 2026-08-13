@@ -61,6 +61,9 @@ test('pipeline events carry a sensible severity', () => {
   // A retry means the run is still healthy; only a real failure is an error.
   assert.equal(levelOf('FILE_RETRYING'), 'WARNING');
   assert.equal(levelOf('FILE_FAILED'), 'ERROR');
+  // A stage behind step 1 failed: step 1 stands, but somebody has to see it.
+  assert.equal(levelOf('PROCESSING_STAGE_COMPLETED'), 'INFO');
+  assert.equal(levelOf('PROCESSING_STAGE_FAILED'), 'ERROR');
 });
 
 test('an event becomes a log entry with its origin attached', () => {
