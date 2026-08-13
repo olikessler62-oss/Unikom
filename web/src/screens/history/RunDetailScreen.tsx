@@ -80,7 +80,7 @@ export function RunDetailScreen({ runId, onBack }: Props) {
           <RunBadge status={detail.status} />
         </div>
 
-        <div className="cards" style={{ marginTop: '1rem', marginBottom: 0 }}>
+        <div className="cards" style={{ marginTop: '1.2rem', marginBottom: 0, border: 0 }}>
           <Count label="Gefunden" value={detail.filesFound} />
           <Count label="Übernommen" value={detail.filesSucceeded} />
           <Count label="Übersprungen" value={detail.filesSkipped} />
@@ -189,7 +189,7 @@ export function RunDetailScreen({ runId, onBack }: Props) {
 function Count({ label, value, bad }: { label: string; value: number; bad?: boolean }) {
   return (
     <div>
-      <div className={bad ? 'figure__value figure__value--bad' : 'figure__value'} style={{ fontSize: '1.5rem' }}>
+      <div className={bad ? 'figure__value figure__value--bad' : 'figure__value'} style={{ fontSize: '1.8rem' }}>
         {value}
       </div>
       <div className="figure__label">{label}</div>

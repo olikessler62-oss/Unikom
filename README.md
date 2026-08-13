@@ -19,7 +19,7 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 319 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 328 Tests, inklusive echter SFTP- und FTPS-Protokolltests
 npm run web:build # Oberfläche nach dist/web bauen
 npm run serve     # Server und Oberfläche auf http://127.0.0.1:8383
 npm run dev       # Beispiellauf mit lokaler Quelle, ohne Server
@@ -134,6 +134,40 @@ Einschalten lohnt für ein bestimmtes Muster: Quellsysteme, die ihre Dateien
 nächtlich neu schreiben, ohne etwas zu ändern. Gleicher Name, neue
 Änderungszeit — der Wiederholungsschutz greift dann nicht, die Inhaltsprüfung
 schon.
+
+## Verzeichnisse und Freigaben
+
+Quell- und Zielverzeichnis sind frei einstellbar: ein lokaler Pfad, ein
+Netzlaufwerk oder eine Freigabe als UNC-Pfad.
+
+```text
+D:\Daten\kunde-a\eingang
+\\dateiserver\austausch\kunde-a
+```
+
+Schrägstriche und Backslashes werden gleich behandelt, ebenso ein abschließendes
+Trennzeichen. Auch die Mandantengrenze arbeitet auf Freigaben:
+`\\server\austausch\KundeAB` liegt korrekt **außerhalb** von
+`\\server\austausch\KundeA` — verglichen werden aufgelöste Pfade, keine
+Zeichenketten.
+
+Im Job-Editor prüfen zwei Knöpfe, was sonst erst nachts auffiele:
+
+| Knopf | Antwortet auf |
+| ----- | ------------- |
+| **Verbindung testen** | Ist die Quelle erreichbar, und wie viele Dateien liegen dort? |
+| **Ziel prüfen** | Existiert das Verzeichnis, ist es eines, kann Unikom dort schreiben, liegt es im Root-Verzeichnis des Mandanten? |
+
+Das Schreibrecht wird durch einen **Schreibversuch** ermittelt, nicht durch
+Auslesen von Berechtigungen: Bei einer Windows-Freigabe ergibt sich das
+effektive Recht aus ACLs, Gruppenzugehörigkeit und Freigabeberechtigungen, von
+denen keine in dem steht, was ein Dateisystemaufruf meldet. Die Testdatei wird
+sofort wieder entfernt.
+
+**Wichtig bei Freigaben:** Es zählt das Konto, unter dem Unikom läuft — nicht
+das der angemeldeten Person. Läuft Unikom als Windows-Dienst, braucht dieses
+Dienstkonto Zugriff. Zugangsdaten für eine Freigabe lassen sich nicht im Job
+hinterlegen; der Zugriff erfolgt mit der Identität des Prozesses.
 
 ## Aufbewahrung
 

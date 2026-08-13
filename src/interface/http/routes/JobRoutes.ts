@@ -1,7 +1,9 @@
 import type { UnikomApplication } from '../../../application/runtime/UnikomApplication.js';
 import { requiredFeaturesFor } from '../../../application/licensing/JobLicensing.js';
 import { DEFAULT_TENANT_ID } from '../../../domain/tenants/Tenant.js';
+import { assertWithinTenant } from '../../../domain/tenants/TenantContainment.js';
 import type { TransferJob } from '../../../domain/transfer/TransferJob.js';
+import { checkDirectory } from '../../../infrastructure/filesystem/DirectoryCheck.js';
 import { ApiError, created, ok, requireObject, type Route } from '../Http.js';
 
 /**
@@ -83,6 +85,41 @@ export function jobRoutes(application: UnikomApplication): Route[] {
         } finally {
           await adapter.dispose?.();
         }
+      },
+    },
+    {
+      // The destination is as easy to mistype as the source, and on a share it
+      // is just as likely to be unreachable — so it gets its own check.
+      method: 'POST',
+      pattern: '/api/jobs/check-destination',
+      authorization: 'MANAGE_JOBS',
+      handle: async ({ body }) => {
+        const input = requireObject(body, 'The destination check');
+        const directory = typeof input.directory === 'string' ? input.directory : '';
+        const tenantId = typeof input.tenantId === 'string' ? input.tenantId : undefined;
+
+        // The client boundary is reported here rather than only on save, so a
+        // wrong directory is caught while somebody is still typing it.
+        if (tenantId) {
+          const tenant = await application.tenantService.getById(tenantId);
+
+          if (tenant?.rootDirectory) {
+            try {
+              assertWithinTenant(tenant, directory, 'The destination');
+            } catch (error) {
+              return ok({
+                ok: false,
+                exists: false,
+                writable: false,
+                message: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        }
+
+        return ok(
+          await checkDirectory(directory, { createIfMissing: input.createDestinationDirectory === true })
+        );
       },
     },
     {

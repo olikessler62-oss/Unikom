@@ -95,9 +95,10 @@ export function DashboardScreen() {
   );
 }
 
+/** The row itself carries the frame and the dividing rules; this is one cell. */
 function Figure({ label, value, bad }: { label: string; value: number; bad?: boolean }) {
   return (
-    <div className="card">
+    <div>
       <div className={bad ? 'figure__value figure__value--bad' : 'figure__value'}>{value}</div>
       <div className="figure__label">{label}</div>
     </div>

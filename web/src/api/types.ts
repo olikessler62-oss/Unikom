@@ -128,6 +128,14 @@ export interface ConnectionTestResult {
   filesFound?: number;
 }
 
+export interface DirectoryCheckResult {
+  ok: boolean;
+  message: string;
+  exists: boolean;
+  writable: boolean;
+  wouldBeCreated?: boolean;
+}
+
 export type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'PARTIAL_SUCCESS' | 'FAILED' | 'CANCELLED';
 
 export interface RunSummary {

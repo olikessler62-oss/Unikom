@@ -8,6 +8,8 @@ application-data/
 
 # Quell-/Zielverzeichnisse der Beispielausführung aus src/index.ts
 demo/
+demo-quelle/
+demo-ziel/
 
 # Lokale Claude-Code-Einstellungen; .claude/settings.json bleibt versioniert
 .claude/settings.local.json

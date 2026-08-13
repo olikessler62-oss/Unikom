@@ -6,8 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { createInMemoryApplication, type UnikomApplication } from '../runtime/UnikomApplication.js';
-import { DEFAULT_TENANT_ID } from '../../domain/tenants/Tenant.js';
-import { rootsOverlap, TenantBoundaryError } from '../../domain/tenants/TenantContainment.js';
+import { DEFAULT_TENANT_ID, type Tenant } from '../../domain/tenants/Tenant.js';
+import { assertWithinTenant, rootsOverlap, TenantBoundaryError } from '../../domain/tenants/TenantContainment.js';
 import { StaticMasterKeyProvider } from '../../infrastructure/security/MasterKeyProvider.js';
 import { createTransferJob } from '../../testing/TransferJobFixture.js';
 
@@ -79,6 +79,39 @@ test('similar directory names are not treated as nested', () => {
   assert.equal(rootsOverlap('D:/Data/KundeA', 'D:/Data/KundeAB'), false);
   assert.equal(rootsOverlap('D:/Data/KundeA', 'D:/Data/KundeA/eingang'), true);
   assert.equal(rootsOverlap('D:/Data/KundeA', 'D:/Data/KundeA'), true);
+});
+
+test('a network share works as a client directory just like a local path', () => {
+  const share: Tenant = {
+    id: 'kunde-a',
+    name: 'Kunde A',
+    rootDirectory: '\\\\dateiserver\\austausch\\KundeA',
+    enabled: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // Inside its own share directory.
+  assertWithinTenant(share, '\\\\dateiserver\\austausch\\KundeA\\eingang', 'The destination');
+
+  // Mixed separators are the same place; somebody typing forward slashes must
+  // not be turned away for it.
+  assertWithinTenant(share, '//dateiserver/austausch/KundeA/eingang', 'The destination');
+
+  // The neighbouring client's directory on the same share is outside.
+  assert.throws(
+    () => assertWithinTenant(share, '\\\\dateiserver\\austausch\\KundeB', 'The destination'),
+    TenantBoundaryError
+  );
+
+  // And so is a local path, however similar it looks.
+  assert.throws(() => assertWithinTenant(share, 'C:\\Daten\\KundeA', 'The destination'), TenantBoundaryError);
+});
+
+test('two clients on the same share cannot overlap either', () => {
+  assert.equal(rootsOverlap('\\\\server\\austausch\\KundeA', '\\\\server\\austausch\\KundeB'), false);
+  assert.equal(rootsOverlap('\\\\server\\austausch\\KundeA', '\\\\server\\austausch\\KundeAB'), false);
+  assert.equal(rootsOverlap('\\\\server\\austausch', '\\\\server\\austausch\\KundeA'), true);
 });
 
 test('a job cannot write outside its client directory', async () => {

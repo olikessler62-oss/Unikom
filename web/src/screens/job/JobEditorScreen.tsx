@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../../api/client.js';
 import { messageOf, useResource } from '../../api/useResource.js';
-import type { ConnectionTestResult, Credential, Job, Tenant } from '../../api/types.js';
+import type { ConnectionTestResult, Credential, DirectoryCheckResult, Job, Tenant } from '../../api/types.js';
 import { CheckField, Field, Loading, Notice } from '../../components/Pieces.js';
 import { emptyJob, parseList, withSourceDirectory, withSourceType } from './emptyJob.js';
 
@@ -20,6 +20,9 @@ export function JobEditorScreen({ jobId, onDone }: Props) {
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [test, setTest] = useState<{ busy: boolean; result?: ConnectionTestResult; error?: string }>({ busy: false });
+  const [target, setTarget] = useState<{ busy: boolean; result?: DirectoryCheckResult; error?: string }>({
+    busy: false,
+  });
 
   useEffect(() => {
     if (jobId === 'new') {
@@ -62,6 +65,22 @@ export function JobEditorScreen({ jobId, onDone }: Props) {
       setTest({ busy: false, result });
     } catch (failure) {
       setTest({ busy: false, error: messageOf(failure, 'Der Verbindungstest ist fehlgeschlagen') });
+    }
+  }
+
+  async function checkDestination(): Promise<void> {
+    setTarget({ busy: true });
+
+    try {
+      const result = await api.post<DirectoryCheckResult>('/api/jobs/check-destination', {
+        directory: job!.destinationDirectory,
+        createDestinationDirectory: job!.createDestinationDirectory,
+        tenantId: job!.tenantId,
+      });
+
+      setTarget({ busy: false, result });
+    } catch (failure) {
+      setTarget({ busy: false, error: messageOf(failure, 'Das Zielverzeichnis konnte nicht geprüft werden') });
     }
   }
 
@@ -236,9 +255,17 @@ export function JobEditorScreen({ jobId, onDone }: Props) {
           </>
         )}
 
-        <Field label="Quellverzeichnis">
+        <Field
+          label="Quellverzeichnis"
+          hint={
+            job.sourceType === 'LOCAL'
+              ? 'Lokaler Pfad oder Freigabe, etwa \\dateiserver\austausch\kunde-a. Bei einer Freigabe zählt das Konto, unter dem Unikom läuft — nicht Ihr eigenes.'
+              : 'Pfad auf dem entfernten Server, etwa /export/bestellungen.'
+          }
+        >
           <input
             value={job.sourceDirectory}
+            placeholder={job.sourceType === 'LOCAL' ? 'D:\Daten\eingang' : '/export/bestellungen'}
             onChange={(event) => setJob(withSourceDirectory(job, event.target.value))}
           />
         </Field>
@@ -340,9 +367,13 @@ export function JobEditorScreen({ jobId, onDone }: Props) {
       <section className="card" style={{ marginBottom: '1rem' }}>
         <h2>Ziel</h2>
 
-        <Field label="Zielverzeichnis">
+        <Field
+          label="Zielverzeichnis"
+          hint="Lokaler Pfad oder Freigabe. Bei einer Freigabe braucht das Konto, unter dem Unikom läuft, dort Schreibrecht."
+        >
           <input
             value={job.destinationDirectory}
+            placeholder="D:\Daten\kunde-a\eingang"
             onChange={(event) => change({ destinationDirectory: event.target.value })}
           />
         </Field>
@@ -352,6 +383,30 @@ export function JobEditorScreen({ jobId, onDone }: Props) {
           checked={job.createDestinationDirectory}
           onChange={(createDestinationDirectory) => change({ createDestinationDirectory })}
         />
+
+        <div className="row">
+          <button
+            type="button"
+            className="secondary"
+            disabled={target.busy || !job.destinationDirectory}
+            onClick={() => void checkDestination()}
+          >
+            {target.busy ? 'Ziel wird geprüft …' : 'Ziel prüfen'}
+          </button>
+        </div>
+
+        {target.error && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <Notice kind="error">{target.error}</Notice>
+          </div>
+        )}
+        {target.result && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <Notice kind={target.result.ok ? (target.result.wouldBeCreated ? 'warn' : 'info') : 'error'}>
+              {target.result.message}
+            </Notice>
+          </div>
+        )}
 
         <Field label="Wenn die Datei dort schon liegt">
           <select
