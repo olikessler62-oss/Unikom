@@ -19,7 +19,7 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 247 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 248 Tests, inklusive echter SFTP- und FTPS-Protokolltests
 npm run dev       # Beispiellauf mit lokaler Quelle
 npm run build     # Produktivbuild nach dist/ (ohne Tests)
 ```
@@ -63,6 +63,34 @@ noch in Ordnung.
 Über den `TransferHistoryService` sind Laufübersicht, Laufdetail mit Dateien und
 Protokoll, fehlgeschlagene Dateien sowie die Kennzahlen des Dashboards
 abrufbar.
+
+## Dubletten: zwei verschiedene Dinge
+
+Im Code stecken zwei Mechanismen, die leicht verwechselt werden:
+
+**Wiederholungsschutz** — dieselbe Quelldatei nach Pfad, Name, Größe und
+Änderungszeit wurde schon übernommen, also nicht erneut holen. Das ist keine
+fachliche Dublettenprüfung, sondern die Wiederholbarkeit des Laufs, und deshalb
+**nicht abschaltbar**. Ohne sie holt der Scheduler alle 15 Minuten das gesamte
+Quellverzeichnis erneut.
+
+**Inhaltsgleichheit** — zwei *verschiedene* Dateien mit identischem Inhalt. Das
+ist ein Job-Schalter, `detectContentDuplicates`, und er ist **voreingestellt
+aus**:
+
+```typescript
+detectContentDuplicates: true
+```
+
+Welche Dateien ein Quellsystem bereitstellt, ist dessen Entscheidung. Ob
+derselbe Inhalt unter zwei Namen ein Versehen ist oder Absicht, lässt sich von
+hier aus nicht beurteilen — und eine Datei stillschweigend zu unterschlagen, die
+der Kunde geschickt hat, ist die riskantere Annahme.
+
+Einschalten lohnt für ein bestimmtes Muster: Quellsysteme, die ihre Dateien
+nächtlich neu schreiben, ohne etwas zu ändern. Gleicher Name, neue
+Änderungszeit — der Wiederholungsschutz greift dann nicht, die Inhaltsprüfung
+schon.
 
 ## Aufbewahrung
 
@@ -235,11 +263,20 @@ den jeweiligen Quell-Adaptern.
   [SecretsNeverLeak.test.ts](src/application/credentials/SecretsNeverLeak.test.ts).
 - Entfernte Dateinamen können das Ziel- oder Staging-Verzeichnis nicht verlassen.
 
+## Abweichungen von der Spec
+
+Bewusste Entscheidungen gegen den Wortlaut der Spec. Sie stehen hier, damit sie
+beim nächsten Abgleich nicht als Lücke erscheinen:
+
+| Stelle | Abweichung | Grund |
+| ------ | ---------- | ----- |
+| §39–40, §108 | Die Erkennung inhaltsgleicher Dateien ist ein Job-Schalter, voreingestellt **aus** | Welche Dateien eine Quelle liefert, ist ihre Entscheidung. Der Wiederholungsschutz ist davon unberührt und bleibt fest. |
+| §21 | Benutzerdefinierte Cron-Ausdrücke lösen einen klaren Fehler aus | Besser als still falsch zu rechnen |
+
 ## Stand
 
-Umgesetzt sind die Phasen 1 bis 11 der Spec mit Ausnahme benutzerdefinierter
-Cron-Ausdrücke (§21), die derzeit einen klaren Fehler auslösen statt still
-falsch zu rechnen. Damit ist auch Kriterium 41 erfüllt: Step 2 kann an
+Umgesetzt sind die Phasen 1 bis 11 der Spec mit den oben genannten
+Abweichungen. Damit ist auch Kriterium 41 erfüllt: Step 2 kann an
 `STEP_1_COMPLETED` angeschlossen werden, und der Vertrag dafür existiert.
 
 Offen ist die Oberfläche (§83–94). Für Step 2 und Step 3 stehen Vertrag,

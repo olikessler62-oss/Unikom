@@ -127,6 +127,9 @@ test('the data directory holds the database and a clean staging area', async () 
   application.close();
 });
 
+// This is the pattern the content check exists for: a source system that
+// rewrites its files nightly without changing anything. Same name, new
+// modification time - the repeat protection cannot see that they are the same.
 test('a file whose timestamp changed is downloaded once, not on every run', async () => {
   const { dataDirectory, sourceDirectory, destinationDirectory } = await workspace();
   const sourceFile = path.join(sourceDirectory, 'ORDER_001.csv');
@@ -134,7 +137,7 @@ test('a file whose timestamp changed is downloaded once, not on every run', asyn
 
   const application = createPersistentApplication(dataDirectory);
   await application.jobRepository.save(
-    createTransferJob({ id: 'customer-a', sourceDirectory, destinationDirectory })
+    createTransferJob({ id: 'customer-a', sourceDirectory, destinationDirectory, detectContentDuplicates: true })
   );
 
   const first = await application.runtime.orchestrator.runJobNow('customer-a', new Date('2026-08-13T06:45:00.000Z'));

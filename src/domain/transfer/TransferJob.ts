@@ -128,6 +128,23 @@ export interface TransferJob {
   retry?: RetryConfig;
   /** How long log and file history are kept; defaults to 90 days of log. */
   retention?: RetentionConfig;
+  /**
+   * Whether two files with identical content but different names count as
+   * duplicates, so that the second one is not stored. **Off by default.**
+   *
+   * Which files a source system provides is its own decision. Whether the same
+   * content arriving twice under two names is a mistake or intended is
+   * something we cannot tell from here, and silently withholding a file the
+   * customer sent is the riskier of the two assumptions.
+   *
+   * Worth switching on for one specific pattern: source systems that rewrite
+   * their files nightly without changing anything. Same name, new modification
+   * time - the repeat protection does not catch that, this does.
+   *
+   * Independent of this, the same source file is never fetched twice; that is
+   * what makes a scheduled run repeatable and is not configurable.
+   */
+  detectContentDuplicates?: boolean;
 
   executionMode: ExecutionMode;
   schedule?: JobSchedule;

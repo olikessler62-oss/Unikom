@@ -142,7 +142,7 @@ test('the outcome order follows the discovery order despite parallelism', async 
 });
 
 test('identical content is stored once even when processed concurrently', async () => {
-  const harness = await setup({ maxConcurrentFiles: 4 });
+  const harness = await setup({ maxConcurrentFiles: 4, detectContentDuplicates: true });
   const same = 'customer;amount\nA;42\n';
   await writeFiles(harness.sourceDirectory, {
     'ORDER_001.csv': same,

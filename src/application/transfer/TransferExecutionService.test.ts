@@ -137,6 +137,10 @@ test('an unfinished upload is ignored until it is renamed', async () => {
   assert.equal(secondRun.filesSucceeded, 1);
 });
 
+// The repeat protection, and it runs here with detectContentDuplicates off:
+// recognising the same source file again is what makes a scheduled run
+// repeatable at all, so it is not a setting. Without it every run would fetch
+// the whole source directory anew.
 test('the same file is not transferred twice', async () => {
   const harness = await setup();
   await writeSourceFile(harness, 'ORDER_001.csv');
@@ -149,8 +153,22 @@ test('the same file is not transferred twice', async () => {
   assert.equal(secondRun.outcomes[0].status, FileTransferStatus.SKIPPED);
 });
 
-test('identical content under a different name is not transferred twice', async () => {
+test('identical content under a different name is transferred by default', async () => {
+  // Which files a source provides is its own decision. Two names, two files -
+  // withholding one the customer sent is the riskier assumption.
   const harness = await setup();
+  await writeSourceFile(harness, 'ORDER_001.csv');
+  await writeSourceFile(harness, 'ORDER_002.csv');
+
+  const result = await harness.service.execute(harness.job, harness.adapter);
+
+  assert.equal(result.filesSucceeded, 2);
+  assert.equal(result.filesSkipped, 0);
+  assert.deepEqual((await fs.readdir(harness.destinationDirectory)).sort(), ['ORDER_001.csv', 'ORDER_002.csv']);
+});
+
+test('identical content under a different name is skipped once the job asks for it', async () => {
+  const harness = await setup({ detectContentDuplicates: true });
   await writeSourceFile(harness, 'ORDER_001.csv');
   await writeSourceFile(harness, 'ORDER_002.csv');
 

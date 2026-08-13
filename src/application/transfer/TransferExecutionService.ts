@@ -342,28 +342,33 @@ export class TransferExecutionService {
       }
       this.event('FILE_VALIDATED', runId, job, file.name, 'Integrity check passed, SHA-256 calculated');
 
-      const knownContent = await this.duplicateDetectionService.checkContent(job.id, verification.sha256);
-      // Claiming the hash right after the repository check closes the window in
-      // which two concurrently processed files with identical content would
-      // both pass. There is no await between the check and the claim, so this
-      // is atomic for the run.
-      const contentAlreadyClaimed = context.claimedHashes.has(verification.sha256);
-      context.claimedHashes.add(verification.sha256);
+      // Two files of identical content under different names are only a
+      // duplicate if the job says so. Which files a source provides is its own
+      // decision, and withholding one it sent is the riskier assumption.
+      if (job.detectContentDuplicates) {
+        const knownContent = await this.duplicateDetectionService.checkContent(job.id, verification.sha256);
+        // Claiming the hash right after the repository check closes the window
+        // in which two concurrently processed files with identical content
+        // would both pass. There is no await between the check and the claim,
+        // so this is atomic for the run.
+        const contentAlreadyClaimed = context.claimedHashes.has(verification.sha256);
+        context.claimedHashes.add(verification.sha256);
 
-      if (knownContent.duplicate || contentAlreadyClaimed) {
-        // Recording the resolution here is what stops the next run from
-        // downloading this file again just to hash it (spec section 39).
-        await this.transferFileRepository.save(
-          record(FileTransferStatus.SKIPPED, { sha256: verification.sha256, resolution: 'DUPLICATE' })
-        );
-        return {
-          filename: file.name,
-          status: FileTransferStatus.SKIPPED,
-          sha256: verification.sha256,
-          message: contentAlreadyClaimed
-            ? 'Identical content was already taken over earlier in this run'
-            : knownContent.message,
-        };
+        if (knownContent.duplicate || contentAlreadyClaimed) {
+          // Recording the resolution here is what stops the next run from
+          // downloading this file again just to hash it (spec section 39).
+          await this.transferFileRepository.save(
+            record(FileTransferStatus.SKIPPED, { sha256: verification.sha256, resolution: 'DUPLICATE' })
+          );
+          return {
+            filename: file.name,
+            status: FileTransferStatus.SKIPPED,
+            sha256: verification.sha256,
+            message: contentAlreadyClaimed
+              ? 'Identical content was already taken over earlier in this run'
+              : knownContent.message,
+          };
+        }
       }
 
       // Encryption happens while the file is still in staging, never after it
