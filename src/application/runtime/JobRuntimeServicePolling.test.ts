@@ -29,12 +29,20 @@ test('the polling loop can be started and stopped', async () => {
   const timer = runtime.startPolling(10);
   assert.equal(runtime.startPolling(10), timer, 'starting twice must reuse the running timer');
 
-  await new Promise((resolve) => setTimeout(resolve, 60));
-  runtime.stopPolling();
+  // Wait for the effect instead of for a fixed span, otherwise the test turns
+  // flaky as soon as the machine is busy.
+  const target = path.join(tempDir, 'dest', 'ORDER_001.csv');
+  const deadline = Date.now() + 5_000;
+  let transferred = false;
 
-  const transferred = await fs
-    .access(path.join(tempDir, 'dest', 'ORDER_001.csv'))
-    .then(() => true, () => false);
+  while (!transferred && Date.now() < deadline) {
+    transferred = await fs.access(target).then(() => true, () => false);
+    if (!transferred) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+
+  runtime.stopPolling();
 
   assert.equal(transferred, true, 'the polling loop should have executed the due job');
 });

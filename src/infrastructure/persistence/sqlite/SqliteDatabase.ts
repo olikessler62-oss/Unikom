@@ -20,6 +20,18 @@ CREATE TABLE IF NOT EXISTS transfer_jobs (
 CREATE INDEX IF NOT EXISTS ix_jobs_enabled        ON transfer_jobs(enabled);
 CREATE INDEX IF NOT EXISTS ix_jobs_next_execution ON transfer_jobs(next_execution_at);
 
+-- Credentials get explicit columns rather than a document blob, so no code
+-- path can dump the whole record and take the secret along with it.
+CREATE TABLE IF NOT EXISTS credentials (
+  id                TEXT PRIMARY KEY,
+  name              TEXT NOT NULL UNIQUE,
+  type              TEXT NOT NULL,
+  username          TEXT,
+  encrypted_secret  TEXT NOT NULL,
+  created_at        TEXT NOT NULL,
+  updated_at        TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS transfer_runs (
   id          TEXT PRIMARY KEY,
   job_id      TEXT NOT NULL,

@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 
 export interface FileIntegrityValidationOptions {
   expectedSize?: number;
@@ -14,9 +16,14 @@ export interface FileIntegrityValidationResult {
 }
 
 export class FileIntegrityService {
+  /**
+   * Streamed on purpose: a transferred file can be far larger than the memory
+   * available to the process.
+   */
   async calculateSha256(filePath: string): Promise<string> {
-    const data = await fs.readFile(filePath);
-    return crypto.createHash('sha256').update(data).digest('hex');
+    const hash = crypto.createHash('sha256');
+    await pipeline(createReadStream(filePath), hash);
+    return hash.digest('hex');
   }
 
   async verifyFile(filePath: string, options: FileIntegrityValidationOptions = {}): Promise<FileIntegrityValidationResult> {
