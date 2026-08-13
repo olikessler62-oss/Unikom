@@ -66,6 +66,8 @@ export function LoginScreen({ onLogin }: Props) {
         <button type="submit" disabled={busy} style={{ width: '100%' }}>
           {busy ? 'Anmelden …' : 'Anmelden'}
         </button>
+
+        <div className="build-stamp">Stand {__UNIKOM_BUILD__}</div>
       </form>
     </div>
   );

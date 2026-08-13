@@ -92,6 +92,8 @@ export function App() {
           >
             Abmelden
           </button>
+
+          <div className="build-stamp">Stand {__UNIKOM_BUILD__}</div>
         </div>
       </nav>
 

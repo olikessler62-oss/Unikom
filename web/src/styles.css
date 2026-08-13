@@ -1,46 +1,60 @@
 /*
  * Unikom — interface styling.
  *
- * Deliberately not the default dashboard look. Warm paper instead of white,
- * near-black instead of blue-grey, hairlines and whitespace instead of boxes
- * with shadows, square corners instead of rounded ones, and one restrained
- * accent used sparingly. Headings are set in a serif, the rest in the system
- * sans; that pairing alone separates a designed interface from a framework
- * default.
+ * Eine Skala aus Grautönen, Orange als einzige Farbe.
+ *
+ * Die Tiefe kommt hier nicht aus Farbe, sondern aus echten Stufen: Grund,
+ * Fläche, gehobene Fläche, Bedienelement — jede Ebene ist einen sichtbaren
+ * Schritt heller als die darunter. Orange trägt nur, was Aufmerksamkeit
+ * verdient: den aktiven Punkt, den Fokus, die Hauptaktion, den Lichtrand
+ * einer Fläche. Sparsam eingesetzt wirkt eine Farbe stärker als überall
+ * verteilt.
+ *
+ * Bewegung bleibt: ein weites Licht wandert langsam über den Grund, Knöpfe
+ * bekommen beim Überfahren einen Lichtstreifen, laufende Vorgänge pulsen.
  *
  * Fonts come from the machine. This runs on the customer's own server, often
  * without an internet connection, so a webfont from a CDN would be a
  * dependency that fails exactly when it must not.
+ *
+ * Alles, was nicht überall unterstützt wird — background-clip: text,
+ * backdrop-filter — steht hinter @supports oder ist so gebaut, dass ohne
+ * Unterstützung nichts verschwindet.
  */
 
 :root {
-  /* Warm off-white. Pure white reads as unfinished on a large surface. */
-  --paper: #f6f4ef;
-  --surface: #fdfcf9;
-  --sunken: #efece5;
+  /* Die Graustufen. Jede ist ein sichtbarer Schritt, kein Hauch. */
+  --g-ground: #0d0e10;
+  --g-1: #141618;
+  --g-2: #1b1d20;
+  --g-3: #232629;
+  --g-4: #2c2f33;
+  --g-5: #383c41;
 
-  --ink: #15181b;
-  --ink-soft: #5d6167;
-  --ink-faint: #8a8d91;
+  --text: #e9ebed;
+  --text-soft: #a2a8ae;
+  --text-faint: #757b82;
 
-  --rule: #dcd7cd;
-  --rule-strong: #c3bcae;
+  --rule: rgba(255, 255, 255, 0.09);
+  --rule-strong: rgba(255, 255, 255, 0.17);
 
-  /* Copper. One accent, used for what is current - never for decoration. */
-  --accent: #8c5424;
-  --accent-soft: #f0e6da;
+  /* Die eine Farbe. */
+  --orange: 255, 138, 60;
+  --orange-deep: 240, 106, 32;
+  --orange-light: 255, 179, 122;
 
-  --positive: #2f5b4c;
-  --caution: #8a6118;
-  --negative: #8e2f26;
+  --live: 95, 191, 148;
+  --caution: 217, 164, 65;
+  --alarm: 226, 99, 92;
 
-  --serif: Constantia, 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  --sans: 'Segoe UI', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
-  --mono: 'Cascadia Mono', Consolas, 'SF Mono', 'Liberation Mono', monospace;
+  --sans: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+  --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', 'Liberation Mono', monospace;
 
   --step: 1.5rem;
+  --radius: 12px;
+  --radius-small: 8px;
 
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 * {
@@ -48,206 +62,413 @@
 }
 
 ::selection {
-  background: var(--accent-soft);
+  background: rgba(var(--orange), 0.32);
+  color: #fff;
 }
 
 body {
   margin: 0;
+  min-height: 100vh;
   font-family: var(--sans);
   font-size: 15px;
   line-height: 1.55;
-  color: var(--ink);
-  background: var(--paper);
+  color: var(--text);
+  background-color: var(--g-ground);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Ein weites, warmes Licht wandert langsam über den Grund. Es ist so schwach,
+ * dass man es nicht als Farbe liest — es nimmt dem Grau nur das Flache.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -30%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 44% at 24% 22%, rgba(var(--orange), 0.11) 0%, transparent 68%),
+    radial-gradient(36% 40% at 76% 72%, rgba(255, 255, 255, 0.05) 0%, transparent 66%);
+  filter: blur(34px);
+  animation: drift 58s ease-in-out infinite alternate;
+}
+
+/* Ein feines Raster, damit das Licht eine Fläche hat, auf der es liegt. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 52px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 52px);
+  -webkit-mask-image: radial-gradient(82% 72% at 38% 18%, #000 0%, transparent 86%);
+  mask-image: radial-gradient(82% 72% at 38% 18%, #000 0%, transparent 86%);
+}
+
+@keyframes drift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, 3%, 0) scale(1.1);
+  }
+  100% {
+    transform: translate3d(-2%, 4%, 0) scale(1.03);
+  }
 }
 
 h1,
 h2,
 h3 {
-  font-family: var(--serif);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   line-height: 1.2;
   margin: 0 0 0.4rem;
 }
 
 h1 {
   font-size: 1.75rem;
+  color: #fff;
 }
 
 h2 {
-  font-size: 1.2rem;
+  font-size: 1.05rem;
 }
 
 a {
-  color: var(--accent);
+  color: rgb(var(--orange));
   text-underline-offset: 0.2em;
 }
 
 code {
   font-family: var(--mono);
-  font-size: 0.9em;
-  background: var(--sunken);
-  padding: 0.1em 0.35em;
+  font-size: 0.88em;
+  background: var(--g-3);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 0.1em 0.4em;
+  color: #e2d5c9;
 }
 
 /* ---------- Layout ---------- */
 
 .shell {
   display: grid;
-  grid-template-columns: 232px 1fr;
+  grid-template-columns: 244px 1fr;
   min-height: 100vh;
 }
 
 .sidebar {
-  background: var(--ink);
-  color: #c9c4ba;
-  padding: 1.75rem 0 1.25rem;
+  position: relative;
+  padding: 1.9rem 0 1.25rem;
   display: flex;
   flex-direction: column;
+  background: linear-gradient(180deg, var(--g-2) 0%, var(--g-1) 60%, rgba(13, 14, 16, 0.9) 100%);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+}
+
+/* Die Kante der Seitenleiste ist eine Lichtquelle, oben am hellsten. */
+.sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(var(--orange), 0.8) 0%,
+    rgba(255, 255, 255, 0.18) 26%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  box-shadow: 0 0 20px rgba(var(--orange), 0.22);
 }
 
 .sidebar__brand {
-  font-family: var(--serif);
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #f6f4ef;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #fff;
   padding: 0 1.5rem;
-  margin-bottom: 0.25rem;
 }
 
-/* A quiet line under the name; the product is one word, it can carry a rule. */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .sidebar__brand {
+    background: linear-gradient(96deg, #ffffff 0%, #e7e9eb 46%, rgba(var(--orange), 1) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
 .sidebar__brand::after {
   content: '';
   display: block;
-  width: 28px;
-  height: 2px;
-  background: var(--accent);
-  margin-top: 0.7rem;
+  width: 74px;
+  height: 1px;
+  margin-top: 0.85rem;
+  background: linear-gradient(90deg, rgb(var(--orange)) 0%, rgba(var(--orange), 0.25) 62%, transparent 100%);
+  box-shadow: 0 0 10px rgba(var(--orange), 0.55);
 }
 
 .sidebar__nav {
   display: flex;
   flex-direction: column;
+  gap: 0.15rem;
   flex: 1;
-  margin-top: 1.75rem;
+  margin-top: 1.9rem;
+  padding: 0 0.85rem;
 }
 
 .sidebar__link {
-  padding: 0.5rem 1.5rem;
-  color: #a9a49a;
+  position: relative;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  color: var(--text-soft);
   background: none;
-  border: 0;
-  border-left: 2px solid transparent;
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
+  letter-spacing: 0.03em;
   text-align: left;
   cursor: pointer;
-  transition: color 120ms ease;
+  transition: color 180ms ease, background 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
 
 .sidebar__link:hover {
-  color: #f6f4ef;
+  color: var(--text);
+  background: var(--g-3);
+  border-color: var(--rule);
+  transform: translateX(2px);
 }
 
+/* Der aktive Punkt ist die nächsthöhere Graustufe — mit orangefarbener Kante. */
 .sidebar__link--active {
-  color: #f6f4ef;
-  border-left-color: var(--accent);
+  color: #fff;
   font-weight: 600;
+  background: linear-gradient(100deg, var(--g-4) 0%, var(--g-3) 70%);
+  border-color: rgba(var(--orange), 0.32);
+  box-shadow: 0 0 22px -10px rgba(var(--orange), 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.sidebar__link--active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 20%;
+  bottom: 20%;
+  width: 2px;
+  border-radius: 2px;
+  background: rgb(var(--orange));
+  box-shadow: 0 0 11px rgba(var(--orange), 0.9);
 }
 
 .sidebar__footer {
-  padding: 1.1rem 1.5rem 0;
-  margin-top: auto;
-  border-top: 1px solid #2b2f34;
-  font-size: 0.85rem;
-  color: #8b867d;
+  padding: 1.15rem 1.5rem 0;
+  margin: auto 0.85rem 0;
+  border-top: 1px solid var(--rule);
+  font-size: 0.82rem;
+  color: var(--text-faint);
 }
 
 .sidebar__footer > div:first-child {
-  color: #e4e0d8;
+  color: var(--text);
   font-weight: 600;
 }
 
+.sidebar__footer > div:nth-child(2) {
+  display: inline-block;
+  margin-top: 0.3rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid rgba(var(--orange), 0.28);
+  border-radius: 999px;
+  background: rgba(var(--orange), 0.1);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(var(--orange-light));
+}
+
 .main {
-  padding: 2.25rem 2.75rem 4rem;
-  max-width: 1120px;
+  padding: 2.1rem 2.75rem 4rem;
+  max-width: 1180px;
 }
 
 .main__header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--step);
-  padding-bottom: 1rem;
-  margin-bottom: 1.75rem;
-  border-bottom: 1px solid var(--rule-strong);
+  padding: 0.95rem 0 0.9rem;
+  margin-bottom: 1.6rem;
+  background: linear-gradient(180deg, rgba(13, 14, 16, 0.9) 55%, rgba(13, 14, 16, 0.55) 100%);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
 }
 
-/* ---------- Surfaces ---------- */
+.main__header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(var(--orange), 0.8) 0%, var(--rule-strong) 28%, transparent 88%);
+}
+
+/* ---------- Flächen ---------- */
+
+.card {
+  position: relative;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.6rem;
+  background: linear-gradient(168deg, var(--g-3) 0%, var(--g-2) 55%, var(--g-1) 100%);
+  box-shadow: 0 22px 55px -34px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+
+/* Ein Lichtstreifen auf der Oberkante — die Fläche wird von oben angestrahlt. */
+.card::before {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(var(--orange), 0.7), rgba(255, 255, 255, 0.2), transparent);
+}
+
+.card:hover {
+  border-color: var(--rule-strong);
+  box-shadow: 0 24px 62px -34px rgba(0, 0, 0, 0.95), 0 0 40px -26px rgba(var(--orange), 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
 
 /*
- * A framed area, not a floating card. No shadow and no radius: the boundary is
- * a line, the way it is on a printed form.
+ * Die Überschrift ist ein eigenes kleines Panel: eine Stufe heller als die
+ * Fläche, mit orangefarbenem Punkt und Leuchtrand.
  */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  padding: 1.4rem 1.5rem;
-}
-
 .card h2:first-child {
-  margin-top: 0;
-  padding-bottom: 0.7rem;
-  margin-bottom: 1.1rem;
-  border-bottom: 1px solid var(--rule);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 1.3rem;
+  padding: 0.32rem 0.9rem 0.32rem 0.75rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: linear-gradient(100deg, var(--g-5) 0%, var(--g-4) 100%);
+  box-shadow: 0 0 26px -14px rgba(var(--orange), 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #e4e6e8;
 }
 
-/* Figures sit in one row divided by hairlines rather than in separate boxes. */
+.card h2:first-child::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(var(--orange));
+  box-shadow: 0 0 9px rgb(var(--orange));
+}
+
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  background: var(--surface);
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 1px;
+  margin-bottom: 1.7rem;
   border: 1px solid var(--rule);
-  margin-bottom: 1.75rem;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--rule);
+  box-shadow: 0 22px 55px -36px rgba(0, 0, 0, 0.95);
 }
 
 .cards > * {
-  padding: 1.2rem 1.4rem;
-  border-left: 1px solid var(--rule);
+  position: relative;
+  padding: 1.35rem 1.5rem;
+  background: linear-gradient(168deg, var(--g-3) 0%, var(--g-2) 70%);
+  transition: background 220ms ease;
 }
 
-.cards > *:first-child {
-  border-left: 0;
+.cards > *:hover {
+  background: linear-gradient(168deg, var(--g-4) 0%, var(--g-3) 70%);
 }
 
+/* Anzeigewerte: helle Ziffern, warm auslaufend. */
 .figure__value {
-  font-family: var(--serif);
-  font-size: 2.4rem;
-  font-weight: 400;
+  font-family: var(--mono);
+  font-size: 2.2rem;
+  font-weight: 300;
   line-height: 1;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 0 26px rgba(var(--orange), 0.4);
+}
+
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .figure__value {
+    background: linear-gradient(122deg, #ffffff 0%, #e6e8ea 48%, rgba(var(--orange-light), 1) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: none;
+    filter: drop-shadow(0 0 16px rgba(var(--orange), 0.35));
+  }
 }
 
 .figure__value--bad {
-  color: var(--negative);
+  color: rgb(var(--alarm));
+  text-shadow: 0 0 24px rgba(var(--alarm), 0.45);
 }
 
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .figure__value--bad {
+    background: linear-gradient(122deg, #ffd6d2 0%, rgb(var(--alarm)) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 14px rgba(var(--alarm), 0.45));
+  }
+}
+
+/* Auch die Kennzahl-Beschriftung ist ein kleines Panel. */
 .figure__label {
-  margin-top: 0.5rem;
-  font-size: 0.72rem;
+  display: inline-block;
+  margin-top: 0.7rem;
+  padding: 0.14rem 0.55rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--g-4);
+  font-family: var(--mono);
+  font-size: 0.62rem;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--ink-faint);
+  letter-spacing: 0.14em;
+  color: var(--text-soft);
 }
 
-/* ---------- Tables ---------- */
+/* ---------- Tabellen ---------- */
 
 .table-wrap {
   overflow-x: auto;
-  background: var(--surface);
   border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: linear-gradient(178deg, var(--g-2) 0%, var(--g-1) 100%);
+  box-shadow: 0 22px 55px -36px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 table {
@@ -258,50 +479,63 @@ table {
 
 th,
 td {
-  padding: 0.7rem 1rem;
+  padding: 0.78rem 1.1rem;
   text-align: left;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   vertical-align: top;
 }
 
 th {
+  font-family: var(--mono);
   font-weight: 600;
-  font-size: 0.7rem;
+  font-size: 0.64rem;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--ink-faint);
-  background: transparent;
-  border-bottom-color: var(--rule-strong);
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
   white-space: nowrap;
+  background: linear-gradient(180deg, var(--g-4), var(--g-3));
+  border-bottom-color: var(--rule-strong);
 }
 
 tbody tr:last-child td {
   border-bottom: 0;
 }
 
+tbody tr td {
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+
 tbody tr:hover td {
-  background: #faf8f4;
+  background: var(--g-3);
+}
+
+tbody tr:hover td:first-child {
+  box-shadow: inset 2px 0 0 rgb(var(--orange)), inset 9px 0 16px -9px rgba(var(--orange), 0.85);
 }
 
 td.numeric,
 th.numeric {
   text-align: right;
+  font-family: var(--mono);
+  font-size: 0.92em;
 }
 
 /* ---------- Status ---------- */
 
-/*
- * A marked word, not a pill. The colour sits in a square dot and in the text;
- * a filled capsule is the one shape every generated interface reaches for.
- */
 .badge {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  font-size: 0.82rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.16rem 0.6rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  font-family: var(--mono);
+  font-size: 0.66rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(var(--orange));
   white-space: nowrap;
 }
 
@@ -309,200 +543,446 @@ th.numeric {
   content: '';
   width: 6px;
   height: 6px;
-  background: currentColor;
   flex: none;
-  transform: translateY(-1px);
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 9px currentColor;
 }
 
 .badge--good {
-  color: var(--positive);
+  color: rgb(var(--live));
+}
+
+/* Was läuft, pulst — das einzige Element, das sich von selbst bewegt. */
+.badge--good::before {
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px currentColor;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 15px currentColor, 0 0 24px currentColor;
+    opacity: 0.75;
+  }
 }
 
 .badge--warn {
-  color: var(--caution);
+  color: rgb(var(--caution));
 }
 
 .badge--bad {
-  color: var(--negative);
+  color: rgb(var(--alarm));
 }
 
 .badge--muted {
-  color: var(--ink-faint);
+  color: var(--text-faint);
   font-weight: 400;
+  border-color: var(--rule);
 }
 
-/* ---------- Forms ---------- */
+.badge--muted::before {
+  box-shadow: none;
+  opacity: 0.6;
+}
 
+/* ---------- Formulare ---------- */
+
+/* Feldbeschriftungen sind kleine Panels, eine Stufe über dem Untergrund. */
 label {
-  display: block;
-  font-size: 0.72rem;
+  display: inline-block;
+  padding: 0.16rem 0.6rem;
+  margin-bottom: 0.45rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--g-4);
+  font-family: var(--mono);
+  font-size: 0.62rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--ink-soft);
-  margin-bottom: 0.35rem;
+  letter-spacing: 0.14em;
+  color: var(--text-soft);
 }
 
 input,
 select {
   width: 100%;
-  padding: 0.5rem 0.65rem;
+  padding: 0.6rem 0.8rem;
   border: 1px solid var(--rule-strong);
-  border-radius: 0;
+  border-radius: var(--radius-small);
   font: inherit;
-  background: var(--surface);
-  color: var(--ink);
+  font-size: 0.94rem;
+  color: var(--text);
+  background: var(--g-1);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+input:hover,
+select:hover {
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 input::placeholder {
-  color: #b3aea5;
+  color: #6b7178;
 }
 
 input:focus,
-select:focus,
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+select:focus {
+  outline: none;
+  border-color: rgba(var(--orange), 0.9);
+  background: var(--g-2);
+  box-shadow: 0 0 0 3px rgba(var(--orange), 0.14), 0 0 22px -8px rgba(var(--orange), 0.85);
+}
+
+input[type='checkbox'] {
+  width: auto;
+  height: 15px;
+  padding: 0;
+  accent-color: rgb(var(--orange));
+}
+
+/*
+ * Aufklappbare Listen.
+ *
+ * Der hellblaue Balken auf dem markierten Eintrag kommt vom Betriebssystem,
+ * nicht von der Seite — dort, wo der Browser die Liste selbst zeichnet, ist
+ * er nicht zu erreichen. Deshalb zwei Stufen: die Grundfarben wirken überall,
+ * die vollständige Gestaltung dort, wo der Browser sie zulässt.
+ */
+option {
+  background-color: var(--g-2);
+  color: var(--text);
+}
+
+option:checked {
+  /* An dieser Stelle nimmt der Browser nur einen Verlauf an, keine Fläche. */
+  background: linear-gradient(rgb(var(--orange-deep)), rgb(var(--orange-deep)));
+  color: #fff;
+}
+
+@supports (appearance: base-select) {
+  select,
+  ::picker(select) {
+    appearance: base-select;
+  }
+
+  ::picker(select) {
+    margin-top: 0.3rem;
+    padding: 0.25rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-small);
+    background: var(--g-2);
+    box-shadow: 0 22px 50px -22px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(0, 0, 0, 0.4);
+  }
+
+  select::picker-icon {
+    color: var(--text-faint);
+    transition: rotate 200ms ease, color 200ms ease;
+  }
+
+  select:hover::picker-icon {
+    color: rgb(var(--orange));
+  }
+
+  select:open::picker-icon {
+    rotate: 180deg;
+    color: rgb(var(--orange));
+  }
+
+  option {
+    padding: 0.42rem 0.6rem;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+  }
+
+  option:hover,
+  option:focus {
+    outline: none;
+    background: rgba(var(--orange), 0.16);
+    color: #fff;
+  }
+
+  option:checked {
+    background: linear-gradient(180deg, rgb(var(--orange)) 0%, rgb(var(--orange-deep)) 100%);
+    color: #241206;
+    font-weight: 600;
+  }
 }
 
 .field {
-  margin-bottom: 1.1rem;
+  margin-bottom: 1.2rem;
   max-width: 640px;
 }
 
 .field__hint {
-  font-size: 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 400;
+  font-family: var(--sans);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-soft);
+  margin-top: 0.45rem;
+  max-width: 62ch;
+}
+
+/* Ankreuzfelder tragen ihren Text daneben — dort wäre ein Panel im Weg. */
+.field label[style] {
+  display: flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--sans);
+  font-size: 0.94rem;
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
-  color: var(--ink-soft);
-  margin-top: 0.35rem;
-  max-width: 60ch;
-}
-
-/* A checkbox is not a micro-label; it keeps sentence case. */
-.field label[style] {
-  font-size: 0.95rem;
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--ink);
+  color: var(--text);
 }
 
 button {
-  padding: 0.5rem 1.1rem;
-  border: 1px solid var(--ink);
-  border-radius: 0;
-  background: var(--ink);
-  color: #f6f4ef;
-  font: inherit;
-  font-size: 0.92rem;
-  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+  padding: 0.58rem 1.3rem;
+  border: 1px solid rgba(var(--orange-deep), 0.7);
+  border-radius: var(--radius-small);
+  background: linear-gradient(180deg, rgb(var(--orange)) 0%, rgb(var(--orange-deep)) 100%);
+  color: #241206;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  box-shadow: 0 0 22px -12px rgba(var(--orange), 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: box-shadow 200ms ease, transform 200ms ease, filter 200ms ease;
+}
+
+/* Ein Lichtstreifen wandert beim Überfahren durch die Fläche. */
+button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: skewX(-18deg);
+  transition: left 550ms ease;
 }
 
 button:hover:not(:disabled) {
-  background: #2c3137;
-  border-color: #2c3137;
+  transform: translateY(-1px);
+  filter: brightness(1.09);
+  box-shadow: 0 0 30px -10px rgba(var(--orange), 1), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+button:hover:not(:disabled)::after {
+  left: 120%;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button:focus-visible {
+  outline: 2px solid rgb(var(--orange-light));
+  outline-offset: 2px;
 }
 
 button:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
+/* Nebenaktionen bleiben grau — nur eine Aktion je Ansicht trägt Orange. */
 button.secondary {
-  background: transparent;
-  color: var(--ink);
+  background: var(--g-4);
   border-color: var(--rule-strong);
+  color: var(--text-soft);
   font-weight: 400;
+  box-shadow: none;
 }
 
 button.secondary:hover:not(:disabled) {
-  background: var(--sunken);
-  border-color: var(--ink);
-  color: var(--ink);
+  background: var(--g-5);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  filter: none;
+  box-shadow: none;
 }
 
-/* ---------- Messages ---------- */
+button.secondary::after {
+  display: none;
+}
 
-/*
- * A rule on the left rather than a tinted box. It carries the same meaning
- * with a fraction of the noise, and several of them stacked stay readable.
- */
+/* ---------- Meldungen ---------- */
+
 .notice {
-  padding: 0.7rem 0 0.7rem 1rem;
-  border-left: 3px solid var(--rule-strong);
-  background: var(--surface);
+  position: relative;
+  overflow: hidden;
+  padding: 0.85rem 1.05rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-small);
+  background: var(--g-2);
   margin-bottom: var(--step);
-  max-width: 78ch;
+  max-width: 80ch;
+}
+
+.notice::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--rule-strong);
+}
+
+.notice--info::before {
+  background: rgb(var(--orange));
+  box-shadow: 0 0 12px rgba(var(--orange), 0.8);
 }
 
 .notice--error {
-  border-left-color: var(--negative);
-  color: #6f251e;
+  color: #ffc9c4;
+  border-color: rgba(var(--alarm), 0.28);
+  background: linear-gradient(100deg, rgba(var(--alarm), 0.12), var(--g-2) 72%);
 }
 
-.notice--info {
-  border-left-color: var(--accent);
+.notice--error::before {
+  background: rgb(var(--alarm));
+  box-shadow: 0 0 12px rgba(var(--alarm), 0.8);
 }
 
 .notice--warn {
-  border-left-color: var(--caution);
-  color: #6c4b12;
+  color: #f6dfb2;
+  border-color: rgba(var(--caution), 0.28);
+  background: linear-gradient(100deg, rgba(var(--caution), 0.12), var(--g-2) 72%);
+}
+
+.notice--warn::before {
+  background: rgb(var(--caution));
+  box-shadow: 0 0 12px rgba(var(--caution), 0.8);
 }
 
 .empty {
-  padding: 3rem 1.5rem;
+  padding: 3.2rem 1.5rem;
   text-align: center;
-  color: var(--ink-faint);
-  font-family: var(--serif);
-  font-size: 1.05rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 .muted {
-  color: var(--ink-soft);
+  color: var(--text-soft);
 }
 
-/* ---------- Login ---------- */
+/* Welcher Stand läuft hier gerade — die Antwort steht auf dem Bildschirm. */
+.build-stamp {
+  margin-top: 0.9rem;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-align: center;
+  color: var(--text-faint);
+}
 
-/*
- * Off-centre on purpose. A box in the exact middle of the screen is the most
- * predictable arrangement there is.
- */
+/* ---------- Anmeldung ---------- */
+
 .login {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1fr;
   align-content: center;
   justify-items: center;
   padding: 2rem 1.5rem;
-  background: var(--paper);
 }
 
+/*
+ * Ein Lichtstreifen dreht sich hinter dem Rand des Feldes. Die drehende
+ * Fläche liegt in ::before, die eigentliche Fläche in ::after darüber — der
+ * Inhalt wird per z-index nach vorn geholt.
+ */
 .login__box {
-  width: min(420px, 100%);
-  background: var(--surface);
-  border: 1px solid var(--rule-strong);
-  border-top: 3px solid var(--ink);
-  padding: 2.25rem 2.25rem 2rem;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: min(430px, 100%);
+  padding: 2.5rem 2.5rem 2.2rem;
+  border-radius: 16px;
+  box-shadow: 0 40px 100px -45px rgba(0, 0, 0, 1), 0 0 70px -40px rgba(var(--orange), 0.55);
+}
+
+.login__box::before {
+  content: '';
+  position: absolute;
+  inset: -55%;
+  z-index: 0;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(var(--orange), 0.95) 10%,
+    transparent 28%,
+    rgba(255, 255, 255, 0.5) 52%,
+    transparent 70%,
+    rgba(var(--orange-deep), 0.7) 88%,
+    transparent 100%
+  );
+  animation: orbit 18s linear infinite;
+}
+
+.login__box::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 1;
+  border-radius: 15px;
+  background: linear-gradient(168deg, var(--g-3) 0%, var(--g-2) 55%, var(--g-1) 100%);
+}
+
+.login__box > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .login__brand {
-  font-family: var(--serif);
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
   line-height: 1;
+  color: #fff;
+}
+
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .login__brand {
+    background: linear-gradient(96deg, #ffffff 0%, #e7e9eb 44%, rgba(var(--orange), 1) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
 .login__brand::after {
   content: '';
   display: block;
-  width: 28px;
-  height: 2px;
-  background: var(--accent);
-  margin: 0.8rem 0 1.25rem;
+  width: 74px;
+  height: 1px;
+  margin: 1.1rem 0 1.4rem;
+  background: linear-gradient(90deg, rgb(var(--orange)) 0%, rgba(var(--orange), 0.25) 62%, transparent 100%);
+  box-shadow: 0 0 11px rgba(var(--orange), 0.7);
 }
 
 .row {
@@ -510,4 +990,14 @@ button.secondary:hover:not(:disabled) {
   gap: 0.6rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+/* Wer Bewegung abgeschaltet hat, bekommt dieselbe Oberfläche im Stillstand. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
