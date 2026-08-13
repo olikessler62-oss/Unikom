@@ -4,6 +4,7 @@ import { nullable } from './SqliteDatabase.js';
 
 interface CredentialRow {
   id: string;
+  tenant_id: string | null;
   name: string;
   type: string;
   username: string | null;
@@ -12,11 +13,12 @@ interface CredentialRow {
   updated_at: string;
 }
 
-const COLUMNS = 'id, name, type, username, encrypted_secret, created_at, updated_at';
+const COLUMNS = 'id, tenant_id, name, type, username, encrypted_secret, created_at, updated_at';
 
 function toCredential(row: CredentialRow): Credential {
   return {
     id: row.id,
+    tenantId: row.tenant_id ?? undefined,
     name: row.name,
     type: row.type as CredentialType,
     username: row.username ?? undefined,
@@ -56,9 +58,10 @@ export class SqliteCredentialRepository implements CredentialRepository {
   async save(credential: Credential): Promise<Credential> {
     this.database
       .prepare(
-        `INSERT INTO credentials (id, name, type, username, encrypted_secret, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO credentials (id, tenant_id, name, type, username, encrypted_secret, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
+           tenant_id        = excluded.tenant_id,
            name             = excluded.name,
            type             = excluded.type,
            username         = excluded.username,
@@ -67,6 +70,7 @@ export class SqliteCredentialRepository implements CredentialRepository {
       )
       .run(
         credential.id,
+        nullable(credential.tenantId),
         credential.name,
         credential.type,
         nullable(credential.username),

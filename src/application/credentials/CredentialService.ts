@@ -35,6 +35,7 @@ export class CredentialService {
     const now = new Date();
     const credential: Credential = {
       id: crypto.randomUUID(),
+      tenantId: input.tenantId,
       name: input.name,
       type: input.type,
       username: input.username,
@@ -50,10 +51,11 @@ export class CredentialService {
    * Creates a ready-to-use AES key. Preferred over letting a user invent one,
    * because a typed passphrase is rarely as strong as it looks.
    */
-  async createEncryptionKey(name: string): Promise<CredentialSummary> {
+  async createEncryptionKey(name: string, tenantId?: string): Promise<CredentialSummary> {
     return this.create({
       name,
       type: 'ENCRYPTION_KEY',
+      tenantId,
       secret: crypto.randomBytes(MASTER_KEY_BYTES).toString('base64'),
     });
   }

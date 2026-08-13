@@ -28,6 +28,7 @@ test('job execution service runs a transfer job from repository config', async (
 
   const job: TransferJob = {
     id: 'job-1',
+    tenantId: 'default',
     name: 'Local CSV Import',
     enabled: true,
     sourceType: 'LOCAL',

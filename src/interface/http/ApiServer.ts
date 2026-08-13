@@ -18,6 +18,7 @@ import { authRoutes, SESSION_COOKIE } from './routes/AuthRoutes.js';
 import { credentialRoutes } from './routes/CredentialRoutes.js';
 import { historyRoutes } from './routes/HistoryRoutes.js';
 import { jobRoutes } from './routes/JobRoutes.js';
+import { tenantRoutes } from './routes/TenantRoutes.js';
 import { userRoutes } from './routes/UserRoutes.js';
 
 export const CSRF_HEADER = 'x-unikom-csrf';
@@ -53,6 +54,7 @@ export class ApiServer {
       ...jobRoutes(application),
       ...historyRoutes(application),
       ...credentialRoutes(application),
+      ...tenantRoutes(application),
       ...userRoutes(application),
     ];
   }

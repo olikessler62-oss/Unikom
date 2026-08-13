@@ -102,6 +102,13 @@ export interface JobSchedule {
 
 export interface TransferJob {
   id: string;
+  /**
+   * The client this job belongs to. An installation always has at least the
+   * standard tenant, so this is never empty — a service provider who collects
+   * data for several clients keeps them apart by it, and everything the job
+   * writes stays inside that client's directory.
+   */
+  tenantId: string;
   name: string;
   description?: string;
   enabled: boolean;

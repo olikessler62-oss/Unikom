@@ -1,3 +1,4 @@
+import { DEFAULT_TENANT_ID } from '../domain/tenants/Tenant.js';
 import type { TransferJob } from '../domain/transfer/TransferJob.js';
 
 /**
@@ -9,6 +10,7 @@ export function createTransferJob(overrides: Partial<TransferJob> = {}): Transfe
 
   return {
     id: 'job-customer-a',
+    tenantId: DEFAULT_TENANT_ID,
     name: 'Customer A Orders',
     enabled: true,
     sourceType: 'LOCAL',

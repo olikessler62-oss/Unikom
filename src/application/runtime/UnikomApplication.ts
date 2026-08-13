@@ -22,14 +22,18 @@ import { CredentialEncryptionKeyProvider } from '../credentials/CredentialEncryp
 import { CredentialService } from '../credentials/CredentialService.js';
 import { CompositeLogger, DEFAULT_LOG_LEVEL, LevelFilteredLogger } from '../logging/Loggers.js';
 import { combineEventListeners, createTransferEventLogger } from '../logging/TransferEventLogger.js';
+import type { TenantRepository } from '../../domain/tenants/Tenant.js';
 import type { SessionRepository } from '../../domain/users/Session.js';
 import type { UserRepository } from '../../domain/users/User.js';
 import { InMemorySessionRepository } from '../../infrastructure/persistence/InMemorySessionRepository.js';
+import { InMemoryTenantRepository } from '../../infrastructure/persistence/InMemoryTenantRepository.js';
 import { InMemoryUserRepository } from '../../infrastructure/persistence/InMemoryUserRepository.js';
 import { SqliteSessionRepository } from '../../infrastructure/persistence/sqlite/SqliteSessionRepository.js';
+import { SqliteTenantRepository } from '../../infrastructure/persistence/sqlite/SqliteTenantRepository.js';
 import { SqliteUserRepository } from '../../infrastructure/persistence/sqlite/SqliteUserRepository.js';
 import { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
 import { RetentionService } from '../retention/RetentionService.js';
+import { TenantService } from '../tenants/TenantService.js';
 import { SessionService } from '../users/SessionService.js';
 import { UserService } from '../users/UserService.js';
 import { TransferHistoryService } from '../transfer/TransferHistoryService.js';
@@ -59,6 +63,9 @@ export interface UnikomApplication {
   sessionService: SessionService;
   userRepository: UserRepository;
   sessionRepository: SessionRepository;
+  /** The operator's own clients ("Mandant"); always at least the standard one. */
+  tenantService: TenantService;
+  tenantRepository: TenantRepository;
   logger: Logger;
   runtime: JobRuntimeService;
   /** Releases the storage handle; a no-op for the in-memory variant. */
@@ -97,6 +104,7 @@ interface Wiring {
   logStore: Logger & TransferLogRepository;
   userRepository: UserRepository;
   sessionRepository: SessionRepository;
+  tenantRepository: TenantRepository;
   close(): void;
 }
 
@@ -136,7 +144,14 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     sessionService: new SessionService(wiring.sessionRepository, wiring.userRepository),
     userRepository: wiring.userRepository,
     sessionRepository: wiring.sessionRepository,
-    jobService: new TransferJobService(wiring.jobRepository, features),
+    jobService: new TransferJobService(
+      wiring.jobRepository,
+      features,
+      wiring.tenantRepository,
+      wiring.credentialRepository
+    ),
+    tenantService: new TenantService(wiring.tenantRepository, wiring.jobRepository),
+    tenantRepository: wiring.tenantRepository,
     logger,
     historyService: new TransferHistoryService(
       wiring.runRepository,
@@ -183,6 +198,7 @@ export function createPersistentApplication(
       logStore: new SqliteTransferLogStore(database),
       userRepository: new SqliteUserRepository(database),
       sessionRepository: new SqliteSessionRepository(database),
+      tenantRepository: new SqliteTenantRepository(database),
       close: () => database.close(),
     },
     options,
@@ -201,6 +217,7 @@ export function createInMemoryApplication(options: ApplicationOptions = {}): Uni
       logStore: new InMemoryTransferLogStore(),
       userRepository: new InMemoryUserRepository(),
       sessionRepository: new InMemorySessionRepository(),
+      tenantRepository: new InMemoryTenantRepository(),
       close: () => {},
     },
     options

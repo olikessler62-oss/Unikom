@@ -11,6 +11,20 @@ import { DatabaseSync } from 'node:sqlite';
  * index instead of scanning everything.
  */
 const SCHEMA = `
+-- The operator's own clients ("Mandant"), not SaaS tenants: Unikom runs on one
+-- company's machine, and that company may be a service provider working for
+-- several clients whose data must not get mixed up.
+CREATE TABLE IF NOT EXISTS tenants (
+  id             TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  name_lower     TEXT NOT NULL UNIQUE,
+  description    TEXT,
+  root_directory TEXT,
+  enabled        INTEGER NOT NULL,
+  created_at     TEXT NOT NULL,
+  updated_at     TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS transfer_jobs (
   id                 TEXT PRIMARY KEY,
   enabled            INTEGER NOT NULL,
@@ -130,6 +144,14 @@ function migrate(database: DatabaseSync): void {
   // missing a moment ago, and creating the index in the schema would have made
   // an existing installation fail to open at all.
   database.exec('CREATE INDEX IF NOT EXISTS ix_files_started ON transfer_files(job_id, started_at)');
+
+  if (!hasColumn(database, 'credentials', 'tenant_id')) {
+    // NULL means shared across all tenants, which is what every credential of
+    // an installation from before tenants existed effectively was.
+    database.exec('ALTER TABLE credentials ADD COLUMN tenant_id TEXT');
+  }
+
+  database.exec('CREATE INDEX IF NOT EXISTS ix_credentials_tenant ON credentials(tenant_id)');
 }
 
 function hasColumn(database: DatabaseSync, table: string, column: string): boolean {

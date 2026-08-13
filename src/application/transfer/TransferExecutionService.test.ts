@@ -45,6 +45,7 @@ async function setup(jobOverrides: Partial<TransferJob> = {}): Promise<Harness> 
 
   const job: TransferJob = {
     id: 'job-customer-a',
+    tenantId: 'default',
     name: 'Customer A Orders',
     enabled: true,
     sourceType: 'LOCAL',

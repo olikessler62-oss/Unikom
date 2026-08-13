@@ -37,6 +37,9 @@ async function harness(t: TestContext, features?: StaticFeatureSet): Promise<Cli
     masterKeyProvider: new StaticMasterKeyProvider(randomBytes(32)),
   });
 
+  // The server does this at startup, so the tests start from the same state.
+  await application.tenantService.ensureDefaultTenant();
+
   const server = new ApiServer(application, { port: 0 });
   const { port } = await server.listen();
   const base = `http://127.0.0.1:${port}`;

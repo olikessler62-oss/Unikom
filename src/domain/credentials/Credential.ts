@@ -7,6 +7,14 @@ export type CredentialType = 'USERNAME_PASSWORD' | 'SSH_PRIVATE_KEY' | 'ENCRYPTI
  */
 export interface Credential {
   id: string;
+  /**
+   * The client this belongs to. Left out for something the operator uses
+   * across all of them, typically an encryption key of their own.
+   *
+   * A job may only use its own tenant's credentials or a shared one: the SFTP
+   * password of one client has no business in another client's job.
+   */
+  tenantId?: string;
   name: string;
   type: CredentialType;
   username?: string;
@@ -26,8 +34,18 @@ export interface CredentialInput {
   name: string;
   type: CredentialType;
   username?: string;
+  /** Absent means shared across all tenants. */
+  tenantId?: string;
   /** Plaintext, only in transit; it is encrypted before it is stored. */
   secret: string;
+}
+
+/**
+ * Whether a job of `tenantId` may use this credential. Shared credentials are
+ * available to everyone; a tenant's own credential is not.
+ */
+export function isUsableBy(credential: Pick<Credential, 'tenantId'>, tenantId: string): boolean {
+  return credential.tenantId === undefined || credential.tenantId === tenantId;
 }
 
 export interface CredentialRepository {

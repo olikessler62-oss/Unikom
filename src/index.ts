@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createPersistentApplication } from './application/runtime/UnikomApplication.js';
 import { ConsoleLogger } from './infrastructure/logging/ConsoleLogger.js';
 import type { LogLevel } from './domain/logging/LogEntry.js';
+import { DEFAULT_TENANT_ID } from './domain/tenants/Tenant.js';
 import type { TransferJob } from './domain/transfer/TransferJob.js';
 
 const DATA_DIRECTORY = path.resolve('application-data');
@@ -23,6 +24,7 @@ const DEMO_FILES: Record<string, string> = {
 function demoJob(): TransferJob {
   return {
     id: 'job-demo-001',
+    tenantId: DEFAULT_TENANT_ID,
     name: 'Kunde A – Bestellungen',
     description: 'Beispiel-Job gemäß Spec Abschnitt 3',
     enabled: true,
@@ -83,6 +85,8 @@ async function bootstrap(): Promise<void> {
     logLevel: LOG_LEVEL,
     logger: new ConsoleLogger(),
   });
+
+  await application.tenantService.ensureDefaultTenant();
 
   const existing = await application.jobRepository.getById('job-demo-001');
   if (!existing) {

@@ -6,6 +6,7 @@ import type { TransferJob } from '../../domain/transfer/TransferJob.js';
 
 const job: TransferJob = {
   id: 'job-1',
+  tenantId: 'default',
   name: 'Customer A Orders',
   enabled: true,
   sourceType: 'LOCAL',

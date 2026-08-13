@@ -19,7 +19,7 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 294 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 308 Tests, inklusive echter SFTP- und FTPS-Protokolltests
 npm run serve     # Server und Oberfläche auf http://127.0.0.1:8383
 npm run dev       # Beispiellauf mit lokaler Quelle, ohne Server
 npm run build     # Produktivbuild nach dist/ (ohne Tests)
@@ -156,6 +156,50 @@ Betroffen ist nur `sourceSuccessAction: 'KEEP'`. Wer Quelldateien verschiebt
 oder löscht, hat nichts, was ein zweites Mal aufgesammelt werden könnte. Weil es
 hier keine unbedenkliche Voreinstellung gibt, bleibt `historyDays` leer, bis
 jemand sie bewusst setzt.
+
+## Mandanten
+
+Unikom läuft auf **einem** Rechner für **eine** Firma. Diese Firma kann aber ein
+Dienstleister sein, der für mehrere eigene Kunden Daten abholt, verarbeitet und
+wieder ausliefert. Diese Kunden sind die Mandanten — im Code `Tenant`.
+
+Das ist ausdrücklich **nicht** Mandantenfähigkeit im SaaS-Sinn. Wir hosten
+niemanden; die Trennung dient dazu, dass beim Betreiber die Daten seiner Kunden
+nicht durcheinandergeraten.
+
+Eine Firma mit einem einzigen Quellserver hat schlicht den Mandanten `Standard`
+und muss sich nie damit befassen. Er entsteht beim Start von selbst und
+übernimmt Jobs, die aus einer Zeit vor den Mandanten stammen — ein
+Aktualisierungsschritt ist dafür nicht nötig.
+
+Ein Mandant klammert:
+
+| | |
+| --- | --- |
+| **Jobs** | Jeder Job gehört genau einem Mandanten |
+| **Zugangsdaten** | Eigene je Mandant; ohne Zuordnung gelten sie für alle |
+| **Zielverzeichnis** | Optionales Wurzelverzeichnis, das erzwungen wird |
+
+Das Wurzelverzeichnis ist der wichtigste Teil. Ohne es sind Quell- und
+Zielverzeichnis freie Textfelder, und ein Tippfehler legt Dateien von Kunde A im
+Ordner von Kunde B ab, ohne dass es jemand merkt. Ist es gesetzt, wird bei jedem
+Speichern geprüft, dass das Ziel darin liegt — und zwei Mandanten dürfen sich
+ihr Verzeichnis weder teilen noch ineinander schachteln. Verglichen werden
+aufgelöste Pfade, nicht Zeichenketten: sonst läge `D:/Daten/KundeAB`
+scheinbar in `D:/Daten/KundeA`.
+
+Geprüft wird an denselben zwei Stellen wie die Lizenz — beim Speichern des Jobs
+und beim Erzeugen der Fähigkeit. Wird eine Zugangsdatei *nachträglich* einem
+Mandanten zugeordnet, greift die zweite Prüfung, unmittelbar bevor die
+Verbindung mit fremden Zugangsdaten aufgebaut würde.
+
+Nur das **Ziel** wird eingegrenzt, nicht die Quelle: die liegt auf dem Server des
+Kunden oder in einem Verzeichnis, das er uns nennt, und geht unsere Grenze
+nichts an.
+
+Abschottung nach Benutzern gibt es noch nicht — alle Mitarbeiter des Betreibers
+sehen alle Mandanten. Das Feld liegt aber überall, sodass eine Rechteprüfung
+darauf später ohne Datenumbau ergänzt werden kann.
 
 ## Module
 

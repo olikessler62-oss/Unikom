@@ -1,3 +1,4 @@
+import { isUsableBy } from '../../domain/credentials/Credential.js';
 import { allFeatures, FeatureNotLicensedError, type FeatureSet } from '../../domain/licensing/Feature.js';
 import type { SourceAdapter, SourceCredentials } from '../../domain/source/SourceAdapter.js';
 import type { TransferJob } from '../../domain/transfer/TransferJob.js';
@@ -43,6 +44,16 @@ export class SourceAdapterProvider {
     const credential = await this.credentialService.getById(job.credentialId);
     if (!credential) {
       throw new Error(`The credential ${job.credentialId} configured for job "${job.name}" does not exist`);
+    }
+
+    // Checked again here, not only when the job was saved: a credential can be
+    // reassigned to a client afterwards, and a job can be written straight into
+    // the database. This is the point where the connection would actually be
+    // opened with another client's access data.
+    if (!isUsableBy(credential, job.tenantId)) {
+      throw new Error(
+        `The credential "${credential.name}" belongs to another client and cannot be used by job "${job.name}"`
+      );
     }
 
     const secret = await this.credentialService.resolveSecret(credential.id);

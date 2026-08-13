@@ -29,6 +29,11 @@ async function main(): Promise<void> {
     logger: new ConsoleLogger(),
   });
 
+  // Runs on every start: it creates the standard client on an empty
+  // installation and adopts jobs that predate clients, so an upgrade needs no
+  // migration step of its own.
+  await application.tenantService.ensureDefaultTenant();
+
   const administrator = await ensureInitialAdministrator(application.userService);
   if (administrator) {
     console.log(initialAdministratorNotice(administrator));
