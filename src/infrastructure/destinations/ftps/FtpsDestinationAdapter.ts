@@ -5,6 +5,7 @@ import type { SourceCredentials, SourceTrace } from '../../../domain/source/Sour
 import { RemotePathResolver } from '../../../domain/source/RemotePathResolver.js';
 import type { SourceConfig } from '../../../domain/transfer/TransferJob.js';
 import { assertSafeFilename } from '../../filesystem/SafePath.js';
+import { isStaleWorkFile, workFilePath } from '../../../domain/destination/WorkFile.js';
 import { ftpsPort, openFtpsConnection } from '../../sources/ftps/FtpsConnection.js';
 
 /**
@@ -60,6 +61,31 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
     }
 
     this.trace?.(`${resolved} ist vorhanden und beschreibbar`);
+    await this.sweepWorkFiles(client, resolved);
+  }
+
+  /**
+   * Wie beim SFTP-Ziel: nur alte Arbeitsdateien, und jede mit Ansage. FTP
+   * nennt die Änderungszeit als `modifiedAt`; fehlt sie, bleibt die Datei
+   * liegen — ein Rückstand kostet Platz, eine falsch gelöschte Datei kostet
+   * eine Lieferung.
+   */
+  private async sweepWorkFiles(client: Client, directory: string): Promise<void> {
+    const now = new Date();
+
+    for (const entry of await client.list(directory)) {
+      const modified = entry.modifiedAt instanceof Date ? entry.modifiedAt : undefined;
+
+      if (entry.isDirectory || !isStaleWorkFile(entry.name, modified, now)) {
+        continue;
+      }
+
+      this.trace?.(
+        `Liegengebliebene Arbeitsdatei ${entry.name} wird entfernt — ` +
+          `abgelegt am ${modified?.toISOString()}, älter als einen Tag`
+      );
+      await client.remove(this.paths.join(directory, entry.name)).catch(() => undefined);
+    }
   }
 
   async exists(targetPath: string): Promise<boolean> {
@@ -77,12 +103,19 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
     }
   }
 
-  async place(stagedPath: string, targetPath: string): Promise<void> {
+  async place(stagedPath: string, targetPath: string, runId: string): Promise<void> {
     const client = await this.connect();
-    const working = `${targetPath}.unikom-part`;
+    const working = workFilePath(targetPath, runId);
 
     this.trace?.(`Wird hochgeladen nach ${working}`);
-    await client.uploadFrom(stagedPath, working);
+
+    try {
+      await client.uploadFrom(stagedPath, working);
+    } catch (error) {
+      this.trace?.(`Hochladen fehlgeschlagen, ${working} wird entfernt`);
+      await client.remove(working).catch(() => undefined);
+      throw error;
+    }
 
     if (await this.exists(targetPath)) {
       this.trace?.(`${targetPath} wird vor dem Ersetzen entfernt`);

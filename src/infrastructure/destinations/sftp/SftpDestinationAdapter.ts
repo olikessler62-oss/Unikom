@@ -5,6 +5,7 @@ import type { SourceCredentials, SourceTrace } from '../../../domain/source/Sour
 import { RemotePathResolver } from '../../../domain/source/RemotePathResolver.js';
 import type { SourceConfig } from '../../../domain/transfer/TransferJob.js';
 import { assertSafeFilename } from '../../filesystem/SafePath.js';
+import { isStaleWorkFile, workFilePath } from '../../../domain/destination/WorkFile.js';
 import { openSftpConnection } from '../../sources/sftp/SftpConnection.js';
 
 /**
@@ -66,6 +67,34 @@ export class SftpDestinationAdapter implements DestinationAdapter {
     }
 
     this.trace?.(`${resolved} ist vorhanden und beschreibbar`);
+    await this.sweepWorkFiles(client, resolved);
+  }
+
+  /**
+   * Räumt Arbeitsdateien weg, die ein abgebrochener Lauf hinterlassen hat.
+   *
+   * Nur alte: Ein Lauf, der gerade hochlädt, darf seine eigene Arbeitsdatei
+   * nicht unter den Händen verlieren. Und nur mit Ansage — eine fremde Datei
+   * stillschweigend zu löschen wäre die Sorte Hilfsbereitschaft, die man
+   * später bereut.
+   */
+  private async sweepWorkFiles(client: Client, directory: string): Promise<void> {
+    const now = new Date();
+
+    for (const entry of await client.list(directory)) {
+      const modified = typeof entry.modifyTime === 'number' ? new Date(entry.modifyTime) : undefined;
+
+      if (entry.type !== '-' || !isStaleWorkFile(entry.name, modified, now)) {
+        continue;
+      }
+
+      const stale = this.paths.join(directory, entry.name);
+      this.trace?.(
+        `Liegengebliebene Arbeitsdatei ${entry.name} wird entfernt — ` +
+          `abgelegt am ${modified?.toISOString()}, älter als einen Tag`
+      );
+      await client.delete(stale).catch(() => undefined);
+    }
   }
 
   async exists(targetPath: string): Promise<boolean> {
@@ -73,12 +102,23 @@ export class SftpDestinationAdapter implements DestinationAdapter {
     return (await client.exists(targetPath)) !== false;
   }
 
-  async place(stagedPath: string, targetPath: string): Promise<void> {
+  async place(stagedPath: string, targetPath: string, runId: string): Promise<void> {
     const client = await this.connect();
-    const working = `${targetPath}.unikom-part`;
+    const working = workFilePath(targetPath, runId);
 
     this.trace?.(`Wird hochgeladen nach ${working}`);
-    await client.fastPut(stagedPath, working);
+
+    try {
+      await client.fastPut(stagedPath, working);
+    } catch (error) {
+      // Was hier scheitert, ist meist kein Verbindungsabbruch, sondern ein
+      // volles Kontingent oder ein fehlendes Recht — dann kommt das Löschen
+      // noch durch. Gelingt es nicht, bleibt die Datei für den Kehraus liegen;
+      // der Fehler des Hochladens ist der wichtigere und geht weiter.
+      this.trace?.(`Hochladen fehlgeschlagen, ${working} wird entfernt`);
+      await client.delete(working).catch(() => undefined);
+      throw error;
+    }
 
     // Überschreiben verlangt, dass der Platz frei ist. SSH_FXP_RENAME setzt ein
     // freies Ziel voraus, und Server halten sich daran: An einem echten Hoster

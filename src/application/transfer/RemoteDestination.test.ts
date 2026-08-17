@@ -11,6 +11,15 @@ import { SftpTestServer, withSftpRoot } from '../../testing/SftpTestServer.js';
 import { TransferRunStatus } from '../../domain/transfer/TransferRun.js';
 import { createTransferJob } from '../../testing/TransferJobFixture.js';
 import type { TransferJob } from '../../domain/transfer/TransferJob.js';
+import { workFilePath } from '../../domain/destination/WorkFile.js';
+import { SftpDestinationAdapter } from '../../infrastructure/destinations/sftp/SftpDestinationAdapter.js';
+
+async function exists(target: string): Promise<boolean> {
+  return fs.access(target).then(
+    () => true,
+    () => false
+  );
+}
 
 /**
  * Was ein entferntes Ziel anders macht als ein Verzeichnis.
@@ -182,6 +191,89 @@ test('ein fehlendes Zielverzeichnis wird nicht heimlich angelegt', async () => {
     assert.deepEqual(await fs.readdir(b.quelle), ['ORDER_001.csv']);
   } finally {
     await b.abbauen();
+  }
+});
+
+test('zwei Läufe schreiben nie in dieselbe Arbeitsdatei', async () => {
+  // Der Arbeitsname hing einmal allein am Zielpfad. Zwei Workflows, die eine
+  // gleichnamige Datei in dasselbe Verzeichnis legen, hätten damit gleichzeitig
+  // in dieselbe halbe Datei geschrieben — und der erste, der fertig wird,
+  // hätte einen Mischmasch aus beiden in den echten Namen umbenannt. Lokal
+  // gibt es das nicht, weil dort jeder Lauf seinen eigenen Bereich hat.
+  const ziel = '/eingang/ORDER_001.csv';
+
+  assert.notEqual(workFilePath(ziel, 'TR-a'), workFilePath(ziel, 'TR-b'));
+  assert.match(workFilePath(ziel, 'TR-a'), /ORDER_001\.csv\.TR-a\.unikom-part$/);
+});
+
+test('eine alte Arbeitsdatei wird beim nächsten Lauf weggeräumt, eine frische nicht', async () => {
+  const b = await bühne();
+
+  try {
+    await fs.mkdir(b.eingang, { recursive: true });
+
+    const alt = path.join(b.eingang, 'ORDER_009.csv.TR-abgebrochen.unikom-part');
+    const frisch = path.join(b.eingang, 'ORDER_008.csv.TR-laeuft.unikom-part');
+    await fs.writeFile(alt, 'Rest eines abgebrochenen Laufs');
+    await fs.writeFile(frisch, 'ein Lauf, der gerade hochlädt');
+
+    // Zwei Tage zurückdatiert — der Kehraus geht nach der Änderungszeit.
+    const vorgestern = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    await fs.utimes(alt, vorgestern, vorgestern);
+
+    await fs.writeFile(path.join(b.quelle, 'ORDER_001.csv'), INHALT);
+    await b.speichere();
+
+    const run = await b.application.runtime.orchestrator.runJobNow('fern', new Date());
+    assert.equal(run?.filesSucceeded, 1);
+
+    assert.equal(await exists(alt), false, 'die alte Arbeitsdatei liegt noch da');
+    // Die frische gehört womöglich einem Lauf, der gerade hochlädt. Sie ihm
+    // unter den Händen wegzunehmen wäre schlimmer als der Rückstand.
+    assert.equal(await exists(frisch), true, 'die frische Arbeitsdatei wurde weggeräumt');
+  } finally {
+    await b.abbauen();
+  }
+});
+
+test('ein mitten im Hochladen abgebrochener Upload lässt keine Arbeitsdatei zurück', async () => {
+  // Der Fall, auf den es ankommt: Der Empfänger nimmt die ersten Bytes an und
+  // bricht dann ab — ein volles Kontingent sieht genau so aus. Die halb
+  // geschriebene Datei liegt dann schon auf dem Server, und sie gehört weg,
+  // solange die Verbindung dafür noch steht.
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-abbruch-'));
+  const serverRoot = await withSftpRoot({});
+  const server = await SftpTestServer.start({
+    root: serverRoot,
+    username: USERNAME,
+    password: PASSWORD,
+    failWritesAfterBytes: 4096,
+  });
+
+  const gross = path.join(workspace, 'gross.csv');
+  await fs.writeFile(gross, Buffer.alloc(64 * 1024, 7));
+
+  const ziel = new SftpDestinationAdapter(
+    {
+      type: 'SFTP',
+      directory: '/eingang',
+      host: '127.0.0.1',
+      port: server.port,
+      hostKeyFingerprint: server.hostKeyFingerprint,
+      timeoutSeconds: 15,
+    },
+    { username: USERNAME, password: PASSWORD }
+  );
+
+  try {
+    await ziel.prepareDirectory('/eingang', true);
+    await assert.rejects(() => ziel.place(gross, '/eingang/ORDER_001.csv', 'TR-x'));
+
+    assert.deepEqual(await fs.readdir(path.join(serverRoot, 'eingang')), []);
+  } finally {
+    await ziel.dispose?.();
+    await server.stop();
+    await fs.rm(workspace, { recursive: true, force: true });
   }
 });
 

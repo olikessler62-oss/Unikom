@@ -46,7 +46,12 @@ export class LocalDestinationAdapter implements DestinationAdapter {
     }
   }
 
-  async place(stagedPath: string, targetPath: string): Promise<void> {
+  /**
+   * Die Lauf-Kennung bleibt hier ungenutzt, und das ist kein Versehen: Der
+   * Arbeitsbereich liegt schon je Lauf getrennt, ein zweiter Name daneben
+   * bewiese nur dasselbe noch einmal.
+   */
+  async place(stagedPath: string, targetPath: string, _runId: string): Promise<void> {
     await this.stagingService.moveToFinalPath(stagedPath, targetPath);
   }
 

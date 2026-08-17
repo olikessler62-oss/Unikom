@@ -23,6 +23,12 @@ export interface SftpTestServerOptions {
    * including a private key, from which the public part is derived.
    */
   authorizedKey?: string;
+  /**
+   * Lässt jedes Schreiben ab diesem Versatz scheitern — ein Empfänger, dessen
+   * Kontingent mitten in der Übertragung voll ist. Nur so lässt sich prüfen,
+   * was mit der halb geschriebenen Datei geschieht.
+   */
+  failWritesAfterBytes?: number;
 }
 
 interface DirectoryHandle {
@@ -248,6 +254,15 @@ export class SftpTestServer {
     sftp.on('WRITE', (reqid: number, handle: Buffer, offset: number, data: Buffer) => {
       const entry = lookup(handle);
       if (!entry || entry.kind !== 'file') {
+        return sftp.status(reqid, STATUS_CODE.FAILURE);
+      }
+
+      // Absichtlicher Abbruch mitten im Schreiben. Ohne ihn ließe sich das
+      // Aufräumen nach einem gescheiterten Upload nicht prüfen: Eine Quelldatei,
+      // die es nicht gibt, scheitert schon vor dem ersten Byte, und dann
+      // entsteht gar keine Arbeitsdatei, die liegen bleiben könnte. Ein volles
+      // Kontingent beim Empfänger sieht dagegen genau so aus.
+      if (this.options.failWritesAfterBytes !== undefined && offset >= this.options.failWritesAfterBytes) {
         return sftp.status(reqid, STATUS_CODE.FAILURE);
       }
 

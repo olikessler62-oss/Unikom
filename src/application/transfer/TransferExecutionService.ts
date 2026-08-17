@@ -769,7 +769,7 @@ export class TransferExecutionService {
       }
 
       this.event('FILE_STORING', runId, job, file.name, `${file.name} wird abgelegt als ${destination.path}`);
-      await context.destination.place(stagedPath, destination.path);
+      await context.destination.place(stagedPath, destination.path, runId);
       const destinationSize = await context.destination.sizeOf(destination.path);
       this.event('FILE_STORED', runId, job, file.name, 'Datei erfolgreich abgelegt');
 

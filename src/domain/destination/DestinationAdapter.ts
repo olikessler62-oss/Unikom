@@ -37,8 +37,13 @@ export interface DestinationAdapter {
   /**
    * Legt die fertige Datei aus dem Arbeitsbereich an ihren Platz. Danach ist
    * sie da oder es wurde geworfen — ein Dazwischen gibt es nicht.
+   *
+   * `runId` ist keine Beigabe fürs Protokoll: Auf einem entfernten Ziel geht
+   * sie in den Arbeitsnamen ein, damit zwei Läufe nicht in dieselbe halbe
+   * Datei schreiben. Das lokale Ziel braucht sie nicht, weil dort jeder Lauf
+   * seinen eigenen Arbeitsbereich hat.
    */
-  place(stagedPath: string, targetPath: string): Promise<void>;
+  place(stagedPath: string, targetPath: string, runId: string): Promise<void>;
 
   /** Die Größe im Ziel, als Gegenprobe zu dem, was geschickt wurde. */
   sizeOf(targetPath: string): Promise<number>;
