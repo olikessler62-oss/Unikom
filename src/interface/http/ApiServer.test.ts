@@ -502,6 +502,21 @@ test('browsing a remote directory needs the right to manage jobs', async (t) => 
   assert.equal(refused.status, 403);
 });
 
+/* Der lokale Browser zeigt das Dateisystem des Servers. Wer Workflows nicht
+ * verwalten darf, hat darin nichts zu suchen — sonst wäre er ein bequemer Weg,
+ * die Verzeichnisstruktur eines fremden Hauses zu erkunden. */
+test('der lokale Verzeichnisbrowser verlangt das Recht, Workflows zu verwalten', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'vera', 'VIEWER');
+  await client.login('vera');
+
+  const refused = await client.request('POST', '/api/jobs/browse-local', {
+    body: { tenantId: 'default', directory: '' },
+  });
+
+  assert.equal(refused.status, 403);
+});
+
 /* Der Browser der Zielseite öffnet ebenso eine Verbindung mit gespeicherten
  * Zugangsdaten. Eine zweite Tür zu derselben Fähigkeit, die weniger verlangt,
  * wäre der Sinn der ersten. */

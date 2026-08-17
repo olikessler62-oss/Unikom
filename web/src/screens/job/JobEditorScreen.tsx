@@ -28,8 +28,16 @@ import {
   withSourceType,
 } from './emptyJob.js';
 
-/** Welche Seite eines Workflows gerade gemeint ist — sie holt oder sie legt ab. */
-type Side = 'SOURCE' | 'DESTINATION';
+/**
+ * Welches Feld gerade ein Verzeichnis sucht.
+ *
+ * Nicht bloß „Quelle oder Ziel": Jedes dieser Felder wird woanders gesucht.
+ * Das Archiv liegt auf demselben Server wie die Quelle — es ist der Ort, an
+ * den die Datei nach dem Abholen verschoben wird, und das geschieht dort. Das
+ * Protokollverzeichnis liegt dagegen immer hier, denn Unikom schreibt es
+ * selbst, ganz gleich woher und wohin der Workflow überträgt.
+ */
+type Side = 'SOURCE' | 'ARCHIVE' | 'DESTINATION' | 'PROTOCOL';
 
 /**
  * Die Verzeichnisse, an denen dieser Mandant schon arbeitet.
@@ -319,25 +327,33 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
    * das gelingt, *ist* der Nachweis, dass das Verzeichnis da ist.
    */
   async function askRemote(directory: string, side: Side = 'SOURCE'): Promise<RemoteDirectoryResult> {
+    const gemeinsam = {
+      name: job!.name || 'Neuer Job',
+      tenantId: job!.tenantId,
+      directory,
+      known: knownDirectories(otherJobs.data, job!),
+    };
+
     if (side === 'DESTINATION') {
       return api.post<RemoteDirectoryResult>('/api/jobs/browse-destination', {
-        name: job!.name || 'Neuer Job',
-        tenantId: job!.tenantId,
+        ...gemeinsam,
         destinationType: job!.destinationType ?? 'LOCAL',
         destinationConfig: job!.destinationConfig,
         destinationCredentialId: job!.destinationCredentialId,
-        directory,
-        known: knownDirectories(otherJobs.data, job!),
       });
     }
 
+    // Das Protokoll schreibt Unikom selbst; es liegt immer hier. Eine lokale
+    // Quelle wird ebenso hier gesucht — dort steht ja auch die Datei.
+    if (side === 'PROTOCOL' || job!.sourceType === 'LOCAL') {
+      return api.post<RemoteDirectoryResult>('/api/jobs/browse-local', gemeinsam);
+    }
+
     return api.post<RemoteDirectoryResult>('/api/jobs/browse-remote', {
-      name: job!.name || 'Neuer Job',
-      tenantId: job!.tenantId,
+      ...gemeinsam,
       sourceType: job!.sourceType,
       sourceConfig: job!.sourceConfig,
       credentialId: job!.credentialId,
-      directory,
     });
   }
 
@@ -554,6 +570,10 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                       // Die Zielprüfung daneben zeigt sonst noch das Urteil über
                       // den Pfad, der eben ersetzt wurde.
                       setTarget({ busy: false });
+                    } else if (browsing.side === 'ARCHIVE') {
+                      change({ sourceArchiveDirectory: chosen });
+                    } else if (browsing.side === 'PROTOCOL') {
+                      change({ protocolDirectory: chosen });
                     } else {
                       setJob(withSourceDirectory(job, chosen));
                       setRemoteCheck(browsing.at);
@@ -788,6 +808,23 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   onChange={(event) => change({ protocolDirectory: event.target.value || undefined })}
                 />
               </Field>
+            )}
+
+            {/*
+              * Immer lokal gesucht: Das Protokoll schreibt Unikom selbst, ganz
+              * gleich woher und wohin dieser Workflow überträgt.
+              */}
+            {job.saveProtocol && (
+              <div className="row">
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!job.tenantId || browsing.busy}
+                  onClick={() => void openBrowser(job.protocolDirectory ?? '', 'PROTOCOL')}
+                >
+                  {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
+                </button>
+              </div>
             )}
 
             <CheckField
@@ -1043,16 +1080,22 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 * Neben dem Feld nähmen sie ihm die Länge, und ein Pfad ist das
                 * Feld, in dem man am ehesten den Anfang sehen will.
                 */}
-              {remote && (
-                <div className="row">
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={!job.tenantId || browsing.busy}
-                    onClick={() => void openBrowser(job.sourceDirectory, 'SOURCE')}
-                  >
-                    {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
-                  </button>
+              {/*
+                * Aussuchen gilt für jede Herkunft, auch die lokale — geprüft
+                * wird dagegen nur, was über eine Verbindung erreicht wird. Ein
+                * lokales Verzeichnis beantwortet der Browser bereits im
+                * Aussuchen: Was er auflistet, gibt es.
+                */}
+              <div className="row">
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!job.tenantId || browsing.busy}
+                  onClick={() => void openBrowser(job.sourceDirectory, 'SOURCE')}
+                >
+                  {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
+                </button>
+                {remote && (
                   <button
                     type="button"
                     className="secondary"
@@ -1061,8 +1104,8 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   >
                     {checking ? 'Verzeichnis wird geprüft …' : 'Verzeichnis prüfen'}
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               {/*
                 * Das Ergebnis steht als Zeile und nicht als Fenster: Es gehört
@@ -1746,6 +1789,22 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                       onChange={(event) => change({ sourceArchiveDirectory: event.target.value || undefined })}
                     />
                   </Field>
+
+                  {/*
+                    * Das Archiv liegt dort, wo die Quelle liegt — dorthin wird
+                    * die Datei nach dem Abholen verschoben, und das geschieht
+                    * auf dem Server, von dem sie kam.
+                    */}
+                  <div className="row">
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={!job.tenantId || browsing.busy}
+                      onClick={() => void openBrowser(job.sourceArchiveDirectory ?? '', 'ARCHIVE')}
+                    >
+                      {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
+                    </button>
+                  </div>
 
                   {job.includeSubdirectories && archiveInsideSource(job) && (
                     <div className="notice notice--warn">

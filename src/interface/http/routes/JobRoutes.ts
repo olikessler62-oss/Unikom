@@ -117,6 +117,32 @@ export function jobRoutes(application: UnikomApplication): Route[] {
     },
     {
       /*
+       * Ein Verzeichnis auf dem Rechner aussuchen, auf dem Unikom läuft.
+       *
+       * Für jedes Feld, das immer lokal ist — das Protokollverzeichnis etwa —
+       * und für Quelle, Archiv und Ziel, solange sie lokal eingestellt sind.
+       * Dass der Server antwortet und nicht der Browser, ist kein Notbehelf:
+       * Ein Dateidialog im Browser nennt den Pfad des Rechners, an dem jemand
+       * sitzt, und der ist bei einer Weboberfläche nicht der, auf dem
+       * geschrieben wird.
+       */
+      method: 'POST',
+      pattern: '/api/jobs/browse-local',
+      authorization: 'MANAGE_JOBS',
+      handle: async ({ body }) => {
+        const input = requireObject(body, 'The directory request');
+
+        return ok(
+          await application.localDirectories.browse({
+            tenantId: typeof input.tenantId === 'string' ? input.tenantId : undefined,
+            directory: typeof input.directory === 'string' ? input.directory : '',
+            known: Array.isArray(input.known) ? input.known.filter((e): e is string => typeof e === 'string') : [],
+          })
+        );
+      },
+    },
+    {
+      /*
        * Derselbe Browser für die Zielseite.
        *
        * Blättern ist Lesen, und ein Zielserver spricht dasselbe Protokoll wie
