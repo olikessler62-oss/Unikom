@@ -85,3 +85,57 @@ test('a chosen name survives an update that does not mention it', async () => {
 
   assert.equal(updated?.conflictFilename, 'Nachlieferung');
 });
+
+/*
+ * Ein Workflow ohne Servernamen speichert sich sonst anstandslos, steht in der
+ * Liste wie jeder andere und scheitert das erste Mal um drei Uhr nachts. Die
+ * Auskunft käme dann von der Uhrzeit statt vom Editor.
+ */
+test('eine SFTP-Quelle ohne Servernamen wird beim Speichern abgelehnt', async () => {
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () => service.create({ ...job, sourceType: 'SFTP', sourceConfig: { type: 'SFTP', directory: '/raus' } }),
+    /kein Server eingetragen/
+  );
+});
+
+test('ein SFTP-Ziel ohne Servernamen wird beim Speichern abgelehnt', async () => {
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () =>
+      service.create({
+        ...job,
+        destinationType: 'SFTP',
+        destinationConfig: { type: 'SFTP', directory: '/eingang' },
+      }),
+    /kein Server eingetragen/
+  );
+});
+
+test('auch das nachträgliche Umstellen auf einen Server ohne Namen wird abgelehnt', async () => {
+  // Beim Ändern kommt das als Änderung an zwei unauffälligen Feldern an. Geprüft
+  // wird der zusammengesetzte Workflow, nicht die Änderung für sich.
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+  await service.create(job);
+
+  await assert.rejects(
+    () => service.update('job-1', { destinationType: 'FTPS', destinationConfig: { type: 'FTPS', directory: '/x' } }),
+    /kein Server eingetragen/
+  );
+});
+
+test('ein Server ohne Zugang bleibt erlaubt', async () => {
+  // Offene FTP-Server ohne Anmeldung sind selten, aber es gibt sie. Sie zu
+  // verbieten wäre eine Regel, die mehr kostet als sie einbringt.
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  const gespeichert = await service.create({
+    ...job,
+    destinationType: 'FTPS',
+    destinationConfig: { type: 'FTPS', directory: '/eingang', host: 'ftp.example.de' },
+  });
+
+  assert.equal(gespeichert.destinationConfig?.host, 'ftp.example.de');
+});

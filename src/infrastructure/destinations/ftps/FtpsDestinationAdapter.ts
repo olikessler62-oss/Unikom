@@ -20,6 +20,16 @@ import { ftpsPort, openFtpsConnection } from '../../sources/ftps/FtpsConnection.
  * wird deshalb aus der Auflistung des Verzeichnisses beantwortet, was auch das
  * ist, was ein FTP-Server verlässlich beherrscht.
  */
+/** Fehlergrund samt Code, so wie er ins Protokoll gehört. */
+function beschreibe(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const code = (error as NodeJS.ErrnoException).code;
+  return code ? `${error.message} [${code}]` : error.message;
+}
+
 export class FtpsDestinationAdapter implements DestinationAdapter {
   private client?: Client;
   private readonly paths: RemotePathResolver;
@@ -84,7 +94,10 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
         `Liegengebliebene Arbeitsdatei ${entry.name} wird entfernt — ` +
           `abgelegt am ${modified?.toISOString()}, älter als einen Tag`
       );
-      await client.remove(this.paths.join(directory, entry.name)).catch(() => undefined);
+      const stale = this.paths.join(directory, entry.name);
+      await client.remove(stale).catch((error: unknown) =>
+        this.trace?.(`${stale} konnte nicht entfernt werden: ${beschreibe(error)}`)
+      );
     }
   }
 
@@ -96,9 +109,12 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
     try {
       const entries = await client.list(parent);
       return entries.some((entry) => entry.name === name);
-    } catch {
+    } catch (error) {
       // Ein Verzeichnis, das nicht gelesen werden kann, enthält für diese
       // Frage nichts: Der Lauf scheitert dann beim Anlegen, mit besserem Grund.
+      // Gesagt wird es hier trotzdem, sonst wäre die Antwort „liegt dort
+      // nicht" von „konnte nicht nachsehen" nicht zu unterscheiden.
+      this.trace?.(`${parent} ließ sich nicht lesen, ${name} gilt als nicht vorhanden: ${beschreibe(error)}`);
       return false;
     }
   }
@@ -113,7 +129,12 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
       await client.uploadFrom(stagedPath, working);
     } catch (error) {
       this.trace?.(`Hochladen fehlgeschlagen, ${working} wird entfernt`);
-      await client.remove(working).catch(() => undefined);
+      await client.remove(working).catch((problem: unknown) =>
+        this.trace?.(
+          `${working} konnte nach dem gescheiterten Hochladen nicht entfernt werden: ${beschreibe(problem)} — ` +
+            'sie bleibt für den Kehraus des nächsten Laufs liegen'
+        )
+      );
       throw error;
     }
 
@@ -158,13 +179,15 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
     const client = this.client;
     this.client = undefined;
     client.close();
+    this.trace?.('Verbindung zum Ziel geschlossen');
   }
 
   private async directoryExists(client: Client, directory: string): Promise<boolean> {
     try {
       await client.list(directory);
       return true;
-    } catch {
+    } catch (error) {
+      this.trace?.(`${directory} ließ sich nicht lesen und gilt als nicht vorhanden: ${beschreibe(error)}`);
       return false;
     }
   }

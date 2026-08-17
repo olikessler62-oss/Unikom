@@ -23,6 +23,16 @@ import { openSftpConnection } from '../../sources/sftp/SftpConnection.js';
  * bei SFTP atomar. Bricht die Verbindung vorher ab, bleibt ein `.unikom-part`
  * liegen, das niemand für eine Lieferung hält.
  */
+/** Fehlergrund samt Code, so wie er ins Protokoll gehört. */
+function beschreibe(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const code = (error as NodeJS.ErrnoException).code;
+  return code ? `${error.message} [${code}]` : error.message;
+}
+
 export class SftpDestinationAdapter implements DestinationAdapter {
   private client?: Client;
   /** Wie bei der Quelle: Was jemand eingetippt hat, wird einmal am Rand übersetzt. */
@@ -93,7 +103,12 @@ export class SftpDestinationAdapter implements DestinationAdapter {
         `Liegengebliebene Arbeitsdatei ${entry.name} wird entfernt — ` +
           `abgelegt am ${modified?.toISOString()}, älter als einen Tag`
       );
-      await client.delete(stale).catch(() => undefined);
+      await client.delete(stale).catch((error: unknown) =>
+        // Nicht wegräumen zu können ist kein Grund, den Lauf anzuhalten — aber
+        // sehr wohl einer, es zu sagen. Wer später ein volles Verzeichnis
+        // sucht, findet hier den Grund.
+        this.trace?.(`${stale} konnte nicht entfernt werden: ${beschreibe(error)}`)
+      );
     }
   }
 
@@ -116,7 +131,12 @@ export class SftpDestinationAdapter implements DestinationAdapter {
       // noch durch. Gelingt es nicht, bleibt die Datei für den Kehraus liegen;
       // der Fehler des Hochladens ist der wichtigere und geht weiter.
       this.trace?.(`Hochladen fehlgeschlagen, ${working} wird entfernt`);
-      await client.delete(working).catch(() => undefined);
+      await client.delete(working).catch((problem: unknown) =>
+        this.trace?.(
+          `${working} konnte nach dem gescheiterten Hochladen nicht entfernt werden: ${beschreibe(problem)} — ` +
+            'sie bleibt für den Kehraus des nächsten Laufs liegen'
+        )
+      );
       throw error;
     }
 
@@ -170,8 +190,11 @@ export class SftpDestinationAdapter implements DestinationAdapter {
 
     try {
       await client.end();
-    } catch {
-      // Eine Verbindung, die schon fort ist, braucht kein Schließen.
+      this.trace?.('Verbindung zum Ziel geschlossen');
+    } catch (error) {
+      // Eine Verbindung, die schon fort ist, braucht kein Schließen — gesagt
+      // wird es trotzdem, weil ein Abbruch hier auf einen Abbruch davor deutet.
+      this.trace?.(`Die Verbindung zum Ziel ließ sich nicht ordentlich schließen: ${beschreibe(error)}`);
     }
   }
 

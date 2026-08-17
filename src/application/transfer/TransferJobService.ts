@@ -41,6 +41,7 @@ export class TransferJobService {
     assertJobIsLicensed(job, this.features);
     assertEncryptionIsCoherent(job);
     assertConflictNameIsUsable(job);
+    assertRemoteConnectionsAreComplete(job);
     assertStagesAreCoherent(job);
     await this.assertTenantRules(job);
 
@@ -65,6 +66,7 @@ export class TransferJobService {
     assertJobIsLicensed(updated, this.features);
     assertEncryptionIsCoherent(updated);
     assertConflictNameIsUsable(updated);
+    assertRemoteConnectionsAreComplete(updated);
     assertStagesAreCoherent(updated);
     await this.assertTenantRules(updated);
 
@@ -123,6 +125,41 @@ export function assertEncryptionIsCoherent(job: TransferJob): void {
 
   if (job.sourceEncryption?.enabled && !job.sourceEncryption.keyCredentialId) {
     throw new Error('Eine verschlüsselte Quelle braucht den Schlüssel, der ihre Dateien öffnet.');
+  }
+}
+
+/**
+ * Eine entfernte Verbindung braucht einen Server — auf beiden Seiten.
+ *
+ * Ohne diese Prüfung ließe sich ein Workflow anlegen, der SFTP als Quelle oder
+ * Ziel führt und kein Ziel kennt, an das er sich wenden könnte. Er speichert
+ * sich anstandslos, steht in der Liste wie jeder andere, und scheitert das
+ * erste Mal um drei Uhr nachts — mit einer Meldung über eine fehlende
+ * Servereintragung, die dann niemand liest.
+ *
+ * Der Zugang wird nicht verlangt: Ein offener FTP-Server ohne Anmeldung ist
+ * selten, aber es gibt ihn, und ihn zu verbieten wäre eine Regel, die mehr
+ * kostet als sie einbringt. Ein Server ohne Namen dagegen ist in keinem Fall
+ * etwas anderes als ein Versehen.
+ */
+export function assertRemoteConnectionsAreComplete(job: TransferJob): void {
+  const benannt = (host: string | undefined): boolean => (host ?? '').trim().length > 0;
+
+  if ((job.sourceType === 'SFTP' || job.sourceType === 'FTPS') && !benannt(job.sourceConfig.host)) {
+    throw new Error(
+      `Die Quelle ist als ${job.sourceType} eingestellt, es ist aber kein Server eingetragen. ` +
+        'Ohne Servernamen gibt es niemanden, bei dem die Dateien geholt werden könnten.'
+    );
+  }
+
+  if (
+    (job.destinationType === 'SFTP' || job.destinationType === 'FTPS') &&
+    !benannt(job.destinationConfig?.host)
+  ) {
+    throw new Error(
+      `Das Ziel ist als ${job.destinationType} eingestellt, es ist aber kein Server eingetragen. ` +
+        'Ohne Servernamen gibt es niemanden, bei dem die Dateien abgelegt werden könnten.'
+    );
   }
 }
 

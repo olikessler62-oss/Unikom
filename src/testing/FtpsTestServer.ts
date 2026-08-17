@@ -69,33 +69,67 @@ export class FtpsTestServer {
     readonly port: number
   ) {}
 
+  /**
+   * `ftp-srv` verlangt den Port in seiner Adresse, kann sich also keinen vom
+   * Betriebssystem geben lassen, wie es der SFTP-Testserver tut. Zwischen dem
+   * Suchen eines freien Ports und dem Binden liegt damit eine Lücke, in der ihn
+   * ein anderer Testlauf nehmen kann — bei vielen Dateien gleichzeitig geschieht
+   * das wirklich, und der Verlierer hing danach bis in seine Zeitgrenze.
+   *
+   * Darum wird das Binden wiederholt, statt sich auf die Momentaufnahme zu
+   * verlassen. Der belegte Port ist kein Fehler, sondern ein zweiter Versuch.
+   */
   static async start(options: FtpsTestServerOptions): Promise<FtpsTestServer> {
-    const port = await freePort();
     const [key, cert] = await Promise.all([fs.readFile(TEST_KEY_PATH), fs.readFile(TEST_CERTIFICATE_PATH)]);
+    let letzterFehler: unknown;
 
-    const server = new FtpSrv({
-      url: `ftp://127.0.0.1:${port}`,
-      pasv_url: '127.0.0.1',
-      tls: { key, cert },
-      anonymous: false,
-      greeting: ['Unikom test server'],
-      log: silentLogger,
-    });
+    for (let versuch = 0; versuch < 12; versuch += 1) {
+      const port = await freePort();
 
-    server.on('login', ({ username, password }, resolve, reject) => {
-      if (username === (options.username ?? 'unikom') && password === (options.password ?? 'secret')) {
-        resolve({ root: options.root });
-        return;
+      const server = new FtpSrv({
+        url: `ftp://127.0.0.1:${port}`,
+        pasv_url: '127.0.0.1',
+        tls: { key, cert },
+        anonymous: false,
+        greeting: ['Unikom test server'],
+        log: silentLogger,
+      });
+
+      server.on('login', ({ username, password }, resolve, reject) => {
+        if (username === (options.username ?? 'unikom') && password === (options.password ?? 'secret')) {
+          resolve({ root: options.root });
+          return;
+        }
+
+        reject(new Error('Invalid username or password'));
+      });
+
+      // Client disconnects are routine in these tests.
+      server.on('client-error', () => {});
+
+      try {
+        // Mit Frist, nicht nur mit try/catch: Ein belegter Port meldet sich
+        // nicht immer als Fehler zurück — `ftp-srv` kann ihn schlucken, und
+        // dann bliebe das Versprechen einfach offen. Der Test hinge dann bis
+        // in seine Zeitgrenze, und genau das war zu beobachten. Ein Server,
+        // der drei Sekunden nicht hochkommt, kommt nicht mehr hoch.
+        await Promise.race([
+          server.listen(),
+          new Promise((_, ablehnen) =>
+            setTimeout(() => ablehnen(new Error(`Port ${port} kam nicht hoch`)), 3000).unref()
+          ),
+        ]);
+
+        return new FtpsTestServer(server, port);
+      } catch (error) {
+        letzterFehler = error;
+        await server.close().catch(() => undefined);
       }
+    }
 
-      reject(new Error('Invalid username or password'));
-    });
-
-    // Client disconnects are routine in these tests.
-    server.on('client-error', () => {});
-
-    await server.listen();
-    return new FtpsTestServer(server, port);
+    throw new Error(
+      `Nach zwölf Versuchen war kein freier Port für den FTPS-Testserver zu bekommen: ${String(letzterFehler)}`
+    );
   }
 
   async stop(): Promise<void> {

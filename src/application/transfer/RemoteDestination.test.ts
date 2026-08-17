@@ -194,6 +194,54 @@ test('ein fehlendes Zielverzeichnis wird nicht heimlich angelegt', async () => {
   }
 });
 
+test('der Lauf hinterlässt jeden Schritt der Zielseite im Protokoll', async () => {
+  /*
+   * Ein Protokoll ist das Werkzeug der Ferndiagnose: Wer ein fremdes System
+   * nicht betreten darf, hat nur, was der Lauf aufgeschrieben hat. Deshalb
+   * wird jeder Schritt angekündigt und bestätigt — ein Lauf, der hängt, wird
+   * an der letzten geschriebenen Zeile erkannt, und eine Zeile „verbinde" vor
+   * dem Versuch ist mehr wert als eine Zeile „verbunden" danach.
+   */
+  const b = await bühne();
+  const gesagt: string[] = [];
+
+  try {
+    await fs.writeFile(path.join(b.quelle, 'ORDER_001.csv'), INHALT);
+    await b.speichere({ logLevel: 'DEBUG' });
+
+    const run = await b.application.runtime.orchestrator.runJobNow('fern', new Date());
+    const zeilen = await b.application.logRepository.list({ runId: run!.id, limit: 10_000 });
+    gesagt.push(...zeilen.map((zeile) => zeile.message));
+
+    const erwartet: [string, RegExp][] = [
+      ['Auflösen des Zielpfads', /Zielverzeichnis .* wird gelesen als \/eingang/],
+      ['Verbinden zum Zielserver', /Verbindung zu 127\.0\.0\.1/],
+      ['Hostkey gezeigt', /zeigt den Hostkey SHA256:/],
+      ['Anmeldung gelungen', /Verbunden und angemeldet/],
+      ['Beschreibbarkeit belegt', /ist vorhanden und beschreibbar/],
+      ['Hochladen angekündigt', /Wird hochgeladen nach .*unikom-part/],
+      ['Umbenennen angekündigt', /Wird umbenannt nach \/eingang\/ORDER_001\.csv/],
+      ['Vollständigkeit bestätigt', /liegt vollständig/],
+    ];
+
+    for (const [was, muster] of erwartet) {
+      assert.ok(
+        gesagt.some((zeile) => muster.test(zeile)),
+        `${was} steht nicht im Protokoll. Geschrieben wurde:\n${gesagt.join('\n')}`
+      );
+    }
+
+    // Und niemals das Kennwort, egal wie ausführlich.
+    assert.equal(
+      gesagt.some((zeile) => zeile.includes(PASSWORD)),
+      false,
+      'das Kennwort steht im Protokoll'
+    );
+  } finally {
+    await b.abbauen();
+  }
+});
+
 test('zwei Läufe schreiben nie in dieselbe Arbeitsdatei', async () => {
   // Der Arbeitsname hing einmal allein am Zielpfad. Zwei Workflows, die eine
   // gleichnamige Datei in dasselbe Verzeichnis legen, hätten damit gleichzeitig
