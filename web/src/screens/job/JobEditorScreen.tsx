@@ -27,6 +27,9 @@ import {
   withSourceType,
 } from './emptyJob.js';
 
+/** Welche Seite eines Workflows gerade gemeint ist — sie holt oder sie legt ab. */
+type Side = 'SOURCE' | 'DESTINATION';
+
 /**
  * Eine Änderung an den Verbindungsangaben des Ziels. Steht hier, weil sie in
  * jedem Feld der Zielseite gebraucht wird und der Ausdruck sonst achtmal
@@ -181,10 +184,22 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
    */
   const [remoteCheck, setRemoteCheck] = useState<RemoteDirectoryResult>();
   const [checking, setChecking] = useState(false);
-  /** Der geöffnete Verzeichnisbrowser; `at` ist der Pfad, der gerade zu sehen ist. */
-  const [browsing, setBrowsing] = useState<{ busy: boolean; open: boolean; at?: RemoteDirectoryResult }>({
+  /**
+   * Der geöffnete Verzeichnisbrowser; `at` ist der Pfad, der gerade zu sehen
+   * ist, und `side`, für welches der beiden Felder das Ergebnis gilt. Ein
+   * Browser für beide Seiten, weil es dieselbe Frage an denselben Servertyp
+   * ist — zwei würden sich früher oder später darüber uneins, was ein
+   * eingetippter Pfad bedeutet.
+   */
+  const [browsing, setBrowsing] = useState<{
+    busy: boolean;
+    open: boolean;
+    side: Side;
+    at?: RemoteDirectoryResult;
+  }>({
     busy: false,
     open: false,
+    side: 'SOURCE',
   });
   /**
    * Ein Zugang oder Schlüssel wird hier angelegt, wo beim Einrichten auffällt,
@@ -272,7 +287,18 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
    * das Häkchen neben dem Feld und den Inhalt des Browsers — denn ein Listing,
    * das gelingt, *ist* der Nachweis, dass das Verzeichnis da ist.
    */
-  async function askRemote(directory: string): Promise<RemoteDirectoryResult> {
+  async function askRemote(directory: string, side: Side = 'SOURCE'): Promise<RemoteDirectoryResult> {
+    if (side === 'DESTINATION') {
+      return api.post<RemoteDirectoryResult>('/api/jobs/browse-destination', {
+        name: job!.name || 'Neuer Job',
+        tenantId: job!.tenantId,
+        destinationType: job!.destinationType,
+        destinationConfig: job!.destinationConfig,
+        destinationCredentialId: job!.destinationCredentialId,
+        directory,
+      });
+    }
+
     return api.post<RemoteDirectoryResult>('/api/jobs/browse-remote', {
       name: job!.name || 'Neuer Job',
       tenantId: job!.tenantId,
@@ -299,15 +325,22 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
     }
   }
 
-  async function openBrowser(at: string): Promise<void> {
-    setBrowsing({ busy: true, open: true });
+  /**
+   * `side` ist Pflicht an den beiden Knöpfen und wird nur beim Blättern
+   * innerhalb des Fensters weitergereicht. Als Vorgabe „die zuletzt benutzte
+   * Seite" wäre es eine Falle: Wer erst das Ziel durchsieht und danach die
+   * Quelle öffnet, bekäme wortlos den Zielserver zu sehen.
+   */
+  async function openBrowser(at: string, side: Side): Promise<void> {
+    setBrowsing({ busy: true, open: true, side });
 
     try {
-      setBrowsing({ busy: false, open: true, at: await askRemote(at) });
+      setBrowsing({ busy: false, open: true, side, at: await askRemote(at, side) });
     } catch (failure) {
       setBrowsing({
         busy: false,
         open: true,
+        side,
         at: { ok: false, message: messageOf(failure, 'Die Verbindung ist fehlgeschlagen'), entries: [] },
       });
     }
@@ -415,7 +448,14 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
         * Arbeitsverzeichnis, wie sie ins Feld gehört.
         */}
       {browsing.open && (
-        <Modal title="Verzeichnis auf dem Server wählen" onClose={() => setBrowsing({ busy: false, open: false })}>
+        <Modal
+          title={
+            browsing.side === 'DESTINATION'
+              ? 'Zielverzeichnis auf dem Server wählen'
+              : 'Quellverzeichnis auf dem Server wählen'
+          }
+          onClose={() => setBrowsing({ busy: false, open: false, side: browsing.side })}
+        >
           {browsing.busy && !browsing.at ? (
             <Loading />
           ) : !browsing.at?.ok ? (
@@ -434,14 +474,14 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               <ul className="browse">
                 {browsing.at.path !== browsing.at.parentPath && (
                   <li>
-                    <button type="button" onClick={() => void openBrowser(browsing.at!.parentPath!)}>
+                    <button type="button" onClick={() => void openBrowser(browsing.at!.parentPath!, browsing.side)}>
                       <span className="browse__up">↑</span> eine Ebene höher
                     </button>
                   </li>
                 )}
                 {browsing.at.entries.map((entry) => (
                   <li key={entry.path}>
-                    <button type="button" onClick={() => void openBrowser(entry.path)}>
+                    <button type="button" onClick={() => void openBrowser(entry.path, browsing.side)}>
                       {entry.name}
                     </button>
                   </li>
@@ -454,9 +494,19 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   type="button"
                   onClick={() => {
                     // Der Pfad des Servers, in der Schreibweise des Feldes.
-                    setJob(withSourceDirectory(job, browsing.at!.relativePath ?? ''));
-                    setRemoteCheck(browsing.at);
-                    setBrowsing({ busy: false, open: false });
+                    const chosen = browsing.at!.relativePath ?? '';
+
+                    if (browsing.side === 'DESTINATION') {
+                      change({ destinationDirectory: chosen });
+                      // Die Zielprüfung daneben zeigt sonst noch das Urteil über
+                      // den Pfad, der eben ersetzt wurde.
+                      setTarget({ busy: false });
+                    } else {
+                      setJob(withSourceDirectory(job, chosen));
+                      setRemoteCheck(browsing.at);
+                    }
+
+                    setBrowsing({ busy: false, open: false, side: browsing.side });
                   }}
                 >
                   Dieses Verzeichnis übernehmen
@@ -951,7 +1001,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     type="button"
                     className="secondary"
                     disabled={!job.tenantId || browsing.busy}
-                    onClick={() => void openBrowser(job.sourceDirectory)}
+                    onClick={() => void openBrowser(job.sourceDirectory, 'SOURCE')}
                   >
                     {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
                   </button>
@@ -1393,6 +1443,23 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 >
                   {target.busy ? 'Ziel wird geprüft …' : 'Ziel prüfen'}
                 </button>
+
+                {/*
+                 * Nur beim entfernten Ziel. Ein lokaler Pfad wird vom Dateidialog
+                 * des Betriebssystems gewählt, und den kann eine Seite im Browser
+                 * nicht öffnen — ein eigener Nachbau wäre eine schlechtere
+                 * Fassung von etwas, das jeder schon kennt.
+                 */}
+                {remoteTarget && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={browsing.busy || !job.destinationConfig?.host}
+                    onClick={() => void openBrowser(job.destinationDirectory, 'DESTINATION')}
+                  >
+                    {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
+                  </button>
+                )}
               </div>
 
               {target.error && (

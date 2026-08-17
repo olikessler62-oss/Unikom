@@ -502,6 +502,26 @@ test('browsing a remote directory needs the right to manage jobs', async (t) => 
   assert.equal(refused.status, 403);
 });
 
+/* Der Browser der Zielseite öffnet ebenso eine Verbindung mit gespeicherten
+ * Zugangsdaten. Eine zweite Tür zu derselben Fähigkeit, die weniger verlangt,
+ * wäre der Sinn der ersten. */
+test('auch der Zielbrowser verlangt das Recht, Workflows zu verwalten', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'vera', 'VIEWER');
+  await client.login('vera');
+
+  const refused = await client.request('POST', '/api/jobs/browse-destination', {
+    body: {
+      tenantId: 'default',
+      destinationType: 'SFTP',
+      destinationConfig: { type: 'SFTP', directory: '/', host: '127.0.0.1' },
+      directory: 'eingang',
+    },
+  });
+
+  assert.equal(refused.status, 403);
+});
+
 test('a path that leaves the working directory is refused without a connection', async (t) => {
   const client = await harness(t);
   await withUser(client, 'anna', 'ADMIN');

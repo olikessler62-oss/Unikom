@@ -185,6 +185,36 @@ test('ein fehlendes Zielverzeichnis wird nicht heimlich angelegt', async () => {
   }
 });
 
+test('der Verzeichnisbrowser des Ziels sieht auf den Zielserver', async () => {
+  // Der Browser bildet die Zielangaben auf eine Quelle ab, weil Blättern Lesen
+  // ist. Ginge dabei die Seite verloren, zeigte er den Quellserver — und
+  // jemand übernähme einen Pfad, den es am Ziel gar nicht gibt.
+  const b = await bühne();
+
+  try {
+    await fs.mkdir(path.join(b.serverRoot, 'eingang', 'kunde-a'), { recursive: true });
+    await b.speichere();
+    const workflow = (await b.application.jobRepository.getById('fern'))!;
+
+    const antwort = await b.application.remoteDirectories.browse({
+      name: workflow.name,
+      tenantId: workflow.tenantId,
+      sourceType: workflow.destinationType!,
+      sourceConfig: workflow.destinationConfig!,
+      credentialId: workflow.destinationCredentialId,
+      directory: '/eingang',
+    });
+
+    assert.equal(antwort.ok, true, antwort.message);
+    assert.deepEqual(
+      antwort.entries.map((entry) => entry.name),
+      ['kunde-a']
+    );
+  } finally {
+    await b.abbauen();
+  }
+});
+
 test('ein Name, der aus dem Zielverzeichnis führte, wird auch über das Netz abgelehnt', async () => {
   const b = await bühne();
 

@@ -116,6 +116,35 @@ export function jobRoutes(application: UnikomApplication): Route[] {
       },
     },
     {
+      /*
+       * Derselbe Browser für die Zielseite.
+       *
+       * Blättern ist Lesen, und ein Zielserver spricht dasselbe Protokoll wie
+       * ein Quellserver — die Zielangaben werden deshalb auf eine Quelle
+       * abgebildet, statt einen zweiten Browser danebenzustellen. Zwei
+       * Fassungen würden sich darüber uneins, was ein eingetippter Pfad
+       * bedeutet, und genau das darf es nur einmal geben.
+       */
+      method: 'POST',
+      pattern: '/api/jobs/browse-destination',
+      authorization: 'MANAGE_JOBS',
+      handle: async ({ body }) => {
+        const input = requireObject(body, 'The directory request');
+
+        return ok(
+          await application.remoteDirectories.browse({
+            name: typeof input.name === 'string' ? input.name : 'Neuer Job',
+            tenantId: typeof input.tenantId === 'string' ? input.tenantId : DEFAULT_TENANT_ID,
+            sourceType: input.destinationType as TransferJob['sourceType'],
+            sourceConfig: input.destinationConfig as TransferJob['sourceConfig'],
+            credentialId:
+              typeof input.destinationCredentialId === 'string' ? input.destinationCredentialId : undefined,
+            directory: typeof input.directory === 'string' ? input.directory : '',
+          })
+        );
+      },
+    },
+    {
       // The destination is as easy to mistype as the source, and on a share it
       // is just as likely to be unreachable — so it gets its own check.
       method: 'POST',
