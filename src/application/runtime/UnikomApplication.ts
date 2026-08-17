@@ -23,7 +23,15 @@ import { SqliteTransferFileRepository } from '../../infrastructure/persistence/s
 import { SqliteTransferJobRepository } from '../../infrastructure/persistence/sqlite/SqliteTransferJobRepository.js';
 import { SqliteTransferLogStore } from '../../infrastructure/persistence/sqlite/SqliteTransferLogStore.js';
 import { SqliteTransferRunRepository } from '../../infrastructure/persistence/sqlite/SqliteTransferRunRepository.js';
-import { EnvironmentMasterKeyProvider, type MasterKeyProvider } from '../../infrastructure/security/MasterKeyProvider.js';
+import {
+  DEFAULT_MASTER_KEY_VARIABLE,
+  EnvironmentMasterKeyProvider,
+  type MasterKeyProvider,
+} from '../../infrastructure/security/MasterKeyProvider.js';
+import {
+  WindowsProtectedMasterKeyProvider,
+  windowsProtectionAvailable,
+} from '../../infrastructure/security/WindowsProtectedMasterKeyProvider.js';
 import { SecretCipher } from '../../infrastructure/security/SecretCipher.js';
 import { CredentialEncryptionKeyProvider } from '../credentials/CredentialEncryptionKeyProvider.js';
 import { CredentialService } from '../credentials/CredentialService.js';
@@ -100,6 +108,8 @@ export interface ApplicationOptions {
    * environment variable, which is only read when a secret is actually used.
    */
   masterKeyProvider?: MasterKeyProvider;
+  /** Wo der Hauptschlüssel herkam — der Start soll es sagen können. */
+  onSecurityNotice?: (message: string) => void;
   /** Overrides how a job's keyCredentialId is turned into a key; for tests. */
   encryptionKeyProvider?: EncryptionKeyProvider;
   /** Everything below this level is dropped; defaults to INFO (section 68). */
@@ -136,10 +146,36 @@ interface Wiring {
   close(): void;
 }
 
+/**
+ * Woher der Hauptschlüssel kommt, wenn niemand einen vorgibt.
+ *
+ * Die Reihenfolge ist eine Rangfolge: Wer die Umgebungsvariable setzt, meint
+ * es so — etwa weil derselbe Schlüssel auf zwei Rechnern gelten soll — und darf
+ * nicht von einer Bequemlichkeit überstimmt werden. Erst danach kommt der von
+ * Windows verwahrte Schlüssel, und der setzt ein Datenverzeichnis voraus: Ohne
+ * eines gibt es keinen Ort, an dem er liegen könnte.
+ */
+function defaultMasterKeyProvider(dataDirectory?: string, trace?: (message: string) => void): MasterKeyProvider {
+  if (process.env[DEFAULT_MASTER_KEY_VARIABLE]) {
+    trace?.(`Hauptschlüssel aus der Umgebungsvariablen ${DEFAULT_MASTER_KEY_VARIABLE}`);
+    return new EnvironmentMasterKeyProvider();
+  }
+
+  if (dataDirectory && windowsProtectionAvailable()) {
+    return new WindowsProtectedMasterKeyProvider(dataDirectory, trace);
+  }
+
+  // Bleibt die Umgebungsvariable — und damit die Meldung, die erklärt, wie man
+  // eine bekommt. Sie fällt erst, wenn wirklich ein Geheimnis gebraucht wird.
+  return new EnvironmentMasterKeyProvider();
+}
+
 function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoot?: string): UnikomApplication {
   const credentialService = new CredentialService(
     wiring.credentialRepository,
-    new SecretCipher(options.masterKeyProvider ?? new EnvironmentMasterKeyProvider())
+    new SecretCipher(
+      options.masterKeyProvider ?? defaultMasterKeyProvider(defaultStagingRoot, options.onSecurityNotice)
+    )
   );
 
   const logger = new LevelFilteredLogger(

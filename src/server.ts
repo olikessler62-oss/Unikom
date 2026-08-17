@@ -5,6 +5,10 @@ import {
   ensureInitialAdministrator,
   initialAdministratorNotice,
 } from './application/users/InitialAdministrator.js';
+import {
+  DEFAULT_MASTER_KEY_VARIABLE,
+  MASTER_KEY_COMMAND,
+} from './infrastructure/security/MasterKeyProvider.js';
 import { ApiServer } from './interface/http/ApiServer.js';
 import { createStaticHandler } from './interface/http/StaticFiles.js';
 import { ConsoleLogger } from './infrastructure/logging/ConsoleLogger.js';
@@ -27,10 +31,47 @@ const BEHIND_TLS = process.env.UNIKOM_BEHIND_TLS === 'true';
 /** How often the scheduler looks for jobs that have come due. */
 const POLL_INTERVAL_MS = 60_000;
 
+/**
+ * Der Satz über den Hauptschlüssel.
+ *
+ * Er wird erst geholt, wenn ein Geheimnis gebraucht wird — beim Start steht
+ * deshalb noch nicht immer fest, ob er sich öffnen lässt. Gesagt wird darum,
+ * woher er kommen wird, und wo keiner in Sicht ist, wird das deutlich gesagt.
+ */
+function masterKeyLine(notices: string[]): string {
+  if (notices.length > 0) {
+    return notices.join(' — ');
+  }
+
+  if (process.env[DEFAULT_MASTER_KEY_VARIABLE]) {
+    return `Hauptschlüssel aus der Umgebungsvariablen ${DEFAULT_MASTER_KEY_VARIABLE}`;
+  }
+
+  if (process.platform === 'win32') {
+    return 'Hauptschlüssel wird beim ersten Zugang von Windows verwahrt angelegt';
+  }
+
+  return (
+    `ACHTUNG: kein Hauptschlüssel. Ohne ${DEFAULT_MASTER_KEY_VARIABLE} lässt sich kein Zugang speichern. ` +
+    `Einen erzeugen mit: ${MASTER_KEY_COMMAND}`
+  );
+}
+
 async function main(): Promise<void> {
+  /*
+   * Was mit dem Hauptschlüssel geschieht, wird beim Start gesagt und nicht
+   * beim ersten Zugang.
+   *
+   * Vorher fehlte er stillschweigend: Der Server fuhr hoch, alles sah in
+   * Ordnung aus, und die Auskunft kam erst, nachdem jemand ein ganzes Formular
+   * ausgefüllt hatte. Ein Zustand, der beim Start bekannt ist, gehört beim
+   * Start gesagt.
+   */
+  const securityNotices: string[] = [];
   const application = createPersistentApplication(DATA_DIRECTORY, {
     logLevel: LOG_LEVEL,
     logger: new ConsoleLogger(),
+    onSecurityNotice: (message) => securityNotices.push(message),
   });
 
   // Runs on every start: it creates the standard client on an empty
@@ -65,6 +106,7 @@ async function main(): Promise<void> {
 
   console.log(`Unikom — Oberfläche auf http://${host}:${port}`);
   console.log(`Unikom — Daten in ${DATA_DIRECTORY}`);
+  console.log(`Unikom — ${masterKeyLine(securityNotices)}`);
   console.log(`Unikom — Module: ${application.features.enabled().join(', ') || 'nur Grundprodukt'}`);
   console.log(`Unikom — ${licenceLine(licence)}\n`);
 

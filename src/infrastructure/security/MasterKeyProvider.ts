@@ -24,11 +24,13 @@ export const MASTER_KEY_COMMAND =
 export class MissingMasterKeyError extends Error {
   constructor(variableName: string) {
     super(
-      `${variableName} is not set, so no credential can be stored. Generate a key with:
+      `Es ist kein Hauptschlüssel vorhanden, deshalb kann kein Zugang gespeichert werden. ` +
+        `Unter Windows legt Unikom ihn beim ersten Start selbst an; hier ist das nicht möglich. ` +
+        `Einen Schlüssel erzeugen mit:
   ${MASTER_KEY_COMMAND}
 ` +
-        `Set it as the environment variable ${variableName} and restart Unikom. ` +
-        'Keep it safe: without it, stored credentials cannot be read again.'
+        `Ihn als Umgebungsvariable ${variableName} setzen und Unikom neu starten. ` +
+        'Gut aufbewahren: Ohne ihn sind bereits gespeicherte Zugänge nicht mehr lesbar.'
     );
     this.name = 'MissingMasterKeyError';
   }
