@@ -1,11 +1,11 @@
-import type { Client } from 'basic-ftp';
+import type { Client, FileInfo } from 'basic-ftp';
 
 import type { DestinationAdapter } from '../../../domain/destination/DestinationAdapter.js';
 import type { SourceCredentials, SourceTrace } from '../../../domain/source/SourceAdapter.js';
 import { RemotePathResolver } from '../../../domain/source/RemotePathResolver.js';
 import type { SourceConfig } from '../../../domain/transfer/TransferJob.js';
 import { assertSafeFilename } from '../../filesystem/SafePath.js';
-import { isStaleWorkFile, workFilePath } from '../../../domain/destination/WorkFile.js';
+import { isStaleWorkFile, isWorkFile, workFilePath } from '../../../domain/destination/WorkFile.js';
 import { ftpsPort, openFtpsConnection } from '../../sources/ftps/FtpsConnection.js';
 
 /**
@@ -75,18 +75,26 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
   }
 
   /**
-   * Wie beim SFTP-Ziel: nur alte Arbeitsdateien, und jede mit Ansage. FTP
-   * nennt die Änderungszeit als `modifiedAt`; fehlt sie, bleibt die Datei
-   * liegen — ein Rückstand kostet Platz, eine falsch gelöschte Datei kostet
-   * eine Lieferung.
+   * Wie beim SFTP-Ziel: nur alte Arbeitsdateien, und jede mit Ansage.
+   *
+   * Die Änderungszeit ist hier allerdings der schwierige Teil, und der erste
+   * Versuch war deshalb wirkungslos: Eine gewöhnliche `LIST`-Antwort nennt sie
+   * nicht, und ohne Zeitangabe wird vorsichtshalber nichts gelöscht. Der
+   * Kehraus lief also, räumte aber nie etwas weg. Erst `MDTM` — ein eigener
+   * Befehl für genau diese Auskunft — macht ihn zu dem, was er verspricht.
    */
   private async sweepWorkFiles(client: Client, directory: string): Promise<void> {
     const now = new Date();
 
     for (const entry of await client.list(directory)) {
-      const modified = entry.modifiedAt instanceof Date ? entry.modifiedAt : undefined;
+      if (entry.isDirectory || !isWorkFile(entry.name)) {
+        continue;
+      }
 
-      if (entry.isDirectory || !isStaleWorkFile(entry.name, modified, now)) {
+      const stale = this.paths.join(directory, entry.name);
+      const modified = await this.modifiedAt(client, entry, stale);
+
+      if (!isStaleWorkFile(entry.name, modified, now)) {
         continue;
       }
 
@@ -94,10 +102,26 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
         `Liegengebliebene Arbeitsdatei ${entry.name} wird entfernt — ` +
           `abgelegt am ${modified?.toISOString()}, älter als einen Tag`
       );
-      const stale = this.paths.join(directory, entry.name);
       await client.remove(stale).catch((error: unknown) =>
         this.trace?.(`${stale} konnte nicht entfernt werden: ${beschreibe(error)}`)
       );
+    }
+  }
+
+  /** Wann diese Datei zuletzt geschrieben wurde — aus der Auflistung oder per `MDTM`. */
+  private async modifiedAt(client: Client, entry: FileInfo, fullPath: string): Promise<Date | undefined> {
+    if (entry.modifiedAt instanceof Date) {
+      return entry.modifiedAt;
+    }
+
+    try {
+      return await client.lastMod(fullPath);
+    } catch (error) {
+      this.trace?.(
+        `Für ${entry.name} nennt der Server keine Änderungszeit (${beschreibe(error)}) — ` +
+          'die Datei bleibt vorsichtshalber liegen'
+      );
+      return undefined;
     }
   }
 
