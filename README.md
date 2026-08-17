@@ -45,19 +45,6 @@ darüber hinaus und sind deshalb getrennt:
   eine Netzverbindung ebenso. In der Standardprüfung würden sie daneben laufende
   Tests in ihre Zeitgrenze treiben.
 
-## Der Hauptschlüssel
-
-Gespeicherte Zugänge liegen verschlüsselt. Unter Windows erzeugt Unikom den
-Schlüssel beim ersten Bedarf selbst und lässt ihn vom Betriebssystem verwahren
-(`hauptschluessel.dpapi` im Datenverzeichnis) — es ist nichts einzurichten.
-Windows gibt ihn nur auf demselben Rechner wieder heraus; eine Sicherung der
-Datenbank ist damit für sich genommen wertlos.
-
-Nach einem Umzug auf einen anderen Rechner sind gespeicherte Zugänge deshalb
-nicht mehr lesbar und müssen neu eingetragen werden. Wer das planmäßig vorhat
-— oder Unikom nicht unter Windows betreibt — gibt den Schlüssel über die
-Umgebungsvariable `UNIKOM_MASTER_KEY` vor; sie hat Vorrang.
-
 Für die Arbeit an der Oberfläche:
 
 ```bash
@@ -134,23 +121,36 @@ sich eine Millisekunde teilen und eine davon doppelt oder gar nicht ankäme.
 
 ## Hauptschlüssel
 
-Zugangsdaten werden verschlüsselt gespeichert. Der dafür nötige Schlüssel wird
-aus der Umgebungsvariablen `UNIKOM_MASTER_KEY` gelesen und liegt damit bewusst
-außerhalb der Datenbank, die er schützt.
+Zugangsdaten werden verschlüsselt gespeichert, und der Schlüssel dazu liegt
+bewusst außerhalb der Datenbank, die er schützt — ein Schlüssel daneben wäre
+Zierde.
 
-Einen neuen Schlüssel erzeugen:
+**Unter Windows ist nichts einzurichten.** Unikom erzeugt ihn beim ersten Bedarf
+selbst und übergibt ihn dem Datenschutz des Systems (DPAPI, Bereich
+`LocalMachine`); was in `hauptschluessel.dpapi` im Datenverzeichnis liegt, gibt
+Windows nur auf demselben Rechner wieder heraus. Eine Sicherung der Datenbank
+ist damit für sich genommen wertlos.
+
+`LocalMachine` und nicht `CurrentUser`, weil ein Dienst unter einem anderen
+Konto läuft als der Mensch, der ihn eingerichtet hat — sonst wäre der Schlüssel
+für den Dienst unlesbar, und zwar erst dann, wenn nachts niemand zusieht. Die
+Rechte auf die Datei bleiben deshalb die zweite Schranke.
+
+**Anderswo, oder wenn derselbe Schlüssel auf zwei Rechnern gelten soll**, wird
+er über `UNIKOM_MASTER_KEY` vorgegeben. Diese Angabe hat Vorrang: Wer sie setzt,
+meint es so und wird nicht von einer Bequemlichkeit überstimmt.
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-Der Wert muss base64-kodierte 32 Byte sein. Ohne ihn lassen sich keine
-Zugangsdaten lesen oder anlegen; Jobs mit rein lokalen Quellen und ohne
-Verschlüsselung laufen auch ohne.
+Der Wert muss base64-kodierte 32 Byte sein.
 
-Geht der Schlüssel verloren, sind alle gespeicherten Zugangsdaten unbrauchbar
-und müssen neu hinterlegt werden. Die bereits übertragenen Dateien sind davon
-nicht betroffen — außer sie wurden verschlüsselt abgelegt.
+Geht der Schlüssel verloren — auch durch Umzug auf einen anderen Rechner oder
+eine Neuinstallation von Windows —, sind alle gespeicherten Zugangsdaten
+unbrauchbar und müssen neu hinterlegt werden. Die bereits übertragenen Dateien
+sind davon nicht betroffen, außer sie wurden verschlüsselt abgelegt. Workflows
+mit rein lokalen Quellen und ohne Verschlüsselung laufen ganz ohne Schlüssel.
 
 ## Remote-Pfade
 
