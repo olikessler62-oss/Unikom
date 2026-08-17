@@ -50,6 +50,7 @@ import { TransferHistoryService } from '../transfer/TransferHistoryService.js';
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
 import { RunControlRegistry } from '../transfer/RunControlRegistry.js';
 import { RemoteDirectoryService } from '../transfer/RemoteDirectoryService.js';
+import { DestinationAdapterProvider } from '../transfer/DestinationAdapterProvider.js';
 import { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
 import { TransferJobService } from '../transfer/TransferJobService.js';
 import { JobRuntimeService } from './JobRuntimeService.js';
@@ -84,6 +85,7 @@ export interface UnikomApplication {
   tenantRepository: TenantRepository;
   /** Builds source adapters including their resolved credentials. */
   adapterProvider: SourceAdapterProvider;
+  destinationProvider: DestinationAdapterProvider;
   /** Looks at a remote server while a job is being set up: exists, and what is inside. */
   remoteDirectories: RemoteDirectoryService;
   logger: Logger;
@@ -177,6 +179,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
   // Hoisted so the job editor can test a connection through the same path a
   // run would take, licence and tenant checks included.
   const adapterProvider = new SourceAdapterProvider(credentialService, features);
+  const destinationProvider = new DestinationAdapterProvider(credentialService, features);
 
   return {
     jobRepository: wiring.jobRepository,
@@ -203,6 +206,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     tenantService: new TenantService(wiring.tenantRepository, wiring.jobRepository),
     tenantRepository: wiring.tenantRepository,
     adapterProvider,
+    destinationProvider,
     remoteDirectories: new RemoteDirectoryService(adapterProvider),
     logger,
     historyService: new TransferHistoryService(
@@ -216,6 +220,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
       transferFileRepository: wiring.transferFileRepository,
       encryptionKeyProvider: options.encryptionKeyProvider ?? new CredentialEncryptionKeyProvider(credentialService),
       adapterProvider,
+      destinationProvider,
       // Every pipeline event becomes a log entry; extra listeners still see it.
       events: combineEventListeners(createTransferEventLogger(logger), options.events),
       stagingRoot: options.stagingRoot ?? defaultStagingRoot,

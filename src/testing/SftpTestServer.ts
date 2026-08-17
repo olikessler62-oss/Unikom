@@ -289,7 +289,20 @@ export class SftpTestServer {
 
     sftp.on('RENAME', (reqid: number, oldPath: string, newPath: string) => {
       try {
-        fsSync.renameSync(resolve(oldPath), resolve(newPath));
+        const target = resolve(newPath);
+
+        // SSH_FXP_RENAME verlangt, dass das Ziel frei ist, und OpenSSH hält
+        // sich daran — gemessen an einem echten Hoster, der mit „Failure"
+        // antwortet. Node benennt hingegen stillschweigend über eine
+        // vorhandene Datei hinweg. Diese Zeile schließt den Unterschied: Ein
+        // Testdoppel, das mehr erlaubt als der Server, den es vertritt, lässt
+        // genau die Fehler durch, für die es dasteht.
+        if (fsSync.existsSync(target)) {
+          sftp.status(reqid, STATUS_CODE.FAILURE);
+          return;
+        }
+
+        fsSync.renameSync(resolve(oldPath), target);
         sftp.status(reqid, STATUS_CODE.OK);
       } catch {
         sftp.status(reqid, STATUS_CODE.FAILURE);

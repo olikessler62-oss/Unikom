@@ -15,6 +15,7 @@ const EVENT_LEVELS: Record<TransferEventName, LogLevel> = {
   // happened, at DEBUG as what was being attempted at every moment. Both are
   // wanted, by different readers, at different times.
   SOURCE_STEP: 'DEBUG',
+  DESTINATION_STEP: 'DEBUG',
   RUN_STEP: 'DEBUG',
   // Ein Abbruch ist kein Fehler, aber auch nichts, was im Kleingedruckten
   // stehen darf: Jemand hat eingegriffen, und das erklärt den Rest des Laufs.

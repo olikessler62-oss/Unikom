@@ -228,6 +228,25 @@ export interface TransferJob {
   stabilityCheck: StabilityCheckConfig;
   destinationDirectory: string;
   createDestinationDirectory: boolean;
+  /**
+   * Wohin geschrieben wird. Fehlt es, ist es das Dateisystem — so verhielt sich
+   * jeder Workflow, bevor es entfernte Ziele gab, und so muss ein gespeicherter
+   * Workflow ohne diese Angabe weiterlaufen.
+   *
+   * Eine Windows-Freigabe ist hier kein eigener Typ: Ein UNC-Pfad ist ein Pfad
+   * im Dateisystem, und ihn zu einer eigenen Art zu erklären hieße, zwei Wege
+   * zu pflegen, die dasselbe tun.
+   */
+  destinationType?: SourceType;
+  /**
+   * Die Verbindungsangaben des Ziels — dieselbe Form wie bei der Quelle, weil
+   * es dieselben Angaben sind: Ein SFTP-Server ist derselbe Server, ob von ihm
+   * gelesen oder auf ihn geschrieben wird. Das Verzeichnis darin bleibt leer;
+   * es steht in `destinationDirectory`, damit es eine Wahrheit gibt.
+   */
+  destinationConfig?: SourceConfig;
+  /** Der Zugang zum Ziel. Nie derselbe wie der zur Quelle, auch wenn er es sein darf. */
+  destinationCredentialId?: string;
   conflictStrategy: ConflictStrategy;
   /**
    * The name a file gets when it meets one of its own in the destination and

@@ -1,9 +1,10 @@
 import fs from 'node:fs/promises';
-import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import type { SourceAdapter } from '../../domain/source/SourceAdapter.js';
+import type { DestinationAdapter } from '../../domain/destination/DestinationAdapter.js';
+import { LocalDestinationAdapter } from '../../infrastructure/destinations/local/LocalDestinationAdapter.js';
 import type { SourceFile } from '../../domain/files/SourceFile.js';
 import type { DateNotation, TransferJob } from '../../domain/transfer/TransferJob.js';
 import type { TransferFile } from '../../domain/transfer/TransferFile.js';
@@ -22,7 +23,6 @@ import {
 import { allFeatures, FeatureNotLicensedError, type FeatureSet } from '../../domain/licensing/Feature.js';
 import type { FileProcessingContext } from '../../domain/processing/FileProcessingContext.js';
 import { ProcessingStageError } from '../../domain/processing/ProcessingStage.js';
-import { resolveWithin } from '../../infrastructure/filesystem/SafePath.js';
 import type { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
 import { FileSelectionService } from './FileSelectionService.js';
 import { FileStabilityService } from './FileStabilityService.js';
@@ -137,6 +137,8 @@ interface RunContext {
   retry: RetryPolicy;
   /** The moment the run stands for — the stamp a renamed file gets. */
   startedAt: Date;
+  /** Wohin dieser Lauf schreibt. Gehört dem Lauf, nicht dem Dienst. */
+  destination: DestinationAdapter;
 }
 
 export interface FileOutcome {
@@ -178,6 +180,20 @@ export interface TransferExecutionDependencies {
   features?: FeatureSet;
   /** Stages that run behind STEP_1_COMPLETED; absent means Step 1 alone. */
   processingStages?: ProcessingStageRegistry;
+  /**
+   * Woher das Ziel eines Workflows kommt. Fehlt es, schreibt jeder Lauf ins
+   * Dateisystem — so verhielt sich das Erzeugnis, bevor es entfernte Ziele gab.
+   */
+  destinationProvider?: OpensDestinations;
+}
+
+/**
+ * Das eine, was der Lauf von außen braucht, um sein Ziel zu bekommen. Als
+ * Form benannt statt als Klasse, damit ein Test ein einzelnes offenes Ziel
+ * hineinreichen kann statt einer Zugangsverwaltung.
+ */
+export interface OpensDestinations {
+  forJob(job: TransferJob): Promise<DestinationAdapter>;
 }
 
 export interface TransferExecutionOptions {
@@ -235,6 +251,7 @@ export class TransferExecutionService {
   private readonly retryWait?: (milliseconds: number) => Promise<void>;
   private readonly features: FeatureSet;
   private readonly processingStages?: ProcessingStageRegistry;
+  private readonly destinationProvider?: OpensDestinations;
 
   constructor(dependencies: TransferExecutionDependencies) {
     this.transferFileRepository = dependencies.transferFileRepository;
@@ -252,6 +269,7 @@ export class TransferExecutionService {
     this.retryWait = dependencies.retryWait;
     this.features = dependencies.features ?? allFeatures();
     this.processingStages = dependencies.processingStages;
+    this.destinationProvider = dependencies.destinationProvider;
   }
 
   /**
@@ -375,7 +393,11 @@ export class TransferExecutionService {
       );
     }
 
-    await this.ensureDestinationDirectory(job, runId);
+    const destination = await this.destinationFor(job);
+    destination.trace = (message, details) =>
+      this.event('DESTINATION_STEP', runId, job, undefined, message, details);
+
+    await this.ensureDestinationDirectory(job, runId, destination);
     const stagingDirectory = await this.stagingService.prepareStagingDirectory(this.stagingRoot, runId);
     this.event('RUN_STEP', runId, job, undefined, `Arbeitsbereich vorbereitet: ${stagingDirectory}`);
 
@@ -386,6 +408,7 @@ export class TransferExecutionService {
       claimedDestinations: new Set(),
       retry,
       startedAt: now,
+      destination,
     };
 
     let outcomes: FileOutcome[];
@@ -394,6 +417,9 @@ export class TransferExecutionService {
     } finally {
       await this.stagingService.cleanup(stagingDirectory);
       this.event('RUN_STEP', runId, job, undefined, `Arbeitsbereich aufgeräumt: ${stagingDirectory}`);
+      // Eine Netzverbindung zum Ziel gehört dem Lauf, nicht dem Dienst: Sie
+      // wird hier freigegeben, auch wenn der Lauf gescheitert ist.
+      await destination.dispose?.();
     }
 
     // A cancelled run keeps what it managed to transfer — those files are
@@ -720,7 +746,7 @@ export class TransferExecutionService {
 
       const destination = await this.resolveDestinationPath(job, finalFilename, context);
 
-      if (path.basename(destination.path) !== finalFilename && !destination.skip) {
+      if (context.destination.nameOf(destination.path) !== finalFilename && !destination.skip) {
         // Der Name im Ziel weicht vom Namen der Datei ab. Wer das Ziel später
         // durchsieht, findet sonst einen Namen, den kein Protokoll erklärt.
         this.event(
@@ -728,7 +754,7 @@ export class TransferExecutionService {
           runId,
           job,
           file.name,
-          `${finalFilename} liegt dort schon — abgelegt wird unter ${path.basename(destination.path)}`
+          `${finalFilename} liegt dort schon — abgelegt wird unter ${context.destination.nameOf(destination.path)}`
         );
       }
 
@@ -743,16 +769,16 @@ export class TransferExecutionService {
       }
 
       this.event('FILE_STORING', runId, job, file.name, `${file.name} wird abgelegt als ${destination.path}`);
-      await this.stagingService.moveToFinalPath(stagedPath, destination.path);
-      const destinationStats = await fs.stat(destination.path);
+      await context.destination.place(stagedPath, destination.path);
+      const destinationSize = await context.destination.sizeOf(destination.path);
       this.event('FILE_STORED', runId, job, file.name, 'Datei erfolgreich abgelegt');
 
       await this.transferFileRepository.save(
         record(FileTransferStatus.SUCCESS, {
           resolution: 'TRANSFERRED',
-          destinationPath: path.dirname(destination.path),
-          destinationFilename: path.basename(destination.path),
-          destinationSize: destinationStats.size,
+          destinationPath: context.destination.parentOf(destination.path),
+          destinationFilename: context.destination.nameOf(destination.path),
+          destinationSize,
           sha256,
         })
       );
@@ -774,7 +800,7 @@ export class TransferExecutionService {
 
       this.event('FILE_COMPLETED', runId, job, file.name, 'Datei fertig');
       this.event('STEP_1_COMPLETED', runId, job, file.name, 'STEP_1_COMPLETED', {
-        destinationFilename: path.basename(destination.path),
+        destinationFilename: context.destination.nameOf(destination.path),
         sha256,
       });
 
@@ -785,11 +811,11 @@ export class TransferExecutionService {
         jobId: job.id,
         sourceFile: file,
         originalFilename: file.name,
-        currentFilename: path.basename(destination.path),
+        currentFilename: context.destination.nameOf(destination.path),
         temporaryPath: stagedPathBeforeEncryption,
         currentFilePath: destination.path,
         finalDestinationPath: destination.path,
-        fileSize: destinationStats.size,
+        fileSize: destinationSize,
         sha256,
         encrypted: finalFilename !== file.name,
         metadata: {},
@@ -912,10 +938,10 @@ export class TransferExecutionService {
       return true;
     };
 
-    const target = resolveWithin(job.destinationDirectory, filename);
+    const target = context.destination.resolve(job.destinationDirectory, filename);
     const claimedTarget = claim(target);
 
-    if (claimedTarget && !(await this.exists(target))) {
+    if (claimedTarget && !(await context.destination.exists(target))) {
       return { path: target, skip: false };
     }
 
@@ -945,9 +971,9 @@ export class TransferExecutionService {
         ? chosen
         : `${path.basename(filename, extension)}_${timestampSuffix(context.startedAt, job.timestampNotation)}`;
 
-    const renamed = resolveWithin(job.destinationDirectory, `${stem}${extension}`);
+    const renamed = context.destination.resolve(job.destinationDirectory, `${stem}${extension}`);
 
-    if (claim(renamed) && !(await this.exists(renamed))) {
+    if (claim(renamed) && !(await context.destination.exists(renamed))) {
       return { path: renamed, skip: false };
     }
 
@@ -955,12 +981,12 @@ export class TransferExecutionService {
     // two files of the same name in one run share the stamp. Both end up here,
     // and a transfer must not fail over a name, so a counter settles the tie.
     for (let counter = 1; counter <= 999; counter += 1) {
-      const candidate = resolveWithin(
+      const candidate = context.destination.resolve(
         job.destinationDirectory,
         `${stem}_${String(counter).padStart(3, '0')}${extension}`
       );
 
-      if (claim(candidate) && !(await this.exists(candidate))) {
+      if (claim(candidate) && !(await context.destination.exists(candidate))) {
         return { path: candidate, skip: false };
       }
     }
@@ -968,27 +994,23 @@ export class TransferExecutionService {
     throw new Error(`Für ${filename} war im Zielverzeichnis kein freier Name zu finden`);
   }
 
-  private async ensureDestinationDirectory(job: TransferJob, runId: string): Promise<void> {
-    const directory = path.resolve(job.destinationDirectory);
-
-    if (!(await this.exists(directory))) {
-      if (!job.createDestinationDirectory) {
-        throw new Error(`Das Zielverzeichnis ${directory} fehlt, und es soll nicht automatisch angelegt werden`);
-      }
-
-      await fs.mkdir(directory, { recursive: true });
-    }
-
-    await fs.access(directory, fsConstants.W_OK);
+  private async ensureDestinationDirectory(
+    job: TransferJob,
+    runId: string,
+    destination: DestinationAdapter
+  ): Promise<void> {
+    await destination.prepareDirectory(job.destinationDirectory, job.createDestinationDirectory);
   }
 
-  private async exists(target: string): Promise<boolean> {
-    try {
-      await fs.access(target);
-      return true;
-    } catch {
-      return false;
-    }
+  /**
+   * Das Ziel dieses Laufs. Ohne eigene Angabe ist es das Dateisystem — so
+   * verhielt sich jeder Workflow bisher, und ein gespeicherter Workflow ohne
+   * Zielangabe muss weiterlaufen wie zuvor.
+   */
+  private async destinationFor(job: TransferJob): Promise<DestinationAdapter> {
+    return this.destinationProvider
+      ? this.destinationProvider.forJob(job)
+      : new LocalDestinationAdapter(this.stagingService);
   }
 
   private criteriaFor(job: TransferJob) {

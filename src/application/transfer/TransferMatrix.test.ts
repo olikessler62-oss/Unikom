@@ -57,10 +57,18 @@ interface SourceKind {
   start(application: Application, workspace: string, share?: string): Promise<StartedSource>;
 }
 
+interface StartedDestination {
+  /** Was der Workflow über sein Ziel wissen muss. */
+  patch: Partial<TransferJob>;
+  /** Was wirklich dort liegt — von der anderen Seite gelesen, nicht von unserer. */
+  read(name: string): Promise<Buffer>;
+  stop(): Promise<void>;
+}
+
 interface DestinationKind {
   label: string;
   needsShare: boolean;
-  directory(workspace: string, share?: string): Promise<string>;
+  start(application: Application, workspace: string, share?: string): Promise<StartedDestination>;
 }
 
 /** Ein eigener Ordner je Lauf, damit parallele Prüfungen sich nicht begegnen. */
@@ -176,15 +184,95 @@ const DESTINATIONS: DestinationKind[] = [
   {
     label: 'lokales Verzeichnis',
     needsShare: false,
-    async directory(workspace) {
-      return path.join(workspace, 'ziel');
+    async start(_application, workspace) {
+      const directory = path.join(workspace, 'ziel');
+
+      return {
+        patch: { destinationDirectory: directory },
+        read: (name) => fs.readFile(path.join(directory, name)),
+        stop: async () => {},
+      };
     },
   },
   {
     label: 'Freigabe',
     needsShare: true,
-    async directory(_workspace, share) {
-      return path.join(share!, unique('ziel'));
+    async start(_application, _workspace, share) {
+      const directory = path.join(share!, unique('ziel'));
+
+      return {
+        patch: { destinationDirectory: directory },
+        read: (name) => fs.readFile(path.join(directory, name)),
+        stop: () => fs.rm(directory, { recursive: true, force: true }),
+      };
+    },
+  },
+  {
+    label: 'SFTP',
+    needsShare: false,
+    async start(application) {
+      // Die Wurzel des Servers ist ein Verzeichnis auf der Platte. Gelesen wird
+      // von dort, nicht über denselben Adapter, der geschrieben hat: Ein Test,
+      // der mit dem Werkzeug nachsieht, das er prüft, bemerkt dessen Fehler nicht.
+      const root = await withSftpRoot({});
+      const server = await SftpTestServer.start({ root, username: USERNAME, password: PASSWORD });
+      const credential = await application.credentialService.create({
+        name: 'Zielserver SFTP',
+        type: 'USERNAME_PASSWORD',
+        username: USERNAME,
+        secret: PASSWORD,
+      });
+
+      return {
+        patch: {
+          destinationDirectory: '/eingang',
+          destinationType: 'SFTP',
+          destinationConfig: {
+            type: 'SFTP',
+            directory: '/eingang',
+            host: '127.0.0.1',
+            port: server.port,
+            hostKeyFingerprint: server.hostKeyFingerprint,
+            timeoutSeconds: 15,
+          },
+          destinationCredentialId: credential.id,
+        },
+        read: (name) => fs.readFile(path.join(root, 'eingang', name)),
+        stop: () => server.stop(),
+      };
+    },
+  },
+  {
+    label: 'FTPS',
+    needsShare: false,
+    async start(application) {
+      const root = await withFtpsRoot({});
+      const server = await FtpsTestServer.start({ root, username: USERNAME, password: PASSWORD });
+      const credential = await application.credentialService.create({
+        name: 'Zielserver FTPS',
+        type: 'USERNAME_PASSWORD',
+        username: USERNAME,
+        secret: PASSWORD,
+      });
+
+      return {
+        patch: {
+          destinationDirectory: '/eingang',
+          destinationType: 'FTPS',
+          destinationConfig: {
+            type: 'FTPS',
+            directory: '/eingang',
+            host: '127.0.0.1',
+            port: server.port,
+            tls: true,
+            trustedCertificate: await readTestCertificate(),
+            timeoutSeconds: 15,
+          },
+          destinationCredentialId: credential.id,
+        },
+        read: (name) => fs.readFile(path.join(root, 'eingang', name)),
+        stop: () => server.stop(),
+      };
     },
   },
 ];
@@ -212,7 +300,7 @@ for (const source of SOURCES) {
       });
 
       const started = await source.start(application, workspace, share);
-      const destinationDirectory = await destination.directory(workspace, share);
+      const target = await destination.start(application, workspace, share);
       const bytes = payload();
 
       try {
@@ -222,10 +310,10 @@ for (const source of SOURCES) {
           createTransferJob({
             id: 'matrix',
             name: `${source.label} nach ${destination.label}`,
-            destinationDirectory,
             createDestinationDirectory: true,
             minimumFileAgeSeconds: 0,
             ...started.patch,
+            ...target.patch,
           })
         );
 
@@ -234,7 +322,7 @@ for (const source of SOURCES) {
         assert.equal(run?.status, TransferRunStatus.SUCCESS, JSON.stringify(events.slice(-4)));
         assert.equal(run?.filesSucceeded, 1);
 
-        const arrived = await fs.readFile(path.join(destinationDirectory, FILENAME));
+        const arrived = await target.read(FILENAME);
         assert.equal(arrived.equals(bytes), true, 'die abgelegte Datei weicht Byte für Byte ab');
 
         // Die Prüfsumme steht in der Geschichte, nicht nur auf der Platte: Sie
@@ -244,7 +332,7 @@ for (const source of SOURCES) {
       } finally {
         application.close();
         await started.stop();
-        await fs.rm(destinationDirectory, { recursive: true, force: true });
+        await target.stop();
         await fs.rm(workspace, { recursive: true, force: true });
       }
     });

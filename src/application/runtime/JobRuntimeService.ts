@@ -11,6 +11,7 @@ import {
 } from '../transfer/TransferOrchestratorService.js';
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
 import type { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
+import type { DestinationAdapterProvider } from '../transfer/DestinationAdapterProvider.js';
 import type { EncryptionKeyProvider } from '../../domain/encryption/EncryptionKeyProvider.js';
 import type { FeatureSet } from '../../domain/licensing/Feature.js';
 import type { RunGate } from '../../domain/licensing/Licence.js';
@@ -26,6 +27,8 @@ export interface RuntimeOptions {
   encryptionKeyProvider?: EncryptionKeyProvider;
   /** Supplies source adapters including their resolved credentials. */
   adapterProvider?: SourceAdapterProvider;
+  /** Dasselbe für die Zielseite; fehlt es, schreibt jeder Lauf ins Dateisystem. */
+  destinationProvider?: DestinationAdapterProvider;
   stagingRoot?: string;
   events?: TransferEventListener;
   /** Which modules this installation may use; defaults to all of them. */
@@ -66,6 +69,7 @@ export class JobRuntimeService {
       events: options.events,
       features: options.features,
       processingStages: options.processingStages,
+      destinationProvider: options.destinationProvider,
     });
 
     this.orchestrator = new TransferOrchestratorService(

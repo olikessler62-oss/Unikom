@@ -125,6 +125,44 @@ export function jobRoutes(application: UnikomApplication): Route[] {
         const input = requireObject(body, 'The destination check');
         const directory = typeof input.directory === 'string' ? input.directory : '';
         const tenantId = typeof input.tenantId === 'string' ? input.tenantId : undefined;
+        const destinationType = typeof input.destinationType === 'string' ? input.destinationType : 'LOCAL';
+
+        // Ein entferntes Ziel wird über dieselbe Verbindung geprüft, die der
+        // Lauf später aufmacht — mit Zugang, Hostkey und Arbeitsverzeichnis.
+        // Eine Prüfung, die stattdessen im hiesigen Dateisystem nachsieht,
+        // meldete Erfolg für ein Verzeichnis, in das nie geschrieben wird.
+        if (destinationType === 'SFTP' || destinationType === 'FTPS') {
+          const adapter = await application.destinationProvider.forDestination({
+            name: typeof input.name === 'string' ? input.name : 'Dieser Workflow',
+            tenantId: tenantId ?? '',
+            destinationType,
+            destinationConfig: input.destinationConfig as never,
+            destinationDirectory: directory,
+            destinationCredentialId:
+              typeof input.destinationCredentialId === 'string' ? input.destinationCredentialId : undefined,
+          });
+
+          try {
+            const mayCreate = input.createDestinationDirectory === true;
+            await adapter.prepareDirectory(directory, mayCreate);
+
+            return ok({
+              ok: true,
+              exists: true,
+              writable: true,
+              message: `Zielverzeichnis auf ${adapter.describe()} erreichbar und beschreibbar`,
+            });
+          } catch (error) {
+            return ok({
+              ok: false,
+              exists: false,
+              writable: false,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            await adapter.dispose?.();
+          }
+        }
 
         // The client boundary is reported here rather than only on save, so a
         // wrong directory is caught while somebody is still typing it.

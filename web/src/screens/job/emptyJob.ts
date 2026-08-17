@@ -88,6 +88,31 @@ export function withSourceType(job: Job, sourceType: Job['sourceType']): Job {
   };
 }
 
+/**
+ * Das Gegenstück für die Zielseite.
+ *
+ * `LOCAL` räumt die Verbindungsangaben ganz weg statt sie stehen zu lassen: Ein
+ * Workflow, der ins Dateisystem schreibt und trotzdem einen Server und einen
+ * Zugang mit sich trägt, sieht bei der nächsten Durchsicht so aus, als täte er
+ * etwas anderes als er tut.
+ */
+export function withDestinationType(job: Job, destinationType: Job['sourceType']): Job {
+  if (destinationType === 'LOCAL') {
+    return { ...job, destinationType: 'LOCAL', destinationConfig: undefined, destinationCredentialId: undefined };
+  }
+
+  return {
+    ...job,
+    destinationType,
+    destinationConfig: {
+      ...(job.destinationConfig ?? { type: destinationType, directory: job.destinationDirectory }),
+      type: destinationType,
+      port: destinationType === 'SFTP' ? 22 : 990,
+      validateCertificates: destinationType === 'FTPS' ? true : undefined,
+    },
+  };
+}
+
 export function parseList(value: string): string[] {
   return value
     .split(/[,\s]+/)

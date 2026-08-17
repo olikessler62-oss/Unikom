@@ -8,6 +8,7 @@ import type {
   SourceTrace,
 } from '../../../domain/source/SourceAdapter.js';
 import { RemotePathResolver } from '../../../domain/source/RemotePathResolver.js';
+import { ftpsPort, openFtpsConnection } from './FtpsConnection.js';
 import type { SourceConfig } from '../../../domain/transfer/TransferJob.js';
 import type { SourceFile } from '../../../domain/files/SourceFile.js';
 
@@ -124,7 +125,7 @@ export class FtpsSourceAdapter implements SourceAdapter {
   }
 
   private port(): number {
-    return this.config.port ?? (this.config.implicitFtps ? 990 : 21);
+    return ftpsPort(this.config);
   }
 
   private async connect(): Promise<Client> {
@@ -132,46 +133,8 @@ export class FtpsSourceAdapter implements SourceAdapter {
       return this.client;
     }
 
-    if (!this.config.host) {
-      throw new Error('Für diese FTPS-Quelle ist kein Server eingetragen');
-    }
-
-    const client = new Client((this.config.timeoutSeconds ?? 30) * 1000);
-
-    const mode = this.config.implicitFtps ? 'implizites TLS' : 'explizites TLS';
-    const certificates = this.config.validateCertificates === false ? 'ungeprüft' : 'geprüft';
-    this.trace?.(
-      `Verbindung zu ${this.config.host}:${this.port()} als ` +
-        `„${this.credentials.username ?? this.config.username ?? '—'}“ über ${mode}, Zertifikat ${certificates}`
-    );
-
-    try {
-      await client.access({
-      host: this.config.host,
-      port: this.port(),
-      user: this.credentials.username ?? this.config.username,
-      password: this.credentials.password,
-      // Explicit FTPS by default, implicit only when the job asks for it.
-      secure: this.config.implicitFtps ? 'implicit' : true,
-      secureOptions: {
-        // Certificates are validated unless the job disables it deliberately
-        // (spec section 7).
-        rejectUnauthorized: this.config.validateCertificates !== false,
-        servername: this.config.host,
-        // Lets a private or self-signed server certificate be trusted without
-        // giving up verification for every other server.
-        ca: this.config.trustedCertificate,
-      },
-    });
-
-    } catch (error) {
-      this.trace?.(`Verbindung fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-
-    this.trace?.(`Verbunden und angemeldet über ${mode}`);
-    this.client = client;
-    return client;
+    this.client = await openFtpsConnection(this.config, this.credentials, this.trace, 'Quelle');
+    return this.client;
   }
 
   private async listInto(client: Client, directory: string, recursive: boolean): Promise<SourceFile[]> {

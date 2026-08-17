@@ -528,3 +528,31 @@ test('a path that leaves the working directory is refused without a connection',
   assert.equal((answer.body as { ok: boolean }).ok, false);
   assert.match((answer.body as { message: string }).message, /nicht verlassen/);
 });
+
+/*
+ * Die Zielprüfung muss dorthin sehen, wohin auch geschrieben wird. Prüfte sie
+ * bei einem entfernten Ziel das hiesige Dateisystem, meldete sie Erfolg für
+ * ein Verzeichnis, das mit dem Lauf nichts zu tun hat — der schlimmste Ausgang,
+ * weil er beruhigt.
+ */
+test('die Prüfung eines entfernten Ziels geht über die Verbindung, nicht über die eigene Platte', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'anna', 'ADMIN');
+  await client.login('anna');
+
+  const answer = await client.request('POST', '/api/jobs/check-destination', {
+    body: {
+      tenantId: 'default',
+      name: 'Kunde A',
+      destinationType: 'SFTP',
+      // Auf diesem Port lauscht nichts. Ein lokales Verzeichnis dieses Namens
+      // gibt es aber — die Prüfung darf sich davon nicht täuschen lassen.
+      destinationConfig: { type: 'SFTP', directory: '/', host: '127.0.0.1', port: 1, timeoutSeconds: 2 },
+      directory: '.',
+      createDestinationDirectory: true,
+    },
+  });
+
+  assert.equal(answer.status, 200, JSON.stringify(answer.body));
+  assert.equal((answer.body as { ok: boolean }).ok, false, JSON.stringify(answer.body));
+});

@@ -18,7 +18,35 @@ import type {
 import { CredentialForm, PublicKeyPanel } from '../../components/CredentialForm.js';
 import { CheckField, DurationField, Field, Hint, Loading, Modal, Notice } from '../../components/Pieces.js';
 import { useLanguage } from '../../i18n/useText.js';
-import { emptyJob, notationOf, parseList, withSourceDirectory, withSourceType } from './emptyJob.js';
+import {
+  emptyJob,
+  notationOf,
+  parseList,
+  withDestinationType,
+  withSourceDirectory,
+  withSourceType,
+} from './emptyJob.js';
+
+/**
+ * Eine Änderung an den Verbindungsangaben des Ziels. Steht hier, weil sie in
+ * jedem Feld der Zielseite gebraucht wird und der Ausdruck sonst achtmal
+ * dasteht — samt der Vorbelegung für den Fall, dass es noch keine gibt.
+ */
+function changeTarget(
+  job: Job,
+  change: (patch: Partial<Job>) => void,
+  patch: Partial<NonNullable<Job['destinationConfig']>>
+): void {
+  change({
+    destinationConfig: {
+      ...(job.destinationConfig ?? {
+        type: job.destinationType ?? 'SFTP',
+        directory: job.destinationDirectory,
+      }),
+      ...patch,
+    },
+  });
+}
 import {
   followingOf,
   isConfigurable,
@@ -213,6 +241,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
   const basicsReady = Boolean(job.tenantId) && job.name.trim() !== '';
   const locked = 'Bitte zuerst die Grunddaten ausfüllen — Mandant und Name.';
   const remote = job.sourceType !== 'LOCAL';
+  const remoteTarget = (job.destinationType ?? 'LOCAL') !== 'LOCAL';
   const tenant = tenants.data?.find((entry) => entry.id === job.tenantId);
 
   /** Only credentials this client may use; a shared one has no tenant. */
@@ -292,6 +321,12 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
         directory: job!.destinationDirectory,
         createDestinationDirectory: job!.createDestinationDirectory,
         tenantId: job!.tenantId,
+        name: job!.name,
+        // Bei einem entfernten Ziel prüft der Server über dieselbe Verbindung,
+        // die der Lauf später aufmacht — sonst prüfte er das falsche Gerät.
+        destinationType: job!.destinationType ?? 'LOCAL',
+        destinationConfig: job!.destinationConfig,
+        destinationCredentialId: job!.destinationCredentialId,
       });
 
       setTarget({ busy: false, result });
@@ -1209,13 +1244,136 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
             <section className="card">
               <h2>Ziel</h2>
 
+              <Field label="Art">
+                <select
+                  value={job.destinationType ?? 'LOCAL'}
+                  onChange={(event) =>
+                    setJob(withDestinationType(job, event.target.value as Job['sourceType']))
+                  }
+                >
+                  <option value="LOCAL">Lokales Verzeichnis oder Freigabe</option>
+                  <option value="SFTP">SFTP</option>
+                  <option value="FTPS">FTPS</option>
+                </select>
+              </Field>
+
+              {remoteTarget && (
+                <>
+                  <div className="row" style={{ alignItems: 'flex-start' }}>
+                    <div style={{ flex: 3 }}>
+                      <Field label="Server">
+                        <input
+                          value={job.destinationConfig?.host ?? ''}
+                          onChange={(event) => changeTarget(job, change, { host: event.target.value })}
+                        />
+                      </Field>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <Field label="Port">
+                        <input
+                          type="number"
+                          value={job.destinationConfig?.port ?? ''}
+                          onChange={(event) =>
+                            changeTarget(job, change, { port: Number(event.target.value) || undefined })
+                          }
+                        />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <Field
+                    label="Anmeldung am Zielserver"
+                    explain="Ein eigener Zugang, auch wenn Quelle und Ziel derselbe Server sind. Zwei Richtungen, zwei Berechtigungen."
+                  >
+                    <div className="field__row">
+                      <select
+                        value={job.destinationCredentialId ?? ''}
+                        onChange={(event) =>
+                          change({ destinationCredentialId: event.target.value || undefined })
+                        }
+                      >
+                        <option value="">— keine —</option>
+                        {usable
+                          .filter((credential) => credential.type !== 'ENCRYPTION_KEY')
+                          .map((credential) => (
+                            <option key={credential.id} value={credential.id}>
+                              {credential.name}
+                              {credential.tenantId === undefined ? ' (übergreifend)' : ''}
+                            </option>
+                          ))}
+                      </select>
+                      <button type="button" className="secondary" onClick={() => setAdding('ACCESS')}>
+                        Neu …
+                      </button>
+                    </div>
+                  </Field>
+
+                  <PublicKeyOf
+                    credential={usable.find(
+                      (entry) => entry.id === job.destinationCredentialId && entry.type === 'SSH_PRIVATE_KEY'
+                    )}
+                  />
+                </>
+              )}
+
+              {job.destinationType === 'SFTP' && (
+                <Field
+                  label="Fingerabdruck des Host-Keys"
+                  explain="So wie OpenSSH ihn ausgibt: SHA256:… — ohne ihn wird die Verbindung abgelehnt."
+                >
+                  <input
+                    value={job.destinationConfig?.hostKeyFingerprint ?? ''}
+                    placeholder="SHA256:…"
+                    onChange={(event) =>
+                      changeTarget(job, change, { hostKeyFingerprint: event.target.value || undefined })
+                    }
+                  />
+                </Field>
+              )}
+
+              {job.destinationType === 'FTPS' && (
+                <>
+                  <CheckField
+                    label="Zertifikat prüfen"
+                    explain="Für ein privates oder selbst signiertes Zertifikat besser das Zertifikat hinterlegen, statt die Prüfung abzuschalten."
+                    checked={job.destinationConfig?.validateCertificates ?? true}
+                    onChange={(validateCertificates) => changeTarget(job, change, { validateCertificates })}
+                  />
+                  <CheckField
+                    label="Implizites FTPS"
+                    explain="Verschlüsselt ab dem ersten Byte, üblicherweise auf Port 990."
+                    checked={job.destinationConfig?.implicitFtps ?? false}
+                    onChange={(implicitFtps) => changeTarget(job, change, { implicitFtps })}
+                  />
+                </>
+              )}
+
+              {remoteTarget && (
+                <Field
+                  label="Remote-Arbeitsverzeichnis"
+                  explain="Wie bei der Quelle: wo diese Verbindung auf dem Zielserver beginnt, und zugleich die Grenze, die kein Pfad verlassen darf. Leer lassen heißt: dort, wo der Server das Konto nach der Anmeldung hinstellt."
+                >
+                  <input
+                    value={job.destinationConfig?.remoteWorkingDirectory ?? ''}
+                    placeholder="/"
+                    onChange={(event) =>
+                      changeTarget(job, change, { remoteWorkingDirectory: event.target.value || undefined })
+                    }
+                  />
+                </Field>
+              )}
+
               <Field
                 label="Zielverzeichnis"
-                explain="Lokaler Pfad oder Freigabe. Bei einer Freigabe braucht das Konto, unter dem Unikom läuft, dort Schreibrecht."
+                explain={
+                  remoteTarget
+                    ? 'Ein Pfad auf dem Zielserver, vom Remote-Arbeitsverzeichnis aus gelesen.'
+                    : 'Lokaler Pfad oder Freigabe. Bei einer Freigabe braucht das Konto, unter dem Unikom läuft, dort Schreibrecht.'
+                }
               >
                 <input
                   value={job.destinationDirectory}
-                  placeholder="D:\Daten\kunde-a\eingang"
+                  placeholder={remoteTarget ? 'eingang' : 'D:\\Daten\\kunde-a\\eingang'}
                   onChange={(event) => change({ destinationDirectory: event.target.value })}
                 />
               </Field>

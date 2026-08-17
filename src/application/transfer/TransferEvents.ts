@@ -16,6 +16,12 @@ export type TransferEventName =
    * before the attempt is worth more than "connected" written after it.
    */
   | 'SOURCE_STEP'
+  /**
+   * Dasselbe für die Zielseite: Verzeichnis anlegen, verbinden, hochladen,
+   * umbenennen. Getrennt vom Quellschritt, weil bei einem Lauf von Server zu
+   * Server sonst nicht zu erkennen wäre, welche der beiden Seiten klemmt.
+   */
+  | 'DESTINATION_STEP'
   /** Ein Schritt des Laufs selbst: Arbeitsbereich, Zielverzeichnis, Aufräumen. */
   | 'RUN_STEP'
   /** Der Lauf wurde von Hand angehalten und beendet. */

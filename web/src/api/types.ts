@@ -166,6 +166,14 @@ export interface Job {
 
   destinationDirectory: string;
   createDestinationDirectory: boolean;
+  /**
+   * Wohin geschrieben wird; fehlt heißt Dateisystem. Eine Windows-Freigabe ist
+   * kein eigener Typ — ein UNC-Pfad ist ein Pfad.
+   */
+  destinationType?: SourceType;
+  /** Dieselben Verbindungsangaben wie bei der Quelle, weil es dieselben sind. */
+  destinationConfig?: SourceConfig;
+  destinationCredentialId?: string;
   conflictStrategy: 'SKIP' | 'OVERWRITE' | 'RENAME' | 'NEW_NAME';
   /** Der Name für NEW_NAME — ohne Endung, die bringt die Datei mit. */
   conflictFilename?: string;

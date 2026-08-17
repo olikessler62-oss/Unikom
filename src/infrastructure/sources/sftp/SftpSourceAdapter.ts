@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import type { Writable } from 'node:stream';
 import Client from 'ssh2-sftp-client';
 import type {
@@ -9,18 +8,11 @@ import type {
   SourceTrace,
 } from '../../../domain/source/SourceAdapter.js';
 import { RemotePathResolver } from '../../../domain/source/RemotePathResolver.js';
+import { openSftpConnection } from './SftpConnection.js';
+
+export { fingerprintOf } from './SftpConnection.js';
 import type { SourceConfig } from '../../../domain/transfer/TransferJob.js';
 import type { SourceFile } from '../../../domain/files/SourceFile.js';
-
-/** Formats a host key the way OpenSSH shows it, so operators can compare it. */
-export function fingerprintOf(hostKey: Buffer): string {
-  return `SHA256:${crypto.createHash('sha256').update(hostKey).digest('base64').replace(/=+$/, '')}`;
-}
-
-function normaliseFingerprint(value: string): string {
-  const trimmed = value.trim().replace(/=+$/, '');
-  return trimmed.startsWith('SHA256:') ? trimmed : `SHA256:${trimmed}`;
-}
 
 /** Remote timestamps arrive as seconds on some servers and milliseconds on others. */
 function toDate(value: unknown): Date | undefined {
@@ -33,7 +25,6 @@ function toDate(value: unknown): Date | undefined {
 
 export class SftpSourceAdapter implements SourceAdapter {
   private client?: Client;
-  private hostKeyProblem?: string;
   /**
    * Every path this adapter sends to the server comes out of here. The class
    * holds no path arithmetic of its own: what the operator typed is turned
@@ -163,86 +154,8 @@ export class SftpSourceAdapter implements SourceAdapter {
       return this.client;
     }
 
-    if (!this.config.host) {
-      throw new Error('Für diese SFTP-Quelle ist kein Server eingetragen');
-    }
-
-    const client = new Client();
-    this.hostKeyProblem = undefined;
-
-    const method = this.credentials.privateKey ? 'Schlüsseldatei' : this.credentials.password ? 'Passwort' : 'ohne Anmeldedaten';
-    this.trace?.(
-      `Verbindung zu ${this.config.host}:${this.config.port ?? 22} als ` +
-        `„${this.credentials.username ?? this.config.username ?? '—'}“ über ${method}`
-    );
-
-    try {
-      await client.connect({
-        host: this.config.host,
-        port: this.config.port ?? 22,
-        username: this.credentials.username ?? this.config.username,
-        password: this.credentials.password,
-        privateKey: this.credentials.privateKey,
-        passphrase: this.credentials.passphrase,
-        readyTimeout: (this.config.timeoutSeconds ?? 30) * 1000,
-        hostVerifier: (hostKey: Buffer) => this.verifyHostKey(hostKey),
-      });
-    } catch (error) {
-      // A rejected host key surfaces as a generic handshake failure, which
-      // would send the operator hunting in the wrong place.
-      if (this.hostKeyProblem) {
-        this.trace?.(this.hostKeyProblem);
-        throw new Error(this.hostKeyProblem);
-      }
-
-      this.trace?.(`Verbindung fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-
-    this.trace?.(`Verbunden und angemeldet über ${method}`);
-    this.client = client;
-    return client;
-  }
-
-  /**
-   * Host key verification (spec section 6). Without a configured fingerprint
-   * the connection is refused; switching the check off requires the explicit
-   * `allowUnknownHostKey` flag.
-   */
-  private verifyHostKey(hostKey: Buffer): boolean {
-    const actual = fingerprintOf(hostKey);
-    this.trace?.(`Der Server zeigt den Hostkey ${actual}`);
-
-    if (this.config.hostKeyFingerprint) {
-      const expected = normaliseFingerprint(this.config.hostKeyFingerprint);
-      const matches =
-        expected.length === actual.length &&
-        crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(actual));
-
-      this.trace?.(
-        matches ? 'Der Hostkey stimmt mit dem hinterlegten Fingerabdruck überein' : 'Der Hostkey stimmt NICHT überein'
-      );
-
-      if (!matches) {
-        this.hostKeyProblem =
-          `Der SSH-Hostkey von ${this.config.host} stimmt nicht mit dem hinterlegten Fingerabdruck überein. ` +
-          `Erwartet ${expected}, der Server zeigt ${actual}. Die Verbindung wurde abgelehnt.`;
-      }
-
-      return matches;
-    }
-
-    if (this.config.allowUnknownHostKey === true) {
-      this.trace?.('Der Hostkey wird ungeprüft angenommen, weil der Workflow einen unbekannten Schlüssel erlaubt');
-      return true;
-    }
-
-    this.hostKeyProblem =
-      `Für ${this.config.host} ist kein SSH-Hostkey-Fingerabdruck hinterlegt. ` +
-      `Der Server zeigt ${actual}. Diesen Wert nach einer Prüfung als Fingerabdruck eintragen — ` +
-      'oder ausdrücklich erlauben, dass ein unbekannter Hostkey angenommen wird.';
-
-    return false;
+    this.client = await openSftpConnection(this.config, this.credentials, this.trace, 'Quelle');
+    return this.client;
   }
 
   private async listInto(client: Client, directory: string, recursive: boolean): Promise<SourceFile[]> {
