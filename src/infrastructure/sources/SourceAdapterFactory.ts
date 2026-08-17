@@ -12,6 +12,10 @@ export class SourceAdapterFactory {
   static create(config: SourceConfig, credentials: SourceCredentials = {}): SourceAdapter {
     switch (config.type) {
       case 'LOCAL':
+      // Eine Freigabe wird über dasselbe Dateisystem gelesen — ein UNC-Pfad ist
+      // ein Pfad. Was sie unterscheidet, ist die Anmeldung, und die geschieht
+      // vor dem Lauf über den ShareConnectionService, nicht hier.
+      case 'SHARE':
         return new LocalSourceAdapter(config.directory);
       case 'SFTP':
         return new SftpSourceAdapter(config, credentials);

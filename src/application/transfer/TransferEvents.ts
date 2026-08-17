@@ -22,6 +22,14 @@ export type TransferEventName =
    * Server sonst nicht zu erkennen wäre, welche der beiden Seiten klemmt.
    */
   | 'DESTINATION_STEP'
+  /**
+   * Das Verbinden und Lösen einer Windows-Freigabe.
+   *
+   * Eigenes Ereignis, weil es vor allem anderen geschieht und alles andere
+   * davon abhängt: Scheitert es, hat der Lauf nie eine Datei gesehen, und die
+   * Ursache liegt weder bei der Quelle noch beim Ziel.
+   */
+  | 'SHARE_STEP'
   /** Ein Schritt des Laufs selbst: Arbeitsbereich, Zielverzeichnis, Aufräumen. */
   | 'RUN_STEP'
   /** Der Lauf wurde von Hand angehalten und beendet. */

@@ -44,7 +44,9 @@ export class DestinationAdapterProvider {
   async forDestination(destination: DestinationDescription): Promise<DestinationAdapter> {
     const type = destination.destinationType ?? 'LOCAL';
 
-    if (type === 'LOCAL') {
+    // Eine Freigabe wird über dasselbe Dateisystem beschrieben; die Anmeldung
+    // geschieht vor dem Lauf, nicht hier.
+    if (type === 'LOCAL' || type === 'SHARE') {
       return new LocalDestinationAdapter(this.stagingService);
     }
 

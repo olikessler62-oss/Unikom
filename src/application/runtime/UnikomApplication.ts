@@ -60,6 +60,8 @@ import { RunControlRegistry } from '../transfer/RunControlRegistry.js';
 import { RemoteDirectoryService } from '../transfer/RemoteDirectoryService.js';
 import { LocalDirectoryService } from '../transfer/LocalDirectoryService.js';
 import { DestinationAdapterProvider } from '../transfer/DestinationAdapterProvider.js';
+import { ShareAccessProvider } from '../transfer/ShareAccessProvider.js';
+import { ShareConnectionService } from '../../infrastructure/filesystem/ShareConnectionService.js';
 import { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
 import { TransferJobService } from '../transfer/TransferJobService.js';
 import { JobRuntimeService } from './JobRuntimeService.js';
@@ -218,6 +220,13 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
   // run would take, licence and tenant checks included.
   const adapterProvider = new SourceAdapterProvider(credentialService, features);
   const destinationProvider = new DestinationAdapterProvider(credentialService, features);
+  /*
+   * Eine Verbindungsverwaltung für die ganze Anwendung, nicht eine je Lauf.
+   * Ihre Warteschlange je Server ist der ganze Sinn: Sie kann nur wirken,
+   * solange alle Läufe durch dieselbe gehen.
+   */
+  const shares = new ShareConnectionService();
+  const shareAccess = new ShareAccessProvider(credentialService);
 
   return {
     jobRepository: wiring.jobRepository,
@@ -260,6 +269,8 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
       encryptionKeyProvider: options.encryptionKeyProvider ?? new CredentialEncryptionKeyProvider(credentialService),
       adapterProvider,
       destinationProvider,
+      shares,
+      shareAccess,
       // Every pipeline event becomes a log entry; extra listeners still see it.
       events: combineEventListeners(createTransferEventLogger(logger), options.events),
       stagingRoot: options.stagingRoot ?? defaultStagingRoot,

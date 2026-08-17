@@ -32,6 +32,8 @@ import { StagingService } from './StagingService.js';
 import { EncryptedPickupService } from './EncryptedPickupService.js';
 import { DEFAULT_RETRY_CONFIG, RetryPolicy, type RetryAttemptInfo } from './RetryPolicy.js';
 import { noopEventListener, type TransferEventListener, type TransferEventName } from './TransferEvents.js';
+import type { ShareConnectionService } from '../../infrastructure/filesystem/ShareConnectionService.js';
+import type { ShareAccessProvider } from './ShareAccessProvider.js';
 
 /** System default from spec section 79; parallelism is never unbounded. */
 export const DEFAULT_MAX_CONCURRENT_FILES = 3;
@@ -185,6 +187,13 @@ export interface TransferExecutionDependencies {
    * Dateisystem — so verhielt sich das Erzeugnis, bevor es entfernte Ziele gab.
    */
   destinationProvider?: OpensDestinations;
+  /**
+   * Stellt Freigabe-Verbindungen her, wo ein Zugang hinterlegt ist. Fehlt es,
+   * werden Freigaben mit der Identität des Dienstes erreicht — so wie bisher.
+   */
+  shares?: ShareConnectionService;
+  /** Löst die Zugänge dafür auf; ohne das bleibt `shares` wirkungslos. */
+  shareAccess?: ShareAccessProvider;
 }
 
 /**
@@ -252,6 +261,8 @@ export class TransferExecutionService {
   private readonly features: FeatureSet;
   private readonly processingStages?: ProcessingStageRegistry;
   private readonly destinationProvider?: OpensDestinations;
+  private readonly shares?: ShareConnectionService;
+  private readonly shareAccess?: ShareAccessProvider;
 
   constructor(dependencies: TransferExecutionDependencies) {
     this.transferFileRepository = dependencies.transferFileRepository;
@@ -270,6 +281,8 @@ export class TransferExecutionService {
     this.features = dependencies.features ?? allFeatures();
     this.processingStages = dependencies.processingStages;
     this.destinationProvider = dependencies.destinationProvider;
+    this.shares = dependencies.shares;
+    this.shareAccess = dependencies.shareAccess;
   }
 
   /**
@@ -277,7 +290,41 @@ export class TransferExecutionService {
    * consolidates a directory has no source to connect to, and building one for
    * it would ask for a module it does not use.
    */
+  /**
+   * Ein Lauf, umschlossen von den Freigabe-Verbindungen, die er braucht.
+   *
+   * Die Verbindung liegt um den **ganzen** Lauf und nicht um einzelne Dateien:
+   * Windows kennt die Sitzung zum Server, und sie je Datei auf- und abzubauen
+   * hieße, sie hunderte Male herzustellen — und zwischendurch könnte ein
+   * anderer Workflow dazwischenfahren. Quelle und Ziel werden ineinander
+   * geschachtelt, damit auch der Fall trägt, in dem beide Seiten Freigaben mit
+   * eigenen Zugängen sind.
+   */
   async execute(
+    job: TransferJob,
+    sourceAdapter: SourceAdapter | undefined,
+    options: TransferExecutionOptions = {}
+  ): Promise<TransferRunResult> {
+    if (!this.shares || !this.shareAccess) {
+      return this.executeWithinShares(job, sourceAdapter, options);
+    }
+
+    const runId = options.runId ?? `TR-${randomUUID()}`;
+    const trace = (message: string): void => this.event('SHARE_STEP', runId, job, undefined, message);
+
+    const [quelle, ziel] = await Promise.all([
+      this.shareAccess.forSource(job),
+      this.shareAccess.forDestination(job),
+    ]);
+
+    return this.shares.withConnection(job.sourceDirectory, quelle, trace, () =>
+      this.shares!.withConnection(job.destinationDirectory, ziel, trace, () =>
+        this.executeWithinShares(job, sourceAdapter, { ...options, runId })
+      )
+    );
+  }
+
+  private async executeWithinShares(
     job: TransferJob,
     sourceAdapter: SourceAdapter | undefined,
     options: TransferExecutionOptions = {}

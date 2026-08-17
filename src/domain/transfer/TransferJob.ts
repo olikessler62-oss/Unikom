@@ -1,7 +1,20 @@
 import type { LogLevel } from '../logging/LogEntry.js';
 import type { StageConfig, TransferStageConfig } from './WorkflowStages.js';
 
-export type SourceType = 'LOCAL' | 'SFTP' | 'FTPS';
+/**
+ * Woher gelesen und wohin geschrieben wird.
+ *
+ * `SHARE` ist von `LOCAL` getrennt, obwohl beide über das Dateisystem laufen
+ * und ein UNC-Pfad ein Pfad wie jeder andere ist. Der Unterschied liegt nicht
+ * im Zugriff, sondern in der Anmeldung: Eine Freigabe kann eigene Zugangsdaten
+ * verlangen, ein Verzeichnis auf der eigenen Platte nie. Beides „lokal" zu
+ * nennen hieße, das Feld für den Zugang entweder überall anzubieten, wo es
+ * sinnlos ist, oder nirgends, wo es gebraucht wird.
+ *
+ * Ältere Workflows mit UNC-Pfad bleiben `LOCAL` und laufen unverändert weiter —
+ * sie erreichen die Freigabe mit der Identität des Dienstes, so wie bisher.
+ */
+export type SourceType = 'LOCAL' | 'SHARE' | 'SFTP' | 'FTPS';
 export type ExecutionMode = 'MANUAL' | 'AUTOMATIC' | 'MANUAL_AND_AUTOMATIC';
 /**
  * What happens when the destination already holds a file of that name.
