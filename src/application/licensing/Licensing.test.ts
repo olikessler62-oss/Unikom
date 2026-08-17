@@ -47,6 +47,25 @@ test('a remote source and an encrypted destination each name their module', () =
   assert.deepEqual(requiredFeaturesFor(encryptingJob), ['ENCRYPTION', 'TRANSFER']);
 });
 
+test('ein entferntes Ziel verlangt dasselbe Modul wie eine entfernte Quelle', () => {
+  // Es ist dieselbe Verbindung, nur in die andere Richtung gelesen. Fehlte das
+  // hier, stünde der Workflow in der Liste als lauffähig und würde erst beim
+  // Start abgewiesen — die Auskunft käme von der Uhrzeit statt vom Editor.
+  const nachSftp = createTransferJob({
+    destinationType: 'SFTP',
+    destinationConfig: { type: 'SFTP', directory: '/eingang', host: 'ziel.example.de' },
+  });
+
+  assert.deepEqual(requiredFeaturesFor(nachSftp), ['REMOTE_SOURCES', 'TRANSFER']);
+  assert.throws(() => assertJobIsLicensed(nachSftp, transferOnly()), FeatureNotLicensedError);
+
+  // Und beide Seiten entfernt nennen das Modul trotzdem nur einmal.
+  assert.deepEqual(
+    requiredFeaturesFor(createTransferJob({ ...sftpJob, ...nachSftp })),
+    ['REMOTE_SOURCES', 'TRANSFER']
+  );
+});
+
 test('SFTP and FTPS belong to the same module', () => {
   const ftpsJob = createTransferJob({
     sourceType: 'FTPS',

@@ -17,6 +17,17 @@ export function requiredFeaturesFor(job: TransferJob): Feature[] {
     required.push('REMOTE_SOURCES');
   }
 
+  // Ein entferntes Ziel verlangt dasselbe Modul wie eine entfernte Quelle: Es
+  // ist dieselbe Verbindung, in die andere Richtung gelesen. Ohne diese Zeile
+  // stünde der Workflow in der Liste als lauffähig und würde erst beim Start
+  // abgewiesen — die Auskunft käme dann von der Uhrzeit, nicht vom Editor.
+  if (
+    (job.destinationType === 'SFTP' || job.destinationType === 'FTPS') &&
+    !required.includes('REMOTE_SOURCES')
+  ) {
+    required.push('REMOTE_SOURCES');
+  }
+
   if (job.encryptionConfig.enabled && job.encryptionConfig.provider !== 'NONE') {
     required.push('ENCRYPTION');
   }
