@@ -1,0 +1,223 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+import { assertWithinTenant, TenantBoundaryError } from '../../domain/tenants/TenantContainment.js';
+import type { Tenant, TenantRepository } from '../../domain/tenants/Tenant.js';
+import type { RemoteDirectoryResult } from './RemoteDirectoryService.js';
+
+/**
+ * Ein Verzeichnis auf dem Rechner aussuchen, auf dem Unikom läuft.
+ *
+ * **Warum das der Server beantwortet und nicht der Browser.** Ein Dateidialog
+ * im Browser nennt den Pfad des Rechners, an dem jemand sitzt. Das ist bei
+ * einer Weboberfläche nicht derselbe wie der, auf dem geschrieben wird — wer
+ * Unikom vom Arbeitsplatz aus einrichtet, wählte sonst `D:\Eingang` seines
+ * eigenen Rechners aus, und der Lauf legte die Dateien auf dem Server an eine
+ * Stelle, die dort etwas ganz anderes ist oder gar nicht existiert. Ein
+ * serverseitiger Browser ist deshalb kein Notbehelf, sondern die richtige
+ * Antwort auf die Frage.
+ *
+ * Die Antwort hat dieselbe Form wie die des entfernten Browsers. Nicht aus
+ * Sparsamkeit: Es ist dieselbe Frage — „was liegt hier, und wohin führt es
+ * weiter" —, und dasselbe Fenster in der Oberfläche zeigt sie. Zwei Formen
+ * hießen zwei Fenster, die sich mit der Zeit auseinanderentwickeln.
+ *
+ * Die Grenze des Mandanten gilt auch beim Blättern. Wer sie beim Speichern
+ * nicht überschreiten darf, soll dahinter auch nicht erst stöbern.
+ */
+
+export interface LocalDirectoryRequest {
+  tenantId?: string;
+  /** Was im Feld steht. Leer heißt: zeig, was es überhaupt gibt. */
+  directory: string;
+  /**
+   * Orte, die dieser Mandant schon benutzt — sie stehen im Fenster obenan.
+   *
+   * Sie kommen aus den vorhandenen Workflows und nicht aus einer eigenen
+   * Merkliste. Das ist kein Sparen an der falschen Stelle: Eine Merkliste
+   * müsste gepflegt, aufgeräumt und mitgesichert werden, sie veraltete
+   * unbemerkt, und sie hinge am Browser oder am Benutzerkonto. Die Verzeichnisse
+   * der Workflows sind dagegen immer aktuell, gelten für jeden, der die
+   * Oberfläche öffnet, und sind genau die Orte, an denen dieser Kunde arbeitet.
+   */
+  known?: string[];
+}
+
+export class LocalDirectoryService {
+  constructor(private readonly tenants?: TenantRepository) {}
+
+  async browse(request: LocalDirectoryRequest): Promise<RemoteDirectoryResult> {
+    const tenant = request.tenantId ? await this.tenants?.getById(request.tenantId) : undefined;
+    const entered = request.directory.trim();
+
+    // Ohne Eingabe: beim Mandanten sein Verzeichnis, sonst die Laufwerke. Von
+    // irgendwo anzufangen wäre geraten, und geraten wird hier nicht.
+    const answer =
+      entered === ''
+        ? tenant?.rootDirectory
+          ? await this.list(tenant.rootDirectory, tenant)
+          : await this.listRoots()
+        : await this.list(entered, tenant);
+
+    return { ...answer, known: await this.knownDirectories(request.known ?? [], tenant) };
+  }
+
+  /**
+   * Die schon benutzten Orte, geprüft und in Ordnung gebracht.
+   *
+   * Geprüft, weil ein Ort aus einem alten Workflow längst verschwunden sein
+   * kann — ihn zur Auswahl anzubieten und dann an einer Fehlermeldung enden zu
+   * lassen wäre schlechter als ihn wegzulassen. Und in Ordnung gebracht, weil
+   * derselbe Ort in zwei Workflows unterschiedlich geschrieben stehen kann.
+   */
+  private async knownDirectories(candidates: string[], tenant?: Tenant): Promise<RemoteDirectoryResult['known']> {
+    const seen = new Map<string, string>();
+
+    for (const candidate of candidates) {
+      const trimmed = candidate.trim();
+
+      if (trimmed === '') {
+        continue;
+      }
+
+      const resolved = path.resolve(trimmed);
+
+      if (seen.has(resolved.toLowerCase())) {
+        continue;
+      }
+
+      if (tenant?.rootDirectory) {
+        try {
+          assertWithinTenant(tenant, resolved, 'Dieses Verzeichnis');
+        } catch {
+          // Gehört einem anderen Mandanten; hier hat es nichts zu suchen.
+          continue;
+        }
+      }
+
+      seen.set(resolved.toLowerCase(), resolved);
+    }
+
+    const reachable = await Promise.all(
+      [...seen.values()].map(async (directory) =>
+        (await fs.stat(directory).then(
+          (stats) => stats.isDirectory(),
+          () => false
+        ))
+          ? directory
+          : undefined
+      )
+    );
+
+    return reachable
+      .filter((directory): directory is string => Boolean(directory))
+      .sort((left, right) => left.localeCompare(right))
+      .map((directory) => ({ name: directory, path: directory, relativePath: directory }));
+  }
+
+  private async list(directory: string, tenant?: Tenant): Promise<RemoteDirectoryResult> {
+    const resolved = path.resolve(directory);
+
+    if (tenant) {
+      try {
+        assertWithinTenant(tenant, resolved, 'Dieses Verzeichnis');
+      } catch (error) {
+        return {
+          ok: false,
+          message: error instanceof TenantBoundaryError ? error.message : String(error),
+          entries: [],
+        };
+      }
+    }
+
+    let entries;
+    try {
+      entries = await fs.readdir(resolved, { withFileTypes: true });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+
+      return {
+        ok: false,
+        message:
+          code === 'ENOENT'
+            ? `${resolved} gibt es nicht.`
+            : code === 'EACCES' || code === 'EPERM'
+              ? `Keine Berechtigung für ${resolved}. Das Konto, unter dem Unikom läuft, darf dort nicht lesen.`
+              : `${resolved} lässt sich nicht lesen: ${error instanceof Error ? error.message : String(error)}`,
+        path: resolved,
+        entries: [],
+      };
+    }
+
+    const directories = entries.filter((entry) => entry.isDirectory());
+
+    return {
+      ok: true,
+      message: `Verzeichnis gefunden: ${resolved}`,
+      path: resolved,
+      // Lokal ist der Pfad selbst das, was ins Feld gehört — es gibt kein
+      // Arbeitsverzeichnis, vor dem etwas abzuschneiden wäre.
+      relativePath: resolved,
+      parentPath: this.parentOf(resolved, tenant),
+      filesFound: entries.length - directories.length,
+      entries: directories
+        .map((entry) => ({
+          name: entry.name,
+          path: path.join(resolved, entry.name),
+          relativePath: path.join(resolved, entry.name),
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    };
+  }
+
+  /**
+   * Eine Ebene höher — aber nie über die Grenze des Mandanten und nie über die
+   * Wurzel hinaus. Oberhalb eines Laufwerks steht die Auswahl der Laufwerke.
+   */
+  private parentOf(resolved: string, tenant?: Tenant): string {
+    if (tenant?.rootDirectory && path.resolve(tenant.rootDirectory) === resolved) {
+      return resolved;
+    }
+
+    const parent = path.dirname(resolved);
+
+    return parent === resolved ? '' : parent;
+  }
+
+  /**
+   * Was es überhaupt gibt, wenn noch nichts eingetragen ist.
+   *
+   * Unter Windows die Laufwerke — geprüft, indem sie gelesen werden. Ein
+   * Buchstabe, den es gibt, aber dessen Laufwerk leer oder getrennt ist, wäre
+   * sonst ein Eintrag, der beim Anklicken nur eine Fehlermeldung liefert.
+   */
+  private async listRoots(): Promise<RemoteDirectoryResult> {
+    if (process.platform !== 'win32') {
+      return this.list('/');
+    }
+
+    const letters = 'CDEFGHIJKLMNOPQRSTUVWXYZAB'.split('');
+    const reachable = await Promise.all(
+      letters.map(async (letter) => {
+        const root = `${letter}:\\`;
+        return (await fs.readdir(root).then(
+          () => true,
+          () => false
+        ))
+          ? root
+          : undefined;
+      })
+    );
+
+    const drives = reachable.filter((drive): drive is string => Boolean(drive));
+
+    return {
+      ok: true,
+      message: 'Laufwerk wählen',
+      path: '',
+      relativePath: '',
+      parentPath: '',
+      entries: drives.map((drive) => ({ name: drive, path: drive, relativePath: drive })),
+    };
+  }
+}

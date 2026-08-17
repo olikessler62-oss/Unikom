@@ -243,6 +243,8 @@ export interface RemoteDirectoryResult {
   parentPath?: string;
   entries: RemoteDirectoryEntry[];
   filesFound?: number;
+  /** Orte, an denen dieser Mandant schon arbeitet — im Fenster obenan. */
+  known?: RemoteDirectoryEntry[];
   /** Mehrere Lesarten der Eingabe gibt es wirklich — dann wird nicht geraten. */
   ambiguous?: string[];
   /** Alle geprüften Lesarten, in der Reihenfolge der Prüfung. */

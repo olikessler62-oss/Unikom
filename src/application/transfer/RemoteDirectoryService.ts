@@ -38,6 +38,15 @@ export interface RemoteDirectoryResult {
   /** Files in this directory, as a hint that it is the right one. */
   filesFound?: number;
   /**
+   * Orte, an denen dieser Mandant schon arbeitet — im Fenster obenan.
+   *
+   * Sie stammen aus den vorhandenen Workflows, nicht aus einer eigenen
+   * Merkliste: Die wäre zu pflegen, zu sichern und veraltete unbemerkt, und
+   * sie hinge am Browser. Die Verzeichnisse der Workflows sind immer aktuell
+   * und gelten für jeden, der die Oberfläche öffnet.
+   */
+  known?: RemoteDirectoryEntry[];
+  /**
    * More than one reading of the input exists on this server. Then nothing is
    * chosen: both are named, and the operator says which one they meant.
    */

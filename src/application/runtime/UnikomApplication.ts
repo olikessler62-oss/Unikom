@@ -58,6 +58,7 @@ import { TransferHistoryService } from '../transfer/TransferHistoryService.js';
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
 import { RunControlRegistry } from '../transfer/RunControlRegistry.js';
 import { RemoteDirectoryService } from '../transfer/RemoteDirectoryService.js';
+import { LocalDirectoryService } from '../transfer/LocalDirectoryService.js';
 import { DestinationAdapterProvider } from '../transfer/DestinationAdapterProvider.js';
 import { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
 import { TransferJobService } from '../transfer/TransferJobService.js';
@@ -96,6 +97,7 @@ export interface UnikomApplication {
   destinationProvider: DestinationAdapterProvider;
   /** Looks at a remote server while a job is being set up: exists, and what is inside. */
   remoteDirectories: RemoteDirectoryService;
+  localDirectories: LocalDirectoryService;
   logger: Logger;
   runtime: JobRuntimeService;
   /** Releases the storage handle; a no-op for the in-memory variant. */
@@ -244,6 +246,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     adapterProvider,
     destinationProvider,
     remoteDirectories: new RemoteDirectoryService(adapterProvider),
+    localDirectories: new LocalDirectoryService(wiring.tenantRepository),
     logger,
     historyService: new TransferHistoryService(
       wiring.runRepository,

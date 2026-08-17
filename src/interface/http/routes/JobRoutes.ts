@@ -130,6 +130,24 @@ export function jobRoutes(application: UnikomApplication): Route[] {
       authorization: 'MANAGE_JOBS',
       handle: async ({ body }) => {
         const input = requireObject(body, 'The directory request');
+        const type = typeof input.destinationType === 'string' ? input.destinationType : 'LOCAL';
+
+        /*
+         * Ein lokales Ziel wird vom Server durchgesehen, nicht vom Browser.
+         * Ein Dateidialog im Browser nennt den Pfad des Rechners, an dem
+         * jemand sitzt — und das ist nicht der, auf dem geschrieben wird.
+         */
+        if (type === 'LOCAL') {
+          return ok(
+            await application.localDirectories.browse({
+              tenantId: typeof input.tenantId === 'string' ? input.tenantId : undefined,
+              directory: typeof input.directory === 'string' ? input.directory : '',
+              // Vom Aufrufer genannt und hier geprüft: Was nicht mehr da ist
+              // oder einem anderen Mandanten gehört, wird nicht angeboten.
+              known: Array.isArray(input.known) ? input.known.filter((e): e is string => typeof e === 'string') : [],
+            })
+          );
+        }
 
         return ok(
           await application.remoteDirectories.browse({

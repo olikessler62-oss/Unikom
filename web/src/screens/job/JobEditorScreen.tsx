@@ -32,6 +32,26 @@ import {
 type Side = 'SOURCE' | 'DESTINATION';
 
 /**
+ * Die Verzeichnisse, an denen dieser Mandant schon arbeitet.
+ *
+ * Nur lokale: Ein Pfad auf einem SFTP-Server bedeutet auf einem anderen Server
+ * etwas ganz anderes, und ihn dort zur Auswahl anzubieten führte zuverlässig
+ * ins Leere. Der Workflow, der gerade bearbeitet wird, bleibt außen vor — sein
+ * eigener Pfad steht ja schon im Feld daneben.
+ */
+function knownDirectories(jobs: Job[] | undefined, current: Job): string[] {
+  return (jobs ?? [])
+    .filter((entry) => entry.id !== current.id && entry.tenantId === current.tenantId)
+    .flatMap((entry) => [
+      (entry.destinationType ?? 'LOCAL') === 'LOCAL' ? entry.destinationDirectory : undefined,
+      entry.sourceType === 'LOCAL' ? entry.sourceDirectory : undefined,
+      entry.sourceType === 'LOCAL' ? entry.sourceArchiveDirectory : undefined,
+      entry.protocolDirectory,
+    ])
+    .filter((directory): directory is string => Boolean(directory?.trim()));
+}
+
+/**
  * Eine Änderung an den Verbindungsangaben des Ziels. Steht hier, weil sie in
  * jedem Feld der Zielseite gebraucht wird und der Ausdruck sonst achtmal
  * dasteht — samt der Vorbelegung für den Fall, dass es noch keine gibt.
@@ -171,6 +191,16 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
   const existing = useResource<Job>(jobId === 'new' ? undefined : `/api/jobs/${jobId}`);
   const tenants = useResource<Tenant[]>('/api/tenants');
   const credentials = useResource<Credential[]>('/api/credentials');
+  /*
+   * Die anderen Workflows — nur wegen der Verzeichnisse, die sie benutzen.
+   *
+   * Sie stehen im Auswahlfenster obenan, damit niemand denselben Pfad zum
+   * zwanzigsten Mal durchklickt. Eine eigene Merkliste wäre der naheliegende
+   * Weg und der schlechtere: Sie müsste gepflegt und mitgesichert werden, sie
+   * veraltete unbemerkt, und sie hinge an diesem Browser. Was die vorhandenen
+   * Workflows benutzen, ist dagegen immer aktuell und gilt für jeden.
+   */
+  const otherJobs = useResource<Job[]>('/api/jobs');
 
   const { language } = useLanguage();
   const [job, setJob] = useState<Job>();
@@ -293,10 +323,11 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
       return api.post<RemoteDirectoryResult>('/api/jobs/browse-destination', {
         name: job!.name || 'Neuer Job',
         tenantId: job!.tenantId,
-        destinationType: job!.destinationType,
+        destinationType: job!.destinationType ?? 'LOCAL',
         destinationConfig: job!.destinationConfig,
         destinationCredentialId: job!.destinationCredentialId,
         directory,
+        known: knownDirectories(otherJobs.data, job!),
       });
     }
 
@@ -471,6 +502,27 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   </span>
                 )}
               </p>
+
+              {/*
+                * Was schon benutzt wird, steht obenan — der häufigste Fall ist,
+                * dass der nächste Workflow neben den bestehenden liegt. Nur
+                * wenn es solche Orte gibt: eine leere Überschrift wäre eine
+                * Zeile, die nichts sagt.
+                */}
+              {browsing.at.known && browsing.at.known.length > 0 && (
+                <>
+                  <p className="browse__label">Schon benutzt</p>
+                  <ul className="browse browse--known">
+                    {browsing.at.known.map((entry) => (
+                      <li key={entry.path}>
+                        <button type="button" onClick={() => void openBrowser(entry.path, browsing.side)}>
+                          {entry.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
 
               <ul className="browse">
                 {browsing.at.path !== browsing.at.parentPath && (
@@ -1434,21 +1486,24 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 </button>
 
                 {/*
-                 * Nur beim entfernten Ziel. Ein lokaler Pfad wird vom Dateidialog
-                 * des Betriebssystems gewählt, und den kann eine Seite im Browser
-                 * nicht öffnen — ein eigener Nachbau wäre eine schlechtere
-                 * Fassung von etwas, das jeder schon kennt.
+                 * Auch für ein lokales Ziel, und ebenfalls vom Server beantwortet.
+                 *
+                 * Der Dateidialog des Betriebssystems wäre hier die falsche
+                 * Antwort, selbst wenn eine Seite im Browser ihn öffnen könnte:
+                 * Er nennt den Pfad des Rechners, an dem jemand sitzt, und das
+                 * ist bei einer Weboberfläche nicht der, auf dem Unikom
+                 * schreibt. Wer vom Arbeitsplatz aus einrichtet, wählte sonst
+                 * sein eigenes Laufwerk aus, und der Lauf legte die Dateien auf
+                 * dem Server an eine Stelle, die dort etwas anderes ist.
                  */}
-                {remoteTarget && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={browsing.busy || !job.destinationConfig?.host}
-                    onClick={() => void openBrowser(job.destinationDirectory, 'DESTINATION')}
-                  >
-                    {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={browsing.busy || (remoteTarget && !job.destinationConfig?.host)}
+                  onClick={() => void openBrowser(job.destinationDirectory, 'DESTINATION')}
+                >
+                  {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
+                </button>
               </div>
 
               {target.error && (
