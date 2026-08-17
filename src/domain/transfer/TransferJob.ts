@@ -201,6 +201,12 @@ export interface JobSchedule {
   missedRunPolicy: 'SKIP';
 }
 
+/**
+ * Wie ausführlich ein Workflow mitschreibt, wenn er nichts anderes sagt.
+ * Das Gegenstück in der Oberfläche steht in `web/src/screens/job/emptyJob.ts`.
+ */
+export const DEFAULT_JOB_LOG_LEVEL: LogLevel = 'INFO';
+
 export interface TransferJob {
   id: string;
   /**
@@ -283,6 +289,13 @@ export interface TransferJob {
    * fetched, checked, encrypted and stored. That is what a support case needs
    * and what nobody wants from thirty workflows at once — so it belongs to the
    * job, not to the server.
+   *
+   * Fehlt die Angabe, gilt `DEFAULT_JOB_LOG_LEVEL` — nicht die Einstellung der
+   * Installation. Die Wahl „wie die Installation" gab es einmal und ist
+   * gestrichen: Wer im Störungsfall wissen will, wie laut ein Workflow
+   * schreibt, soll es an ihm ablesen können, statt es aus zwei Stellen
+   * zusammenzusetzen. Ältere Datensätze ohne Angabe bekommen damit INFO, also
+   * genau das, was die Installation voreingestellt hatte.
    */
   logLevel?: LogLevel;
   /**

@@ -1,4 +1,15 @@
 import type { Job } from '../../api/types.js';
+
+/**
+ * Wie ausführlich ein neuer Workflow mitschreibt.
+ *
+ * Es gab einmal die Wahl „Wie die Installation" — ein Workflow ohne eigene
+ * Angabe erbte die des Servers. Das ist gestrichen: Wer im Störungsfall wissen
+ * will, wie laut ein Workflow schreibt, soll es an ihm ablesen können, statt es
+ * aus zwei Stellen zusammenzusetzen. Jeder Workflow trägt seine Ausführlichkeit
+ * selbst, und das hier ist der Wert, mit dem er beginnt.
+ */
+export const DEFAULT_JOB_LOG_LEVEL: NonNullable<Job['logLevel']> = 'INFO';
 import type { Language } from '../../settings/preferences.js';
 
 /**
@@ -47,6 +58,11 @@ export function emptyJob(tenantId: string, language: Language): Job {
     destinationDirectory: '',
     createDestinationDirectory: true,
     conflictStrategy: 'SKIP',
+    // Jeder Workflow trägt seine Ausführlichkeit selbst. „Wie die Installation"
+    // gab es einmal und gibt es nicht mehr: Wer im Störungsfall wissen will,
+    // wie laut ein Workflow schreibt, soll es an ihm ablesen können und nicht
+    // an zwei Stellen zusammensuchen müssen.
+    logLevel: DEFAULT_JOB_LOG_LEVEL,
     timestampNotation: notationOf(language),
     encryptionConfig: { enabled: false, provider: 'NONE' },
     sourceSuccessAction: 'KEEP',

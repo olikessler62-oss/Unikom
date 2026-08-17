@@ -19,6 +19,7 @@ import { CredentialForm, PublicKeyPanel } from '../../components/CredentialForm.
 import { CheckField, DurationField, Field, Hint, Loading, Modal, Notice } from '../../components/Pieces.js';
 import { useLanguage } from '../../i18n/useText.js';
 import {
+  DEFAULT_JOB_LOG_LEVEL,
   emptyJob,
   notationOf,
   parseList,
@@ -652,14 +653,10 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               explain={
                 <>
                   <p>
-                    Wie ausführlich dieser Workflow mitschreibt. Die Einstellung gilt nur für ihn — ein Workflow, der
-                    Ärger macht, kann ausführlich protokollieren, während die übrigen leise bleiben.
+                    Wie ausführlich dieser Workflow mitschreibt. Jeder Workflow entscheidet das für sich — einer,
+                    der Ärger macht, kann ausführlich protokollieren, während die übrigen leise bleiben.
                   </p>
                   <ul className="samples">
-                    <li>
-                      <code>Wie die Installation</code>
-                      <span>keine eigene Regel für diesen Workflow</span>
-                    </li>
                     <li>
                       <code>Alles</code>
                       <span>jeder Schritt der Anmeldung, jeder Pfad wie eingegeben und wie gelesen, jede Datei vor und nach jedem Schritt</span>
@@ -685,10 +682,9 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               }
             >
               <select
-                value={job.logLevel ?? ''}
-                onChange={(event) => change({ logLevel: (event.target.value || undefined) as Job['logLevel'] })}
+                value={job.logLevel ?? DEFAULT_JOB_LOG_LEVEL}
+                onChange={(event) => change({ logLevel: event.target.value as Job['logLevel'] })}
               >
-                <option value="">Wie die Installation</option>
                 <option value="DEBUG">Alles — jeder Schritt</option>
                 <option value="INFO">Das Wesentliche</option>
                 <option value="WARNING">Nur Warnungen und Fehler</option>

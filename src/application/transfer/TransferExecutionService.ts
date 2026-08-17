@@ -6,7 +6,7 @@ import type { SourceAdapter } from '../../domain/source/SourceAdapter.js';
 import type { DestinationAdapter } from '../../domain/destination/DestinationAdapter.js';
 import { LocalDestinationAdapter } from '../../infrastructure/destinations/local/LocalDestinationAdapter.js';
 import type { SourceFile } from '../../domain/files/SourceFile.js';
-import type { DateNotation, TransferJob } from '../../domain/transfer/TransferJob.js';
+import { DEFAULT_JOB_LOG_LEVEL, type DateNotation, type TransferJob } from '../../domain/transfer/TransferJob.js';
 import type { TransferFile } from '../../domain/transfer/TransferFile.js';
 import type { TransferFileRepository } from '../../domain/transfer/TransferFileRepository.js';
 import type { RunControl } from '../../domain/transfer/RunControl.js';
@@ -1070,7 +1070,7 @@ export class TransferExecutionService {
     message: string,
     details?: Record<string, unknown>
   ): void {
-    this.emit({ name, runId, jobId: job.id, filename, message, details, jobLevel: job.logLevel });
+    this.emit({ name, runId, jobId: job.id, filename, message, details, jobLevel: job.logLevel ?? DEFAULT_JOB_LOG_LEVEL });
   }
 
   /**

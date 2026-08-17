@@ -35,10 +35,20 @@ interface Harness {
   stop(): Promise<void>;
 }
 
+/**
+ * Der Detailgrad steht am Workflow, nicht an der Installation.
+ *
+ * Früher genügte es, die Installation auf DEBUG zu stellen, und ein Workflow
+ * ohne eigene Angabe folgte. Diese Erbschaft ist gestrichen — wer alle Schritte
+ * sehen will, sagt es dem Workflow. Die Vorgabe hier ist deshalb DEBUG: Die
+ * Prüfungen in dieser Datei fragen, ob wirklich jeder Schritt aufgeschrieben
+ * wird, und dafür muss der Workflow ihn verlangen.
+ */
 async function setup(
   jobOverrides: Partial<TransferJob> = {},
   installationLevel: LogLevel = 'DEBUG'
 ): Promise<Harness> {
+  const job: Partial<TransferJob> = { logLevel: 'DEBUG', ...jobOverrides };
   const remoteRoot = await withSftpRoot({ 'customer123/orders/ORDER_001.csv': CONTENT });
   const server = await SftpTestServer.start({ root: remoteRoot, username: USERNAME, password: PASSWORD });
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-protocol-'));
@@ -77,7 +87,7 @@ async function setup(
       filenamePrefix: 'ORDER_*',
       minimumFileAgeSeconds: 0,
       stabilityCheck: { enabled: false, intervalSeconds: 0, requiredStableChecks: 0, compareSize: false, compareLastModified: false },
-      ...jobOverrides,
+      ...job,
     }),
     stop: async () => {
       await adapter.dispose?.();
@@ -192,15 +202,21 @@ test('a failing step names the file, the step and the reason', async () => {
   }
 });
 
-test('a job may be turned up to DEBUG while the installation stays at INFO', async () => {
-  const quiet = await setup({}, 'INFO');
+test('ein Workflow trägt seine Ausführlichkeit selbst, nicht die der Installation', async () => {
+  /*
+   * Ohne eigene Angabe gilt INFO — und zwar unabhängig davon, worauf die
+   * Installation steht. Die Wahl „wie die Installation" gab es einmal und ist
+   * gestrichen: Wer im Störungsfall wissen will, wie laut ein Workflow
+   * schreibt, soll es an ihm ablesen können.
+   */
+  const quiet = await setup({ logLevel: undefined }, 'DEBUG');
 
   try {
     await quiet.service.execute(quiet.job, quiet.adapter);
     assert.equal(
       /Verbindung zu 127/.test(transcript(quiet.entries)),
       false,
-      'at INFO the installation does not want the login steps'
+      'ohne eigene Angabe schreibt der Workflow auf INFO, auch wenn die Installation auf DEBUG steht'
     );
   } finally {
     await quiet.stop();

@@ -1273,9 +1273,24 @@ textarea:hover {
   border-color: rgba(var(--sheen), 0.3);
 }
 
+/*
+ * Beispieltexte: hellgrau und kursiv.
+ *
+ * Ein Beispiel darf nie mit einem eingetragenen Wert verwechselbar sein. Stand
+ * `D:\Daten\kunde-a\eingang` in derselben Farbe und Schrift wie ein echter
+ * Eintrag, hielt man es für einen — und wunderte sich, dass der Lauf woanders
+ * schreibt. Die Kursive sagt es auf einen Blick, auch dem, der Farben schlecht
+ * unterscheidet.
+ *
+ * Aus der Marke und nicht als eigener Wert: `#6b7178` stand hier fest
+ * eingetragen und wäre bei der nächsten Änderung an der Palette still
+ * danebengelaufen. Spring trägt dieselbe Regel weiter unten.
+ */
 input::placeholder,
 textarea::placeholder {
-  color: #6b7178;
+  color: var(--text-faint);
+  font-style: italic;
+  opacity: 1;
 }
 
 input:focus,

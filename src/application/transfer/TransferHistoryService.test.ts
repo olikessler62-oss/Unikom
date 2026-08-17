@@ -21,11 +21,14 @@ async function scenario(files: Record<string, string> = { 'ORDER_001.csv': ORDER
 
   const application = createInMemoryApplication({
     stagingRoot: path.join(root, 'application-data'),
-    logLevel,
   });
 
+  // Der Detailgrad steht am Workflow. Ihn an der Installation zu setzen wirkte
+  // einmal, weil ein Workflow ohne eigene Angabe erbte — diese Erbschaft ist
+  // gestrichen, und mit ihr die Möglichkeit, dreißig Workflows auf einmal
+  // lauter zu stellen, ohne es an einem einzigen zu sehen.
   await application.jobRepository.save(
-    createTransferJob({ id: 'customer-a', sourceDirectory, destinationDirectory })
+    createTransferJob({ id: 'customer-a', sourceDirectory, destinationDirectory, logLevel })
   );
 
   return { root, application };
