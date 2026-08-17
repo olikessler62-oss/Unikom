@@ -17,7 +17,10 @@ export function createTransferJob(overrides: Partial<TransferJob> = {}): Transfe
     sourceConfig: { type: 'LOCAL', directory: sourceDirectory },
     sourceDirectory,
     includeSubdirectories: false,
-    filenamePrefix: 'ORDER_',
+    // Mit Stern: Seit ein Muster ohne Stern den vollen Namen meint, ist das die
+    // Schreibweise für „Name beginnt so" — und die Dateien der Tests heißen
+    // ORDER_001.csv, nicht ORDER_.
+    filenamePrefix: 'ORDER_*',
     caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
     ignoredTemporaryExtensions: ['.part', '.tmp'],

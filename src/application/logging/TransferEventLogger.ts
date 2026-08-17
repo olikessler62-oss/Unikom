@@ -20,6 +20,7 @@ const EVENT_LEVELS: Record<TransferEventName, LogLevel> = {
   // Ein Abbruch ist kein Fehler, aber auch nichts, was im Kleingedruckten
   // stehen darf: Jemand hat eingegriffen, und das erklärt den Rest des Laufs.
   RUN_CANCELLED: 'WARNING',
+  RUN_PATTERN_HINT: 'WARNING',
   FILE_CHECKED: 'DEBUG',
   FILE_RENAMED: 'INFO',
   FILE_DISCOVERED: 'DEBUG',

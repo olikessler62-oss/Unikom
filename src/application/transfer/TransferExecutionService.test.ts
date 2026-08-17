@@ -52,7 +52,7 @@ async function setup(jobOverrides: Partial<TransferJob> = {}): Promise<Harness> 
     sourceConfig: { type: 'LOCAL', directory: sourceDirectory },
     sourceDirectory,
     includeSubdirectories: false,
-    filenamePrefix: 'ORDER_',
+    filenamePrefix: 'ORDER_*',
     caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
     ignoredTemporaryExtensions: ['.part', '.tmp'],

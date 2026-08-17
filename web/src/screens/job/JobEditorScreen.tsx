@@ -1199,39 +1199,32 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     <p>Leer lassen, wenn der Name keine Rolle spielt.</p>
                     <p>
                       Die Datei-Endung wird im Feld <strong>„Berücksichtigte Endungen"</strong> darunter festgelegt.
-                      Wer sie hier trotzdem mitschreibt, bekommt dasselbe Ergebnis — <code>ORDER_.csv</code>
-                      sucht CSV-Dateien, die mit <code>ORDER_</code> beginnen. Der Name kann voll angegeben
-                      werden oder als Teil eines Dateinamens; ein Stern sagt, wo der Rest stehen darf.
+                    </p>
+                    <p>
+                      Der Name kann voll angegeben werden oder als Teil eines Dateinamens; ein Stern sagt, wo der
+                      Rest stehen darf.
                     </p>
                     <p>Beispiele:</p>
                     <ul className="samples">
                       <li>
                         <code>MeinDateiname</code>
-                        <span>beginnt so</span>
-                      </li>
-                      <li>
-                        <code>Dateiname</code>
-                        <span>beginnt so</span>
-                      </li>
-                      <li>
-                        <code>Datei</code>
-                        <span>beginnt so</span>
+                        <span>voller Dateiname</span>
                       </li>
                       <li>
                         <code>MeinDatei*</code>
-                        <span>beginnt so — der Stern ist hier nur ausgeschrieben</span>
+                        <span>Teil-Dateiname + Platzhalter</span>
                       </li>
                       <li>
                         <code>*Dateiname</code>
-                        <span>endet so</span>
+                        <span>Platzhalter + Teil-Dateiname</span>
                       </li>
                       <li>
                         <code>*Datei*</code>
-                        <span>enthält das irgendwo</span>
+                        <span>Platzhalter + Teil-Dateiname + Platzhalter</span>
                       </li>
                       <li>
                         <code>MeinDatei*.csv</code>
-                        <span>beginnt so, und nur CSV-Dateien</span>
+                        <span>Teil-Dateiname + Platzhalter + Dateiendung</span>
                       </li>
                       <li>
                         <code>*.csv</code>

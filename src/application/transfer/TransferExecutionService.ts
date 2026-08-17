@@ -382,6 +382,8 @@ export class TransferExecutionService {
     });
 
     if (selected.length === 0) {
+      this.warnAboutStarlessPattern(runId, job, discovered.length);
+
       return this.finish(
         runId,
         job,
@@ -1000,6 +1002,37 @@ export class TransferExecutionService {
     destination: DestinationAdapter
   ): Promise<void> {
     await destination.prepareDirectory(job.destinationDirectory, job.createDestinationDirectory);
+  }
+
+  /**
+   * Der eine Fall, in dem „nichts gefunden" wahrscheinlich ein Versehen ist.
+   *
+   * Es lagen Dateien im Verzeichnis, und keine passte, während das Muster
+   * keinen Stern trägt. Bis vor kurzem galt ein Muster ohne Stern als
+   * Namensanfang; seitdem meint es den vollen Namen. Ein Workflow, der von
+   * früher stammt, verstummt dadurch — und zwar geräuschlos, denn ein Lauf
+   * ohne passende Datei ist kein Fehler und sieht aus wie ein ruhiger Tag.
+   *
+   * Deshalb steht hier eine Warnung mit dem Satz, der sie behebt. Sie kostet
+   * nichts, wenn alles stimmt: Wer nichts findet, weil nichts da ist, sieht
+   * sie nie.
+   */
+  private warnAboutStarlessPattern(runId: string, job: TransferJob, discovered: number): void {
+    const pattern = job.filenamePrefix?.trim() ?? '';
+
+    if (discovered === 0 || pattern === '' || pattern.includes('*')) {
+      return;
+    }
+
+    this.event(
+      'RUN_PATTERN_HINT',
+      runId,
+      job,
+      undefined,
+      `${discovered} Dateien lagen bereit, keine passte auf „${pattern}“. Ein Muster ohne Stern meint den ` +
+        `vollständigen Dateinamen. Ist der Anfang gemeint, gehört ein Stern dahinter: „${pattern}*“.`,
+      { pattern, discovered }
+    );
   }
 
   /**

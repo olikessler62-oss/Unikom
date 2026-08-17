@@ -26,6 +26,15 @@ export type TransferEventName =
   | 'RUN_STEP'
   /** Der Lauf wurde von Hand angehalten und beendet. */
   | 'RUN_CANCELLED'
+  /**
+   * Es lagen Dateien da, und keine passte — bei einem Muster ohne Stern.
+   *
+   * Ein eigenes Ereignis, weil dieser Fall sonst wie ein ruhiger Tag aussieht:
+   * Der Lauf gelingt, meldet null Dateien und niemand sucht nach einem Fehler.
+   * Seit ein Muster ohne Stern den vollen Namen meint statt seines Anfangs,
+   * ist genau das der Weg, auf dem ein bestehender Workflow still verstummt.
+   */
+  | 'RUN_PATTERN_HINT'
   /** Ob diese Datei schon einmal übernommen wurde — auch wenn nicht. */
   | 'FILE_CHECKED'
   /** Der Name im Ziel weicht ab, weil dort schon eine Datei so heißt. */

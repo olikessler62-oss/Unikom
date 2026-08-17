@@ -74,7 +74,7 @@ async function setup(
       sourceType: 'SFTP',
       sourceDirectory: 'orders',
       destinationDirectory: path.join(workspace, 'incoming'),
-      filenamePrefix: 'ORDER_',
+      filenamePrefix: 'ORDER_*',
       minimumFileAgeSeconds: 0,
       stabilityCheck: { enabled: false, intervalSeconds: 0, requiredStableChecks: 0, compareSize: false, compareLastModified: false },
       ...jobOverrides,

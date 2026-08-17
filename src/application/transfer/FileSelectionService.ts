@@ -82,8 +82,10 @@ export class FileSelectionService {
       return true;
     }
 
-    // Die Endung verlässt beide Seiten oder keine, damit Gleiches verglichen wird.
-    const subjectText = carried || (leading && !trailing) ? this.withoutExtension(filename) : filename;
+    // Die Endung verlässt beide Seiten oder keine, damit Gleiches verglichen
+    // wird. Ohne Stern am Ende zählt der Name ohne Endung — die entscheidet das
+    // Feld darunter, und `MeinDateiname` soll `MeinDateiname.csv` treffen.
+    const subjectText = carried || !trailing ? this.withoutExtension(filename) : filename;
 
     const name = caseSensitive ? subjectText : subjectText.toLowerCase();
     const needle = caseSensitive ? needleText : needleText.toLowerCase();
@@ -92,7 +94,20 @@ export class FileSelectionService {
       return name.includes(needle);
     }
 
-    return leading ? name.endsWith(needle) : name.startsWith(needle);
+    if (leading) {
+      return name.endsWith(needle);
+    }
+
+    if (trailing) {
+      return name.startsWith(needle);
+    }
+
+    // Kein Stern heißt: genau dieser Name.
+    //
+    // Früher galt hier der Namensanfang, und `Rechnung` nahm auch
+    // `Rechnungskorrektur_alt.csv` mit. Wer einen Anfang meint, schreibt
+    // seitdem `Rechnung*` — ausgeschrieben, statt stillschweigend angenommen.
+    return name === needle;
   }
 
   /**
