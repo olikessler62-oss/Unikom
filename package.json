@@ -12,7 +12,8 @@
     "web:build": "vite build",
     "licence": "tsx src/tools/licence.ts",
     "check": "tsc --noEmit && tsc -p web --noEmit",
-    "test": "tsx --test --test-timeout=30000 \"src/**/*.test.ts\""
+    "test": "tsx --test --test-timeout=30000 \"src/**/*.test.ts\"",
+    "test:real": "tsx --test --test-timeout=200000 \"src/**/*.realtest.ts\""
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

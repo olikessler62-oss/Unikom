@@ -13,3 +13,23 @@ demo-ziel/
 
 # Lokale Claude-Code-Einstellungen; .claude/settings.json bleibt versioniert
 .claude/settings.local.json
+
+# Zugangsdaten echter Prüfserver. Die Vorlage daneben ist versioniert, diese
+# Datei nie: Sie enthält Kennwörter und private Schlüssel im Klartext.
+testserver.local.json
+testserver.local.key
+
+# Von Hand abgelegte Zugänge. Breit gefasst mit Absicht: Eine Zugangsdatei, die
+# durch das Raster fällt, merkt niemand, bis sie im Verlauf des Projekts steht.
+SFTP_Zugang.txt
+*Zugang*.txt
+*zugang*.txt
+*.pem
+*.ppk
+id_rsa*
+id_ed25519*
+
+# Ausgenommen: das selbstsignierte Zertifikat des FTPS-Testservers. Es ist
+# öffentlich, gehört zum Bauwerk und muss jedem Klon vorliegen.
+!src/testing/certs/test-cert.pem
+!src/testing/certs/test-key.pem

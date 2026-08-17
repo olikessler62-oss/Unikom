@@ -19,12 +19,28 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 328 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 516 Tests, inklusive echter SFTP- und FTPS-Protokolltests
 npm run web:build # Oberfläche nach dist/web bauen
 npm run serve     # Server und Oberfläche auf http://127.0.0.1:8383
 npm run dev       # Beispiellauf mit lokaler Quelle, ohne Server
 npm run build     # Produktivbuild nach dist/ (ohne Tests)
 ```
+
+`npm test` kommt ohne Netz und ohne fremde Server aus. Zwei Prüfungen gehen
+darüber hinaus und sind deshalb getrennt:
+
+- **Windows-Freigaben.** Acht Kombinationen aus Herkunft und Ablageort prüft
+  `TransferMatrix.test.ts`; die mit einer Freigabe überspringen sich, solange
+  es keine gibt. Anlegen in einer PowerShell als Administrator:
+
+  ```powershell
+  New-SmbShare -Name UnikomTest -Path C:\UnikomTest\Freigabe -FullAccess "$env:USERDOMAIN\$env:USERNAME"
+  ```
+
+- **Echte Server.** `npm run test:real` prüft gegen einen wirklichen Hoster —
+  Zugangsdaten nach dem Muster von `testserver.local.example.json`. Sie laufen
+  getrennt, weil sie das Netz besetzen und daneben laufende Tests in ihre
+  Zeitgrenze treiben.
 
 Für die Arbeit an der Oberfläche:
 

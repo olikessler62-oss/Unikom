@@ -1,0 +1,40 @@
+{
+  "_hinweis": [
+    "Vorlage. Kopieren nach testserver.local.json und ausfüllen — die Kopie ist",
+    "von Git ignoriert und wird nie eingecheckt.",
+    "",
+    "Gelesen wird das von 'npm run test:real'. Die Standardprüfung 'npm test'",
+    "kommt ohne Netz aus und rührt diese Datei nicht an.",
+    "",
+    "Jeder Abschnitt ist einzeln freiwillig. Was fehlt, überspringen die Tests,",
+    "statt zu scheitern: Ein fehlender Prüfserver ist kein Fehler im Erzeugnis.",
+    "",
+    "Wichtig zum Verzeichnis: Die Tests legen dort Dateien an, verschieben und",
+    "löschen sie wieder. Es muss ein Verzeichnis sein, in dem ausschließlich",
+    "Testdaten liegen."
+  ],
+
+  "sftp": {
+    "host": "sftp.beispiel.de",
+    "port": 22,
+    "username": "u12345",
+    "password": "hier-das-kennwort",
+    "privateKeyFile": null,
+    "passphrase": null,
+    "directory": "/unikom-test",
+    "hostKeyFingerprint": null,
+    "allowUnknownHostKey": true
+  },
+
+  "ftps": {
+    "host": "ftp.beispiel.de",
+    "port": 21,
+    "username": "u12345",
+    "password": "hier-das-kennwort",
+    "directory": "/unikom-test",
+    "implicit": false,
+    "validateCertificates": true
+  },
+
+  "share": "\\\\localhost\\UnikomTest"
+}
