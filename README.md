@@ -19,7 +19,7 @@ endgültig gespeichert und persistent registriert wurde. Erst dann entsteht
 
 ```bash
 npm install
-npm test          # 516 Tests, inklusive echter SFTP- und FTPS-Protokolltests
+npm test          # 555 Tests, inklusive echter SFTP- und FTPS-Protokolltests
 npm run web:build # Oberfläche nach dist/web bauen
 npm run serve     # Server und Oberfläche auf http://127.0.0.1:8383
 npm run dev       # Beispiellauf mit lokaler Quelle, ohne Server
@@ -37,10 +37,26 @@ darüber hinaus und sind deshalb getrennt:
   New-SmbShare -Name UnikomTest -Path C:\UnikomTest\Freigabe -FullAccess "$env:USERDOMAIN\$env:USERNAME"
   ```
 
-- **Echte Server.** `npm run test:real` prüft gegen einen wirklichen Hoster —
-  Zugangsdaten nach dem Muster von `testserver.local.example.json`. Sie laufen
-  getrennt, weil sie das Netz besetzen und daneben laufende Tests in ihre
-  Zeitgrenze treiben.
+- **Echte Server und das echte Betriebssystem.** `npm run test:real` prüft
+  gegen einen wirklichen Hoster — Zugangsdaten nach dem Muster von
+  `testserver.local.example.json` — und gegen den Datenschutz von Windows, der
+  den Hauptschlüssel verwahrt. Beides läuft getrennt, weil es außerhalb des
+  Prozesses stattfindet und lange dauert: Ein PowerShell-Aufruf kostet Sekunden,
+  eine Netzverbindung ebenso. In der Standardprüfung würden sie daneben laufende
+  Tests in ihre Zeitgrenze treiben.
+
+## Der Hauptschlüssel
+
+Gespeicherte Zugänge liegen verschlüsselt. Unter Windows erzeugt Unikom den
+Schlüssel beim ersten Bedarf selbst und lässt ihn vom Betriebssystem verwahren
+(`hauptschluessel.dpapi` im Datenverzeichnis) — es ist nichts einzurichten.
+Windows gibt ihn nur auf demselben Rechner wieder heraus; eine Sicherung der
+Datenbank ist damit für sich genommen wertlos.
+
+Nach einem Umzug auf einen anderen Rechner sind gespeicherte Zugänge deshalb
+nicht mehr lesbar und müssen neu eingetragen werden. Wer das planmäßig vorhat
+— oder Unikom nicht unter Windows betreibt — gibt den Schlüssel über die
+Umgebungsvariable `UNIKOM_MASTER_KEY` vor; sie hat Vorrang.
 
 Für die Arbeit an der Oberfläche:
 

@@ -20,6 +20,14 @@ import { createPersistentApplication } from '../../application/runtime/UnikomApp
  * Ein Doppel würde hier nichts belegen: Die ganze Zusage hängt daran, dass
  * Windows den Block nur auf diesem Rechner wieder herausgibt, und das kann nur
  * Windows selbst beantworten. Anderswo überspringen sich diese Prüfungen.
+ *
+ * Die Endung `.realtest.ts` hält sie aus `npm test` heraus, und das ist
+ * gemessen begründet: Jeder Aufruf startet PowerShell samt .NET und kostet auf
+ * dieser Maschine vier bis fünf Sekunden. Sechs Tests brauchen so 54 Sekunden
+ * — und weil node:test mehrere Dateien nebeneinander laufen lässt, verhungern
+ * die anderen dabei: Die ganze Prüfung stieg von 20 Sekunden auf sechs
+ * Minuten, und ein FTPS-Test riss seine Zeitgrenze. Sie laufen mit
+ * `npm run test:real`, zusammen mit den Prüfungen gegen echte Server.
  */
 
 const skip = windowsProtectionAvailable() ? false : 'Der Datenschutz von Windows steht nur unter Windows offen';
