@@ -40,6 +40,70 @@ import {
 type Side = 'SOURCE' | 'ARCHIVE' | 'DESTINATION' | 'PROTOCOL';
 
 /**
+ * Endungen zum Anklicken, statt sie aus dem Kopf zu tippen.
+ *
+ * Zwei getrennte Listen, weil es zwei verschiedene Fragen sind. Oben steht,
+ * was übernommen werden soll — die Formate, in denen Geschäftsdaten kommen.
+ * Unten steht, was gerade erst geschrieben wird und deshalb nie angefasst
+ * werden darf; diese Namen sind nicht ausgedacht, sondern die, die
+ * Übertragungsprogramme wirklich vergeben.
+ *
+ * Getippt werden darf weiterhin: Die Liste ist eine Abkürzung, keine Schranke.
+ * Kein Kunde der Welt lässt sich seine Hausendung ausreden.
+ */
+const EXTENSION_CHOICES: Record<ExtensionField, { label: string; options: { value: string; hint: string }[] }> = {
+  ALLOWED: {
+    label: 'Berücksichtigte Endungen',
+    options: [
+      { value: 'csv', hint: 'Tabelle als Text, der häufigste Fall' },
+      { value: 'xml', hint: 'strukturierte Daten' },
+      { value: 'json', hint: 'strukturierte Daten' },
+      { value: 'txt', hint: 'freies Textformat' },
+      { value: 'xlsx', hint: 'Excel' },
+      { value: 'xls', hint: 'Excel, ältere Fassung' },
+      { value: 'pdf', hint: 'Belege und Rechnungen' },
+      { value: 'edi', hint: 'EDIFACT und Verwandte' },
+      { value: 'dat', hint: 'Ausgaben älterer Systeme' },
+      { value: 'zip', hint: 'gepackte Lieferungen' },
+    ],
+  },
+  TEMPORARY: {
+    label: 'Endungen unfertiger Uploads',
+    options: [
+      { value: '.part', hint: 'FileZilla und viele andere' },
+      { value: '.tmp', hint: 'weit verbreitet' },
+      { value: '.temp', hint: 'weit verbreitet' },
+      { value: '.filepart', hint: 'FileZilla' },
+      { value: '.crdownload', hint: 'Chrome' },
+      { value: '.partial', hint: 'Edge und Internet Explorer' },
+      { value: '.opdownload', hint: 'Opera' },
+      { value: '.!ut', hint: 'µTorrent' },
+      { value: '.writing', hint: 'einige ERP-Ausgaben' },
+      { value: '.lock', hint: 'Sperrdatei neben der eigentlichen' },
+    ],
+  },
+};
+
+type ExtensionField = 'ALLOWED' | 'TEMPORARY';
+
+/** Welches Feld die Endung bekommt, wenn im Fenster etwas angehakt wird. */
+function extensionsOf(job: Job, field: ExtensionField): string[] {
+  return field === 'ALLOWED' ? job.allowedExtensions : job.ignoredTemporaryExtensions;
+}
+
+/**
+ * Vergleicht Endungen so, wie ein Anwender sie meint.
+ *
+ * `csv`, `.csv` und `.CSV` sind dieselbe Endung. Ohne diesen Vergleich stünde
+ * eine Endung zweimal im Feld, sobald jemand sie erst tippt und dann anhakt —
+ * und das Häkchen wäre bei einer schon eingetragenen Endung nicht gesetzt.
+ */
+function sameExtension(left: string, right: string): boolean {
+  const bare = (value: string): string => value.trim().replace(/^\.+/, '').toLowerCase();
+  return bare(left) === bare(right);
+}
+
+/**
  * Die Verzeichnisse, an denen dieser Mandant schon arbeitet.
  *
  * Nur lokale: Ein Pfad auf einem SFTP-Server bedeutet auf einem anderen Server
@@ -209,6 +273,8 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
    * Workflows benutzen, ist dagegen immer aktuell und gilt für jeden.
    */
   const otherJobs = useResource<Job[]>('/api/jobs');
+  /** Welches der beiden Endungsfelder gerade seine Auswahl offen hat. */
+  const [picking, setPicking] = useState<ExtensionField | undefined>();
 
   const { language } = useLanguage();
   const [job, setJob] = useState<Job>();
@@ -495,6 +561,52 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
         * Pfad, den der Server genannt hat, in der Schreibweise ohne
         * Arbeitsverzeichnis, wie sie ins Feld gehört.
         */}
+      {/*
+        * Endungen anklicken statt tippen.
+        *
+        * Das Häkchen wirkt sofort auf das Feld, ohne „Übernehmen": Es gibt
+        * nichts zu bestätigen — man sieht die Endung im Feld darunter
+        * erscheinen und verschwinden, und ein zweites Anklicken nimmt sie
+        * zurück. Ein Bestätigungsknopf wäre ein Schritt, der nichts entscheidet.
+        */}
+      {picking && (
+        <Modal title={`${EXTENSION_CHOICES[picking].label} wählen`} onClose={() => setPicking(undefined)}>
+          <ul className="browse">
+            {EXTENSION_CHOICES[picking].options.map((option) => {
+              const chosen = extensionsOf(job, picking).some((entry) => sameExtension(entry, option.value));
+
+              return (
+                <li key={option.value}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = extensionsOf(job, picking);
+                      const next = chosen
+                        ? current.filter((entry) => !sameExtension(entry, option.value))
+                        : [...current, option.value];
+
+                      change(
+                        picking === 'ALLOWED'
+                          ? { allowedExtensions: next }
+                          : { ignoredTemporaryExtensions: next }
+                      );
+                    }}
+                  >
+                    <span className="pick__mark">{chosen ? '✓' : ''}</span>
+                    <code>{option.value}</code>
+                    <span className="pick__hint">{option.hint}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="browse__label">
+            Was hier fehlt, wird ins Feld getippt — die Liste ist eine Abkürzung, keine Schranke.
+          </p>
+        </Modal>
+      )}
+
       {browsing.open && (
         <Modal
           title={
@@ -1340,15 +1452,28 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 />
               </Field>
 
+              <div className="row">
+                <button type="button" className="secondary" onClick={() => setPicking('ALLOWED')}>
+                  Endungen wählen
+                </button>
+              </div>
+
               <Field
                 label="Endungen unfertiger Uploads"
                 explain="Dateien mit diesen Endungen werden nie übernommen — sie werden gerade erst geschrieben."
               >
                 <input
                   value={job.ignoredTemporaryExtensions.join(', ')}
+                  placeholder=".part, .tmp"
                   onChange={(event) => change({ ignoredTemporaryExtensions: parseList(event.target.value) })}
                 />
               </Field>
+
+              <div className="row">
+                <button type="button" className="secondary" onClick={() => setPicking('TEMPORARY')}>
+                  Endungen wählen
+                </button>
+              </div>
 
               <Field
                 label="Mindestalter"

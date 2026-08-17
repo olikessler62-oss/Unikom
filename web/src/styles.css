@@ -1812,6 +1812,27 @@ option:hover {
   margin-bottom: 1.1rem;
 }
 
+/*
+ * Eine Zeile der Endungsauswahl: Haken, Endung, Erklärung.
+ *
+ * Der Platz für den Haken wird immer freigehalten. Ohne ihn rückte die ganze
+ * Liste beim Anklicken um ein Zeichen, und das Auge verlöre die Zeile, die es
+ * gerade ansieht.
+ */
+.pick__mark {
+  display: inline-block;
+  width: 1.2rem;
+  /* Die Marke ist ein RGB-Tripel, keine Farbe — ohne `rgb()` bliebe der Haken unsichtbar. */
+  color: rgb(var(--accent));
+  font-weight: 600;
+}
+
+.pick__hint {
+  margin-left: 0.7rem;
+  color: var(--text-soft);
+  font-size: 0.86rem;
+}
+
 .browse button {
   display: block;
   width: 100%;
