@@ -41,6 +41,32 @@ const silentLogger: Record<string, unknown> = {
   trace: () => {},
 };
 
+/**
+ * Ein eigener Bereich für die Datenverbindungen jedes Testservers.
+ *
+ * `ftp-srv` sucht den passiven Port sonst ab 1024 aufwärts — bei jedem Server
+ * gleich, in derselben Reihenfolge. Laufen mehrere Testdateien gleichzeitig,
+ * marschieren alle im Gleichschritt durch dieselben niedrigen Ports, und weil
+ * auch dort erst geprüft, freigegeben und später gebunden wird, treffen sich
+ * zwei regelmäßig auf demselben. Der Verlierer hängt dann in seiner Zeitgrenze.
+ *
+ * Die Prozesskennung trennt die Testdateien voneinander — node:test gibt jeder
+ * einen eigenen Prozess —, der Zähler die Server innerhalb einer Datei. Der
+ * Bereich liegt unterhalb dessen, was Windows als flüchtige Ports vergibt,
+ * damit ein Datenport nicht auf dem Steuerport eines anderen Servers landet.
+ */
+const PASV_BLOCK_SIZE = 100;
+const PASV_BLOCKS = 200;
+const PASV_FLOOR = 20_000;
+let pasvCounter = 0;
+
+function nextPasvRange(): { min: number; max: number } {
+  const block = (process.pid * 7 + pasvCounter++) % PASV_BLOCKS;
+  const min = PASV_FLOOR + block * PASV_BLOCK_SIZE;
+
+  return { min, max: min + PASV_BLOCK_SIZE - 1 };
+}
+
 async function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const probe = net.createServer();
@@ -86,9 +112,12 @@ export class FtpsTestServer {
     for (let versuch = 0; versuch < 12; versuch += 1) {
       const port = await freePort();
 
+      const pasv = nextPasvRange();
       const server = new FtpSrv({
         url: `ftp://127.0.0.1:${port}`,
         pasv_url: '127.0.0.1',
+        pasv_min: pasv.min,
+        pasv_max: pasv.max,
         tls: { key, cert },
         anonymous: false,
         greeting: ['Unikom test server'],
