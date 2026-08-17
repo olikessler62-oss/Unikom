@@ -99,7 +99,8 @@ export function withSourceType(job: Job, sourceType: Job['sourceType']): Job {
       // Certificates are validated unless somebody turns it off deliberately.
       validateCertificates: sourceType === 'FTPS' ? true : undefined,
     },
-    // A local source has no credential; leaving one attached would be a lie.
+    // Ein lokales Verzeichnis hat keinen Zugang; einen stehen zu lassen wäre
+    // eine Lüge. Eine Freigabe darf einen haben — muss aber nicht.
     credentialId: sourceType === 'LOCAL' ? undefined : job.credentialId,
   };
 }
@@ -115,6 +116,13 @@ export function withSourceType(job: Job, sourceType: Job['sourceType']): Job {
 export function withDestinationType(job: Job, destinationType: Job['sourceType']): Job {
   if (destinationType === 'LOCAL') {
     return { ...job, destinationType: 'LOCAL', destinationConfig: undefined, destinationCredentialId: undefined };
+  }
+
+  // Eine Freigabe braucht keine Verbindungsangaben — nur den Pfad und
+  // womöglich einen Zugang. Server und Port stehen zu lassen hieße, Felder zu
+  // füllen, die nichts tun.
+  if (destinationType === 'SHARE') {
+    return { ...job, destinationType: 'SHARE', destinationConfig: undefined };
   }
 
   return {

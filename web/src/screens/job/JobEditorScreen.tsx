@@ -50,6 +50,34 @@ import {
 type Side = 'SOURCE' | 'ARCHIVE' | 'DESTINATION' | 'PROTOCOL';
 
 /**
+ * Was man über Freigaben wissen muss, bevor man eine einträgt.
+ *
+ * Ein stehender Hinweis und kein Fenster: Er gilt die ganze Zeit, in der jemand
+ * diese Felder ausfüllt, und ein Fenster, das man wegklickt, hätte man gerade
+ * dann nicht mehr, wenn man es braucht.
+ *
+ * Der zweite Absatz ist der wichtigere. Er beschreibt einen Fall, der beim
+ * Einrichten nie auftritt und im Betrieb zuverlässig: Wer die Oberfläche
+ * bedient, ist angemeldet und erreicht seine Freigaben — der Dienst, der nachts
+ * läuft, ist ein anderes Konto.
+ */
+function ShareAccountNotice() {
+  return (
+    <div className="notice notice--warn">
+      <p>
+        Ohne hinterlegten Zugang wird die Freigabe mit dem Konto erreicht, unter dem Unikom läuft — nicht mit
+        Ihrem. Dass Sie den Pfad hier sehen, heißt also nicht, dass der Dienst ihn auch sieht.
+      </p>
+      <p>
+        Läuft Unikom später als Windows-Dienst unter <code>LocalSystem</code>, erreicht er <strong>gar keine</strong>{' '}
+        Freigabe, und verbundene Laufwerksbuchstaben gibt es für ihn ebenfalls nicht. Dann hilft nur: ein
+        Domänenkonto für den Dienst, oder hier ein eigener Zugang.
+      </p>
+    </div>
+  );
+}
+
+/**
  * Endungen zum Anklicken, statt sie aus dem Kopf zu tippen.
  *
  * Zwei getrennte Listen, weil es zwei verschiedene Fragen sind. Oben steht,
@@ -370,8 +398,18 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
    */
   const basicsReady = Boolean(job.tenantId) && job.name.trim() !== '';
   const locked = 'Bitte zuerst die Grunddaten ausfüllen — Mandant und Name.';
-  const remote = job.sourceType !== 'LOCAL';
-  const remoteTarget = (job.destinationType ?? 'LOCAL') !== 'LOCAL';
+  /*
+   * Zwei Fragen, die früher eine waren.
+   *
+   * `remote` heißt: eine Verbindung mit Server, Port und Hostkey — SFTP oder
+   * FTPS. Eine Freigabe ist etwas anderes: Sie hat einen Pfad und womöglich
+   * einen Zugang, aber keinen Port. Als „alles außer lokal" gelesen blendete
+   * `remote` bei einer Freigabe Felder ein, die dort nichts tun.
+   */
+  const remote = job.sourceType === 'SFTP' || job.sourceType === 'FTPS';
+  const share = job.sourceType === 'SHARE';
+  const remoteTarget = job.destinationType === 'SFTP' || job.destinationType === 'FTPS';
+  const shareTarget = job.destinationType === 'SHARE';
   const tenant = tenants.data?.find((entry) => entry.id === job.tenantId);
 
   /** Only credentials this client may use; a shared one has no tenant. */
@@ -420,8 +458,10 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
     }
 
     // Das Protokoll schreibt Unikom selbst; es liegt immer hier. Eine lokale
-    // Quelle wird ebenso hier gesucht — dort steht ja auch die Datei.
-    if (side === 'PROTOCOL' || job!.sourceType === 'LOCAL') {
+    // Quelle wird ebenso hier gesucht — dort steht ja auch die Datei. Und eine
+    // Freigabe genauso: Ein UNC-Pfad ist ein Pfad im Dateisystem, nur einer,
+    // der über das Netz führt.
+    if (side === 'PROTOCOL' || job!.sourceType === 'LOCAL' || job!.sourceType === 'SHARE') {
       return api.post<RemoteDirectoryResult>('/api/jobs/browse-local', gemeinsam);
     }
 
@@ -986,14 +1026,18 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   value={job.sourceType}
                   onChange={(event) => setJob(withSourceType(job, event.target.value as Job['sourceType']))}
                 >
-                  <option value="LOCAL">Lokales Verzeichnis oder Netzlaufwerk</option>
+                  <option value="LOCAL">Lokales Verzeichnis</option>
+                  <option value="SHARE">Windows-Freigabe</option>
                   <option value="SFTP">SFTP</option>
                   <option value="FTPS">FTPS</option>
                 </select>
               </Field>
 
-              {remote && (
+              {share && <ShareAccountNotice />}
+
+              {(remote || share) && (
                 <>
+                  {remote && (
                   <div className="row" style={{ alignItems: 'flex-start' }}>
                     <div style={{ flex: 3 }}>
                       <Field label="Server">
@@ -1020,7 +1064,16 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     </div>
                   </div>
 
-                  <Field label="Anmeldung am Quellserver" explain="Nur für SFTP und FTPS nötig.">
+                  )}
+
+                  <Field
+                    label={share ? 'Anmeldung an der Freigabe' : 'Anmeldung am Quellserver'}
+                    explain={
+                      share
+                        ? 'Freiwillig. Ohne Zugang wird die Freigabe mit dem Konto erreicht, unter dem Unikom läuft.'
+                        : 'Nur für SFTP und FTPS nötig.'
+                    }
+                  >
                     <div className="field__row">
                       <select
                         value={job.credentialId ?? ''}
@@ -1514,14 +1567,18 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     setJob(withDestinationType(job, event.target.value as Job['sourceType']))
                   }
                 >
-                  <option value="LOCAL">Lokales Verzeichnis oder Freigabe</option>
+                  <option value="LOCAL">Lokales Verzeichnis</option>
+                  <option value="SHARE">Windows-Freigabe</option>
                   <option value="SFTP">SFTP</option>
                   <option value="FTPS">FTPS</option>
                 </select>
               </Field>
 
-              {remoteTarget && (
+              {shareTarget && <ShareAccountNotice />}
+
+              {(remoteTarget || shareTarget) && (
                 <>
+                  {remoteTarget && (
                   <div className="row" style={{ alignItems: 'flex-start' }}>
                     <div style={{ flex: 3 }}>
                       <Field label="Server">
@@ -1544,9 +1601,11 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     </div>
                   </div>
 
+                  )}
+
                   <Field
-                    label="Anmeldung am Zielserver"
-                    explain="Ein eigener Zugang, auch wenn Quelle und Ziel derselbe Server sind. Zwei Richtungen, zwei Berechtigungen."
+                    label={shareTarget ? 'Anmeldung an der Freigabe' : 'Anmeldung am Zielserver'}
+                    explain="Ein eigener Zugang, auch wenn Quelle und Ziel dasselbe Haus sind. Zwei Richtungen, zwei Berechtigungen — wer irgendwo lesen darf, soll nicht anderswo schreiben können."
                   >
                     <div className="field__row">
                       <select

@@ -145,6 +145,33 @@ export function assertEncryptionIsCoherent(job: TransferJob): void {
 export function assertRemoteConnectionsAreComplete(job: TransferJob): void {
   const benannt = (host: string | undefined): boolean => (host ?? '').trim().length > 0;
 
+  /*
+   * Eine Freigabe braucht einen UNC-Pfad.
+   *
+   * `D:\Daten` als Freigabe einzutragen ergäbe einen Workflow, der einen Zugang
+   * mit sich trägt, den nichts benutzt: Verbunden wird nur, was über das Netz
+   * führt. Er liefe scheinbar richtig und griffe die ganze Zeit auf die eigene
+   * Platte zu — die Art zu wechseln wäre folgenlos geblieben, und genau das
+   * merkt niemand.
+   */
+  const alsFreigabe = (directory: string, was: string): void => {
+    if (!/^\\\\[^\\/]+\\/.test(directory.trim())) {
+      throw new Error(
+        `${was} ist als Freigabe eingestellt, „${directory}“ ist aber kein Netzwerkpfad. ` +
+          'Eine Freigabe wird als \\\\Server\\Freigabe\\Ordner angegeben. Für einen Pfad auf diesem Rechner ' +
+          'ist „Lokales Verzeichnis“ die richtige Art.'
+      );
+    }
+  };
+
+  if (job.sourceType === 'SHARE') {
+    alsFreigabe(job.sourceDirectory, 'Die Quelle');
+  }
+
+  if (job.destinationType === 'SHARE') {
+    alsFreigabe(job.destinationDirectory, 'Das Ziel');
+  }
+
   if ((job.sourceType === 'SFTP' || job.sourceType === 'FTPS') && !benannt(job.sourceConfig.host)) {
     throw new Error(
       `Die Quelle ist als ${job.sourceType} eingestellt, es ist aber kein Server eingetragen. ` +

@@ -163,7 +163,8 @@ export function jobRoutes(application: UnikomApplication): Route[] {
          * Ein Dateidialog im Browser nennt den Pfad des Rechners, an dem
          * jemand sitzt — und das ist nicht der, auf dem geschrieben wird.
          */
-        if (type === 'LOCAL') {
+        // Eine Freigabe ebenso: Ein UNC-Pfad ist ein Pfad im Dateisystem.
+        if (type === 'LOCAL' || type === 'SHARE') {
           return ok(
             await application.localDirectories.browse({
               tenantId: typeof input.tenantId === 'string' ? input.tenantId : undefined,

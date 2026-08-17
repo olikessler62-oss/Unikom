@@ -139,3 +139,36 @@ test('ein Server ohne Zugang bleibt erlaubt', async () => {
 
   assert.equal(gespeichert.destinationConfig?.host, 'ftp.example.de');
 });
+
+test('eine Freigabe ohne Netzwerkpfad wird beim Speichern abgelehnt', async () => {
+  // Sonst trüge der Workflow einen Zugang mit sich, den nichts benutzt: Verbunden
+  // wird nur, was über das Netz führt. Er liefe scheinbar richtig und griffe die
+  // ganze Zeit auf die eigene Platte zu.
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () => service.create({ ...job, sourceType: 'SHARE', sourceDirectory: String.raw`D:\Daten\eingang` }),
+    /kein Netzwerkpfad/
+  );
+
+  await assert.rejects(
+    () => service.create({ ...job, destinationType: 'SHARE', destinationDirectory: String.raw`D:\Daten\ziel` }),
+    /kein Netzwerkpfad/
+  );
+});
+
+test('eine Freigabe mit Netzwerkpfad wird angenommen, auch ohne Zugang', async () => {
+  // Der häufige Fall in einem Haus mit einem Domänenkonto: Die Freigabe steht
+  // dem Dienst ohnehin offen. Einen Zugang zu verlangen wäre eine Regel, die
+  // mehr kostet als sie einbringt.
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  const gespeichert = await service.create({
+    ...job,
+    sourceType: 'SHARE',
+    sourceDirectory: String.raw`\\SERVER01\Austausch\Eingang`,
+    sourceConfig: { type: 'SHARE', directory: String.raw`\\SERVER01\Austausch\Eingang` },
+  });
+
+  assert.equal(gespeichert.sourceType, 'SHARE');
+});

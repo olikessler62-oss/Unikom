@@ -71,7 +71,12 @@ export interface Tenant {
   jobCount?: number;
 }
 
-export type SourceType = 'LOCAL' | 'SFTP' | 'FTPS';
+/**
+ * `SHARE` steht neben `LOCAL`, obwohl beide über das Dateisystem laufen: Eine
+ * Freigabe kann eigene Anmeldedaten verlangen, ein Verzeichnis auf der eigenen
+ * Platte nie.
+ */
+export type SourceType = 'LOCAL' | 'SHARE' | 'SFTP' | 'FTPS';
 
 export interface SourceConfig {
   type: SourceType;
@@ -166,12 +171,13 @@ export interface Job {
 
   destinationDirectory: string;
   createDestinationDirectory: boolean;
-  /**
-   * Wohin geschrieben wird; fehlt heißt Dateisystem. Eine Windows-Freigabe ist
-   * kein eigener Typ — ein UNC-Pfad ist ein Pfad.
-   */
+  /** Wohin geschrieben wird; fehlt heißt Dateisystem. */
   destinationType?: SourceType;
-  /** Dieselben Verbindungsangaben wie bei der Quelle, weil es dieselben sind. */
+  /**
+   * Verbindungsangaben des Ziels — nur für SFTP und FTPS. Eine Freigabe braucht
+   * keine: Sie hat einen Pfad und womöglich einen Zugang, aber keinen Port und
+   * keinen Hostkey.
+   */
   destinationConfig?: SourceConfig;
   destinationCredentialId?: string;
   conflictStrategy: 'SKIP' | 'OVERWRITE' | 'RENAME' | 'NEW_NAME';
@@ -191,7 +197,7 @@ export interface Job {
 
   maxConcurrentFiles?: number;
   detectContentDuplicates?: boolean;
-  /** Wie ausführlich dieser Workflow protokolliert; fehlt heißt: wie die Installation. */
+  /** Wie ausführlich dieser Workflow protokolliert; fehlt heißt INFO. */
   logLevel?: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR';
   /** Ob jedes Laufprotokoll zusätzlich als Datei abgelegt wird; voreingestellt aus. */
   saveProtocol?: boolean;

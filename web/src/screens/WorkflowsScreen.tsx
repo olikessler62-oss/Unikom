@@ -7,6 +7,7 @@ import { Empty, formatMoment, Loading, Notice } from '../components/Pieces.js';
 
 const SOURCE_LABELS: Record<Job['sourceType'], string> = {
   LOCAL: 'Lokal',
+  SHARE: 'Freigabe',
   SFTP: 'SFTP',
   FTPS: 'FTPS',
 };
