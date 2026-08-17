@@ -16,8 +16,8 @@ export class UnavailableEncryptionKeyProvider implements EncryptionKeyProvider {
   async getKey(keyCredentialId: string | undefined): Promise<string> {
     throw new Error(
       keyCredentialId
-        ? `No encryption key provider is configured, so credential "${keyCredentialId}" cannot be resolved`
-        : 'Encryption is enabled for this job but no encryption key credential is configured'
+        ? `Es ist keine Schlüsselverwaltung eingerichtet, der Schlüssel „${keyCredentialId}“ ist nicht auflösbar`
+        : 'Für diesen Workflow ist Verschlüsselung eingeschaltet, aber kein Schlüssel ausgewählt'
     );
   }
 }

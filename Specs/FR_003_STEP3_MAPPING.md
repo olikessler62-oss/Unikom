@@ -1,6 +1,13 @@
-# FR_003 — Step 3: Feldzuordnung für Export und Migration
+# FR_003 — Feldzuordnung für „Daten konvertieren" und „Daten importieren"
 
-**Stand:** 2026-08-13 · **Status:** Anforderung erfasst, nicht umgesetzt
+**Stand:** 2026-08-15 · **Status:** Anforderung erfasst, nicht umgesetzt
+
+> **Umbenannt am 2026-08-15.** Die Module heißen nicht mehr nach Nummern. Eine
+> Nummer könnte nur eines von beidem bedeuten — welches Modul das ist oder wann
+> es läuft — und beides gleichzeitig geht nicht. Der Name trägt seither die
+> Identität, die Nummer den Ablauf eines konkreten Workflows. Aus
+> `STEP_3_FILE_EXPORT` wurde `CONVERSION` („Daten konvertieren"), aus
+> `STEP_3_DATABASE_MIGRATION` wurde `DATA_IMPORT` („Daten importieren").
 
 Festgehalten aus dem Gespräch, bevor die Oberfläche gebaut wird. Dieses Dokument
 beschreibt, *was* gebraucht wird und *warum* — nicht, wie es umgesetzt wird.
@@ -9,14 +16,21 @@ beschreibt, *was* gebraucht wird und *warum* — nicht, wie es umgesetzt wird.
 
 ## 1. Ausgangslage
 
-Nach Step 2 liegen konsolidierte Daten lokal bereit: Felder, die aus einer oder
-mehreren übernommenen Dateien entstanden sind, geprüft und gegebenenfalls
-korrigiert und ergänzt.
+Nach dem Konsolidieren liegen aufbereitete Daten bereit: Felder, die aus einer
+oder mehreren Dateien entstanden sind, geprüft und gegebenenfalls korrigiert und
+ergänzt. Sie können ebenso gut von außen kommen — kein Modul setzt ein anderes
+voraus.
 
-Step 3 bringt diese Daten heraus — entweder als Datei in einem Zielformat oder
-direkt in Datenbanktabellen. Beides sind getrennte Module
-(`STEP_3_FILE_EXPORT`, `STEP_3_DATABASE_MIGRATION`), weil sie sich im Aufwand
-deutlich unterscheiden.
+Zwei Module bringen diese Daten heraus, und sie werden **getrennt gekauft**,
+weil sie sich im Aufwand deutlich unterscheiden:
+
+| Modul | Aufgabe |
+| ----- | ------- |
+| `CONVERSION` — Daten konvertieren | schreibt eine Datei in einem Zielformat |
+| `DATA_IMPORT` — Daten importieren | übernimmt Datensätze in Datenbanktabellen |
+
+Beide brauchen dieselbe Antwort auf dieselbe Frage, und deshalb steht sie in
+diesem einen Dokument.
 
 Dazwischen steht die Frage, die dieses Dokument behandelt: **Welches Feld gehört
 wohin?**
@@ -32,8 +46,14 @@ am Mandanten**, kein Feld am einzelnen Job.
 Läge sie am Job, würde dieselbe Zuordnung an fünf Stellen gepflegt und an vier
 davon vergessen, sobald sich etwas ändert.
 
-Ein Mandant kann mehrere Profile haben — etwa eines für den täglichen Export und
-eines für die monatliche Migration. Ein Job verweist auf ein Profil.
+Ein Mandant kann mehrere Profile haben — etwa eines für die tägliche
+Konvertierung und eines für den monatlichen Import. Ein Job verweist auf ein
+Profil.
+
+Ein Profil gehört **keinem der beiden Module allein**. Dieselbe Zuordnung kann
+einmal eine CSV erzeugen und einmal in Tabellen schreiben; sie zweimal zu
+pflegen, weil zwei Module sie brauchen, wäre genau der Fehler, den Abschnitt 2
+vermeidet.
 
 ---
 
@@ -117,9 +137,10 @@ der auf ein Zutun wartet.
 
 Nicht Teil dieser Anforderung:
 
-- **Datensatz-Dubletten** — das ist Step 2 und arbeitet auf Datensätzen
-  *innerhalb* der Daten. Nicht zu verwechseln mit der Dateidublettenerkennung
-  aus Step 1, die auf ganzen Dateien arbeitet.
+- **Datensatz-Dubletten** — das gehört zu „Daten konsolidieren" und arbeitet auf
+  Datensätzen *innerhalb* der Daten. Nicht zu verwechseln mit der
+  Dateidublettenerkennung aus „Daten übertragen", die auf ganzen Dateien
+  arbeitet.
 - **Wohin geliefert wird** — Zielsystem, Verzeichnis oder entferntes Ziel sind
   eine eigene Frage. Ein Upload nach SFTP/FTPS wird ein eigenes Modul.
 - **Verschlüsselung des Ergebnisses** — bereits umgesetzt
@@ -135,5 +156,5 @@ zwei Feldlisten nebeneinander sehen, verbinden, korrigieren und das Ergebnis
 prüfen können, bevor etwas hinausgeht.
 
 Das ist auch der Grund, warum die Oberfläche mit React und einem Build-Schritt
-gebaut wird statt mit serverseitigem HTML — für Step 1 wäre das Einfachere
-genug gewesen, für diesen Bildschirm nicht.
+gebaut wird statt mit serverseitigem HTML — für „Daten übertragen" wäre das
+Einfachere genug gewesen, für diesen Bildschirm nicht.

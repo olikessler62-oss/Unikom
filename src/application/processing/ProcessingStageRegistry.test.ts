@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { allFeatures, coreOnly, StaticFeatureSet } from '../../domain/licensing/Feature.js';
+import { allFeatures, noModules, StaticFeatureSet } from '../../domain/licensing/Feature.js';
 import {
   advanceContext,
   type FileProcessingContext,
@@ -29,7 +29,7 @@ function context(overrides: Partial<FileProcessingContext> = {}): FileProcessing
 /** Stands in for step 2: reads the file, records what it found, changes nothing. */
 const consolidation: ProcessingStage = {
   name: 'consolidation',
-  requiredFeature: 'STEP_2_CONSOLIDATION',
+  requiredFeature: 'CONSOLIDATION',
   process: async (incoming) =>
     advanceContext(incoming, { metadata: { recordsRead: 2, duplicateRecordsRemoved: 1 } }),
 };
@@ -38,7 +38,7 @@ const consolidation: ProcessingStage = {
 function exportStage(seen: FileProcessingContext[]): ProcessingStage {
   return {
     name: 'file-export',
-    requiredFeature: 'STEP_3_FILE_EXPORT',
+    requiredFeature: 'CONVERSION',
     process: async (incoming) => {
       seen.push(incoming);
       return advanceContext(incoming, { metadata: { exportedTo: `${incoming.currentFilePath}.xlsx` } });
@@ -47,14 +47,14 @@ function exportStage(seen: FileProcessingContext[]): ProcessingStage {
 }
 
 test('a stage whose module is missing is never registered', () => {
-  const registry = new ProcessingStageRegistry(coreOnly());
+  const registry = new ProcessingStageRegistry(noModules());
 
   assert.equal(registry.register(consolidation), false);
   assert.equal(registry.isEmpty, true);
 });
 
 test('registration follows the licence, module by module', () => {
-  const registry = new ProcessingStageRegistry(new StaticFeatureSet(['STEP_3_FILE_EXPORT']));
+  const registry = new ProcessingStageRegistry(new StaticFeatureSet(['CONVERSION']));
 
   assert.equal(registry.register(consolidation), false);
   assert.equal(registry.register(exportStage([])), true);
@@ -81,7 +81,7 @@ test('the stages run in order and each sees what the previous one added', async 
 });
 
 test('step 3 runs on step 1 output when step 2 was not bought', async () => {
-  const registry = new ProcessingStageRegistry(new StaticFeatureSet(['STEP_3_FILE_EXPORT']));
+  const registry = new ProcessingStageRegistry(new StaticFeatureSet(['CONVERSION']));
   const seen: FileProcessingContext[] = [];
   registry.register(consolidation);
   registry.register(exportStage(seen));
@@ -94,7 +94,7 @@ test('step 3 runs on step 1 output when step 2 was not bought', async () => {
 });
 
 test('an empty chain hands the context back unchanged', async () => {
-  const registry = new ProcessingStageRegistry(coreOnly());
+  const registry = new ProcessingStageRegistry(noModules());
   const incoming = context();
 
   assert.deepEqual(await registry.run(incoming), incoming);
@@ -116,7 +116,7 @@ test('a failing stage stops the chain and names itself', async () => {
   const seen: FileProcessingContext[] = [];
   registry.register({
     name: 'consolidation',
-    requiredFeature: 'STEP_2_CONSOLIDATION',
+    requiredFeature: 'CONSOLIDATION',
     process: async () => {
       throw new Error('column "amount" is missing');
     },
@@ -140,7 +140,7 @@ test('a stage that rewrites the file must supply the new hash', async () => {
   const registry = new ProcessingStageRegistry(allFeatures());
   registry.register({
     name: 'consolidation',
-    requiredFeature: 'STEP_2_CONSOLIDATION',
+    requiredFeature: 'CONSOLIDATION',
     // Writes a new file but leaves the checksum of the old one in place.
     process: async (incoming) =>
       advanceContext(incoming, { currentFilePath: 'D:/Incoming/ORDER_001.consolidated.csv' }),
@@ -180,7 +180,7 @@ test('rewriting the file with a new hash is accepted', async () => {
   const registry = new ProcessingStageRegistry(allFeatures());
   registry.register({
     name: 'consolidation',
-    requiredFeature: 'STEP_2_CONSOLIDATION',
+    requiredFeature: 'CONSOLIDATION',
     process: async (incoming) =>
       advanceContext(incoming, {
         currentFilePath: 'D:/Incoming/ORDER_001.consolidated.csv',

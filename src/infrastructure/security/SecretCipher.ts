@@ -25,7 +25,7 @@ export class SecretCipher {
   decrypt(stored: string): string {
     const payload = Buffer.from(stored, 'base64');
     if (payload.length < IV_BYTES + TAG_BYTES) {
-      throw new Error('The stored secret is truncated and cannot be decrypted');
+      throw new Error('Das gespeicherte Geheimnis ist unvollständig und lässt sich nicht entschlüsseln');
     }
 
     const iv = payload.subarray(0, IV_BYTES);
@@ -40,7 +40,8 @@ export class SecretCipher {
     } catch {
       // The original error text carries no secret, but it is also unhelpful.
       throw new Error(
-        'The stored secret could not be decrypted. Either the master key changed or the record was modified.'
+        'Das gespeicherte Geheimnis ließ sich nicht entschlüsseln. Entweder hat sich der Hauptschlüssel ' +
+          'geändert, oder der Datensatz wurde verändert.'
       );
     }
   }

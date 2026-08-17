@@ -1,4 +1,17 @@
 import type { Job } from '../../api/types.js';
+import type { Language } from '../../settings/preferences.js';
+
+/**
+ * Die Schreibweise, in der ein Zeitstempel im Dateinamen landet.
+ *
+ * Sie wird beim Anlegen festgehalten und danach nicht mehr angefasst. Der Name
+ * entsteht nachts im Lauf, wo niemand zusieht — die Sprache des Betrachters
+ * kann dort nicht gelten, und ein Workflow, dessen Dateien im Januar anders
+ * heißen als im Juni, wäre für jede Weiterverarbeitung ein Problem.
+ */
+export function notationOf(language: Language): Job['timestampNotation'] {
+  return language === 'en' ? 'MONTH_FIRST' : 'DAY_FIRST';
+}
 
 /**
  * A new job that is already safe rather than already convenient.
@@ -7,7 +20,7 @@ import type { Job } from '../../api/types.js';
  * the ones where a mistake costs nothing. Somebody who wants a file deleted at
  * the source should have to say so.
  */
-export function emptyJob(tenantId: string): Job {
+export function emptyJob(tenantId: string, language: Language): Job {
   return {
     id: '',
     tenantId,
@@ -34,6 +47,7 @@ export function emptyJob(tenantId: string): Job {
     destinationDirectory: '',
     createDestinationDirectory: true,
     conflictStrategy: 'SKIP',
+    timestampNotation: notationOf(language),
     encryptionConfig: { enabled: false, provider: 'NONE' },
     sourceSuccessAction: 'KEEP',
 

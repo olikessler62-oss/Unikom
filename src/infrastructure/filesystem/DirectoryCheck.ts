@@ -32,7 +32,7 @@ export async function checkDirectory(
   const target = directory.trim();
 
   if (!target) {
-    return { ok: false, exists: false, writable: false, message: 'No directory is configured' };
+    return { ok: false, exists: false, writable: false, message: 'Es ist kein Verzeichnis eingetragen' };
   }
 
   const stats = await fs.stat(target).catch((error: NodeJS.ErrnoException) => error);
@@ -42,20 +42,20 @@ export async function checkDirectory(
   }
 
   if (!stats.isDirectory()) {
-    return { ok: false, exists: true, writable: false, message: `${target} is a file, not a directory` };
+    return { ok: false, exists: true, writable: false, message: `${target} ist eine Datei, kein Verzeichnis` };
   }
 
   const writable = await isWritable(target);
 
   return writable
-    ? { ok: true, exists: true, writable: true, message: `${target} exists and can be written to` }
+    ? { ok: true, exists: true, writable: true, message: `${target} gibt es, und es ist beschreibbar` }
     : {
         ok: false,
         exists: true,
         writable: false,
         message:
-          `${target} exists but cannot be written to. On a share, the account Unikom runs under ` +
-          'needs write permission — not the person who is logged in here.',
+          `${target} gibt es, aber es ist nicht beschreibbar. Bei einer Freigabe braucht das Konto, unter dem ` +
+          'Unikom läuft, dort Schreibrecht — nicht die Person, die hier angemeldet ist.',
       };
 }
 
@@ -71,8 +71,8 @@ async function missingDirectory(
       writable: false,
       message:
         error.code === 'EACCES' || error.code === 'EPERM'
-          ? `No permission to reach ${target}`
-          : `${target} cannot be reached: ${error.message}`,
+          ? `Keine Berechtigung für ${target}`
+          : `${target} ist nicht erreichbar: ${error.message}`,
     };
   }
 
@@ -81,7 +81,7 @@ async function missingDirectory(
       ok: false,
       exists: false,
       writable: false,
-      message: `${target} does not exist. Switch on "create if missing" or correct the path.`,
+      message: `${target} gibt es nicht. Entweder „Zielverzeichnis anlegen, falls es fehlt“ einschalten oder den Pfad berichtigen.`,
     };
   }
 
@@ -89,7 +89,7 @@ async function missingDirectory(
   const parent = path.dirname(path.resolve(target));
 
   if (parent === path.resolve(target)) {
-    return { ok: false, exists: false, writable: false, message: `${target} cannot be created` };
+    return { ok: false, exists: false, writable: false, message: `${target} lässt sich nicht anlegen` };
   }
 
   const parentStats = await fs.stat(parent).catch(() => undefined);
@@ -99,7 +99,7 @@ async function missingDirectory(
       ok: false,
       exists: false,
       writable: false,
-      message: `${target} does not exist, and neither does ${parent} — so it cannot be created either.`,
+      message: `${target} gibt es nicht, und ${parent} auch nicht — es lässt sich also auch nicht anlegen.`,
     };
   }
 
@@ -109,13 +109,13 @@ async function missingDirectory(
         exists: false,
         writable: true,
         wouldBeCreated: true,
-        message: `${target} does not exist yet and will be created on the first run.`,
+        message: `${target} gibt es noch nicht — es wird beim ersten Lauf angelegt.`,
       }
     : {
         ok: false,
         exists: false,
         writable: false,
-        message: `${target} does not exist and cannot be created: ${parent} cannot be written to.`,
+        message: `${target} gibt es nicht und lässt sich nicht anlegen: ${parent} ist nicht beschreibbar.`,
       };
 }
 

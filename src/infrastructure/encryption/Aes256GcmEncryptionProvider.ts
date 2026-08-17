@@ -13,6 +13,18 @@ export interface EncryptionResult {
 export interface EncryptionProvider {
   encrypt(inputPath: string, outputPath: string, key: string): Promise<EncryptionResult>;
   decrypt(inputPath: string, outputPath: string, key: string): Promise<EncryptionResult>;
+  /**
+   * Whether this file is one of ours, decided by the envelope it carries — not
+   * by how random its bytes look. Compressed data is statistically as random as
+   * encrypted data, so a guess would eventually pass a ZIP archive off as
+   * ciphertext and hand the plaintext on unprotected.
+   */
+  isEncrypted?(inputPath: string): Promise<boolean>;
+  /**
+   * Encrypts what arrives in a stream. Used when the file is encrypted while it
+   * is being fetched, where there is no input file to point at yet.
+   */
+  encryptStream?(input: Readable, outputPath: string, key: string): Promise<EncryptionResult>;
 }
 
 const MAGIC = Buffer.from('UNIKOM', 'ascii');
@@ -40,6 +52,15 @@ const HEADER_BYTES = MAGIC.length + 1 + 1 + SALT_BYTES + IV_BYTES; // 36
  */
 export class Aes256GcmEncryptionProvider implements EncryptionProvider {
   async encrypt(inputPath: string, outputPath: string, key: string): Promise<EncryptionResult> {
+    return this.encryptStream(createReadStream(inputPath), outputPath, key);
+  }
+
+  /**
+   * The same format written from a stream, so a file can be encrypted while it
+   * is still arriving. Everything about the result is identical to `encrypt` —
+   * only the origin of the bytes differs.
+   */
+  async encryptStream(input: Readable, outputPath: string, key: string): Promise<EncryptionResult> {
     const salt = crypto.randomBytes(SALT_BYTES);
     const iv = crypto.randomBytes(IV_BYTES);
     const { keyMaterial, kdf } = deriveKey(key, salt);
@@ -55,7 +76,7 @@ export class Aes256GcmEncryptionProvider implements EncryptionProvider {
 
     try {
       await pipeline(
-        createReadStream(inputPath),
+        input,
         cipher,
         async function* (encrypted) {
           yield header;
@@ -73,6 +94,30 @@ export class Aes256GcmEncryptionProvider implements EncryptionProvider {
     }
 
     return { ok: true, outputPath, message: 'AES-256-GCM encryption completed' };
+  }
+
+  /**
+   * Reads the first bytes and compares them with the magic word. That is all
+   * the certainty there is to be had about a file: our own envelope is
+   * recognised without doubt, a foreign ciphertext without envelope is not
+   * recognisable at all, and nothing in between is worth pretending.
+   */
+  async isEncrypted(inputPath: string): Promise<boolean> {
+    let handle: fs.FileHandle | undefined;
+
+    try {
+      handle = await fs.open(inputPath, 'r');
+      const start = Buffer.alloc(MAGIC.length);
+      const { bytesRead } = await handle.read(start, 0, MAGIC.length, 0);
+
+      return bytesRead === MAGIC.length && start.equals(MAGIC);
+    } catch {
+      // Unreadable is not the same as unencrypted, but the caller finds out
+      // about it at the next step anyway — and finds out with a better message.
+      return false;
+    } finally {
+      await handle?.close();
+    }
   }
 
   async decrypt(inputPath: string, outputPath: string, key: string): Promise<EncryptionResult> {
@@ -95,8 +140,8 @@ export class Aes256GcmEncryptionProvider implements EncryptionProvider {
       // must leave no half-written plaintext behind.
       await fs.rm(outputPath, { force: true });
       throw new Error(
-        'Decryption failed: the file was modified or the wrong encryption key was used. ' +
-          `(${error instanceof Error ? error.message : String(error)})`
+        'Die Entschlüsselung ist fehlgeschlagen: Die Datei wurde verändert, oder es wurde der falsche ' +
+          `Schlüssel verwendet. (${error instanceof Error ? error.message : String(error)})`
       );
     }
 
@@ -111,7 +156,7 @@ function deriveKey(key: string, salt: Buffer, expectedKdf?: number): { keyMateri
 
   if (kdf === KDF_RAW_KEY) {
     if (!isRawKey) {
-      throw new Error('The file was encrypted with a raw key, but the supplied credential is not one');
+      throw new Error('Die Datei wurde mit einem Rohschlüssel verschlüsselt, der übergebene Zugang ist keiner');
     }
 
     return { keyMaterial: decoded, kdf };

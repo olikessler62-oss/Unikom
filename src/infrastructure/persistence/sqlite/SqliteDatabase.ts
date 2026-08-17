@@ -116,6 +116,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS ix_sessions_user    ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS ix_sessions_expires ON sessions(expires_at);
+
+-- Facts about the installation itself: the licence somebody installed through
+-- the interface, and the furthest this installation has ever seen the clock.
+CREATE TABLE IF NOT EXISTS installation_state (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 -- ix_files_started is created by migrate(), because on an older database the
 -- column it indexes only exists after the migration has added it.
 `;

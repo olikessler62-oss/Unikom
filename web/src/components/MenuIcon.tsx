@@ -1,0 +1,50 @@
+/**
+ * Die Symbole des Hauptmenüs.
+ *
+ * Als Pfade im Code und nicht als Symbolbibliothek: Die Anwendung läuft auf dem
+ * Server des Kunden, oft ohne Internet — ein Paket vom CDN wäre eine
+ * Abhängigkeit, die genau dann ausfällt, wenn sie nicht darf. Und ein ganzes
+ * Symbolpaket für zehn Zeichen einzubinden wäre ein Megabyte für ein Kilobyte
+ * Nutzen.
+ *
+ * Alle sind aus derselben Grammatik gezeichnet: 24er-Raster, nur Linien, keine
+ * Flächen, gleiche Strichstärke. Farbe kommt von der Schrift daneben, damit
+ * Symbol und Wort nie auseinanderlaufen.
+ */
+const PATHS: Record<string, string> = {
+  // Vier Felder — der Blick auf alles.
+  dashboard: 'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
+  // Ein Rechteck mit laufender Anzeige: was gerade tut.
+  jobs: 'M3 5h18v14H3zM7 12l3 3 5-6',
+  // Uhr mit Zeiger — was gewesen ist.
+  history: 'M12 21a9 9 0 1 0-9-9M12 7v5l3 2M3 12l-2-2M3 12l2-2',
+  // Knoten und Verbindungen — die Kette.
+  workflows: 'M6 6h4v4H6zM14 14h4v4h-4zM10 8h2a2 2 0 0 1 2 2v4',
+  // Ein Haus mit Etagen — der Mandant.
+  tenants: 'M4 20V7l8-4 8 4v13M9 20v-5h6v5M8 10h.01M12 10h.01M16 10h.01',
+  // Person mit Schultern.
+  users: 'M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM5 20a7 7 0 0 1 14 0',
+  // Zahnrad, auf die Linien reduziert.
+  settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2',
+  // Tür mit Pfeil hinaus.
+  signOut: 'M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8M17 15l3-3-3-3M10 12h10',
+  // Schild — was geschützt wird.
+  privacy: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
+  // Blatt mit Zeilen.
+  imprint: 'M6 3h9l3 3v15H6zM9 9h6M9 13h6M9 17h4',
+};
+
+export function MenuIcon({ name }: { name: string }) {
+  const path = PATHS[name];
+
+  // Ein fehlendes Symbol lässt den Menüpunkt stehen, statt ihn zu zerlegen.
+  if (!path) {
+    return null;
+  }
+
+  return (
+    <svg className="sidebar__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d={path} />
+    </svg>
+  );
+}

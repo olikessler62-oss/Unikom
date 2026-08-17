@@ -5,7 +5,10 @@ import type { TransferJobRepository } from '../../domain/transfer/TransferJobRep
 import type { TransferRun } from '../../domain/transfer/TransferRun.js';
 import type { TransferRunRepository } from '../../domain/transfer/TransferRunRepository.js';
 import { TransferRunStatus } from '../../domain/transfer/TransferRun.js';
+import type { RunGate } from '../../domain/licensing/Licence.js';
 import { JobSchedulerService } from '../scheduling/JobSchedulerService.js';
+import type { RunProtocolWriter } from '../logging/RunProtocolWriter.js';
+import type { RunControlRegistry } from './RunControlRegistry.js';
 import type { TransferExecutionOptions, TransferRunResult } from './TransferExecutionService.js';
 
 /** Anything that can run a job through the shared pipeline. */
@@ -33,7 +36,23 @@ export class TransferOrchestratorService {
     private readonly jobRepository: TransferJobRepository,
     private readonly jobExecutionService: JobExecutor,
     private readonly runRepository: TransferRunRepository,
-    private readonly scheduler: JobSchedulerService = new JobSchedulerService()
+    private readonly scheduler: JobSchedulerService = new JobSchedulerService(),
+    /**
+     * Asked before anything starts. Absent means nothing to ask — the wiring
+     * for tests and for an installation that checks no licence.
+     */
+    private readonly runGate?: RunGate,
+    /**
+     * Registers every run so it can be held or stopped while it is under way.
+     * Absent means a run cannot be steered, which is what most tests want.
+     */
+    private readonly controls?: RunControlRegistry,
+    /**
+     * Legt das Protokoll eines Laufs als Datei ab, wenn der Workflow es
+     * verlangt. Fehlt er, wird nichts abgelegt — so laufen die Tests, die von
+     * Protokolldateien nichts wissen wollen.
+     */
+    private readonly protocols?: RunProtocolWriter
   ) {}
 
   /** True while a run for this job is in flight (spec section 29). */
@@ -49,6 +68,18 @@ export class TransferOrchestratorService {
       runs: [],
       errors: [],
     };
+
+    // Asked once for the whole tick, before a single job is looked at. Asking
+    // per job would write one failed run per job per minute into the history,
+    // and the history should say what a transfer did, not that an invoice is
+    // open. The due dates stay where they are, so the jobs run once the licence
+    // is back rather than being silently skipped.
+    try {
+      await this.runGate?.assertMayRun(now);
+    } catch (error) {
+      result.errors.push(error instanceof Error ? error.message : String(error));
+      return result;
+    }
 
     for (const stored of await this.jobRepository.list()) {
       // A job that has no next execution yet gets one instead of being replayed.
@@ -86,6 +117,10 @@ export class TransferOrchestratorService {
 
   /** Manual start from UI, CLI or API; uses the very same pipeline. */
   async runJobNow(jobId: string, now: Date = new Date()): Promise<TransferRun | undefined> {
+    // Before the run is recorded, so the caller reads why nothing started
+    // instead of finding a failed run without a reason.
+    await this.runGate?.assertMayRun(now);
+
     const job = await this.jobRepository.getById(jobId);
     if (!job) {
       return undefined;
@@ -103,6 +138,9 @@ export class TransferOrchestratorService {
     const startedAt = new Date();
 
     this.runningJobIds.add(job.id);
+    // Registered before the first file, so the control room can hold or stop
+    // this run from the moment it exists.
+    const control = this.controls?.open(runId, job, startedAt);
 
     let run: TransferRun = {
       id: runId,
@@ -118,7 +156,7 @@ export class TransferOrchestratorService {
     await this.runRepository.save(run);
 
     try {
-      const outcome: TransferRunResult = await this.jobExecutionService.execute(job, { runId, now });
+      const outcome: TransferRunResult = await this.jobExecutionService.execute(job, { runId, now, control });
 
       run = {
         ...run,
@@ -140,10 +178,19 @@ export class TransferOrchestratorService {
       void error;
     } finally {
       this.runningJobIds.delete(job.id);
+      this.controls?.close(runId);
     }
 
     await this.runRepository.save(run);
     await this.jobRepository.save({ ...this.withNextExecution(job, now), lastExecutionAt: startedAt });
+
+    // Zuletzt, nachdem der Lauf gespeichert ist: Das Protokoll beschreibt den
+    // Lauf, also muss der Lauf feststehen. Und es darf ihn nicht scheitern
+    // lassen — eine volle Platte im Protokollverzeichnis wäre ein schlechter
+    // Grund, eine gelungene Übertragung als Fehler zu melden.
+    if (job.saveProtocol === true) {
+      await this.protocols?.write(job, run).catch(() => {});
+    }
 
     return run;
   }

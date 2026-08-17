@@ -56,3 +56,32 @@ test('transfer job service updates a job', async () => {
   assert.equal(updated?.enabled, false);
   assert.equal(updated?.description, 'Disabled temporarily');
 });
+
+test('storing under a new name without a name is refused at save time', async () => {
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () => service.create({ ...job, conflictStrategy: 'NEW_NAME' }),
+    /braucht diesen Namen/,
+    'a job that promises a name it does not have would fetch its files and have nowhere to put them'
+  );
+});
+
+test('a chosen name that is a path is refused', async () => {
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () => service.create({ ...job, conflictStrategy: 'NEW_NAME', conflictFilename: '..\\..\\woanders' }),
+    /lässt sich nicht als Dateiname verwenden/
+  );
+});
+
+test('a chosen name survives an update that does not mention it', async () => {
+  const repo = new InMemoryTransferJobRepository();
+  const service = new TransferJobService(repo);
+
+  await service.create({ ...job, conflictStrategy: 'NEW_NAME', conflictFilename: 'Nachlieferung' });
+  const updated = await service.update('job-1', { description: 'Something else entirely' });
+
+  assert.equal(updated?.conflictFilename, 'Nachlieferung');
+});

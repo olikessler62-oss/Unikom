@@ -13,6 +13,8 @@ export interface Session {
   login(username: string, password: string): Promise<void>;
   logout(): Promise<void>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  /** The same change from the login page, where nobody is signed in yet. */
+  changePasswordAtLogin(username: string, currentPassword: string, newPassword: string): Promise<void>;
   /** Whether the interface may show something. The server checks again. */
   may(permission: Permission): boolean;
   reload(): Promise<void>;
@@ -75,11 +77,35 @@ export function useSession(): Session {
     setState({ status: 'anonymous' });
   }, []);
 
+  /**
+   * Only the account itself may change its password, so this signs in first —
+   * briefly, and without opening the interface. Whichever way it ends, the
+   * borrowed session is gone by the time this returns: the server drops every
+   * session of the user on a successful change, and a failed change hands it
+   * back instead of leaving one open behind the login page.
+   */
+  const changePasswordAtLogin = useCallback(
+    async (username: string, currentPassword: string, newPassword: string) => {
+      const identity = await api.post<Identity>('/api/session', { username, password: currentPassword });
+      setCsrfToken(identity.csrfToken);
+
+      try {
+        await api.post('/api/me/password', { currentPassword, newPassword });
+      } catch (failure) {
+        await api.delete('/api/session').catch(() => undefined);
+        throw failure;
+      } finally {
+        setCsrfToken(undefined);
+      }
+    },
+    []
+  );
+
   const may = useCallback(
     (permission: Permission) =>
       state.status === 'active' && state.identity.permissions.includes(permission),
     [state]
   );
 
-  return { state, login, logout, changePassword, may, reload };
+  return { state, login, logout, changePassword, changePasswordAtLogin, may, reload };
 }

@@ -1,11 +1,18 @@
+import path from 'node:path';
+
 import type { CredentialRepository } from '../../domain/credentials/Credential.js';
+import type { InstallationStateRepository } from '../../domain/installation/InstallationState.js';
 import type { LogLevel, Logger, TransferLogRepository } from '../../domain/logging/LogEntry.js';
 import type { TransferFileRepository } from '../../domain/transfer/TransferFileRepository.js';
 import type { TransferJobRepository } from '../../domain/transfer/TransferJobRepository.js';
 import type { TransferRunRepository } from '../../domain/transfer/TransferRunRepository.js';
 import type { EncryptionKeyProvider } from '../../domain/encryption/EncryptionKeyProvider.js';
 import { allFeatures, type FeatureSet } from '../../domain/licensing/Feature.js';
+import { LicenceService, type LicenceServiceOptions } from '../licensing/LicenceService.js';
+import { licencePublicKey } from '../../infrastructure/licensing/LicencePublicKey.js';
 import { InMemoryCredentialRepository } from '../../infrastructure/persistence/InMemoryCredentialRepository.js';
+import { InMemoryInstallationStateRepository } from '../../infrastructure/persistence/InMemoryInstallationStateRepository.js';
+import { SqliteInstallationStateRepository } from '../../infrastructure/persistence/sqlite/SqliteInstallationStateRepository.js';
 import { InMemoryTransferFileRepository } from '../../infrastructure/persistence/InMemoryTransferFileRepository.js';
 import { InMemoryTransferJobRepository } from '../../infrastructure/persistence/InMemoryTransferJobRepository.js';
 import { InMemoryTransferLogStore } from '../../infrastructure/persistence/InMemoryTransferLogStore.js';
@@ -21,6 +28,9 @@ import { SecretCipher } from '../../infrastructure/security/SecretCipher.js';
 import { CredentialEncryptionKeyProvider } from '../credentials/CredentialEncryptionKeyProvider.js';
 import { CredentialService } from '../credentials/CredentialService.js';
 import { CompositeLogger, DEFAULT_LOG_LEVEL, LevelFilteredLogger } from '../logging/Loggers.js';
+import { ProtocolArchive } from '../logging/ProtocolArchive.js';
+import { RunProtocolMemo } from '../logging/RunProtocolMemo.js';
+import { RunProtocolWriter } from '../logging/RunProtocolWriter.js';
 import { combineEventListeners, createTransferEventLogger } from '../logging/TransferEventLogger.js';
 import type { TenantRepository } from '../../domain/tenants/Tenant.js';
 import type { SessionRepository } from '../../domain/users/Session.js';
@@ -38,6 +48,8 @@ import { SessionService } from '../users/SessionService.js';
 import { UserService } from '../users/UserService.js';
 import { TransferHistoryService } from '../transfer/TransferHistoryService.js';
 import type { TransferEventListener } from '../transfer/TransferEvents.js';
+import { RunControlRegistry } from '../transfer/RunControlRegistry.js';
+import { RemoteDirectoryService } from '../transfer/RemoteDirectoryService.js';
 import { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
 import { TransferJobService } from '../transfer/TransferJobService.js';
 import { JobRuntimeService } from './JobRuntimeService.js';
@@ -52,8 +64,12 @@ export interface UnikomApplication {
   historyService: TransferHistoryService;
   /** Creates and changes jobs, and refuses those the licence does not cover. */
   jobService: TransferJobService;
-  /** The modules this installation may use. */
+  /** The modules this installation may use; follows the licence once there is one. */
   features: FeatureSet;
+  /** The paid period: what it covers, how long it runs, and whether it still does. */
+  licenceService: LicenceService;
+  /** Which transfers are in flight, and how to hold or stop them. */
+  runControls: RunControlRegistry;
   /** Stages behind STEP_1_COMPLETED; empty until step 2 or 3 register. */
   processingStages: ProcessingStageRegistry;
   /** Deletes expired log and history entries; runs once a day via the scheduler. */
@@ -68,6 +84,8 @@ export interface UnikomApplication {
   tenantRepository: TenantRepository;
   /** Builds source adapters including their resolved credentials. */
   adapterProvider: SourceAdapterProvider;
+  /** Looks at a remote server while a job is being set up: exists, and what is inside. */
+  remoteDirectories: RemoteDirectoryService;
   logger: Logger;
   runtime: JobRuntimeService;
   /** Releases the storage handle; a no-op for the in-memory variant. */
@@ -89,11 +107,16 @@ export interface ApplicationOptions {
   events?: TransferEventListener;
   stagingRoot?: string;
   /**
-   * The modules this installation may use. Defaults to all of them so that
-   * development, tests and the demo are not a licensing exercise — a
-   * distribution build has to pass the customer's actual set here.
+   * The modules an *unlicensed* installation may use. Defaults to all of them so
+   * that development, tests and the demo are not a licensing exercise. Once a
+   * licence is in force it decides instead, because that is what was paid for.
    */
   features?: FeatureSet;
+  /**
+   * Where the paid period comes from. `createPersistentApplication` fills in the
+   * built-in key and the licence file next to the database; tests pass their own.
+   */
+  licence?: LicenceServiceOptions;
   /** Log retention for jobs that do not set one; defaults to 90 days. */
   logRetentionDays?: number;
 }
@@ -107,6 +130,7 @@ interface Wiring {
   userRepository: UserRepository;
   sessionRepository: SessionRepository;
   tenantRepository: TenantRepository;
+  installationStateRepository: InstallationStateRepository;
   close(): void;
 }
 
@@ -121,13 +145,32 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     options.logLevel ?? DEFAULT_LOG_LEVEL
   );
 
-  const features = options.features ?? allFeatures();
+  // The licence decides the modules; `options.features` is what is left when
+  // there is no licence to ask. Services keep being handed one FeatureSet, and
+  // it is the licence service's view, so a licence installed at runtime reaches
+  // them without anything being rebuilt.
+  const licenceService = new LicenceService(wiring.installationStateRepository, {
+    ...options.licence,
+    unlicensedFeatures: options.licence?.unlicensedFeatures ?? options.features ?? allFeatures(),
+  });
+  const features = licenceService.features();
+  const runControls = new RunControlRegistry();
   const processingStages = new ProcessingStageRegistry(features);
+  /*
+   * Abgelegt wird nur, wo ein Workflow es verlangt — und nur, wo es ein
+   * Datenverzeichnis gibt. Die flüchtige Verdrahtung für Tests hat keines,
+   * und ein Protokoll ins Arbeitsverzeichnis zu streuen wäre dort das
+   * Gegenteil von hilfreich.
+   */
+  const protocolArchive = defaultStagingRoot ? new ProtocolArchive(defaultStagingRoot) : undefined;
+  const protocolWriter = protocolArchive ? new RunProtocolWriter(wiring.logStore, protocolArchive) : undefined;
+
   const retentionService = new RetentionService(
     wiring.jobRepository,
     wiring.logStore,
     wiring.transferFileRepository,
-    options.logRetentionDays
+    options.logRetentionDays,
+    protocolArchive
   );
 
   const userService = new UserService(wiring.userRepository, wiring.sessionRepository);
@@ -143,6 +186,8 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     logRepository: wiring.logStore,
     credentialService,
     features,
+    licenceService,
+    runControls,
     processingStages,
     retentionService,
     userService,
@@ -158,6 +203,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     tenantService: new TenantService(wiring.tenantRepository, wiring.jobRepository),
     tenantRepository: wiring.tenantRepository,
     adapterProvider,
+    remoteDirectories: new RemoteDirectoryService(adapterProvider),
     logger,
     historyService: new TransferHistoryService(
       wiring.runRepository,
@@ -176,10 +222,20 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
       features,
       processingStages,
       retentionService,
+      runGate: licenceService,
+      runControls,
+      protocols: protocolWriter,
     }),
     close: wiring.close,
   };
 }
+
+/**
+ * Where a licence is expected next to the database. Plain text, one line, and
+ * signed — see `LicenceDocument`. It may also be installed through the
+ * interface, in which case it lives in the database and no file is needed.
+ */
+export const LICENCE_FILENAME = 'unikom.licence';
 
 /**
  * Production wiring. Jobs, runs, credentials, the processed-file registry and
@@ -201,13 +257,33 @@ export function createPersistentApplication(
       runRepository: new SqliteTransferRunRepository(database),
       transferFileRepository: new SqliteTransferFileRepository(database),
       credentialRepository: new SqliteCredentialRepository(database),
-      logStore: new SqliteTransferLogStore(database),
+      /*
+       * Das Laufprotokoll steht im Arbeitsspeicher und nicht in der Datenbank.
+       *
+       * Es ist eine Mitschrift: gebraucht, solange jemand hinsieht, und danach
+       * nur, wenn jemand es aufhebt — durch Speichern. Die Datenbank wächst
+       * dadurch nicht mehr mit jeder Zeile mit (gemessen: 1,6 kB je Datei bei
+       * ausführlicher Protokollierung), und ein Neustart nimmt die Protokolle
+       * mit. Beides ist gewollt.
+       */
+      logStore: new RunProtocolMemo(),
       userRepository: new SqliteUserRepository(database),
       sessionRepository: new SqliteSessionRepository(database),
       tenantRepository: new SqliteTenantRepository(database),
+      installationStateRepository: new SqliteInstallationStateRepository(database),
       close: () => database.close(),
     },
-    options,
+    {
+      ...options,
+      // A real installation checks its paid period; which key it verifies with
+      // is decided at build time, and the licence file sits next to the data it
+      // licenses. Both can be overridden, which is what the tests do.
+      licence: {
+        publicKey: licencePublicKey(),
+        licenceFile: path.join(dataDirectory, LICENCE_FILENAME),
+        ...options.licence,
+      },
+    },
     dataDirectory
   );
 }
@@ -220,10 +296,11 @@ export function createInMemoryApplication(options: ApplicationOptions = {}): Uni
       runRepository: new InMemoryTransferRunRepository(),
       transferFileRepository: new InMemoryTransferFileRepository(),
       credentialRepository: new InMemoryCredentialRepository(),
-      logStore: new InMemoryTransferLogStore(),
+      logStore: new RunProtocolMemo(),
       userRepository: new InMemoryUserRepository(),
       sessionRepository: new InMemorySessionRepository(),
       tenantRepository: new InMemoryTenantRepository(),
+      installationStateRepository: new InMemoryInstallationStateRepository(),
       close: () => {},
     },
     options

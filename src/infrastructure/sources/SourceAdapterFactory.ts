@@ -18,7 +18,7 @@ export class SourceAdapterFactory {
       case 'FTPS':
         return new FtpsSourceAdapter(config, credentials);
       default:
-        throw new Error(`Unsupported source type: ${String(config.type)}`);
+        throw new Error(`Unbekannte Quellenart: ${String(config.type)}`);
     }
   }
 }

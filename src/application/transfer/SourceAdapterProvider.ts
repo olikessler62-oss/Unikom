@@ -58,13 +58,14 @@ export class SourceAdapterProvider {
 
     if (!this.credentialService) {
       throw new Error(
-        `Job "${job.name}" references credential ${job.credentialId}, but no credential service is configured`
+        `Der Workflow „${job.name}“ verweist auf den Zugang ${job.credentialId}, aber es ist keine ` +
+          'Zugangsverwaltung eingerichtet'
       );
     }
 
     const credential = await this.credentialService.getById(job.credentialId);
     if (!credential) {
-      throw new Error(`The credential ${job.credentialId} configured for job "${job.name}" does not exist`);
+      throw new Error(`Den im Workflow „${job.name}“ eingetragenen Zugang ${job.credentialId} gibt es nicht`);
     }
 
     // Checked again here, not only when the job was saved: a credential can be
@@ -73,7 +74,8 @@ export class SourceAdapterProvider {
     // opened with another client's access data.
     if (!isUsableBy(credential, job.tenantId)) {
       throw new Error(
-        `The credential "${credential.name}" belongs to another client and cannot be used by job "${job.name}"`
+        `Der Zugang „${credential.name}“ gehört einem anderen Mandanten und darf im Workflow „${job.name}“ ` +
+          'nicht verwendet werden'
       );
     }
 
@@ -86,7 +88,8 @@ export class SourceAdapterProvider {
         return { username: credential.username, privateKey: secret };
       default:
         throw new Error(
-          `Credential "${credential.name}" is of type ${credential.type} and cannot be used to connect to a source`
+          `Der Zugang „${credential.name}“ ist vom Typ ${credential.type} und taugt nicht zum Verbinden mit ` +
+            'einer Quelle'
         );
     }
   }

@@ -33,8 +33,8 @@ export function assertWithinTenant(tenant: Tenant, directory: string, what: stri
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new TenantBoundaryError(
       tenant.name,
-      `${what} lies outside the directory of "${tenant.name}" (${root}). ` +
-        'Files of one client must not be able to land in another client\'s folder.'
+      `${what} liegt außerhalb des Verzeichnisses von „${tenant.name}“ (${root}). ` +
+        'Dateien eines Mandanten dürfen nicht im Ordner eines anderen landen.'
     );
   }
 }

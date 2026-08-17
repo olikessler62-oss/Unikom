@@ -12,7 +12,7 @@ import {
 
 function requireRole(value: string): Role {
   if (!(ROLES as readonly string[]).includes(value)) {
-    throw new ApiError(400, `"${value}" is not a role. Expected one of: ${ROLES.join(', ')}`);
+    throw new ApiError(400, `„${value}“ ist keine Rolle. Erwartet wird eine von: ${ROLES.join(', ')}`);
   }
 
   return value as Role;
@@ -22,7 +22,7 @@ function requireBoolean(body: Record<string, unknown>, field: string): boolean {
   const value = body[field];
 
   if (typeof value !== 'boolean') {
-    throw new ApiError(400, `"${field}" has to be true or false`);
+    throw new ApiError(400, `„${field}“ muss wahr oder falsch sein`);
   }
 
   return value;
@@ -90,7 +90,7 @@ export function userRoutes(application: UnikomApplication): Route[] {
       authorization: 'MANAGE_USERS',
       handle: async ({ params, session }) => {
         if (params.id === session!.user.id) {
-          throw new ApiError(400, 'You cannot delete your own account while you are using it');
+          throw new ApiError(400, 'Das eigene Konto lässt sich nicht löschen, solange man damit angemeldet ist');
         }
 
         await application.userService.delete(params.id);

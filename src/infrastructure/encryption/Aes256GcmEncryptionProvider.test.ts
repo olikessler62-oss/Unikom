@@ -76,7 +76,7 @@ test('a manipulated file is detected and leaves no plaintext behind', async () =
   tampered[tampered.length - 20] ^= 0xff;
   await fs.writeFile(encrypted, tampered);
 
-  await assert.rejects(() => provider.decrypt(encrypted, decrypted, RAW_KEY), /modified or the wrong encryption key/);
+  await assert.rejects(() => provider.decrypt(encrypted, decrypted, RAW_KEY), /verändert, oder es wurde der falsche/);
   assert.equal(await exists(decrypted), false);
 });
 
@@ -86,7 +86,7 @@ test('the wrong key cannot decrypt the file', async () => {
 
   const otherKey = crypto.randomBytes(32).toString('base64');
 
-  await assert.rejects(() => provider.decrypt(encrypted, decrypted, otherKey), /modified or the wrong encryption key/);
+  await assert.rejects(() => provider.decrypt(encrypted, decrypted, otherKey), /verändert, oder es wurde der falsche/);
   assert.equal(await exists(decrypted), false);
 });
 
@@ -125,5 +125,5 @@ test('a raw key file cannot be opened with a passphrase', async () => {
   const { plain, encrypted, decrypted } = await workspace();
   await provider.encrypt(plain, encrypted, RAW_KEY);
 
-  await assert.rejects(() => provider.decrypt(encrypted, decrypted, PASSPHRASE), /not one|modified or the wrong/);
+  await assert.rejects(() => provider.decrypt(encrypted, decrypted, PASSPHRASE), /ist keiner|verändert, oder es wurde der falsche/);
 });

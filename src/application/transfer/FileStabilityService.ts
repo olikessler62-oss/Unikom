@@ -36,7 +36,7 @@ export class FileStabilityService {
     probe: StabilityProbeFn
   ): Promise<StabilityCheckResult> {
     if (!config.enabled) {
-      return { stable: true, performedChecks: 0, message: 'Stability check disabled for this job' };
+      return { stable: true, performedChecks: 0, message: 'Die Stabilitätsprüfung ist für diesen Workflow ausgeschaltet' };
     }
 
     // The listing that discovered the file already counts as the first measurement.
@@ -52,7 +52,7 @@ export class FileStabilityService {
         return {
           stable: false,
           performedChecks,
-          message: `${file.name} disappeared from the source while the stability check was running`,
+          message: `${file.name} ist während der Stabilitätsprüfung aus der Quelle verschwunden`,
         };
       }
 
@@ -62,7 +62,7 @@ export class FileStabilityService {
         return {
           stable: false,
           performedChecks,
-          message: `${file.name} is still being written, it will be re-checked on the next scheduler run`,
+          message: `${file.name} wird noch geschrieben — beim nächsten Lauf wird erneut geprüft`,
         };
       }
 
@@ -72,7 +72,7 @@ export class FileStabilityService {
     return {
       stable: true,
       performedChecks,
-      message: `${file.name} stability check passed after ${performedChecks} identical measurements`,
+      message: `${file.name} liegt stabil: ${performedChecks} übereinstimmende Messungen`,
     };
   }
 

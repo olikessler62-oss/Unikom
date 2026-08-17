@@ -5,9 +5,11 @@ import { randomUUID } from 'node:crypto';
 
 import type { SourceAdapter } from '../../domain/source/SourceAdapter.js';
 import type { SourceFile } from '../../domain/files/SourceFile.js';
-import type { TransferJob } from '../../domain/transfer/TransferJob.js';
+import type { DateNotation, TransferJob } from '../../domain/transfer/TransferJob.js';
 import type { TransferFile } from '../../domain/transfer/TransferFile.js';
 import type { TransferFileRepository } from '../../domain/transfer/TransferFileRepository.js';
+import type { RunControl } from '../../domain/transfer/RunControl.js';
+import { activeStages, STAGE_LABELS } from '../../domain/transfer/WorkflowStages.js';
 import { FileTransferStatus, TransferRunStatus } from '../../domain/transfer/TransferRun.js';
 import {
   UnavailableEncryptionKeyProvider,
@@ -27,7 +29,8 @@ import { FileStabilityService } from './FileStabilityService.js';
 import { FileIntegrityService } from './FileIntegrityService.js';
 import { DuplicateDetectionService } from './DuplicateDetectionService.js';
 import { StagingService } from './StagingService.js';
-import { DEFAULT_RETRY_CONFIG, RetryPolicy } from './RetryPolicy.js';
+import { EncryptedPickupService } from './EncryptedPickupService.js';
+import { DEFAULT_RETRY_CONFIG, RetryPolicy, type RetryAttemptInfo } from './RetryPolicy.js';
 import { noopEventListener, type TransferEventListener, type TransferEventName } from './TransferEvents.js';
 
 /** System default from spec section 79; parallelism is never unbounded. */
@@ -39,6 +42,52 @@ export const DEFAULT_MAX_CONCURRENT_FILES = 3;
  * subdirectories would otherwise share one identity and the second would be
  * discarded as a duplicate of the first (spec section 40).
  */
+/**
+ * A failure with everything that was known about it.
+ *
+ * Node hangs the real reason on `cause` — a refused connection, a full disk, a
+ * permission — and the message on top is usually the polite summary. Both go
+ * into the log, because the summary alone sends people looking in the wrong
+ * place, and a code like `EACCES` at the end of the line ends the search.
+ */
+function describeFailure(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const parts = [error.message];
+  const code = (error as NodeJS.ErrnoException).code;
+
+  if (code) {
+    parts.push(`[${code}]`);
+  }
+
+  let cause = error.cause;
+  // Bounded: a cycle in the chain would otherwise write until the disk is full.
+  for (let depth = 0; cause instanceof Error && depth < 4; depth += 1) {
+    parts.push(`← ${cause.message}`);
+    cause = cause.cause;
+  }
+
+  return parts.join(' ');
+}
+
+/**
+ * Warum eine Datei nicht genommen wurde, als Satz.
+ *
+ * Der Grund ist im Modell ein Code — er wird verglichen, gezählt und gespeichert
+ * — und im Protokoll ein Satz, weil das Protokoll gelesen wird. Beides an einer
+ * Stelle zu haben hieße, sich für eines von beidem zu entscheiden.
+ */
+const REJECTION_REASONS: Record<string, string> = {
+  DIRECTORY: 'ist ein Verzeichnis',
+  TEMPORARY_EXTENSION: 'trägt die Endung eines unfertigen Uploads',
+  PREFIX_MISMATCH: 'passt nicht zum eingestellten Dateinamen',
+  EXTENSION_MISMATCH: 'hat keine der berücksichtigten Endungen',
+  AGE_UNKNOWN: 'hat keinen Zeitstempel, das Mindestalter ist nicht nachweisbar',
+  TOO_YOUNG: 'ist jünger als das eingestellte Mindestalter',
+};
+
 function directoryOf(file: SourceFile, fallback: string): string {
   const separator = Math.max(file.fullPath.lastIndexOf('/'), file.fullPath.lastIndexOf('\\'));
 
@@ -47,6 +96,31 @@ function directoryOf(file: SourceFile, fallback: string): string {
   }
 
   return file.fullPath.slice(0, separator) || '/';
+}
+
+/**
+ * The stamp a renamed file carries: `31012026_235959` where the day comes
+ * first, `01312026_235959` where the month does.
+ *
+ * Local time, not UTC: the operator holds this name next to the run in the
+ * history, and that one is shown in their own time. Two names for one moment
+ * would be a puzzle to solve every time.
+ *
+ * The clock is 24 hours in both notations, including the American one. Twelve
+ * hours would need an AM or PM to stay unambiguous, and that turns a name that
+ * sorts by itself into one that needs reading.
+ */
+function timestampSuffix(moment: Date, notation: DateNotation = 'DAY_FIRST'): string {
+  const pad = (value: number): string => String(value).padStart(2, '0');
+
+  const day = pad(moment.getDate());
+  const month = pad(moment.getMonth() + 1);
+  const date = notation === 'MONTH_FIRST' ? `${month}${day}` : `${day}${month}`;
+
+  return (
+    `${date}${moment.getFullYear()}` +
+    `_${pad(moment.getHours())}${pad(moment.getMinutes())}${pad(moment.getSeconds())}`
+  );
 }
 
 /**
@@ -61,6 +135,8 @@ interface RunContext {
   claimedHashes: Set<string>;
   claimedDestinations: Set<string>;
   retry: RetryPolicy;
+  /** The moment the run stands for — the stamp a renamed file gets. */
+  startedAt: Date;
 }
 
 export interface FileOutcome {
@@ -107,6 +183,32 @@ export interface TransferExecutionDependencies {
 export interface TransferExecutionOptions {
   runId?: string;
   now?: Date;
+  /** Lets somebody pause or cancel this run while it is under way. */
+  control?: RunControl;
+  /**
+   * Why there is no source, when the caller already knows.
+   *
+   * Building the adapter happens before this service is entered — that is where
+   * a missing module, a deleted credential or one belonging to another client
+   * shows up. Those failures used to travel as exceptions past the run and were
+   * recorded as "failed" with nothing to read. They come in through here
+   * instead, so they end up in the log like every other reason a run stopped.
+   */
+  sourceProblem?: string;
+}
+
+/**
+ * Chain links a job has switched on that this build cannot walk yet. The editor
+ * already saves the wiring for steps ② and ③ — where they read, where they
+ * write — while the processing itself is still being built.
+ *
+ * Remove an entry here the moment its engine exists; this list is the single
+ * place that decides whether such a job may run.
+ */
+export function unbuiltStages(job: TransferJob): string[] {
+  return activeStages(job)
+    .filter((stage) => stage !== 'TRANSFER')
+    .map((stage) => `"${STAGE_LABELS[stage]}"`);
 }
 
 /**
@@ -127,6 +229,7 @@ export class TransferExecutionService {
   private readonly stagingService: StagingService;
   private readonly encryptionProvider: FileEncryptionProvider;
   private readonly encryptionKeyProvider: EncryptionKeyProvider;
+  private readonly encryptedPickupService: EncryptedPickupService;
   private readonly stagingRoot: string;
   private readonly emit: TransferEventListener;
   private readonly retryWait?: (milliseconds: number) => Promise<void>;
@@ -143,6 +246,7 @@ export class TransferExecutionService {
     this.stagingService = dependencies.stagingService ?? new StagingService();
     this.encryptionProvider = dependencies.encryptionProvider ?? new Aes256GcmEncryptionProvider();
     this.encryptionKeyProvider = dependencies.encryptionKeyProvider ?? new UnavailableEncryptionKeyProvider();
+    this.encryptedPickupService = new EncryptedPickupService(this.encryptionProvider);
     this.stagingRoot = dependencies.stagingRoot ?? path.join(process.cwd(), 'application-data');
     this.emit = dependencies.events ?? noopEventListener;
     this.retryWait = dependencies.retryWait;
@@ -150,19 +254,68 @@ export class TransferExecutionService {
     this.processingStages = dependencies.processingStages;
   }
 
+  /**
+   * `sourceAdapter` is optional because step ① is optional: a workflow that only
+   * consolidates a directory has no source to connect to, and building one for
+   * it would ask for a module it does not use.
+   */
   async execute(
     job: TransferJob,
-    sourceAdapter: SourceAdapter,
+    sourceAdapter: SourceAdapter | undefined,
     options: TransferExecutionOptions = {}
   ): Promise<TransferRunResult> {
     const runId = options.runId ?? `TR-${randomUUID()}`;
     const now = options.now ?? new Date();
 
-    this.event('TRANSFER_RUN_STARTED', runId, job, undefined, `Transfer run started for job ${job.name}`);
+    this.event('TRANSFER_RUN_STARTED', runId, job, undefined, `Lauf gestartet für Workflow „${job.name}“`);
+
+    // From here the source narrates into the same log as the run: connecting,
+    // the host key, which path it read the input as, every listing and every
+    // move. Without it the protocol jumps from "run started" to a failure whose
+    // cause happened in between, on the other side of a socket.
+    if (sourceAdapter) {
+      sourceAdapter.trace = (message, details) =>
+        this.event('SOURCE_STEP', runId, job, undefined, message, details);
+    }
+
+    // The chain is configurable ahead of the engines that will walk it. Running
+    // step ① and quietly dropping the rest would deliver unprocessed data under
+    // the name of a workflow that promises processing — the one outcome nobody
+    // would notice. So the run stops and says which link is missing.
+    const unbuilt = unbuiltStages(job);
+    if (unbuilt.length > 0) {
+      return this.finish(
+        runId,
+        job,
+        TransferRunStatus.FAILED,
+        0,
+        0,
+        [],
+        `Dieser Workflow hat ${unbuilt.join(' und ')} eingeschaltet, und dieser Teil der Kette ist noch nicht ` +
+          'gebaut. Es wurde nichts geholt: Nur die übrigen Schritte laufen zu lassen hieße, Daten weiterzureichen, ' +
+          'die verarbeitet werden sollten.'
+      );
+    }
+
+    // Reached only if a job without step ① got past the checks above — which
+    // means its other steps are switched off too, and there is nothing to do.
+    const source = sourceAdapter;
+    if (!source) {
+      return this.finish(
+        runId,
+        job,
+        TransferRunStatus.FAILED,
+        0,
+        0,
+        [],
+        options.sourceProblem ??
+          'Dieser Workflow holt keine Dateien, und kein anderer Schritt ist eingeschaltet. Es gibt nichts zu tun.'
+      );
+    }
 
     const retry = new RetryPolicy(job.retry ?? DEFAULT_RETRY_CONFIG, this.retryWait);
 
-    const connectionTest = await sourceAdapter.testConnection();
+    const connectionTest = await source.testConnection();
     if (!connectionTest.ok) {
       return this.finish(runId, job, TransferRunStatus.FAILED, 0, 0, [], `Connection failed: ${connectionTest.message}`);
     }
@@ -170,17 +323,17 @@ export class TransferExecutionService {
     let discovered: SourceFile[];
     try {
       discovered = await retry.run(
-        async () => (await sourceAdapter.listFiles(job.sourceDirectory, job.includeSubdirectories)).filter(
+        async () => (await source.listFiles(job.sourceDirectory, job.includeSubdirectories)).filter(
           (file) => !file.isDirectory
         ),
         ({ attempt, delaySeconds }) => {
-          void sourceAdapter.dispose?.();
+          void source.dispose?.();
           this.event(
             'FILE_RETRYING',
             runId,
             job,
             undefined,
-            `Listing the source failed on attempt ${attempt}, retrying in ${delaySeconds}s`
+            `Die Quelle konnte in Versuch ${attempt} nicht gelesen werden, neuer Versuch in ${delaySeconds} s`
           );
         }
       );
@@ -203,7 +356,9 @@ export class TransferExecutionService {
         runId,
         job,
         file.name,
-        result.selected ? 'File matches the selection rules' : `File filtered out: ${result.reason}`
+        result.selected
+          ? 'Datei entspricht den Auswahlregeln'
+          : `${file.name} wird nicht genommen: ${REJECTION_REASONS[result.reason ?? ''] ?? result.reason}`
       );
       return result.selected;
     });
@@ -216,12 +371,13 @@ export class TransferExecutionService {
         discovered.length,
         0,
         [],
-        `${discovered.length} files scanned, 0 matching files found`
+        `${discovered.length} Dateien gesichtet, keine passende gefunden`
       );
     }
 
-    await this.ensureDestinationDirectory(job);
+    await this.ensureDestinationDirectory(job, runId);
     const stagingDirectory = await this.stagingService.prepareStagingDirectory(this.stagingRoot, runId);
+    this.event('RUN_STEP', runId, job, undefined, `Arbeitsbereich vorbereitet: ${stagingDirectory}`);
 
     const context: RunContext = {
       runId,
@@ -229,13 +385,37 @@ export class TransferExecutionService {
       claimedHashes: new Set(),
       claimedDestinations: new Set(),
       retry,
+      startedAt: now,
     };
 
     let outcomes: FileOutcome[];
     try {
-      outcomes = await this.processConcurrently(selected, job, sourceAdapter, context);
+      outcomes = await this.processConcurrently(selected, job, source, context, options.control);
     } finally {
       await this.stagingService.cleanup(stagingDirectory);
+      this.event('RUN_STEP', runId, job, undefined, `Arbeitsbereich aufgeräumt: ${stagingDirectory}`);
+    }
+
+    // A cancelled run keeps what it managed to transfer — those files are
+    // complete and registered — but says plainly that it did not finish.
+    if (options.control?.state() === 'CANCELLED') {
+      this.event(
+        'RUN_CANCELLED',
+        runId,
+        job,
+        undefined,
+        `Abgebrochen: ${outcomes.length} von ${selected.length} ausgewählten Dateien waren zu diesem Zeitpunkt fertig`
+      );
+
+      return this.finish(
+        runId,
+        job,
+        TransferRunStatus.CANCELLED,
+        discovered.length,
+        selected.length,
+        outcomes,
+        `Abgebrochen nach ${outcomes.length} von ${selected.length} ausgewählten Dateien`
+      );
     }
 
     return this.finish(runId, job, undefined, discovered.length, selected.length, outcomes);
@@ -249,23 +429,33 @@ export class TransferExecutionService {
     files: SourceFile[],
     job: TransferJob,
     sourceAdapter: SourceAdapter,
-    context: RunContext
+    context: RunContext,
+    control?: RunControl
   ): Promise<FileOutcome[]> {
     const limit = Math.max(1, job.maxConcurrentFiles ?? DEFAULT_MAX_CONCURRENT_FILES);
-    const outcomes = new Array<FileOutcome>(files.length);
+    const outcomes = new Array<FileOutcome | undefined>(files.length);
     let next = 0;
 
     const worker = async (): Promise<void> => {
       for (let index = next++; index < files.length; index = next++) {
+        // The one place where a run can be held or stopped: between two files.
+        // Inside one, the destination would be left with half of it.
+        if (control && !(await control.beforeFile())) {
+          return;
+        }
+
         const file = files[index];
-        this.event('FILE_SELECTED', context.runId, job, file.name, 'File selected for transfer');
+        this.event('FILE_SELECTED', context.runId, job, file.name, 'Datei zur Übernahme ausgewählt');
         // A single failing file must never stop the remaining ones (section 62).
         outcomes[index] = await this.processFile(file, job, sourceAdapter, context);
       }
     };
 
     await Promise.all(Array.from({ length: Math.min(limit, files.length) }, worker));
-    return outcomes;
+
+    // A cancellation leaves gaps where files were never started; they are not
+    // outcomes and must not be counted as skipped.
+    return outcomes.filter((outcome): outcome is FileOutcome => outcome !== undefined);
   }
 
   private async processFile(
@@ -307,75 +497,201 @@ export class TransferExecutionService {
       this.event('FILE_STABLE', runId, job, file.name, stability.message);
 
       const knownSourceFile = await this.duplicateDetectionService.checkSourceFile(job.id, sourcePath, file);
+      this.event(
+        'FILE_CHECKED',
+        runId,
+        job,
+        file.name,
+        knownSourceFile.duplicate
+          ? `Schon übernommen: ${knownSourceFile.message}`
+          : `Noch nicht übernommen — ${file.name} in ${sourcePath}`
+      );
       if (knownSourceFile.duplicate) {
         await this.transferFileRepository.save(record(FileTransferStatus.SKIPPED, { resolution: 'DUPLICATE' }));
         return { filename: file.name, status: FileTransferStatus.SKIPPED, message: knownSourceFile.message };
       }
 
+      // Encrypting on pickup has to be settled before a single byte is fetched:
+      // the licence, the key and the source's ability to stream. Finding a gap
+      // afterwards would be too late — the plaintext would already exist.
+      const encryptionRequested = job.encryptionConfig.enabled && job.encryptionConfig.provider === 'AES_256_GCM';
+      const encryptOnPickup = job.encryptionConfig.onPickup === true;
+
+      if (encryptOnPickup) {
+        if (!this.features.isEnabled('ENCRYPTION')) {
+          throw new FeatureNotLicensedError('ENCRYPTION', `Fetching "${file.name}" encrypted`);
+        }
+
+        if (!this.encryptedPickupService.supports(sourceAdapter)) {
+          throw new Error(
+            `„${file.name}“ soll beim Abholen verschlüsselt werden, aber diese Quelle kann die Datei nicht als ` +
+              'Strom liefern. Der Lauf wird abgelehnt, statt die Datei unverschlüsselt zu schreiben.'
+          );
+        }
+      }
+
+      const attempts = (job.retry ?? DEFAULT_RETRY_CONFIG).attempts;
+
+      const onRetry = ({ attempt, error, delaySeconds }: RetryAttemptInfo): void => {
+        // A dropped connection cannot be reused; the adapter reconnects lazily.
+        void sourceAdapter.dispose?.();
+
+        // Eine Warnung sagt genauso viel wie ein Fehler: welche Datei, welcher
+        // Versuch von wie vielen, warum, mit Systemcode und Ursachenkette — und
+        // was als Nächstes geschieht. Ohne das Letzte liest sich jede Warnung
+        // wie ein Abbruch, obwohl der Lauf gerade weitermacht.
+        this.event(
+          'FILE_RETRYING',
+          runId,
+          job,
+          file.name,
+          `${file.name}: Versuch ${attempt} von ${attempts} scheiterte an einem vorübergehenden Fehler. ` +
+            `Nächster Versuch in ${delaySeconds} s. Ursache: ${describeFailure(error)}`,
+          { attempt, attempts, delaySeconds, verbindung: 'wird neu aufgebaut' }
+        );
+      };
+
       // Download into staging under a validated name (sections 42 and 96).
       let stagedPath = this.stagingService.stagedPathFor(stagingDirectory, file.name, transferFileId);
-      await context.retry.run(
-        async () => {
+      let finalFilename = file.name;
+      let sha256: string;
+
+      if (encryptOnPickup) {
+        this.event(
+          'FILE_DOWNLOADING',
+          runId,
+          job,
+          file.name,
+          `${file.name} wird geholt und dabei verschlüsselt`
+        );
+        const key = await this.encryptionKeyProvider.getKey(job.encryptionConfig.keyCredentialId);
+        const pickup = await context.retry.run(
+          () => this.encryptedPickupService.pickup(sourceAdapter, file, stagedPath, key),
+          onRetry
+        );
+        this.event('FILE_DOWNLOADED', runId, job, file.name, 'Übertragung abgeschlossen');
+
+        // The size is compared against what the source announced, exactly as
+        // the integrity check does for a downloaded file. It has to happen on
+        // the counted plaintext: the encrypted file is longer by its header
+        // and tag, so measuring it would compare two different things.
+        if (file.size !== undefined && pickup.size !== file.size) {
+          throw new Error(`File size mismatch: expected ${file.size}, got ${pickup.size}`);
+        }
+
+        sha256 = pickup.sha256;
+        finalFilename = `${file.name}.enc`;
+        this.event('FILE_VALIDATED', runId, job, file.name, 'Prüfung bestanden, SHA-256 berechnet');
+        this.event('FILE_ENCRYPTED', runId, job, file.name, 'Verschlüsselung mit AES-256-GCM beim Abholen abgeschlossen');
+      } else {
+        this.event('FILE_DOWNLOADING', runId, job, file.name, `${file.name} wird geholt`);
+        await context.retry.run(async () => {
           const download = await sourceAdapter.downloadFile(file, stagedPath);
           if (!download.ok) {
             throw new Error(download.message);
           }
-        },
-        ({ attempt, error, delaySeconds }) => {
-          // A dropped connection cannot be reused; the adapter reconnects lazily.
-          void sourceAdapter.dispose?.();
-          this.event(
-            'FILE_RETRYING',
-            runId,
-            job,
-            file.name,
-            `Attempt ${attempt} failed with a temporary error, retrying in ${delaySeconds}s: ` +
-              `${error instanceof Error ? error.message : String(error)}`
-          );
-        }
-      );
-      this.event('FILE_DOWNLOADED', runId, job, file.name, 'Download completed');
+        }, onRetry);
+        this.event('FILE_DOWNLOADED', runId, job, file.name, 'Übertragung abgeschlossen');
 
-      const verification = await this.integrityService.verifyFile(stagedPath, { expectedSize: file.size });
-      if (!verification.ok || !verification.sha256) {
-        throw new Error(verification.message);
+        this.event('FILE_VALIDATING', runId, job, file.name, `${file.name} wird geprüft, Prüfsumme wird berechnet`);
+        const verification = await this.integrityService.verifyFile(stagedPath, { expectedSize: file.size });
+        if (!verification.ok || !verification.sha256) {
+          throw new Error(verification.message);
+        }
+        sha256 = verification.sha256;
+        this.event('FILE_VALIDATED', runId, job, file.name, 'Prüfung bestanden, SHA-256 berechnet');
       }
-      this.event('FILE_VALIDATED', runId, job, file.name, 'Integrity check passed, SHA-256 calculated');
+
+      // Opening what the source delivered locked. This happens before the
+      // content is compared and before anything is locked again: from here on
+      // the run works with the content, not with somebody else's envelope.
+      if (job.sourceEncryption?.enabled) {
+        this.event('FILE_DECRYPTING', runId, job, file.name, `${file.name} wird geöffnet — die Quelle hat sie verschlüsselt geliefert`);
+        const opened = await this.openIncomingFile(file, job, stagedPath, finalFilename);
+
+        stagedPath = opened.path;
+        finalFilename = opened.filename;
+        sha256 = opened.sha256;
+
+        if (opened.decrypted) {
+          this.event('FILE_DECRYPTED', runId, job, file.name, 'Die Datei der Quelle wurde geöffnet');
+        }
+      }
 
       // Two files of identical content under different names are only a
       // duplicate if the job says so. Which files a source provides is its own
       // decision, and withholding one it sent is the riskier assumption.
       if (job.detectContentDuplicates) {
-        const knownContent = await this.duplicateDetectionService.checkContent(job.id, verification.sha256);
+        const knownContent = await this.duplicateDetectionService.checkContent(job.id, sha256);
         // Claiming the hash right after the repository check closes the window
         // in which two concurrently processed files with identical content
         // would both pass. There is no await between the check and the claim,
         // so this is atomic for the run.
-        const contentAlreadyClaimed = context.claimedHashes.has(verification.sha256);
-        context.claimedHashes.add(verification.sha256);
+        const contentAlreadyClaimed = context.claimedHashes.has(sha256);
+        context.claimedHashes.add(sha256);
 
         if (knownContent.duplicate || contentAlreadyClaimed) {
           // Recording the resolution here is what stops the next run from
           // downloading this file again just to hash it (spec section 39).
           await this.transferFileRepository.save(
-            record(FileTransferStatus.SKIPPED, { sha256: verification.sha256, resolution: 'DUPLICATE' })
+            record(FileTransferStatus.SKIPPED, { sha256, resolution: 'DUPLICATE' })
           );
           return {
             filename: file.name,
             status: FileTransferStatus.SKIPPED,
-            sha256: verification.sha256,
+            sha256,
             message: contentAlreadyClaimed
-              ? 'Identical content was already taken over earlier in this run'
+              ? 'Derselbe Inhalt wurde in diesem Lauf bereits übernommen'
               : knownContent.message,
           };
         }
       }
 
+      // A file that was encrypted on the way in, and is meant to lie readable
+      // in the destination: opened here, in staging, and nowhere else. This is
+      // the combination a following step needs — consolidating or converting
+      // works on records, and an envelope has none — and it is also the answer
+      // for a destination somebody reads with their own tools.
+      //
+      // What it buys and what it does not: the file never travelled readable
+      // and no readable copy was ever written by the fetch. From this line on
+      // there is one, in staging, until the move. That window is the price of
+      // a readable destination, and it is short and inside our own directory.
+      if (encryptOnPickup && !encryptionRequested) {
+        this.event('FILE_DECRYPTING', runId, job, file.name, `${file.name} wird wieder geöffnet, weil sie lesbar abgelegt werden soll`);
+        const key = await this.encryptionKeyProvider.getKey(job.encryptionConfig.keyCredentialId);
+        const openedPath = `${stagedPath}.opened`;
+
+        // The failure is named after this step, not after the cipher. What the
+        // provider reports — modified, or wrong key — is misleading here: the
+        // file was locked by this same run seconds ago, so what changed is the
+        // key the job points at, and that is what somebody has to go and look at.
+        let opened;
+        try {
+          opened = await this.encryptionProvider.decrypt(stagedPath, openedPath, key);
+        } catch (error) {
+          throw new Error(
+            `„${file.name}“ konnte nach dem Abholen nicht wieder geöffnet werden: ` +
+              `${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+
+        if (!opened.ok) {
+          throw new Error(`„${file.name}“ konnte nach dem Abholen nicht wieder geöffnet werden: ${opened.message}`);
+        }
+
+        await fs.rm(stagedPath, { force: true });
+        stagedPath = openedPath;
+        // The envelope extension goes with the envelope.
+        finalFilename = file.name;
+        this.event('FILE_DECRYPTED', runId, job, file.name, 'Vor der Ablage wieder geöffnet');
+      }
+
       // Encryption happens while the file is still in staging, never after it
-      // reached the destination (section 45).
-      let finalFilename = file.name;
+      // reached the destination (section 45). A job that already encrypted on
+      // pickup is finished here — there is no plaintext left to protect.
       const stagedPathBeforeEncryption = stagedPath;
-      if (job.encryptionConfig.enabled && job.encryptionConfig.provider === 'AES_256_GCM') {
+      if (encryptionRequested && !encryptOnPickup) {
         if (!this.features.isEnabled('ENCRYPTION')) {
           // Refusing here rather than storing in the clear: the job asked for
           // an encrypted file, and quietly delivering an unencrypted one is
@@ -383,33 +699,53 @@ export class TransferExecutionService {
           throw new FeatureNotLicensedError('ENCRYPTION', `Storing "${file.name}" encrypted`);
         }
 
+        this.event('FILE_ENCRYPTING', runId, job, file.name, `${file.name} wird mit AES-256-GCM verschlüsselt`);
         const key = await this.encryptionKeyProvider.getKey(job.encryptionConfig.keyCredentialId);
         const encryptedPath = `${stagedPath}.enc`;
         const encryption = await this.encryptionProvider.encrypt(stagedPath, encryptedPath, key);
         if (!encryption.ok) {
-          throw new Error(encryption.message);
+          // Named after the file and the step, not only after the cipher: the
+          // reader of this line wants to know which file stayed behind.
+          throw new Error(`${file.name} konnte nicht verschlüsselt werden: ${encryption.message}`);
         }
 
         await fs.rm(stagedPath, { force: true });
         stagedPath = encryptedPath;
-        finalFilename = `${file.name}.enc`;
-        this.event('FILE_ENCRYPTED', runId, job, file.name, 'AES-256-GCM encryption completed');
+        // Built from the current name, not from the source name: a file that
+        // arrived encrypted and was opened would otherwise carry the envelope
+        // extension twice.
+        finalFilename = `${finalFilename}.enc`;
+        this.event('FILE_ENCRYPTED', runId, job, file.name, 'Verschlüsselung mit AES-256-GCM abgeschlossen');
       }
 
       const destination = await this.resolveDestinationPath(job, finalFilename, context);
+
+      if (path.basename(destination.path) !== finalFilename && !destination.skip) {
+        // Der Name im Ziel weicht vom Namen der Datei ab. Wer das Ziel später
+        // durchsieht, findet sonst einen Namen, den kein Protokoll erklärt.
+        this.event(
+          'FILE_RENAMED',
+          runId,
+          job,
+          file.name,
+          `${finalFilename} liegt dort schon — abgelegt wird unter ${path.basename(destination.path)}`
+        );
+      }
+
       if (destination.skip) {
-        await this.transferFileRepository.save(record(FileTransferStatus.SKIPPED, { sha256: verification.sha256 }));
+        await this.transferFileRepository.save(record(FileTransferStatus.SKIPPED, { sha256 }));
         return {
           filename: file.name,
           status: FileTransferStatus.SKIPPED,
-          sha256: verification.sha256,
-          message: `${finalFilename} already exists in the destination and the conflict strategy is SKIP`,
+          sha256,
+          message: `${finalFilename} liegt schon im Ziel, und die Einstellung lautet „Überspringen“`,
         };
       }
 
+      this.event('FILE_STORING', runId, job, file.name, `${file.name} wird abgelegt als ${destination.path}`);
       await this.stagingService.moveToFinalPath(stagedPath, destination.path);
       const destinationStats = await fs.stat(destination.path);
-      this.event('FILE_STORED', runId, job, file.name, 'File stored successfully');
+      this.event('FILE_STORED', runId, job, file.name, 'Datei erfolgreich abgelegt');
 
       await this.transferFileRepository.save(
         record(FileTransferStatus.SUCCESS, {
@@ -417,17 +753,29 @@ export class TransferExecutionService {
           destinationPath: path.dirname(destination.path),
           destinationFilename: path.basename(destination.path),
           destinationSize: destinationStats.size,
-          sha256: verification.sha256,
+          sha256,
         })
       );
 
       // Only now, with everything persisted, may the source file be touched.
       const sourceActionMessage = await this.applySourceSuccessAction(job, sourceAdapter, file);
+      this.event(
+        'SOURCE_FILE_SETTLED',
+        runId,
+        job,
+        file.name,
+        sourceActionMessage ??
+          {
+            KEEP: `${file.name} bleibt in der Quelle liegen`,
+            MOVE: `${file.name} wurde ins Archiv verschoben`,
+            DELETE: `${file.name} wurde in der Quelle gelöscht`,
+          }[job.sourceSuccessAction]
+      );
 
-      this.event('FILE_COMPLETED', runId, job, file.name, 'File completed');
+      this.event('FILE_COMPLETED', runId, job, file.name, 'Datei fertig');
       this.event('STEP_1_COMPLETED', runId, job, file.name, 'STEP_1_COMPLETED', {
         destinationFilename: path.basename(destination.path),
-        sha256: verification.sha256,
+        sha256,
       });
 
       // Everything from here on happens after Step 1 is finished and can no
@@ -442,7 +790,7 @@ export class TransferExecutionService {
         currentFilePath: destination.path,
         finalDestinationPath: destination.path,
         fileSize: destinationStats.size,
-        sha256: verification.sha256,
+        sha256,
         encrypted: finalFilename !== file.name,
         metadata: {},
       });
@@ -451,7 +799,7 @@ export class TransferExecutionService {
         filename: file.name,
         status: FileTransferStatus.SUCCESS,
         destinationPath: destination.path,
-        sha256: verification.sha256,
+        sha256,
         message: [
           'STEP_1_COMPLETED',
           sourceActionMessage ? `(${sourceActionMessage})` : undefined,
@@ -461,7 +809,7 @@ export class TransferExecutionService {
           .join(' '),
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = describeFailure(error);
       await this.transferFileRepository.save(
         record(FileTransferStatus.FAILED, { errorMessage: message, errorCode: 'TRANSFER_FAILED' })
       );
@@ -492,7 +840,7 @@ export class TransferExecutionService {
 
     try {
       await this.processingStages.run(context, (stage) => {
-        this.event('PROCESSING_STAGE_COMPLETED', runId, job, file.name, `Stage "${stage}" completed`);
+        this.event('PROCESSING_STAGE_COMPLETED', runId, job, file.name, `Schritt „${stage}“ abgeschlossen`);
       });
 
       return undefined;
@@ -502,7 +850,7 @@ export class TransferExecutionService {
 
       this.event('PROCESSING_STAGE_FAILED', runId, job, file.name, message, { stage });
 
-      return `- further processing failed in stage "${stage}"`;
+      return `— die Weiterverarbeitung scheiterte in Schritt „${stage}“`;
     }
   }
 
@@ -523,10 +871,10 @@ export class TransferExecutionService {
     try {
       if (job.sourceSuccessAction === 'MOVE') {
         if (!job.sourceArchiveDirectory) {
-          throw new Error('No archive directory configured');
+          throw new Error('Es ist kein Archivverzeichnis eingetragen');
         }
         if (!sourceAdapter.moveFile) {
-          throw new Error('The source adapter cannot move files');
+          throw new Error('Diese Quelle kann keine Dateien verschieben');
         }
 
         await sourceAdapter.moveFile(file, job.sourceArchiveDirectory);
@@ -534,7 +882,7 @@ export class TransferExecutionService {
       }
 
       if (!sourceAdapter.deleteFile) {
-        throw new Error('The source adapter cannot delete files');
+        throw new Error('Diese Quelle kann keine Dateien löschen');
       }
 
       await sourceAdapter.deleteFile(file);
@@ -579,9 +927,33 @@ export class TransferExecutionService {
       return { path: target, skip: false };
     }
 
+    // The extension always comes from the incoming file, never from what was
+    // configured: it is the one part of the name that says what is inside.
     const extension = path.extname(filename);
-    const stem = path.basename(filename, extension);
 
+    // NEW_NAME: the name the operator chose. RENAME: the file keeps its own
+    // name and carries the time of this run behind it — all files of one run
+    // share one stamp, so what arrived together sorts together, and the name
+    // says when it came rather than how often it came before.
+    //
+    // A NEW_NAME job without a name is refused at save time. Should an older
+    // record still be one, the stamp keeps the file: a name nobody chose is
+    // better than a file that stays behind.
+    const chosen = job.conflictStrategy === 'NEW_NAME' ? job.conflictFilename?.trim() : undefined;
+    const stem =
+      chosen && chosen.length > 0
+        ? chosen
+        : `${path.basename(filename, extension)}_${timestampSuffix(context.startedAt, job.timestampNotation)}`;
+
+    const renamed = resolveWithin(job.destinationDirectory, `${stem}${extension}`);
+
+    if (claim(renamed) && !(await this.exists(renamed))) {
+      return { path: renamed, skip: false };
+    }
+
+    // A chosen name is one name for every file that ever meets a conflict, and
+    // two files of the same name in one run share the stamp. Both end up here,
+    // and a transfer must not fail over a name, so a counter settles the tie.
     for (let counter = 1; counter <= 999; counter += 1) {
       const candidate = resolveWithin(
         job.destinationDirectory,
@@ -593,15 +965,15 @@ export class TransferExecutionService {
       }
     }
 
-    throw new Error(`Could not find a free name for ${filename} in the destination directory`);
+    throw new Error(`Für ${filename} war im Zielverzeichnis kein freier Name zu finden`);
   }
 
-  private async ensureDestinationDirectory(job: TransferJob): Promise<void> {
+  private async ensureDestinationDirectory(job: TransferJob, runId: string): Promise<void> {
     const directory = path.resolve(job.destinationDirectory);
 
     if (!(await this.exists(directory))) {
       if (!job.createDestinationDirectory) {
-        throw new Error(`Destination directory ${directory} does not exist and automatic creation is disabled`);
+        throw new Error(`Das Zielverzeichnis ${directory} fehlt, und es soll nicht automatisch angelegt werden`);
       }
 
       await fs.mkdir(directory, { recursive: true });
@@ -631,6 +1003,10 @@ export class TransferExecutionService {
     };
   }
 
+  /**
+   * One place sets what every event carries, so nothing has to be remembered at
+   * the twenty places that emit one.
+   */
   private event(
     name: TransferEventName,
     runId: string,
@@ -639,7 +1015,84 @@ export class TransferExecutionService {
     message: string,
     details?: Record<string, unknown>
   ): void {
-    this.emit({ name, runId, jobId: job.id, filename, message, details });
+    this.emit({ name, runId, jobId: job.id, filename, message, details, jobLevel: job.logLevel });
+  }
+
+  /**
+   * Opens a file the source delivered encrypted — in staging, which the run
+   * deletes when it ends. The destination never sees the opened file unless the
+   * job says so; if the job encrypts for its destination, the next step locks it
+   * again with a different key.
+   *
+   * Three ways this refuses rather than guesses:
+   *
+   * - without the module, because opening files is what the module is;
+   * - without a key, because a job that declares an encrypted source and names
+   *   no key is misconfigured, not permissive;
+   * - on a file without an envelope, unless the job explicitly accepts
+   *   plaintext. A file that was supposed to be encrypted and is not is a fault
+   *   at the source, and passing it on silently would hide it.
+   */
+  private async openIncomingFile(
+    file: SourceFile,
+    job: TransferJob,
+    stagedPath: string,
+    currentFilename: string
+  ): Promise<{ path: string; filename: string; sha256: string; decrypted: boolean }> {
+    if (!this.features.isEnabled('ENCRYPTION')) {
+      throw new FeatureNotLicensedError('ENCRYPTION', `Opening "${file.name}" from an encrypted source`);
+    }
+
+    const recognised = (await this.encryptionProvider.isEncrypted?.(stagedPath)) ?? false;
+
+    if (!recognised) {
+      if (job.sourceEncryption?.acceptPlaintext !== true) {
+        throw new Error(
+          `„${file.name}“ trägt keine Verschlüsselung, obwohl diese Quelle als verschlüsselt eingerichtet ist. ` +
+            'Die Datei wird abgelehnt statt weitergereicht: Eine Datei, die verschlüsselt sein sollte und es nicht ' +
+            'ist, ist ein Fehler an der Quelle. Wenn die Quelle absichtlich beides liefert, im Workflow ' +
+            '„Unverschlüsselte Dateien annehmen“ einschalten.'
+        );
+      }
+
+      // Explicitly allowed: it stays as it is, with the checksum it already has.
+      const asIs = await this.integrityService.verifyFile(stagedPath, {});
+      if (!asIs.ok || !asIs.sha256) {
+        throw new Error(asIs.message);
+      }
+
+      return { path: stagedPath, filename: currentFilename, sha256: asIs.sha256, decrypted: false };
+    }
+
+    const key = await this.encryptionKeyProvider.getKey(job.sourceEncryption?.keyCredentialId);
+    const openedPath = `${stagedPath}.opened`;
+    const opened = await this.encryptionProvider.decrypt(stagedPath, openedPath, key);
+
+    if (!opened.ok) {
+      // A wrong key and a manipulated file look the same from here, and both
+      // mean the same for this run: this file cannot be taken over.
+      throw new Error(`„${file.name}“ konnte nicht geöffnet werden: ${opened.message}`);
+    }
+
+    await fs.rm(stagedPath, { force: true });
+
+    // The checksum has to describe the content, not the envelope: two runs
+    // encrypt the same file to different bytes, and duplicate detection
+    // compares content across runs.
+    const verification = await this.integrityService.verifyFile(openedPath, {});
+    if (!verification.ok || !verification.sha256) {
+      throw new Error(verification.message);
+    }
+
+    return {
+      path: openedPath,
+      // The name loses the extension that marked the envelope, if it had one.
+      filename: currentFilename.toLowerCase().endsWith('.enc')
+        ? currentFilename.slice(0, -'.enc'.length)
+        : currentFilename,
+      sha256: verification.sha256,
+      decrypted: true,
+    };
   }
 
   private finish(
@@ -666,7 +1119,8 @@ export class TransferExecutionService {
 
     const message =
       overrideMessage ??
-      `${filesSucceeded} succeeded, ${filesSkipped} skipped, ${filesFailed} failed out of ${filesSelected} selected files`;
+      `${filesSucceeded} übernommen, ${filesSkipped} übersprungen, ${filesFailed} fehlgeschlagen ` +
+        `von ${filesSelected} ausgewählten Dateien`;
 
     this.event('TRANSFER_RUN_COMPLETED', runId, job, undefined, message, { status });
 

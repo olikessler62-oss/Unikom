@@ -34,18 +34,18 @@ test('a manipulated record is detected rather than decrypted', () => {
   const payload = Buffer.from(cipher.encrypt(PASSWORD), 'base64');
   payload[payload.length - 1] ^= 0xff;
 
-  assert.throws(() => cipher.decrypt(payload.toString('base64')), /could not be decrypted/);
+  assert.throws(() => cipher.decrypt(payload.toString('base64')), /ließ sich nicht entschlüsseln|unvollständig/);
 });
 
 test('a different master key cannot read the secret', () => {
   const stored = cipher.encrypt(PASSWORD);
   const foreign = new SecretCipher(new StaticMasterKeyProvider(crypto.randomBytes(32)));
 
-  assert.throws(() => foreign.decrypt(stored), /could not be decrypted/);
+  assert.throws(() => foreign.decrypt(stored), /ließ sich nicht entschlüsseln|unvollständig/);
 });
 
 test('a truncated record is rejected', () => {
-  assert.throws(() => cipher.decrypt(Buffer.from('too short').toString('base64')), /truncated/);
+  assert.throws(() => cipher.decrypt(Buffer.from('too short').toString('base64')), /unvollständig/);
 });
 
 test('a missing master key is reported with guidance', () => {
@@ -63,7 +63,7 @@ test('a master key of the wrong length is rejected without echoing it', () => {
     provider.getMasterKey();
     assert.fail('a short key must be rejected');
   } catch (error) {
-    assert.match((error as Error).message, /exactly 32 bytes/);
+    assert.match((error as Error).message, /genau 32 Byte/);
     assert.equal((error as Error).message.includes('too-short'), false);
   }
 });

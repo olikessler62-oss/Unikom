@@ -12,12 +12,13 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 const ROLE_HINTS: Record<Role, string> = {
-  ADMIN: 'Alles, einschließlich Benutzer und Zugangsdaten',
+  ADMIN: 'Alles, einschließlich Benutzer, Schlüssel und Zugänge',
   OPERATOR: 'Jobs anlegen, ändern und starten',
   VIEWER: 'Nur ansehen',
 };
 
-const MINIMUM_LENGTH = 12;
+/** Dieselbe Grenze wie im Server (MINIMUM_PASSWORD_LENGTH); er prüft erneut. */
+const MINIMUM_LENGTH = 10;
 
 interface Props {
   /** So nobody locks themselves out of the screen they are standing on. */
@@ -64,7 +65,7 @@ export function UsersScreen({ ownUserId }: Props) {
       {message && <Notice kind={message.kind}>{message.text}</Notice>}
 
       {draft ? (
-        <section className="card" style={{ marginBottom: '1rem' }}>
+        <section className="card">
           <h2>Neuer Benutzer</h2>
 
           <Field label="Anmeldename">
@@ -124,7 +125,7 @@ export function UsersScreen({ ownUserId }: Props) {
           </div>
         </section>
       ) : (
-        <div className="row" style={{ marginBottom: '1rem' }}>
+        <div className="row">
           <button onClick={() => setDraft({ username: '', displayName: '', role: 'VIEWER', password: '' })}>
             Neuer Benutzer
           </button>
@@ -132,7 +133,7 @@ export function UsersScreen({ ownUserId }: Props) {
       )}
 
       {resetting && (
-        <section className="card" style={{ marginBottom: '1rem' }}>
+        <section className="card">
           <h2>Passwort für „{resetting.name}" vergeben</h2>
           <Field label="Neues Passwort" hint={`Mindestens ${MINIMUM_LENGTH} Zeichen.`}>
             <input

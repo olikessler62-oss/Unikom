@@ -2,17 +2,28 @@ import { useState, type FormEvent } from 'react';
 
 import { ApiError } from '../api/client.js';
 
-const MINIMUM_LENGTH = 12;
+/** Dieselbe Grenze wie im Server (MINIMUM_PASSWORD_LENGTH); er prüft erneut. */
+const MINIMUM_LENGTH = 10;
+
+export interface PasswordChange {
+  /** Only set where nobody is signed in and the form had to ask. */
+  username?: string;
+  current: string;
+  next: string;
+}
 
 interface Props {
   /** Shown when the account was handed a password and may do nothing else. */
-  forced: boolean;
-  displayName: string;
-  onChange(currentPassword: string, newPassword: string): Promise<void>;
+  forced?: boolean;
+  displayName?: string;
+  /** Nobody is signed in, so the form has to ask whose password this is. */
+  askForUser?: boolean;
+  onChange(change: PasswordChange): Promise<void>;
   onCancel?(): void;
 }
 
-export function ChangePasswordScreen({ forced, displayName, onChange, onCancel }: Props) {
+export function ChangePasswordScreen({ forced = false, displayName, askForUser = false, onChange, onCancel }: Props) {
+  const [username, setUsername] = useState('');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [repeat, setRepeat] = useState('');
@@ -21,7 +32,8 @@ export function ChangePasswordScreen({ forced, displayName, onChange, onCancel }
 
   const tooShort = next.length > 0 && next.length < MINIMUM_LENGTH;
   const mismatch = repeat.length > 0 && next !== repeat;
-  const ready = current.length > 0 && next.length >= MINIMUM_LENGTH && next === repeat;
+  const named = !askForUser || username.length > 0;
+  const ready = named && current.length > 0 && next.length >= MINIMUM_LENGTH && next === repeat;
 
   async function submit(event: FormEvent): Promise<void> {
     event.preventDefault();
@@ -29,7 +41,7 @@ export function ChangePasswordScreen({ forced, displayName, onChange, onCancel }
     setBusy(true);
 
     try {
-      await onChange(current, next);
+      await onChange({ username: askForUser ? username : undefined, current, next });
     } catch (failure) {
       setError(failure instanceof ApiError ? failure.message : 'Das Passwort konnte nicht geändert werden');
       setBusy(false);
@@ -53,13 +65,27 @@ export function ChangePasswordScreen({ forced, displayName, onChange, onCancel }
 
         {error && <div className="notice notice--error">{error}</div>}
 
+        {askForUser && (
+          <div className="field">
+            <label htmlFor="who">Benutzer</label>
+            <input
+              id="who"
+              autoComplete="username"
+              autoFocus
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              required
+            />
+          </div>
+        )}
+
         <div className="field">
           <label htmlFor="current">Bisheriges Passwort</label>
           <input
             id="current"
             type="password"
             autoComplete="current-password"
-            autoFocus
+            autoFocus={!askForUser}
             value={current}
             onChange={(event) => setCurrent(event.target.value)}
             required

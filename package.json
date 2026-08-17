@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "web:dev": "vite",
     "web:build": "vite build",
+    "licence": "tsx src/tools/licence.ts",
     "check": "tsc --noEmit && tsc -p web --noEmit",
     "test": "tsx --test --test-timeout=30000 \"src/**/*.test.ts\""
   },
@@ -23,13 +24,13 @@
     "ftp-srv": "^4.6.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "ssh2": "^1.17.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^8.2.1"
   },
   "dependencies": {
     "basic-ftp": "^6.2.0",
+    "ssh2": "^1.17.0",
     "ssh2-sftp-client": "^12.1.1"
   }
 }

@@ -4,6 +4,7 @@ import {
   type FeatureSet,
 } from '../../domain/licensing/Feature.js';
 import type { TransferJob } from '../../domain/transfer/TransferJob.js';
+import { activeStages, STAGE_FEATURES } from '../../domain/transfer/WorkflowStages.js';
 
 /**
  * Which modules a job needs in order to run. A job with a local source and
@@ -18,6 +19,23 @@ export function requiredFeaturesFor(job: TransferJob): Feature[] {
 
   if (job.encryptionConfig.enabled && job.encryptionConfig.provider !== 'NONE') {
     required.push('ENCRYPTION');
+  }
+
+  // Opening what the source delivered locked is the same module as locking it:
+  // it is the same cipher, read in the other direction.
+  if (job.sourceEncryption?.enabled && !required.includes('ENCRYPTION')) {
+    required.push('ENCRYPTION');
+  }
+
+  // Every switched-on link asks for its own module, and only for its own. Two
+  // links of the same workflow do not share a licence: somebody who bought the
+  // conversion must not get the import along with it.
+  for (const stage of activeStages(job)) {
+    const feature = STAGE_FEATURES[stage];
+
+    if (feature && !required.includes(feature)) {
+      required.push(feature);
+    }
   }
 
   return required;

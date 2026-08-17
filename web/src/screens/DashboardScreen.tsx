@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 
 import { api, ApiError } from '../api/client.js';
 import type { Dashboard } from '../api/types.js';
+import { locale, textOf } from '../i18n/texts.js';
+import { useLanguage } from '../i18n/useText.js';
+import { Empty, Loading, Notice } from '../components/Pieces.js';
 
 function formatMoment(iso: string): string {
-  return new Date(iso).toLocaleString('de-DE', {
+  return new Date(iso).toLocaleString(locale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -14,6 +17,7 @@ function formatMoment(iso: string): string {
 }
 
 export function DashboardScreen() {
+  const { language, t } = useLanguage();
   const [figures, setFigures] = useState<Dashboard>();
   const [error, setError] = useState<string>();
 
@@ -29,7 +33,7 @@ export function DashboardScreen() {
         }
       } catch (failure) {
         if (!cancelled) {
-          setError(failure instanceof ApiError ? failure.message : 'Die Kennzahlen konnten nicht geladen werden');
+          setError(failure instanceof ApiError ? failure.message : textOf('dash.loadFailed', language));
         }
       }
     }
@@ -43,41 +47,35 @@ export function DashboardScreen() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, []);
+  }, [language]);
 
   if (error) {
-    return <div className="notice notice--error">{error}</div>;
+    return <Notice kind="error">{error}</Notice>;
   }
 
   if (!figures) {
-    return <div className="empty">Wird geladen …</div>;
+    return <Loading />;
   }
 
   return (
     <>
       <div className="cards">
-        <Figure label="Aktive Jobs" value={figures.activeJobs} />
-        <Figure label="Läufe heute" value={figures.runsToday} />
-        <Figure label="Dateien übernommen" value={figures.filesTransferredToday} />
-        <Figure label="Dateien fehlgeschlagen" value={figures.filesFailedToday} bad={figures.filesFailedToday > 0} />
+        <Figure label={t('dash.activeJobs')} value={figures.activeJobs} />
+        <Figure label={t('dash.runsToday')} value={figures.runsToday} />
+        <Figure label={t('dash.filesTaken')} value={figures.filesTransferredToday} />
+        <Figure label={t('dash.filesFailed')} value={figures.filesFailedToday} bad={figures.filesFailedToday > 0} />
       </div>
 
-      {figures.runningJobs.length > 0 && (
-        <div className="notice notice--info">
-          Gerade in Arbeit: {figures.runningJobs.length} {figures.runningJobs.length === 1 ? 'Lauf' : 'Läufe'}
-        </div>
-      )}
-
-      <h2>Nächste Ausführungen</h2>
+      <h2>{t('dash.next')}</h2>
       {figures.nextExecutions.length === 0 ? (
-        <div className="card empty">Kein Job ist zur Ausführung eingeplant.</div>
+        <Empty>{t('dash.none')}</Empty>
       ) : (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Job</th>
-                <th>Nächste Ausführung</th>
+                <th>{t('dash.job')}</th>
+                <th>{t('dash.nextRun')}</th>
               </tr>
             </thead>
             <tbody>

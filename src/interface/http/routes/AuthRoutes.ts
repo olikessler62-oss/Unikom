@@ -1,6 +1,6 @@
 import type { UnikomApplication } from '../../../application/runtime/UnikomApplication.js';
 import { csrfTokenFor, SESSION_IDLE_HOURS } from '../../../application/users/SessionService.js';
-import { permissionsOf, toSummary } from '../../../domain/users/User.js';
+import { permissionsOf, toSummary, type User } from '../../../domain/users/User.js';
 import {
   ApiError,
   ok,
@@ -8,6 +8,7 @@ import {
   requireString,
   type Route,
 } from '../Http.js';
+import { toLicenceView } from './LicenceRoutes.js';
 
 export const SESSION_COOKIE = 'unikom_session';
 
@@ -36,13 +37,7 @@ export function authRoutes(application: UnikomApplication): Route[] {
         return {
           status: 200,
           cookies: [{ name: SESSION_COOKIE, value: token, maxAgeSeconds: SESSION_IDLE_HOURS * 3600 }],
-          body: {
-            user: toSummary(result.user),
-            permissions: result.user.mustChangePassword ? [] : permissionsOf(result.user.role),
-            mustChangePassword: result.user.mustChangePassword,
-            // The page has to send this back in a header on every change.
-            csrfToken: csrfTokenFor(token),
-          },
+          body: await identityOf(application, result.user, token),
         };
       },
     },
@@ -64,18 +59,8 @@ export function authRoutes(application: UnikomApplication): Route[] {
       method: 'GET',
       pattern: '/api/me',
       authorization: 'SESSION',
-      handle: ({ session, request }) => {
-        const user = session!.user;
-        const token = sessionTokenOf(request.headers.cookie);
-
-        return ok({
-          user: toSummary(user),
-          permissions: user.mustChangePassword ? [] : permissionsOf(user.role),
-          mustChangePassword: user.mustChangePassword,
-          csrfToken: token ? csrfTokenFor(token) : undefined,
-          features: application.features.enabled(),
-        });
-      },
+      handle: async ({ session, request }) =>
+        ok(await identityOf(application, session!.user, sessionTokenOf(request.headers.cookie))),
     },
     {
       // Reachable with mustChangePassword set, which is the whole point: it is
@@ -98,6 +83,31 @@ export function authRoutes(application: UnikomApplication): Route[] {
       },
     },
   ];
+}
+
+/**
+ * Who is signed in, and what this installation may do. Both the login and
+ * `/api/me` answer with this, and they have to answer alike: the interface
+ * adopts whichever it happens to receive first. When only one of them carried
+ * the modules, a fresh login looked like an installation without them, and
+ * reloading the page silently repaired it — a fault that hides when watched.
+ */
+async function identityOf(
+  application: UnikomApplication,
+  user: User,
+  token: string | undefined
+): Promise<Record<string, unknown>> {
+  return {
+    user: toSummary(user),
+    permissions: user.mustChangePassword ? [] : permissionsOf(user.role),
+    mustChangePassword: user.mustChangePassword,
+    // The page has to send this back in a header on every change.
+    csrfToken: token ? csrfTokenFor(token) : undefined,
+    features: application.features.enabled(),
+    // Travels with the identity so the warning about the end of the paid
+    // period is on every screen, not only on the one nobody visits.
+    licence: toLicenceView(await application.licenceService.refresh()),
+  };
 }
 
 export function sessionTokenOf(cookieHeader: string | undefined): string | undefined {

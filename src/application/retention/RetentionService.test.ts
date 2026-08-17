@@ -5,8 +5,12 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { createInMemoryApplication, type UnikomApplication } from '../runtime/UnikomApplication.js';
-import { DEFAULT_LOG_RETENTION_DAYS } from './RetentionService.js';
+import { DEFAULT_LOG_RETENTION_DAYS, RetentionService } from './RetentionService.js';
 import { createTransferJob } from '../../testing/TransferJobFixture.js';
+import { InMemoryTransferFileRepository } from '../../infrastructure/persistence/InMemoryTransferFileRepository.js';
+import { InMemoryTransferJobRepository } from '../../infrastructure/persistence/InMemoryTransferJobRepository.js';
+import { InMemoryTransferLogStore } from '../../infrastructure/persistence/InMemoryTransferLogStore.js';
+import type { LogEntry } from '../../domain/logging/LogEntry.js';
 import type { RetentionConfig } from '../../domain/transfer/TransferJob.js';
 
 const ORDER = 'customer;amount\nA;42\n';
@@ -38,49 +42,80 @@ async function ageEverything(application: UnikomApplication, jobId: string, days
   }
 }
 
+/*
+ * Das Laufprotokoll steht im Arbeitsspeicher und wird nicht nach Alter
+ * gelöscht, sondern verdrängt, wenn neuere Läufe kommen — siehe
+ * `RunProtocolMemo`. Was hier geprüft wird, ist deshalb der
+ * Aufbewahrungsdienst selbst, mit einer Ablage, die aufbewahrt: Sobald ein
+ * Protokoll dauerhaft geschrieben wird, gilt wieder genau das hier.
+ */
+async function retentionOver(store: InMemoryTransferLogStore, retention?: RetentionConfig) {
+  const jobs = new InMemoryTransferJobRepository();
+  await jobs.save(createTransferJob({ id: 'customer-a', retention }));
+
+  return new RetentionService(jobs, store, new InMemoryTransferFileRepository());
+}
+
+function entry(jobId: string, age: number): LogEntry {
+  return {
+    timestamp: new Date(Date.now() - age * DAY),
+    level: 'INFO',
+    message: `Zeile von vor ${age} Tagen`,
+    jobId,
+  };
+}
+
 test('the log is pruned after ninety days by default', async () => {
-  const { application } = await scenario();
-  await application.runtime.orchestrator.runJobNow('customer-a', new Date());
+  const store = new InMemoryTransferLogStore();
+  store.log(entry('customer-a', DEFAULT_LOG_RETENTION_DAYS + 1));
+  store.log(entry('customer-a', 1));
 
-  assert.ok((await application.logRepository.list({ jobId: 'customer-a' })).length > 0);
+  const [outcome] = await (await retentionOver(store)).apply(new Date());
 
-  const later = new Date(Date.now() + (DEFAULT_LOG_RETENTION_DAYS + 1) * DAY);
-  const [outcome] = await application.retentionService.apply(later);
-
-  assert.ok(outcome.logEntriesDeleted > 0);
-  assert.equal((await application.logRepository.list({ jobId: 'customer-a' })).length, 0);
+  assert.equal(outcome.logEntriesDeleted, 1);
+  assert.equal((await store.list({ jobId: 'customer-a' })).length, 1);
 });
 
 test('a shorter period configured on the job wins', async () => {
-  const { application } = await scenario({ logDays: 7 });
+  const store = new InMemoryTransferLogStore();
+  store.log(entry('customer-a', 8));
+
+  await (await retentionOver(store, { logDays: 7 })).apply(new Date());
+
+  assert.equal((await store.list({ jobId: 'customer-a' })).length, 0);
+});
+
+test('a memo protocol is not pruned by age, and says so instead of pretending', async () => {
+  // Der Regelfall seit der Umstellung: Es gibt nichts zu löschen, und der
+  // Dienst meldet null statt einer Zahl, die nach Aufräumen aussieht.
+  const { application } = await scenario({ logDays: 1 });
   await application.runtime.orchestrator.runJobNow('customer-a', new Date());
 
-  await application.retentionService.apply(new Date(Date.now() + 8 * DAY));
+  const before = (await application.logRepository.list({ jobId: 'customer-a' })).length;
+  assert.ok(before > 0);
 
-  assert.equal((await application.logRepository.list({ jobId: 'customer-a' })).length, 0);
+  const [outcome] = await application.retentionService.apply(new Date(Date.now() + 400 * DAY));
+
+  assert.equal(outcome.logEntriesDeleted, 0);
+  assert.equal((await application.logRepository.list({ jobId: 'customer-a' })).length, before);
 });
 
 test('retention stops at the job it belongs to', async () => {
-  const { application, root } = await scenario({ logDays: 7 });
-  const other = path.join(root, 'other-source');
-  await fs.mkdir(other, { recursive: true });
-  await fs.writeFile(path.join(other, 'ORDER_009.csv'), 'customer;amount\nB;17\n');
-  await application.jobRepository.save(
-    createTransferJob({
-      id: 'customer-b',
-      sourceDirectory: other,
-      destinationDirectory: path.join(root, 'incoming-b'),
-      retention: { logDays: 3650 },
-    })
-  );
+  // Zwei Workflows, zwei Aufbewahrungszeiten: Was für den einen gilt, darf den
+  // anderen nicht treffen. Geprüft an der dauerhaften Ablage, denn nur dort
+  // wird nach Alter gelöscht.
+  const store = new InMemoryTransferLogStore();
+  store.log(entry('customer-a', 8));
+  store.log(entry('customer-b', 8));
 
-  await application.runtime.orchestrator.runJobNow('customer-a', new Date());
-  await application.runtime.orchestrator.runJobNow('customer-b', new Date());
+  const jobs = new InMemoryTransferJobRepository();
+  await jobs.save(createTransferJob({ id: 'customer-a', retention: { logDays: 7 } }));
+  await jobs.save(createTransferJob({ id: 'customer-b', retention: { logDays: 3650 } }));
 
-  await application.retentionService.apply(new Date(Date.now() + 8 * DAY));
+  await new RetentionService(jobs, store, new InMemoryTransferFileRepository()).apply(new Date());
 
-  assert.equal((await application.logRepository.list({ jobId: 'customer-a' })).length, 0);
-  assert.ok((await application.logRepository.list({ jobId: 'customer-b' })).length > 0);
+  assert.equal((await store.list({ jobId: 'customer-a' })).length, 0);
+  assert.equal((await store.list({ jobId: 'customer-b' })).length, 1);
 });
 
 test('the file history is kept indefinitely unless a period is configured', async () => {

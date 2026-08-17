@@ -123,6 +123,21 @@ test('logging in returns the user, their permissions and a CSRF token', async (t
   assert.equal(result.body.user.passwordHash, undefined, 'the hash has no business leaving the server');
 });
 
+test('the login answers with the same identity as /api/me', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'anna', 'ADMIN');
+
+  const login = await client.login('anna');
+  const me = await client.request('GET', '/api/me');
+
+  // The interface adopts whichever of the two it receives, so a module that
+  // travels with one and not the other makes the licence look different
+  // depending on whether the page was just loaded or just logged in to.
+  assert.deepEqual(login.body.features, me.body.features);
+  assert.ok(login.body.features.includes('CONSOLIDATION'));
+  assert.deepEqual(login.body.licence, me.body.licence);
+});
+
 test('a wrong password is refused without saying why', async (t) => {
   const client = await harness(t);
   await withUser(client, 'anna', 'ADMIN');
@@ -153,7 +168,7 @@ test('a change without the CSRF token is refused', async (t) => {
   const result = await client.request('POST', '/api/jobs', { body: createTransferJob(), csrf: null });
 
   assert.equal(result.status, 403);
-  assert.match(result.body.error, /CSRF/);
+  assert.match(result.body.error, /Sicherheitsmerkmal/);
 });
 
 test('a wrong CSRF token is refused', async (t) => {
@@ -320,9 +335,10 @@ test('a job whose module disappeared is still listed, with the gap named', async
 
   const [job] = (await client.request('GET', '/api/jobs')).body;
 
-  // Hiding it would let a nightly schedule stop without anybody noticing.
+  // Hiding it would let a nightly schedule stop without anybody noticing, and
+  // every missing module is named rather than only the first one found.
   assert.equal(job.id, 'sftp-job');
-  assert.deepEqual(job.missingFeatures, ['REMOTE_SOURCES']);
+  assert.deepEqual(job.missingFeatures, ['REMOTE_SOURCES', 'TRANSFER']);
 });
 
 test('an unknown path is 404 and a wrong method is 405', async (t) => {
@@ -391,4 +407,124 @@ test('listening on the network without TLS is refused', async () => {
   const { port } = await proxied.listen();
   assert.ok(port > 0);
   await proxied.close();
+});
+
+/*
+ * The history asks for /api/runs when no single job is picked. It sits one
+ * segment above /api/runs/:id, and the router compares segment counts before
+ * anything else — a regression there would show up in the browser as
+ * "GET /api/runs does not exist" and nowhere in the unit tests.
+ */
+test('the history of all jobs has its own path next to a single run', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'anna', 'ADMIN');
+  await client.login('anna');
+
+  const all = await client.request('GET', '/api/runs');
+  assert.equal(all.status, 200);
+  assert.deepEqual(all.body, []);
+
+  assert.equal((await client.request('GET', '/api/runs?tenantId=nobody')).status, 200);
+  assert.equal((await client.request('GET', '/api/runs/gibtsnicht')).status, 404);
+});
+
+/*
+ * SSH keys take a different road through the API than a password: the file is
+ * parsed on the way in, and the public half comes back out on its own path.
+ */
+test('an SSH key can be generated and its public key fetched afterwards', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'anna', 'ADMIN');
+  await client.login('anna');
+
+  const created = await client.request('POST', '/api/credentials', {
+    body: { name: 'Kunde A SFTP', type: 'SSH_PRIVATE_KEY', username: 'unikom' },
+  });
+
+  assert.equal(created.status, 201);
+  // The private key never leaves the installation, not even to the browser.
+  assert.equal('encryptedSecret' in created.body, false);
+  assert.equal('secret' in created.body, false);
+
+  const key = await client.request('GET', `/api/credentials/${created.body.id}/public-key`);
+
+  assert.equal(key.status, 200);
+  assert.equal(key.body.algorithm, 'ssh-rsa');
+  assert.match(key.body.publicKey, /^ssh-rsa [A-Za-z0-9+/=]+ Kunde-A-SFTP$/);
+});
+
+test('an unreadable key file is refused when it is entered, not when the job runs', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'anna', 'ADMIN');
+  await client.login('anna');
+
+  const refused = await client.request('POST', '/api/credentials', {
+    body: { name: 'Kaputt', type: 'SSH_PRIVATE_KEY', secret: 'das ist kein Schlüssel' },
+  });
+
+  assert.equal(refused.status, 400);
+  assert.match(String(refused.body.error ?? refused.body.message ?? ''), /kein brauchbarer privater SSH-Schlüssel/);
+});
+
+test('only an SSH key has a public key', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'anna', 'ADMIN');
+  await client.login('anna');
+
+  const password = await client.request('POST', '/api/credentials', {
+    body: { name: 'Kunde B SFTP', type: 'USERNAME_PASSWORD', username: 'unikom', secret: 'geheim' },
+  });
+
+  const key = await client.request('GET', `/api/credentials/${password.body.id}/public-key`);
+
+  assert.equal(key.status, 404);
+});
+
+/*
+ * The remote directory browser sits behind the same authorisation as every
+ * other change to a job: it opens a connection with stored credentials, and
+ * that is not something a viewer gets to do.
+ */
+test('browsing a remote directory needs the right to manage jobs', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'vera', 'VIEWER');
+  await client.login('vera');
+
+  const refused = await client.request('POST', '/api/jobs/browse-remote', {
+    body: {
+      tenantId: 'default',
+      sourceType: 'SFTP',
+      sourceConfig: { type: 'SFTP', directory: '/', host: '127.0.0.1' },
+      directory: 'orders',
+    },
+  });
+
+  assert.equal(refused.status, 403);
+});
+
+test('a path that leaves the working directory is refused without a connection', async (t) => {
+  const client = await harness(t);
+  await withUser(client, 'anna', 'ADMIN');
+  await client.login('anna');
+
+  // No server is listening on this port. The answer still has to arrive, and
+  // has to be about the path — the check happens before anything is dialled.
+  const answer = await client.request('POST', '/api/jobs/browse-remote', {
+    body: {
+      tenantId: 'default',
+      sourceType: 'SFTP',
+      sourceConfig: {
+        type: 'SFTP',
+        directory: '/',
+        host: '127.0.0.1',
+        port: 1,
+        remoteWorkingDirectory: '/customer123',
+      },
+      directory: '../customer1234',
+    },
+  });
+
+  assert.equal(answer.status, 200, JSON.stringify(answer.body));
+  assert.equal((answer.body as { ok: boolean }).ok, false);
+  assert.match((answer.body as { message: string }).message, /nicht verlassen/);
 });

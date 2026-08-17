@@ -111,7 +111,7 @@ export async function readJsonBody(request: IncomingMessage): Promise<unknown> {
     size += (chunk as Buffer).length;
 
     if (size > MAX_BODY_BYTES) {
-      throw new ApiError(413, 'The request body is too large');
+      throw new ApiError(413, 'Der Inhalt der Anfrage ist zu groß');
     }
 
     chunks.push(chunk as Buffer);
@@ -124,7 +124,7 @@ export async function readJsonBody(request: IncomingMessage): Promise<unknown> {
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
-    throw new ApiError(400, 'The request body is not valid JSON');
+    throw new ApiError(400, 'Der Inhalt der Anfrage ist kein gültiges JSON');
   }
 }
 
@@ -157,7 +157,7 @@ export function matchPath(pattern: string, path: string): Record<string, string>
 
 export function requireObject(body: unknown, what: string): Record<string, unknown> {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new ApiError(400, `${what} has to be sent as a JSON object`);
+    throw new ApiError(400, `${what} muss als JSON-Objekt gesendet werden`);
   }
 
   return body as Record<string, unknown>;
@@ -167,7 +167,7 @@ export function requireString(body: Record<string, unknown>, field: string): str
   const value = body[field];
 
   if (typeof value !== 'string' || value.length === 0) {
-    throw new ApiError(400, `"${field}" is missing`);
+    throw new ApiError(400, `„${field}“ fehlt`);
   }
 
   return value;

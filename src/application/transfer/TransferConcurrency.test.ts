@@ -173,8 +173,12 @@ test('concurrent name conflicts each get their own name', async () => {
   const result = await harness.build().execute(harness.job, observingAdapter(harness.sourceDirectory).adapter);
 
   assert.equal(result.filesSucceeded, 2);
+  // One free name and one stamped with the time of the run — never twice the
+  // same name, which is what this test is about.
   const stored = (await fs.readdir(harness.destinationDirectory)).sort();
-  assert.deepEqual(stored, ['ORDER_001.csv', 'ORDER_001_001.csv']);
+  assert.equal(stored.length, 2);
+  assert.equal(stored[0], 'ORDER_001.csv');
+  assert.match(stored[1], /^ORDER_001_\d{8}_\d{6}\.csv$/);
 });
 
 test('a temporary download failure is retried and then succeeds', async () => {

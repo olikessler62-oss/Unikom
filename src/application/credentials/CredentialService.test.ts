@@ -73,14 +73,14 @@ test('credential names stay unique', async () => {
 
   await assert.rejects(
     () => credentials.create({ name: 'Customer A', type: 'SSH_PRIVATE_KEY', secret: 'other' }),
-    /already exists/
+    /gibt es schon/
   );
 });
 
 test('an empty secret is refused', async () => {
   const { service: credentials } = service();
 
-  await assert.rejects(() => credentials.create({ name: 'Leer', type: 'ENCRYPTION_KEY', secret: '' }), /needs a secret/);
+  await assert.rejects(() => credentials.create({ name: 'Leer', type: 'ENCRYPTION_KEY', secret: '' }), /braucht ein Geheimnis/);
 });
 
 test('a credential can be renamed without touching its secret', async () => {
@@ -105,7 +105,7 @@ test('replacing the secret invalidates the old one', async () => {
 test('resolving an unknown credential fails without leaking anything', async () => {
   const { service: credentials } = service();
 
-  await assert.rejects(() => credentials.resolveSecret('does-not-exist'), /does not exist/);
+  await assert.rejects(() => credentials.resolveSecret('does-not-exist'), /gibt es nicht/);
   assert.equal(await credentials.canResolve('does-not-exist'), false);
 });
 

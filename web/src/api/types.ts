@@ -13,12 +13,17 @@ export type Permission =
   | 'MANAGE_CREDENTIALS'
   | 'MANAGE_USERS';
 
+/**
+ * Vier Module werden verkauft — Übertragen eingeschlossen; entfernte Quellen und
+ * Verschlüsselung sind Fähigkeiten darin, keine Produkte daneben.
+ */
 export type Feature =
+  | 'TRANSFER'
   | 'REMOTE_SOURCES'
   | 'ENCRYPTION'
-  | 'STEP_2_CONSOLIDATION'
-  | 'STEP_3_FILE_EXPORT'
-  | 'STEP_3_DATABASE_MIGRATION';
+  | 'CONSOLIDATION'
+  | 'DATA_IMPORT'
+  | 'CONVERSION';
 
 export interface User {
   id: string;
@@ -30,12 +35,31 @@ export interface User {
   lastLoginAt?: string;
 }
 
+/**
+ * Wie lange diese Installation bezahlt ist. Der Server entscheidet damit, die
+ * Oberfläche berichtet es nur — geprüft wird vor jeder Übertragung, nicht hier.
+ */
+export type LicenceState = 'UNLICENSED' | 'ACTIVE' | 'EXPIRING' | 'EXPIRED' | 'MISSING' | 'INVALID';
+
+export interface Licence {
+  state: LicenceState;
+  /** Ob Übertragungen starten dürfen. Alles andere bleibt immer erreichbar. */
+  mayRun: boolean;
+  customer?: string;
+  licenceId?: string;
+  validUntil?: string;
+  daysRemaining?: number;
+  problem?: string;
+  features?: Feature[];
+}
+
 export interface Identity {
   user: User;
   permissions: Permission[];
   mustChangePassword: boolean;
   csrfToken?: string;
   features?: Feature[];
+  licence?: Licence;
 }
 
 export interface Tenant {
@@ -52,6 +76,11 @@ export type SourceType = 'LOCAL' | 'SFTP' | 'FTPS';
 export interface SourceConfig {
   type: SourceType;
   directory: string;
+  /**
+   * Wo diese Verbindung auf dem Server beginnt, wenn nicht im Anmeldeordner.
+   * Jeder eingegebene Pfad wird von hier aus gelesen, und keiner darf hinaus.
+   */
+  remoteWorkingDirectory?: string;
   recursive?: boolean;
   host?: string;
   port?: number;
@@ -74,6 +103,30 @@ export interface Schedule {
   missedRunPolicy: 'SKIP';
 }
 
+/**
+ * Woher ein Kettenglied liest und wohin es schreibt.
+ *
+ * `PRECEDING` und `FOLLOWING` sind Verweise, keine Pfade: ändert jemand das Ziel
+ * des Gliedes davor, folgt dieses mit. Ein vorbestücktes Textfeld wäre genau bis
+ * zu dieser Änderung richtig und danach still falsch.
+ */
+export type StageInput = { from: 'PRECEDING' } | { from: 'DIRECTORY'; directory: string };
+export type StageOutput = { to: 'FOLLOWING' } | { to: 'DIRECTORY'; directory: string };
+
+/**
+ * Jedes Glied außer dem Übertragen. Eine Form für alle: sie unterscheiden sich
+ * darin, was sie mit den Daten tun, nicht darin, wie sie eingehängt sind.
+ */
+export interface StageConfig {
+  enabled: boolean;
+  input: StageInput;
+  /** Fehlt, wo das Glied nicht in ein Verzeichnis schreibt. */
+  output?: StageOutput;
+}
+
+/** Die Glieder, aus denen ein Workflow gebaut wird — Namen, keine Nummern. */
+export type StageId = 'TRANSFER' | 'CONSOLIDATE' | 'IMPORT' | 'CONVERT';
+
 export interface Job {
   id: string;
   tenantId: string;
@@ -85,6 +138,17 @@ export interface Job {
   sourceConfig: SourceConfig;
   sourceDirectory: string;
   credentialId?: string;
+  /**
+   * Was die Quelle liefert — das Gegenstück zu `encryptionConfig`, das
+   * beschreibt, was ins Ziel geht. Zwei Einstellungen, weil es zwei Schlüssel
+   * sind: der des Absenders öffnet, der eigene verschließt.
+   */
+  sourceEncryption?: {
+    enabled: boolean;
+    keyCredentialId?: string;
+    /** Ohne dies wird eine unverschlüsselte Datei abgelehnt. */
+    acceptPlaintext?: boolean;
+  };
   includeSubdirectories: boolean;
 
   filenamePrefix?: string;
@@ -102,14 +166,39 @@ export interface Job {
 
   destinationDirectory: string;
   createDestinationDirectory: boolean;
-  conflictStrategy: 'SKIP' | 'OVERWRITE' | 'RENAME';
-  encryptionConfig: { enabled: boolean; provider: 'NONE' | 'AES_256_GCM'; keyCredentialId?: string };
+  conflictStrategy: 'SKIP' | 'OVERWRITE' | 'RENAME' | 'NEW_NAME';
+  /** Der Name für NEW_NAME — ohne Endung, die bringt die Datei mit. */
+  conflictFilename?: string;
+  /** Schreibweise des Zeitstempels; fehlt heißt Tag zuerst. */
+  timestampNotation?: 'DAY_FIRST' | 'MONTH_FIRST';
+  encryptionConfig: {
+    enabled: boolean;
+    provider: 'NONE' | 'AES_256_GCM';
+    keyCredentialId?: string;
+    /** Schon beim Abholen verschlüsseln — unabhängig davon, was im Ziel liegt. */
+    onPickup?: boolean;
+  };
   sourceSuccessAction: 'KEEP' | 'MOVE' | 'DELETE';
   sourceArchiveDirectory?: string;
 
   maxConcurrentFiles?: number;
   detectContentDuplicates?: boolean;
+  /** Wie ausführlich dieser Workflow protokolliert; fehlt heißt: wie die Installation. */
+  logLevel?: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR';
+  /** Ob jedes Laufprotokoll zusätzlich als Datei abgelegt wird; voreingestellt aus. */
+  saveProtocol?: boolean;
+  /** Wohin, wenn nicht in das Protokollverzeichnis der Installation. */
+  protocolDirectory?: string;
   retention?: { logDays?: number; historyDays?: number };
+
+  /** Daten übertragen; fehlt heißt: läuft. So verhielt sich jeder Job bisher. */
+  transfer?: { enabled: boolean };
+  /** Daten konsolidieren. */
+  consolidation?: StageConfig;
+  /** Daten importieren — in Datenbanktabellen, daher ohne Zielverzeichnis. */
+  dataImport?: StageConfig;
+  /** Daten konvertieren — in ein anderes Dateiformat. */
+  conversion?: StageConfig;
 
   executionMode: 'MANUAL' | 'AUTOMATIC' | 'MANUAL_AND_AUTOMATIC';
   schedule?: Schedule;
@@ -126,6 +215,30 @@ export interface ConnectionTestResult {
   ok: boolean;
   message: string;
   filesFound?: number;
+  /** Was auf dem Weg geschah — Auflösen, Verbinden, Hostkey, Anmelden, Lesen. */
+  steps?: string[];
+}
+
+/** Ein Verzeichnis auf dem entfernten Server, wie der Server es nennt. */
+export interface RemoteDirectoryEntry {
+  name: string;
+  path: string;
+  /** Ohne das Remote-Arbeitsverzeichnis — so, wie es ins Eingabefeld gehört. */
+  relativePath: string;
+}
+
+export interface RemoteDirectoryResult {
+  ok: boolean;
+  message: string;
+  path?: string;
+  relativePath?: string;
+  parentPath?: string;
+  entries: RemoteDirectoryEntry[];
+  filesFound?: number;
+  /** Mehrere Lesarten der Eingabe gibt es wirklich — dann wird nicht geraten. */
+  ambiguous?: string[];
+  /** Alle geprüften Lesarten, in der Reihenfolge der Prüfung. */
+  tried?: string[];
 }
 
 export interface DirectoryCheckResult {
@@ -181,6 +294,20 @@ export interface LogEntry {
   jobId?: string;
   runId?: string;
   filename?: string;
+  /** Stelle im Protokoll. Die Leitwarte holt damit nur, was neu ist. */
+  sequence?: number;
+}
+
+export type RunControlState = 'RUNNING' | 'PAUSED' | 'CANCELLED';
+
+/** Ein Lauf, der gerade in Arbeit ist — die Zeilen der Leitwarte. */
+export interface ActiveRun {
+  runId: string;
+  jobId: string;
+  jobName: string;
+  tenantId: string;
+  startedAt: string;
+  state: RunControlState;
 }
 
 export interface RunDetail extends RunSummary {

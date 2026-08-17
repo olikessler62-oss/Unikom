@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
 import type { Tenant } from '../api/types.js';
-import { CheckField, Empty, Field, Loading, Notice } from '../components/Pieces.js';
+import { CheckField, Empty, Field, InfoButton, Loading, Modal, Notice } from '../components/Pieces.js';
 
 interface Draft {
   id?: string;
@@ -24,6 +24,8 @@ export function TenantsScreen({ canManage }: Props) {
   const [draft, setDraft] = useState<Draft>();
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
+  /** Die Erklärung zum Root-Verzeichnis, auf Wunsch statt dauerhaft. */
+  const [explaining, setExplaining] = useState(false);
 
   async function save(): Promise<void> {
     if (!draft) {
@@ -81,46 +83,46 @@ export function TenantsScreen({ canManage }: Props) {
 
   return (
     <>
-      <Notice kind="info">
-        Ein Mandant ist ein Kunde, für den Sie Daten verarbeiten. Wer nur eigene Daten übernimmt, kommt mit dem
-        Mandanten <strong>Standard</strong> aus und muss hier nichts tun.
-      </Notice>
+      {explaining && (
+        <Modal title="Root-Verzeichnis" onClose={() => setExplaining(false)}>
+          <p>
+            Jeder Job dieses Mandanten darf seine Dateien nur <strong>unterhalb dieses Ordners</strong> ablegen. Ein
+            Zielverzeichnis außerhalb wird beim Speichern abgelehnt — so landen die Daten dieses Kunden auch bei einem
+            Tippfehler nicht beim nächsten.
+          </p>
+          <p>
+            Leer lassen, wenn Sie nur eigene Daten verarbeiten. Dann gibt es niemanden, mit dem etwas verwechselt werden
+            könnte.
+          </p>
+        </Modal>
+      )}
 
       {error && <Notice kind="error">{error}</Notice>}
 
       {draft ? (
-        <section className="card" style={{ marginBottom: '1rem' }}>
+        <section className="card">
           <h2>{draft.id ? 'Mandant bearbeiten' : 'Neuer Mandant'}</h2>
 
-          <Field label="Name">
+          <Field label="Mandanten-Name">
             <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} autoFocus />
           </Field>
 
-          <Field label="Beschreibung">
+          <Field label="Mandanten-Beschreibung">
             <input
               value={draft.description}
               onChange={(event) => setDraft({ ...draft, description: event.target.value })}
             />
           </Field>
 
-          <Field
-            label="Root-Verzeichnis"
-            hint={
-              <>
-                Jeder Job dieses Mandanten darf seine Dateien nur <strong>unterhalb dieses Ordners</strong> ablegen.
-                Ein Zielverzeichnis außerhalb wird beim Speichern abgelehnt — so landen die Daten dieses Kunden auch
-                bei einem Tippfehler nicht beim nächsten.
-                <br />
-                Leer lassen, wenn Sie nur eigene Daten verarbeiten. Dann gibt es niemanden, mit dem etwas verwechselt
-                werden könnte.
-              </>
-            }
-          >
-            <input
-              value={draft.rootDirectory}
-              placeholder="D:\Daten\Kunde A"
-              onChange={(event) => setDraft({ ...draft, rootDirectory: event.target.value })}
-            />
+          <Field label="Root-Verzeichnis">
+            <div className="field__row">
+              <input
+                value={draft.rootDirectory}
+                placeholder="D:\Daten\Kunde A"
+                onChange={(event) => setDraft({ ...draft, rootDirectory: event.target.value })}
+              />
+              <InfoButton label="Wozu dient das Root-Verzeichnis?" onClick={() => setExplaining(true)} />
+            </div>
           </Field>
 
           <CheckField
@@ -140,7 +142,7 @@ export function TenantsScreen({ canManage }: Props) {
         </section>
       ) : (
         canManage && (
-          <div className="row" style={{ marginBottom: '1rem' }}>
+          <div className="row">
             <button onClick={() => setDraft(EMPTY)}>Neuer Mandant</button>
           </div>
         )

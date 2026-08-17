@@ -10,7 +10,7 @@ export interface DuplicateCheckResult {
   message: string;
 }
 
-const NO_DUPLICATE: DuplicateCheckResult = { duplicate: false, message: 'No earlier successful transfer found' };
+const NO_DUPLICATE: DuplicateCheckResult = { duplicate: false, message: 'Keine frühere erfolgreiche Übernahme gefunden' };
 
 /**
  * Prevents the same file from being transferred again on every scheduler run
@@ -42,7 +42,7 @@ export class DuplicateDetectionService {
       duplicate: true,
       reason: 'IDENTICAL_SOURCE_FILE',
       previousTransferFileId: previous.id,
-      message: `${file.name} was already settled on ${previous.completedAt?.toISOString() ?? 'an earlier run'}`,
+      message: `${file.name} wurde bereits übernommen${previous.completedAt ? ` am ${previous.completedAt.toISOString()}` : ''}`,
     };
   }
 
@@ -61,7 +61,7 @@ export class DuplicateDetectionService {
       duplicate: true,
       reason: 'IDENTICAL_CONTENT',
       previousTransferFileId: previous.id,
-      message: `Identical content was already transferred as ${previous.sourceFilename}`,
+      message: `Derselbe Inhalt wurde bereits als ${previous.sourceFilename} übernommen`,
     };
   }
 }

@@ -9,6 +9,7 @@ import { ApiServer } from './interface/http/ApiServer.js';
 import { createStaticHandler } from './interface/http/StaticFiles.js';
 import { ConsoleLogger } from './infrastructure/logging/ConsoleLogger.js';
 import type { LogLevel } from './domain/logging/LogEntry.js';
+import type { LicenceStatus } from './domain/licensing/Licence.js';
 
 const DATA_DIRECTORY = path.resolve(process.env.UNIKOM_DATA_DIRECTORY ?? 'application-data');
 /** The built interface. `npm run web:build` puts it here. */
@@ -46,6 +47,11 @@ async function main(): Promise<void> {
   // point; once at startup plus the daily retention run is enough.
   await application.sessionService.pruneExpired();
 
+  // Vor dem ersten Tick: die Module hängen daran, und ein abgelaufener
+  // Zeitraum soll beim Hochfahren auf der Konsole stehen, nicht erst auffallen,
+  // wenn nachts nichts übertragen wurde.
+  const licence = await application.licenceService.refresh();
+
   await application.runtime.bootstrap.reconstructSchedules(new Date());
   application.runtime.startPolling(POLL_INTERVAL_MS);
 
@@ -59,7 +65,8 @@ async function main(): Promise<void> {
 
   console.log(`Unikom — Oberfläche auf http://${host}:${port}`);
   console.log(`Unikom — Daten in ${DATA_DIRECTORY}`);
-  console.log(`Unikom — Module: ${application.features.enabled().join(', ') || 'nur Grundprodukt'}\n`);
+  console.log(`Unikom — Module: ${application.features.enabled().join(', ') || 'nur Grundprodukt'}`);
+  console.log(`Unikom — ${licenceLine(licence)}\n`);
 
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`\nUnikom — ${signal} empfangen, fahre herunter`);
@@ -71,6 +78,21 @@ async function main(): Promise<void> {
 
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
+}
+
+/** Eine Zeile, die im Zweifel jemand aus einem Protokoll vorliest. */
+function licenceLine(status: LicenceStatus): string {
+  switch (status.state) {
+    case 'UNLICENSED':
+      return 'Lizenz: wird nicht geprüft (unlizenzierte Installation)';
+    case 'ACTIVE':
+    case 'EXPIRING':
+      return `Lizenz: ${status.licence?.customer ?? 'unbekannt'}, bezahlt bis ${
+        status.licence?.validUntil.toISOString().slice(0, 10) ?? '—'
+      }${status.state === 'EXPIRING' ? ` (noch ${status.daysRemaining} Tage)` : ''}`;
+    default:
+      return `Lizenz: KEINE ÜBERTRAGUNGEN — ${status.problem ?? status.state}`;
+  }
 }
 
 void main().catch((error: unknown) => {

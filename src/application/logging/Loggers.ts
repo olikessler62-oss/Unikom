@@ -10,7 +10,11 @@ export class LevelFilteredLogger implements Logger {
   ) {}
 
   log(entry: LogEntry): void {
-    if (isAtLeast(entry.level, this.minimumLevel)) {
+    // The job's own level wins where it is set, in both directions: a job may
+    // ask for more detail than the installation, and a noisy one may ask for
+    // less. Without that, "switch this workflow to DEBUG" would mean switching
+    // the whole server and reading everybody else's lines too.
+    if (isAtLeast(entry.level, entry.jobLevel ?? this.minimumLevel)) {
       this.delegate.log(entry);
     }
   }

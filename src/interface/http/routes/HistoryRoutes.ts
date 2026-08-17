@@ -1,4 +1,5 @@
 import type { UnikomApplication } from '../../../application/runtime/UnikomApplication.js';
+import { protocolDocument, protocolFilename } from '../../../application/logging/ProtocolDocument.js';
 import { isAtLeast, type LogLevel } from '../../../domain/logging/LogEntry.js';
 import { ApiError, ok, type Route } from '../Http.js';
 
@@ -12,7 +13,7 @@ function levelFrom(query: URLSearchParams): LogLevel {
   }
 
   if (!LEVELS.includes(requested as LogLevel)) {
-    throw new ApiError(400, `"${requested}" is not a log level. Expected one of: ${LEVELS.join(', ')}`);
+    throw new ApiError(400, `„${requested}“ ist kein Protokoll-Level. Erwartet wird eines von: ${LEVELS.join(', ')}`);
   }
 
   return requested as LogLevel;
@@ -28,7 +29,7 @@ function limitFrom(query: URLSearchParams): number | undefined {
   const limit = Number.parseInt(raw, 10);
 
   if (!Number.isFinite(limit) || limit <= 0) {
-    throw new ApiError(400, '"limit" has to be a positive number');
+    throw new ApiError(400, '„limit“ muss eine positive Zahl sein');
   }
 
   return limit;
@@ -50,6 +51,20 @@ export function historyRoutes(application: UnikomApplication): Route[] {
         ok(await application.historyService.listRuns(params.id, limitFrom(query))),
     },
     {
+      // Three segments, so it never collides with /api/runs/:id, which has
+      // four — the router compares segment counts before anything else.
+      method: 'GET',
+      pattern: '/api/runs',
+      authorization: 'VIEW',
+      handle: async ({ query }) =>
+        ok(
+          await application.historyService.listRecentRuns({
+            tenantId: query.get('tenantId') ?? undefined,
+            limit: limitFrom(query),
+          })
+        ),
+    },
+    {
       method: 'GET',
       pattern: '/api/jobs/:id/failures',
       authorization: 'VIEW',
@@ -63,10 +78,37 @@ export function historyRoutes(application: UnikomApplication): Route[] {
         const detail = await application.historyService.getRun(params.id, levelFrom(query));
 
         if (!detail) {
-          throw new ApiError(404, `There is no run ${params.id}`);
+          throw new ApiError(404, `Den Lauf ${params.id} gibt es nicht`);
         }
 
         return ok(detail);
+      },
+    },
+    {
+      /*
+       * Das Protokoll zum Aufheben.
+       *
+       * Es liegt im Arbeitsspeicher und verschwindet mit dem Neustart — was
+       * bleiben soll, speichert der Benutzer. Deshalb hier alles ohne Filter:
+       * Die Anzeige zeigt einen Detailgrad, die Datei nimmt jede Zeile mit.
+       */
+      method: 'GET',
+      pattern: '/api/runs/:id/protokoll',
+      authorization: 'VIEW',
+      handle: async ({ params }) => {
+        const detail = await application.historyService.getRun(params.id, 'DEBUG');
+
+        if (!detail) {
+          throw new ApiError(404, `Den Lauf ${params.id} gibt es nicht — oder sein Protokoll ist nicht mehr im Speicher`);
+        }
+
+        const entries = await application.logRepository.list({ runId: params.id, limit: 1_000_000 });
+
+        return ok({
+          filename: protocolFilename(detail),
+          lines: entries.length,
+          text: protocolDocument(detail, entries),
+        });
       },
     },
     {

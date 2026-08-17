@@ -1,61 +1,117 @@
-import path from 'node:path';
+import type { Writable } from 'node:stream';
 import { Client, FileType } from 'basic-ftp';
 import type {
   ConnectionTestResult,
   DownloadResult,
   SourceAdapter,
   SourceCredentials,
+  SourceTrace,
 } from '../../../domain/source/SourceAdapter.js';
+import { RemotePathResolver } from '../../../domain/source/RemotePathResolver.js';
 import type { SourceConfig } from '../../../domain/transfer/TransferJob.js';
 import type { SourceFile } from '../../../domain/files/SourceFile.js';
 
 export class FtpsSourceAdapter implements SourceAdapter {
   private client?: Client;
+  /** As in the SFTP adapter: one place decides what a typed path means. */
+  private readonly paths: RemotePathResolver;
+  /** Set from outside; every step below reports through it. */
+  trace?: SourceTrace;
 
   constructor(
     private readonly config: SourceConfig,
     private readonly credentials: SourceCredentials = {}
-  ) {}
+  ) {
+    this.paths = new RemotePathResolver(config.remoteWorkingDirectory);
+  }
 
   async testConnection(): Promise<ConnectionTestResult> {
+    // As in the SFTP adapter: the steps are collected and handed back, so a
+    // failure can be read as a sequence instead of guessed from one line.
+    const steps: string[] = [];
+    const outer = this.trace;
+    this.trace = (message, details) => {
+      steps.push(message);
+      outer?.(message, details);
+    };
+
     try {
       const files = await this.listFiles(this.config.directory, false);
 
       return {
         ok: true,
-        message: `TLS connection to ${this.config.host}:${this.port()} established, source directory reachable`,
+        message: `TLS-Verbindung zu ${this.config.host}:${this.port()} steht, Quellverzeichnis erreichbar`,
         filesFound: files.filter((file) => !file.isDirectory).length,
+        steps,
       };
     } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+      const reason = error instanceof Error ? error.message : String(error);
+      steps.push(`Fehlgeschlagen: ${reason}`);
+
+      return { ok: false, message: reason, steps };
+    } finally {
+      this.trace = outer;
     }
   }
 
   async listFiles(directory: string, recursive: boolean): Promise<SourceFile[]> {
+    const resolved = this.paths.resolve(directory);
+    this.trace?.(
+      `„${directory}“ wird gelesen als ${resolved} (Remote-Arbeitsverzeichnis ${this.paths.workingDirectory})`,
+      { entered: directory, resolved }
+    );
+
     const client = await this.connect();
-    return this.listInto(client, directory, recursive);
+    this.trace?.(`${resolved} wird gelesen${recursive ? ' samt Unterverzeichnissen' : ''}`);
+    const files = await this.listInto(client, resolved, recursive);
+    this.trace?.(`${resolved} gelesen: ${files.length} Einträge`);
+
+    return files;
   }
 
   async downloadFile(sourceFile: SourceFile, targetPath: string): Promise<DownloadResult> {
     const client = await this.connect();
+    this.trace?.(`${sourceFile.fullPath} wird über FTPS geholt`);
     await client.downloadTo(targetPath, sourceFile.fullPath);
+    this.trace?.(`${sourceFile.fullPath} über FTPS geholt`);
 
-    return { ok: true, message: `Downloaded ${sourceFile.name} over FTPS`, localPath: targetPath };
+    return { ok: true, message: `${sourceFile.name} über FTPS geholt`, localPath: targetPath };
+  }
+
+  /**
+   * Streams the file instead of writing it to a path, so it can be encrypted on
+   * the way in and never lands on the disk in the clear.
+   */
+  async downloadTo(sourceFile: SourceFile, destination: Writable): Promise<DownloadResult> {
+    const client = await this.connect();
+    this.trace?.(`${sourceFile.fullPath} wird über FTPS im Strom gelesen`);
+    await client.downloadTo(destination, sourceFile.fullPath);
+    this.trace?.(`${sourceFile.fullPath} über FTPS im Strom gelesen`);
+
+    return { ok: true, message: `${sourceFile.name} über FTPS im Strom gelesen` };
   }
 
   async moveFile(sourceFile: SourceFile, targetDirectory: string): Promise<void> {
     const client = await this.connect();
 
+    const target = this.paths.resolve(targetDirectory);
+    this.trace?.(`Archiv „${targetDirectory}“ wird gelesen als ${target}`, { entered: targetDirectory, resolved: target });
+
     const previous = await client.pwd();
-    await client.ensureDir(targetDirectory);
+    await client.ensureDir(target);
     await client.cd(previous);
 
-    await client.rename(sourceFile.fullPath, path.posix.join(targetDirectory, sourceFile.name));
+    const destination = this.paths.join(target, sourceFile.name);
+    this.trace?.(`${sourceFile.fullPath} wird nach ${destination} verschoben`);
+    await client.rename(sourceFile.fullPath, destination);
+    this.trace?.(`${sourceFile.fullPath} nach ${destination} verschoben`);
   }
 
   async deleteFile(sourceFile: SourceFile): Promise<void> {
     const client = await this.connect();
+    this.trace?.(`${sourceFile.fullPath} wird gelöscht`);
     await client.remove(sourceFile.fullPath);
+    this.trace?.(`${sourceFile.fullPath} gelöscht`);
   }
 
   async dispose(): Promise<void> {
@@ -77,12 +133,20 @@ export class FtpsSourceAdapter implements SourceAdapter {
     }
 
     if (!this.config.host) {
-      throw new Error('The FTPS source has no host configured');
+      throw new Error('Für diese FTPS-Quelle ist kein Server eingetragen');
     }
 
     const client = new Client((this.config.timeoutSeconds ?? 30) * 1000);
 
-    await client.access({
+    const mode = this.config.implicitFtps ? 'implizites TLS' : 'explizites TLS';
+    const certificates = this.config.validateCertificates === false ? 'ungeprüft' : 'geprüft';
+    this.trace?.(
+      `Verbindung zu ${this.config.host}:${this.port()} als ` +
+        `„${this.credentials.username ?? this.config.username ?? '—'}“ über ${mode}, Zertifikat ${certificates}`
+    );
+
+    try {
+      await client.access({
       host: this.config.host,
       port: this.port(),
       user: this.credentials.username ?? this.config.username,
@@ -100,6 +164,12 @@ export class FtpsSourceAdapter implements SourceAdapter {
       },
     });
 
+    } catch (error) {
+      this.trace?.(`Verbindung fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+
+    this.trace?.(`Verbunden und angemeldet über ${mode}`);
     this.client = client;
     return client;
   }
@@ -109,7 +179,7 @@ export class FtpsSourceAdapter implements SourceAdapter {
     const files: SourceFile[] = [];
 
     for (const entry of entries) {
-      const fullPath = path.posix.join(directory, entry.name);
+      const fullPath = this.paths.join(directory, entry.name);
 
       if (entry.type === FileType.Directory) {
         files.push({ name: entry.name, fullPath, isDirectory: true });

@@ -97,7 +97,7 @@ test('a second account cannot claim the same name in different capitalisation', 
 
   await assert.rejects(
     () => application.userService.create({ username: 'Anna', displayName: 'X', role: 'VIEWER', password: PASSWORD }),
-    /already taken/
+    /gibt es schon/
   );
 });
 
@@ -112,7 +112,7 @@ test('a password below the minimum length is refused', async () => {
         role: 'VIEWER',
         password: 'x'.repeat(MINIMUM_PASSWORD_LENGTH - 1),
       }),
-    new RegExp(`${MINIMUM_PASSWORD_LENGTH} characters`)
+    new RegExp(`${MINIMUM_PASSWORD_LENGTH} Zeichen`)
   );
 });
 
@@ -270,7 +270,7 @@ test('a password change needs the current password', async () => {
 
   await assert.rejects(
     () => application.userService.changePassword(adminId, 'falsch', 'ein-ganz-neues-Passwort-2026'),
-    /current password is not correct/
+    /bisherige Passwort stimmt nicht/
   );
 });
 
@@ -279,7 +279,7 @@ test('the new password has to differ from the old one', async () => {
 
   await assert.rejects(
     () => application.userService.changePassword(adminId, PASSWORD, PASSWORD),
-    /differ from the current one/
+    /unterscheiden/
   );
 });
 
@@ -312,9 +312,9 @@ test('a handed-out password may do nothing but be replaced', async () => {
 test('the last active administrator cannot remove themselves', async () => {
   const { application, adminId } = await withAdmin();
 
-  await assert.rejects(() => application.userService.setRole(adminId, 'VIEWER'), /last active administrator/);
-  await assert.rejects(() => application.userService.setEnabled(adminId, false), /last active administrator/);
-  await assert.rejects(() => application.userService.delete(adminId), /last active administrator/);
+  await assert.rejects(() => application.userService.setRole(adminId, 'VIEWER'), /letzte aktive Administrator/);
+  await assert.rejects(() => application.userService.setEnabled(adminId, false), /letzte aktive Administrator/);
+  await assert.rejects(() => application.userService.delete(adminId), /letzte aktive Administrator/);
 });
 
 test('with a second administrator the first one may step down', async () => {

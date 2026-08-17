@@ -10,6 +10,7 @@ import {
 import { nullable } from './SqliteDatabase.js';
 
 interface LogRow {
+  id: number;
   timestamp: string;
   level: string;
   job_id: string | null;
@@ -28,6 +29,7 @@ function toEntry(row: LogRow): LogEntry {
     filename: row.filename ?? undefined,
     message: row.message,
     context: row.context ? (JSON.parse(row.context) as Record<string, unknown>) : undefined,
+    sequence: Number(row.id),
   };
 }
 
@@ -58,7 +60,7 @@ export class SqliteTransferLogStore implements Logger, TransferLogRepository {
 
   async list(query: TransferLogQuery): Promise<LogEntry[]> {
     const conditions: string[] = [];
-    const parameters: string[] = [];
+    const parameters: (string | number)[] = [];
 
     if (query.runId) {
       conditions.push('run_id = ?');
@@ -70,12 +72,17 @@ export class SqliteTransferLogStore implements Logger, TransferLogRepository {
       parameters.push(query.jobId);
     }
 
+    if (query.afterSequence !== undefined) {
+      conditions.push('id > ?');
+      parameters.push(Math.floor(query.afterSequence));
+    }
+
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const limit = query.limit ? `LIMIT ${Math.max(1, Math.floor(query.limit))}` : '';
 
     const rows = this.database
       .prepare(
-        `SELECT timestamp, level, job_id, run_id, filename, message, context
+        `SELECT id, timestamp, level, job_id, run_id, filename, message, context
          FROM transfer_logs ${where} ORDER BY id ASC ${limit}`
       )
       .all(...parameters) as unknown as LogRow[];

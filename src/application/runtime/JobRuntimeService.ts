@@ -13,7 +13,10 @@ import type { TransferEventListener } from '../transfer/TransferEvents.js';
 import type { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
 import type { EncryptionKeyProvider } from '../../domain/encryption/EncryptionKeyProvider.js';
 import type { FeatureSet } from '../../domain/licensing/Feature.js';
+import type { RunGate } from '../../domain/licensing/Licence.js';
+import type { RunControlRegistry } from '../transfer/RunControlRegistry.js';
 import type { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
+import type { RunProtocolWriter } from '../logging/RunProtocolWriter.js';
 import type { RetentionService } from '../retention/RetentionService.js';
 import { RuntimeBootstrapService } from './RuntimeBootstrapService.js';
 
@@ -31,6 +34,12 @@ export interface RuntimeOptions {
   processingStages?: ProcessingStageRegistry;
   /** Deletes expired log and history entries once a day; absent means never. */
   retentionService?: RetentionService;
+  /** Asked before any transfer starts; absent means the paid period is not checked. */
+  runGate?: RunGate;
+  /** Makes running transfers steerable; absent means they only run to the end. */
+  runControls?: RunControlRegistry;
+  /** Legt das Protokoll ab, wenn ein Workflow es verlangt; sonst geschieht nichts. */
+  protocols?: RunProtocolWriter;
 }
 
 /**
@@ -61,8 +70,12 @@ export class JobRuntimeService {
 
     this.orchestrator = new TransferOrchestratorService(
       jobRepository,
-      new JobExecutionService(jobRepository, transferExecutionService, options.adapterProvider),
-      runRepository
+      new JobExecutionService(jobRepository, transferExecutionService, options.adapterProvider, options.runGate),
+      runRepository,
+      undefined,
+      options.runGate,
+      options.runControls,
+      options.protocols
     );
     this.bootstrap = new RuntimeBootstrapService(jobRepository);
     this.retentionService = options.retentionService;

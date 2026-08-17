@@ -34,7 +34,7 @@ test('a missing directory fails unless it may be created', async () => {
 
   const strict = await checkDirectory(missing);
   assert.equal(strict.ok, false);
-  assert.match(strict.message, /does not exist/);
+  assert.match(strict.message, /gibt es nicht/);
 
   const lenient = await checkDirectory(missing, { createIfMissing: true });
   assert.equal(lenient.ok, true);
@@ -47,7 +47,7 @@ test('a directory whose parent is missing cannot be created either', async () =>
   const result = await checkDirectory(deep, { createIfMissing: true });
 
   assert.equal(result.ok, false);
-  assert.match(result.message, /cannot be created/);
+  assert.match(result.message, /lässt sich nicht anlegen|lässt sich also auch nicht anlegen/);
 });
 
 test('a file where a directory belongs is reported as such', async () => {
@@ -58,7 +58,7 @@ test('a file where a directory belongs is reported as such', async () => {
   const result = await checkDirectory(file);
 
   assert.equal(result.ok, false);
-  assert.match(result.message, /not a directory/);
+  assert.match(result.message, /kein Verzeichnis/);
 });
 
 test('an empty path is refused instead of checking the working directory', async () => {

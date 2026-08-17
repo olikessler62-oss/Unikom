@@ -31,11 +31,11 @@ export class TenantService {
     const name = input.name.trim();
 
     if (!name) {
-      throw new Error('A client needs a name');
+      throw new Error('Ein Mandant braucht einen Namen');
     }
 
     if (await this.tenantRepository.findByName(name)) {
-      throw new Error(`There is already a client named "${name}"`);
+      throw new Error(`Einen Mandanten namens „${name}“ gibt es schon`);
     }
 
     await this.assertRootIsFree(input.rootDirectory, undefined);
@@ -63,7 +63,7 @@ export class TenantService {
       const conflicting = await this.tenantRepository.findByName(changes.name.trim());
 
       if (conflicting && conflicting.id !== id) {
-        throw new Error(`There is already a client named "${changes.name.trim()}"`);
+        throw new Error(`Einen Mandanten namens „${changes.name.trim()}“ gibt es schon`);
       }
     }
 
@@ -94,7 +94,7 @@ export class TenantService {
     if (jobs.length > 0) {
       const tenant = await this.require(id);
       throw new Error(
-        `"${tenant.name}" still has ${jobs.length} job(s). Delete or reassign them first — ` +
+        `„${tenant.name}“ hat noch ${jobs.length} Workflow(s). Diese bitte zuerst löschen oder umhängen — ` +
           'deleting the client would either take a running schedule with it or hand its jobs to somebody else.'
       );
     }
@@ -134,7 +134,7 @@ export class TenantService {
     const tenant = await this.tenantRepository.getById(id);
 
     if (!tenant) {
-      throw new Error(`There is no client ${id}`);
+      throw new Error(`Den Mandanten ${id} gibt es nicht`);
     }
 
     return tenant;
@@ -180,7 +180,7 @@ export class TenantService {
 
     for (const job of await this.jobRepository.list()) {
       if (job.tenantId === tenantId) {
-        assertWithinTenant(candidate, job.destinationDirectory, `The destination of job "${job.name}"`);
+        assertWithinTenant(candidate, job.destinationDirectory, `Das Ziel des Workflows „${job.name}“`);
       }
     }
   }

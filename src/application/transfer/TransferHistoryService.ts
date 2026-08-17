@@ -79,6 +79,38 @@ export class TransferHistoryService {
     return limit === undefined ? runs : runs.slice(0, Math.max(0, limit));
   }
 
+  /**
+   * Runs across all jobs, newest first — the history without a single job
+   * picked. Optionally narrowed to one tenant, which has to happen here and not
+   * in the browser: filtering a page of the newest runs afterwards would show
+   * nothing for a tenant whose runs are older than that page.
+   *
+   * The limit is not optional the way it is for a single job. This list grows
+   * with every job times every run, and a history view needs the newest ones,
+   * not all of them.
+   */
+  async listRecentRuns(options: { tenantId?: string; limit?: number } = {}): Promise<RunSummary[]> {
+    const limit = Math.max(0, options.limit ?? 200);
+    let runs = await this.runRepository.list();
+
+    if (options.tenantId) {
+      const jobs = await this.jobRepository.list();
+      const wanted = new Set(
+        jobs.filter((job) => job.tenantId === options.tenantId).map((job) => job.id)
+      );
+
+      runs = runs.filter((run) => wanted.has(run.jobId));
+    }
+
+    // Sorted here rather than trusted from the store: SQLite orders by
+    // started_at, the in-memory one does not, and the order is a promise this
+    // method makes.
+    return [...runs]
+      .sort((left, right) => right.startedAt.getTime() - left.startedAt.getTime())
+      .slice(0, limit)
+      .map(toSummary);
+  }
+
   async getRun(runId: string, minimumLevel: LogLevel = 'INFO'): Promise<RunDetail | undefined> {
     const run = await this.runRepository.getById(runId);
     if (!run) {

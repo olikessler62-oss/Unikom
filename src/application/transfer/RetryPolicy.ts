@@ -26,7 +26,19 @@ const TRANSIENT_SYSTEM_CODES = new Set([
   'EBUSY',
 ]);
 
-/** Conditions that will not improve by asking again. */
+/**
+ * Conditions that will not improve by asking again.
+ *
+ * Two languages in one list, and that is not an oversight. The libraries speak
+ * English — ssh2 and basic-ftp report "all configured authentication methods
+ * failed" — while Unikom's own messages are German, and both kinds arrive here.
+ * Dropping either half would turn a wrong password into three attempts and a
+ * three-times-longer wait for the same failure.
+ *
+ * Whoever changes one of these messages has to look here. That is the price of
+ * classifying by text; the alternative — a typed error at every throw site,
+ * including inside two libraries — is not available.
+ */
 const PERMANENT_PATTERNS = [
   /authentication/i,
   /all configured authentication methods failed/i,
@@ -41,6 +53,16 @@ const PERMANENT_PATTERNS = [
   /no such file/i,
   /not implemented/i,
   /no host configured/i,
+  // Dieselben Zustände, wie Unikom sie benennt.
+  /hostkey/i,
+  /fingerabdruck/i,
+  /zertifikat/i,
+  /anmeldung/i,
+  /keine (lese)?berechtigung/i,
+  /gibt es nicht/i,
+  /kein server eingetragen/i,
+  /darf diese verbindung nicht verlassen/i,
+  /kein freier name/i,
 ];
 
 const TRANSIENT_PATTERNS = [

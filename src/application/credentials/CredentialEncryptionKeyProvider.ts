@@ -10,17 +10,17 @@ export class CredentialEncryptionKeyProvider implements EncryptionKeyProvider {
 
   async getKey(keyCredentialId: string | undefined): Promise<string> {
     if (!keyCredentialId) {
-      throw new Error('Encryption is enabled for this job but no encryption key credential is configured');
+      throw new Error('Für diesen Workflow ist Verschlüsselung eingeschaltet, aber kein Schlüssel ausgewählt');
     }
 
     const credential = await this.credentialService.getById(keyCredentialId);
     if (!credential) {
-      throw new Error(`The encryption key credential "${keyCredentialId}" does not exist`);
+      throw new Error(`Den Schlüssel „${keyCredentialId}“ gibt es nicht`);
     }
 
     if (credential.type !== 'ENCRYPTION_KEY') {
       throw new Error(
-        `Credential "${credential.name}" is of type ${credential.type} and cannot be used as an encryption key`
+        `Der Zugang „${credential.name}“ ist vom Typ ${credential.type} und taugt nicht als Schlüssel`
       );
     }
 

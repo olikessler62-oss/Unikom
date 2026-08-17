@@ -8,9 +8,11 @@ import {
 
 export class InMemoryTransferLogStore implements Logger, TransferLogRepository {
   private readonly entries: LogEntry[] = [];
+  /** Mirrors the AUTOINCREMENT of the SQLite store: positions, not timestamps. */
+  private nextSequence = 1;
 
   log(entry: LogEntry): void {
-    this.entries.push({ ...entry });
+    this.entries.push({ ...entry, sequence: this.nextSequence++ });
   }
 
   async list(query: TransferLogQuery): Promise<LogEntry[]> {
@@ -18,7 +20,8 @@ export class InMemoryTransferLogStore implements Logger, TransferLogRepository {
       (entry) =>
         (query.runId === undefined || entry.runId === query.runId) &&
         (query.jobId === undefined || entry.jobId === query.jobId) &&
-        (query.minimumLevel === undefined || isAtLeast(entry.level, query.minimumLevel))
+        (query.minimumLevel === undefined || isAtLeast(entry.level, query.minimumLevel)) &&
+        (query.afterSequence === undefined || (entry.sequence ?? 0) > query.afterSequence)
     );
 
     if (query.limit !== undefined) {

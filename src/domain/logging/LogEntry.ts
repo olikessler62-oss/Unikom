@@ -21,6 +21,24 @@ export interface LogEntry {
   filename?: string;
   /** Never put secrets in here; log entries are persisted (spec section 51). */
   context?: Record<string, unknown>;
+  /**
+   * The detail this entry's job asked for, where it differs from what the
+   * installation asked for.
+   *
+   * It travels on the entry rather than being looked up by the filter: the run
+   * knows its job, the filter does not, and a lookup would mean a repository
+   * read per line. This is what lets one job be turned up to DEBUG while the
+   * rest of the installation stays at INFO — the case an operator actually has,
+   * which is one workflow behaving oddly and a support call about it.
+   */
+  jobLevel?: LogLevel;
+  /**
+   * Set by the store when reading, never by whoever writes: the position of
+   * this entry in the log. A live view asks for everything after the highest
+   * number it has, which timestamps cannot answer — several entries share a
+   * millisecond, and one of them would be read twice or not at all.
+   */
+  sequence?: number;
 }
 
 /**
@@ -37,6 +55,8 @@ export interface TransferLogQuery {
   jobId?: string;
   minimumLevel?: LogLevel;
   limit?: number;
+  /** Only entries beyond this position — how a live view stays live cheaply. */
+  afterSequence?: number;
 }
 
 export interface TransferLogRepository {

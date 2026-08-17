@@ -1,35 +1,51 @@
 /**
- * The optional modules of the product. Step 1 with local sources, scheduling,
- * history and the job editor is the base product and deliberately not a
- * feature: it is always present, and every other module builds on it.
+ * The optional modules of the product.
+ *
+ * Each names what it does, and none of them is numbered. A number would have to
+ * mean one of two things — which module this is, or where it sits in a workflow
+ * — and it cannot mean both: a customer who buys only consolidation and
+ * conversion runs them as first and second, while the price list would still
+ * call them two and four. So the name carries the identity, and the position in
+ * a particular workflow carries the number.
+ *
+ * All four modules are licensed separately, transferring included. It used to be
+ * the free base product, which only held while everything else was an addition
+ * to it. Once a customer can buy consolidation alone, handing them the transfer
+ * for nothing would give away the module that carries the others.
+ *
+ * Scheduling, history, users and the job editor stay outside the licence: they
+ * are the platform every module runs on, not a product of their own.
  *
  * SFTP and FTPS form one module. Both are remote file access over an encrypted
  * channel, they share credential handling, host verification and their whole
  * test setup; separating them would double the licensing surface without
  * offering a customer a decision they would actually want to make.
  *
- * Step 3 is two modules, because a file export and a migration into database
- * tables differ far more in effort than their common name suggests: the first
- * writes a file, the second needs connections, schema mapping, transactions and
- * a failure story of its own.
+ * Conversion and import are two modules and not one, because writing a file in
+ * another format and loading records into database tables differ far more in
+ * effort than a shared name would suggest: the first writes a file, the second
+ * needs connections, schema mapping, transactions and a failure story of its
+ * own. Each is bought on its own and each runs on its own.
  */
 export const FEATURES = [
+  'TRANSFER',
   'REMOTE_SOURCES',
   'ENCRYPTION',
-  'STEP_2_CONSOLIDATION',
-  'STEP_3_FILE_EXPORT',
-  'STEP_3_DATABASE_MIGRATION',
+  'CONSOLIDATION',
+  'DATA_IMPORT',
+  'CONVERSION',
 ] as const;
 
 export type Feature = (typeof FEATURES)[number];
 
 /** Wording for the licence overview and for error messages. */
 export const FEATURE_LABELS: Record<Feature, string> = {
-  REMOTE_SOURCES: 'Remote sources (SFTP, FTPS)',
-  ENCRYPTION: 'Encrypted storage',
-  STEP_2_CONSOLIDATION: 'Consolidation, correction and record deduplication',
-  STEP_3_FILE_EXPORT: 'Export to file formats',
-  STEP_3_DATABASE_MIGRATION: 'Migration into database tables',
+  TRANSFER: 'Daten übertragen',
+  REMOTE_SOURCES: 'Entfernte Quellen (SFTP, FTPS)',
+  ENCRYPTION: 'Verschlüsselte Ablage',
+  CONSOLIDATION: 'Daten konsolidieren',
+  DATA_IMPORT: 'Daten importieren',
+  CONVERSION: 'Daten konvertieren',
 };
 
 export function isFeature(candidate: string): candidate is Feature {
@@ -48,7 +64,9 @@ export class FeatureNotLicensedError extends Error {
     readonly feature: Feature,
     attemptedAction: string
   ) {
-    super(`${attemptedAction} requires the module "${FEATURE_LABELS[feature]}", which this installation does not include`);
+    super(
+      `${attemptedAction} braucht das Modul „${FEATURE_LABELS[feature]}“, das diese Installation nicht enthält`
+    );
     this.name = 'FeatureNotLicensedError';
   }
 }
@@ -79,7 +97,15 @@ export function allFeatures(): FeatureSet {
   return new StaticFeatureSet(FEATURES);
 }
 
-/** The base product alone: Step 1 with local sources. */
-export function coreOnly(): FeatureSet {
+/**
+ * No module at all. This is what an installation without a licence has: the
+ * platform runs, jobs can be looked at and edited, and nothing may execute.
+ */
+export function noModules(): FeatureSet {
   return new StaticFeatureSet([]);
+}
+
+/** Transferring from local sources — the smallest set that can move a file. */
+export function transferOnly(): FeatureSet {
+  return new StaticFeatureSet(['TRANSFER']);
 }

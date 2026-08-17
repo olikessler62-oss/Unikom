@@ -31,7 +31,7 @@ export function tenantRoutes(application: UnikomApplication): Route[] {
         const tenant = await application.tenantService.getById(params.id);
 
         if (!tenant) {
-          throw new ApiError(404, `There is no client ${params.id}`);
+          throw new ApiError(404, `Den Mandanten ${params.id} gibt es nicht`);
         }
 
         return ok(tenant);

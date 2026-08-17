@@ -108,17 +108,32 @@ test('network faults count as temporary', () => {
 
 test('configuration and authentication faults count as permanent', () => {
   const permanent = [
+    // What the libraries say — ssh2 and basic-ftp report in English ...
     'All configured authentication methods failed',
     'Permission denied (publickey,password)',
-    'The SSH host key of example.com does not match the configured fingerprint',
     'self-signed certificate in certificate chain',
     'Rejected unsafe filename "../x": the name contains a path separator',
-    'The credential abc does not exist',
+    // ... and what Unikom itself says, which is what the protocol shows.
+    'Der SSH-Hostkey von example.com stimmt nicht mit dem hinterlegten Fingerabdruck überein.',
+    'Für ${this.config.host} ist kein SSH-Hostkey-Fingerabdruck hinterlegt.',
+    'Für diese SFTP-Quelle ist kein Server eingetragen',
+    'Den Schlüssel „abc“ gibt es nicht',
+    'Keine Leseberechtigung für D:/Daten',
+    '„../andere“ führt aus /customer123 heraus, und dieses Verzeichnis darf diese Verbindung nicht verlassen.',
   ];
 
   for (const message of permanent) {
     assert.equal(isTransientError(new Error(message)), false, message);
   }
+});
+
+test('a translated message must not turn a permanent fault into three attempts', () => {
+  // The classification reads text, so a message that is reworded without a
+  // thought for this list would quietly cost three attempts and two waits for
+  // a wrong password. This test is where that shows up.
+  const wrongPassword = new Error('Die Anmeldung am Server ist fehlgeschlagen');
+
+  assert.equal(isTransientError(wrongPassword), false);
 });
 
 test('FTP reply codes are classified by their first digit', () => {

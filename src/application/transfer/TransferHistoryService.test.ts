@@ -77,10 +77,10 @@ test('the run log follows the sequence from the spec', async () => {
   const detail = await application.historyService.getRun(run?.id ?? '');
   const messages = (detail?.logs ?? []).map((entry) => entry.message);
 
-  assert.ok(messages.some((message) => /Transfer run started/.test(message)));
-  assert.ok(messages.some((message) => /Download completed/.test(message)));
-  assert.ok(messages.some((message) => /Integrity check passed/.test(message)));
-  assert.ok(messages.some((message) => /File stored successfully/.test(message)));
+  assert.ok(messages.some((message) => /Lauf gestartet/.test(message)));
+  assert.ok(messages.some((message) => /Übertragung abgeschlossen/.test(message)));
+  assert.ok(messages.some((message) => /Prüfung bestanden/.test(message)));
+  assert.ok(messages.some((message) => /Datei erfolgreich abgelegt/.test(message)));
   assert.ok(messages.some((message) => /STEP_1_COMPLETED/.test(message)));
 });
 
@@ -99,7 +99,7 @@ test('the default level keeps discovery noise out of the log', async () => {
   const verboseLogs = await verbose.application.logRepository.list({ runId: verboseRun?.id });
 
   assert.ok(
-    verboseLogs.some((entry) => entry.level === 'DEBUG' && /filtered out/.test(entry.message)),
+    verboseLogs.some((entry) => entry.level === 'DEBUG' && /wird nicht genommen/.test(entry.message)),
     'DEBUG must explain why a file was rejected'
   );
 });
@@ -159,15 +159,74 @@ test('scheduled jobs appear in the dashboard ordered by their next run', async (
   );
 });
 
-test('old log entries can be pruned', async () => {
+test('the protocol of a run stays until newer runs push it out', async () => {
+  // Es liegt im Arbeitsspeicher, nicht in der Datenbank: Aufräumen nach Alter
+  // gibt es dort nicht, und der Dienst behauptet auch nichts anderes.
   const { application } = await scenario();
   await application.runtime.orchestrator.runJobNow('customer-a', new Date());
 
   const before = (await application.logRepository.list({})).length;
   assert.ok(before > 0);
 
-  const removed = await application.historyService.pruneLogs(new Date(Date.now() + 60_000));
+  assert.equal(await application.historyService.pruneLogs(new Date(Date.now() + 60_000)), 0);
+  assert.equal((await application.logRepository.list({})).length, before);
+});
 
-  assert.equal(removed, before);
-  assert.equal((await application.logRepository.list({})).length, 0);
+test('the history without a single job picked spans them all, newest first', async () => {
+  const { application, root } = await scenario();
+  const second = path.join(root, 'source-b');
+  await fs.mkdir(second, { recursive: true });
+  await fs.writeFile(path.join(second, 'ORDER_009.csv'), ORDER);
+
+  await application.jobRepository.save(
+    createTransferJob({
+      id: 'customer-b',
+      tenantId: 'tenant-b',
+      sourceDirectory: second,
+      destinationDirectory: path.join(root, 'incoming-b'),
+    })
+  );
+
+  await application.runtime.orchestrator.runJobNow('customer-a', new Date('2026-08-13T06:00:00.000Z'));
+  await application.runtime.orchestrator.runJobNow('customer-b', new Date('2026-08-13T07:00:00.000Z'));
+  await application.runtime.orchestrator.runJobNow('customer-a', new Date('2026-08-13T08:00:00.000Z'));
+
+  const all = await application.historyService.listRecentRuns();
+
+  assert.equal(all.length, 3);
+  assert.deepEqual(
+    all.map((run) => run.jobId),
+    ['customer-a', 'customer-b', 'customer-a']
+  );
+  assert.ok(all[0].startedAt.getTime() >= all[1].startedAt.getTime());
+});
+
+test('the history of all jobs can be narrowed to one tenant and limited', async () => {
+  const { application, root } = await scenario();
+  const second = path.join(root, 'source-b');
+  await fs.mkdir(second, { recursive: true });
+  await fs.writeFile(path.join(second, 'ORDER_009.csv'), ORDER);
+
+  await application.jobRepository.save(
+    createTransferJob({
+      id: 'customer-b',
+      tenantId: 'tenant-b',
+      sourceDirectory: second,
+      destinationDirectory: path.join(root, 'incoming-b'),
+    })
+  );
+
+  await application.runtime.orchestrator.runJobNow('customer-a', new Date('2026-08-13T06:00:00.000Z'));
+  await application.runtime.orchestrator.runJobNow('customer-b', new Date('2026-08-13T07:00:00.000Z'));
+  await application.runtime.orchestrator.runJobNow('customer-a', new Date('2026-08-13T08:00:00.000Z'));
+
+  const forB = await application.historyService.listRecentRuns({ tenantId: 'tenant-b' });
+  const newest = await application.historyService.listRecentRuns({ limit: 1 });
+
+  assert.deepEqual(
+    forB.map((run) => run.jobId),
+    ['customer-b']
+  );
+  assert.equal(newest.length, 1);
+  assert.equal(newest[0].jobId, 'customer-a');
 });

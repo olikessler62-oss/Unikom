@@ -99,3 +99,107 @@ test('all active filters are combined with AND', () => {
 
   assert.deepEqual(selected, ['ORDER_001.csv', 'ORDER_002.csv']);
 });
+
+test('a trailing star is what people type, and it means what a prefix means', () => {
+  const service = new FileSelectionService();
+
+  // Ohne diese Duldung suchte der Vergleich einen Stern im Dateinamen und fände
+  // nichts — ein Lauf, der gelingt und keine Datei bewegt.
+  assert.equal(service.matchesFilename('MeinDateiname_2026.csv', 'MeinDatei*'), true);
+  assert.equal(service.matchesFilename('MeinDateiname_2026.csv', 'MeinDatei'), true);
+  assert.equal(service.matchesFilename('AndereDatei.csv', 'MeinDatei*'), false);
+});
+
+test('a star in front asks for the end of the name', () => {
+  const service = new FileSelectionService();
+
+  // Gemessen am Namen ohne Endung: Sonst könnte „endet auf" nie zutreffen, denn
+  // der Name endet auf .csv und nicht auf das gesuchte Wort.
+  assert.equal(service.matchesFilename('Rechnung_Export.csv', '*Export'), true);
+  assert.equal(service.matchesFilename('Rechnung_Export.csv', '*Rechnung'), false);
+  assert.equal(service.matchesFilename('Export', '*Export'), true);
+});
+
+test('a star on both sides asks for anywhere in the name', () => {
+  const service = new FileSelectionService();
+
+  assert.equal(service.matchesFilename('2026_ORDER_final.csv', '*ORDER*'), true);
+  assert.equal(service.matchesFilename('2026_ORDER_final.csv', '*ORDER'), false);
+  assert.equal(service.matchesFilename('2026_ORDER_final.csv', 'ORDER*'), false);
+  assert.equal(service.matchesFilename('nichts.csv', '*ORDER*'), false);
+});
+
+test('stars alone restrict nothing, and one in the middle is just a character', () => {
+  const service = new FileSelectionService();
+
+  assert.equal(service.matchesFilename('irgendwas.csv', '*'), true);
+  assert.equal(service.matchesFilename('irgendwas.csv', '**'), true);
+  assert.equal(service.matchesFilename('irgendwas.csv', '   '), true);
+
+  // Keine halbe Mustersprache, die man für eine ganze hält.
+  assert.equal(service.matchesFilename('MeinDateiname.csv', 'Mein*name'), false);
+});
+
+test('the three shapes respect case sensitivity like the prefix always did', () => {
+  const service = new FileSelectionService();
+
+  assert.equal(service.matchesFilename('ORDER_1.csv', 'order*', true), false);
+  assert.equal(service.matchesFilename('ORDER_1.csv', 'order*', false), true);
+  assert.equal(service.matchesFilename('Rechnung_EXPORT.csv', '*export', true), false);
+  assert.equal(service.matchesFilename('Rechnung_EXPORT.csv', '*export', false), true);
+  assert.equal(service.matchesFilename('a_EXPORT_b.csv', '*export*', true), false);
+  assert.equal(service.matchesFilename('a_EXPORT_b.csv', '*export*', false), true);
+});
+
+test('an extension typed into the pattern is understood, not taken literally', () => {
+  const service = new FileSelectionService();
+
+  // Wörtlich gelesen wäre das ein Name, der mit „ORDER_.csv" beginnt — und
+  // träfe auf nichts zu. Ein Lauf, der gelingt und keine Datei holt.
+  assert.equal(service.matchesFilename('ORDER_2026.csv', 'ORDER_.csv'), true);
+  assert.equal(service.matchesFilename('ORDER_2026.xml', 'ORDER_.csv'), false);
+  assert.equal(service.matchesFilename('RECHNUNG_1.csv', 'ORDER_.csv'), false);
+
+  // Auch mit Stern, in jeder der drei Formen.
+  assert.equal(service.matchesFilename('MeinDatei_1.csv', 'MeinDatei*.csv'), true);
+  assert.equal(service.matchesFilename('Rechnung_Export.csv', '*Export.csv'), true);
+  assert.equal(service.matchesFilename('a_ORDER_b.csv', '*ORDER*.csv'), true);
+});
+
+test('the file itself decides whether the tail was an extension', () => {
+  const service = new FileSelectionService();
+
+  /*
+   * Derselbe Ausdruck, zwei Lesarten — und es muss nicht geraten werden, weil
+   * die Datei die Frage beantwortet. Genau deshalb steht die Regel hier und
+   * nicht im Eingabefeld.
+   */
+  assert.equal(service.matchesFilename('Rechnung_2026.2026', 'Rechnung_2026.2026'), true);
+  assert.equal(service.matchesFilename('Rechnung_2026.2026_final.csv', 'Rechnung_2026.2026'), true);
+
+  // Eine Versionsnummer im Namen bleibt eine Versionsnummer.
+  assert.equal(service.matchesFilename('Rechnung.v1.csv', 'Rechnung.v1'), true);
+  assert.equal(service.matchesFilename('Rechnung.v2.csv', 'Rechnung.v1'), false);
+});
+
+test('the extension in a pattern is compared without regard to case', () => {
+  const service = new FileSelectionService();
+
+  // Ob die Quelle .CSV oder .csv schreibt, ist ihre Angewohnheit — und keine
+  // Aussage über den Namen, für den der Job auf Schreibweise achten mag.
+  assert.equal(service.matchesFilename('ORDER_1.CSV', 'ORDER_.csv', true), true);
+  assert.equal(service.matchesFilename('ORDER_1.csv', 'ORDER_.CSV', true), true);
+  assert.equal(service.matchesFilename('order_1.csv', 'ORDER_.csv', true), false);
+});
+
+test('a pattern that is only an extension asks for every file of that kind', () => {
+  const service = new FileSelectionService();
+
+  assert.equal(service.matchesFilename('irgendwas.csv', '*.csv'), true);
+  assert.equal(service.matchesFilename('irgendwas.xml', '*.csv'), false);
+
+  // Ein führender Punkt bleibt der Anfang eines Namens: `.csv` ist eine Datei,
+  // die so heißt, und wer danach sucht, meint den Namen.
+  assert.equal(service.matchesFilename('.csv', '.csv'), true);
+  assert.equal(service.matchesFilename('bericht.csv', '.csv'), false);
+});

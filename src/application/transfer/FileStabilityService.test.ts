@@ -56,7 +56,7 @@ test('a growing file is not stable', async () => {
   const result = await service.check(file, config(), probeReturning({ size: 1_510_000, lastModified }));
 
   assert.equal(result.stable, false);
-  assert.match(result.message, /still being written/);
+  assert.match(result.message, /wird noch geschrieben/);
 });
 
 test('a changed modification time makes the file unstable', async () => {
@@ -83,7 +83,7 @@ test('a file that disappears mid-check is not stable', async () => {
   const result = await service.check(file, config(), probeReturning(undefined));
 
   assert.equal(result.stable, false);
-  assert.match(result.message, /disappeared/);
+  assert.match(result.message, /verschwunden/);
 });
 
 test('more required checks lead to more measurements', async () => {

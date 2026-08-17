@@ -57,7 +57,7 @@ export function jobRoutes(application: UnikomApplication): Route[] {
         const job = await application.jobService.getById(params.id);
 
         if (!job) {
-          throw new ApiError(404, `There is no job ${params.id}`);
+          throw new ApiError(404, `Den Workflow ${params.id} gibt es nicht`);
         }
 
         return ok({ ...job, requiredFeatures: requiredFeaturesFor(job) });
@@ -85,6 +85,34 @@ export function jobRoutes(application: UnikomApplication): Route[] {
         } finally {
           await adapter.dispose?.();
         }
+      },
+    },
+    {
+      /*
+       * Looking at the remote server while the job is being written: does this
+       * directory exist, and what is below it.
+       *
+       * One endpoint for the tick-or-cross and for the directory browser,
+       * because they are the same question — a listing that succeeds is the
+       * proof that the directory is there, and its contents are what the
+       * browser shows.
+       */
+      method: 'POST',
+      pattern: '/api/jobs/browse-remote',
+      authorization: 'MANAGE_JOBS',
+      handle: async ({ body }) => {
+        const input = requireObject(body, 'The directory request');
+
+        return ok(
+          await application.remoteDirectories.browse({
+            name: typeof input.name === 'string' ? input.name : 'Neuer Job',
+            tenantId: typeof input.tenantId === 'string' ? input.tenantId : DEFAULT_TENANT_ID,
+            sourceType: input.sourceType as TransferJob['sourceType'],
+            sourceConfig: input.sourceConfig as TransferJob['sourceConfig'],
+            credentialId: typeof input.credentialId === 'string' ? input.credentialId : undefined,
+            directory: typeof input.directory === 'string' ? input.directory : '',
+          })
+        );
       },
     },
     {
@@ -136,7 +164,7 @@ export function jobRoutes(application: UnikomApplication): Route[] {
         const updated = await application.jobService.update(params.id, reviveJob(body));
 
         if (!updated) {
-          throw new ApiError(404, `There is no job ${params.id}`);
+          throw new ApiError(404, `Den Workflow ${params.id} gibt es nicht`);
         }
 
         return ok(updated);
@@ -159,7 +187,7 @@ export function jobRoutes(application: UnikomApplication): Route[] {
         const run = await application.runtime.orchestrator.runJobNow(params.id);
 
         if (!run) {
-          throw new ApiError(404, `There is no job ${params.id}, or it may not be started by hand`);
+          throw new ApiError(404, `Den Workflow ${params.id} gibt es nicht, oder er darf nicht von Hand gestartet werden`);
         }
 
         return ok(run);

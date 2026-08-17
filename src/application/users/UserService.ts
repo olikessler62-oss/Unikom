@@ -14,7 +14,7 @@ import { PasswordHasher } from '../../infrastructure/security/PasswordHasher.js'
 export const MAX_FAILED_ATTEMPTS = 10;
 export const LOCK_MINUTES = 15;
 /** Short enough to be a real barrier, long enough not to annoy. */
-export const MINIMUM_PASSWORD_LENGTH = 12;
+export const MINIMUM_PASSWORD_LENGTH = 10;
 
 export type AuthenticationFailure =
   | 'INVALID_CREDENTIALS'
@@ -50,11 +50,11 @@ export class UserService {
     const username = input.username.trim();
 
     if (!username) {
-      throw new Error('A user needs a username');
+      throw new Error('Ein Benutzer braucht einen Anmeldenamen');
     }
 
     if (await this.userRepository.findByUsername(username)) {
-      throw new Error(`The username "${username}" is already taken`);
+      throw new Error(`Den Anmeldenamen „${username}“ gibt es schon`);
     }
 
     assertPasswordIsAcceptable(input.password);
@@ -123,13 +123,13 @@ export class UserService {
     const user = await this.require(userId);
 
     if (!(await this.hasher.verify(currentPassword, user.passwordHash))) {
-      throw new Error('The current password is not correct');
+      throw new Error('Das bisherige Passwort stimmt nicht');
     }
 
     assertPasswordIsAcceptable(newPassword);
 
     if (await this.hasher.verify(newPassword, user.passwordHash)) {
-      throw new Error('The new password has to differ from the current one');
+      throw new Error('Das neue Passwort muss sich vom bisherigen unterscheiden');
     }
 
     await this.userRepository.save({
@@ -201,7 +201,7 @@ export class UserService {
     const user = await this.userRepository.getById(userId);
 
     if (!user) {
-      throw new Error(`There is no user ${userId}`);
+      throw new Error(`Den Benutzer ${userId} gibt es nicht`);
     }
 
     return user;
@@ -228,8 +228,8 @@ export class UserService {
 
     if (others.length === 0) {
       throw new Error(
-        `"${user.username}" is the last active administrator. Appoint another one first, ` +
-          'otherwise nobody can manage this installation any more'
+        `„${user.username}“ ist der letzte aktive Administrator. Bitte zuerst einen weiteren ernennen — ` +
+          'sonst kann diese Installation niemand mehr verwalten'
       );
     }
   }
@@ -253,6 +253,6 @@ function invalidCredentials(): AuthenticationResult {
 
 function assertPasswordIsAcceptable(password: string): void {
   if (password.length < MINIMUM_PASSWORD_LENGTH) {
-    throw new Error(`A password needs at least ${MINIMUM_PASSWORD_LENGTH} characters`);
+    throw new Error(`Ein Passwort braucht mindestens ${MINIMUM_PASSWORD_LENGTH} Zeichen`);
   }
 }

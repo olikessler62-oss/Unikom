@@ -45,7 +45,7 @@ async function setup(jobOverrides = {}): Promise<Harness> {
 function recordingStage(harness: Harness): ProcessingStage {
   return {
     name: 'recording',
-    requiredFeature: 'STEP_2_CONSOLIDATION',
+    requiredFeature: 'CONSOLIDATION',
     process: async (context) => {
       harness.handedOver.push(context);
       return context;
@@ -129,7 +129,7 @@ test('a failing stage is reported but leaves step 1 intact', async () => {
   const harness = await setup({ sourceSuccessAction: 'DELETE' });
   harness.application.processingStages.register({
     name: 'consolidation',
-    requiredFeature: 'STEP_2_CONSOLIDATION',
+    requiredFeature: 'CONSOLIDATION',
     process: async () => {
       throw new Error('column "amount" is missing');
     },

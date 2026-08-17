@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 
 import { useResource } from '../../api/useResource.js';
-import type { Job, RunSummary, TransferFile } from '../../api/types.js';
+import type { Job, RunSummary, Tenant, TransferFile } from '../../api/types.js';
 import { Empty, formatDuration, formatMoment, Loading, Notice, RunBadge } from '../../components/Pieces.js';
+import { fill, type TextKey } from '../../i18n/texts.js';
+import { useText } from '../../i18n/useText.js';
 import { RunDetailScreen } from './RunDetailScreen.js';
 
 interface Props {
@@ -10,20 +12,44 @@ interface Props {
 }
 
 export function HistoryScreen({ initialJobId }: Props) {
+  const t = useText();
   const jobs = useResource<Job[]>('/api/jobs');
+  const tenants = useResource<Tenant[]>('/api/tenants');
+  // Leer heißt beide Male: alle. Ein Mandant ist eine Einschränkung, keine
+  // Vorbedingung — wer nur einen hat, soll ihn nicht erst auswählen müssen.
+  const [tenantId, setTenantId] = useState('');
   const [jobId, setJobId] = useState(initialJobId ?? '');
   const [runId, setRunId] = useState<string>();
   const [onlyFailures, setOnlyFailures] = useState(false);
 
-  // The first job is picked once the list arrives, so the screen is never
-  // empty for no reason.
-  useEffect(() => {
-    if (!jobId && jobs.data && jobs.data.length > 0) {
-      setJobId(jobs.data[0].id);
-    }
-  }, [jobId, jobs.data]);
+  const shown = jobs.data?.filter((job) => !tenantId || job.tenantId === tenantId) ?? [];
 
-  const runs = useResource<RunSummary[]>(jobId ? `/api/jobs/${jobId}/runs` : undefined);
+  // Ein gewählter Gegenstand, der nicht mehr zum Mandanten gehört, fällt auf
+  // „alle" zurück. Sonst zeigte die Ansicht die Läufe eines Jobs, der in der
+  // Combobox darüber gar nicht mehr steht.
+  useEffect(() => {
+    if (!jobs.data || !jobId) {
+      return;
+    }
+
+    const job = jobs.data.find((entry) => entry.id === jobId);
+
+    if (!job || (tenantId && job.tenantId !== tenantId)) {
+      setJobId('');
+    }
+  }, [jobId, jobs.data, tenantId]);
+
+  /*
+   * Ohne einzelnen Gegenstand kommen die Läufe quer über alle Jobs. Der Mandant
+   * wird dabei vom Server eingegrenzt und nicht hier: Eine Seite der neuesten
+   * Läufe nachträglich zu filtern zeigte für einen Mandanten nichts, dessen
+   * Läufe älter sind als diese Seite.
+   */
+  const runs = useResource<RunSummary[]>(
+    jobId
+      ? `/api/jobs/${jobId}/runs`
+      : `/api/runs${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ''}`
+  );
   const failures = useResource<TransferFile[]>(jobId && onlyFailures ? `/api/jobs/${jobId}/failures` : undefined);
 
   if (runId) {
@@ -39,75 +65,145 @@ export function HistoryScreen({ initialJobId }: Props) {
   }
 
   if (jobs.data.length === 0) {
-    return <Empty>Es ist noch kein Job angelegt, also gibt es auch keine Historie.</Empty>;
+    return <Empty>{t('history.noJobs')}</Empty>;
   }
+
+  const jobById = new Map(jobs.data.map((job) => [job.id, job]));
+  const tenantById = new Map((tenants.data ?? []).map((tenant) => [tenant.id, tenant]));
+  const times = (key: TextKey, count: number) => fill(t(key), { n: count });
 
   return (
     <>
-      <div className="row" style={{ marginBottom: '1rem' }}>
-        <select style={{ width: 'auto' }} value={jobId} onChange={(event) => setJobId(event.target.value)}>
-          {jobs.data.map((job) => (
-            <option key={job.id} value={job.id}>
-              {job.name}
-            </option>
-          ))}
-        </select>
+      {/*
+       * Zwei Comboboxen nebeneinander: erst der Mandant, dann sein Gegenstand.
+       * Die zweite zeigt nur, was zur ersten gehört — eine Liste aller Jobs
+       * aller Mandanten ist bei mehreren Kunden nicht mehr zu überblicken.
+       */}
+      <div className="filters">
+        <div className="filters__field">
+          <label htmlFor="history-tenant">{t('history.tenant')}</label>
+          <select id="history-tenant" value={tenantId} onChange={(event) => setTenantId(event.target.value)}>
+            <option value="">{t('history.allTenants')}</option>
+            {tenants.data?.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <label style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', marginBottom: 0, fontWeight: 400 }}>
+        <div className="filters__field">
+          <label htmlFor="history-subject">{t('history.subject')}</label>
+          <select id="history-subject" value={jobId} onChange={(event) => setJobId(event.target.value)}>
+            <option value="">{t('history.allSubjects')}</option>
+            {shown.map((job) => (
+              <option key={job.id} value={job.id}>
+                {job.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/*
+         * Fehlgeschlagene Dateien gibt es nur je Gegenstand. Der Haken bleibt
+         * trotzdem stehen, statt zu verschwinden und wiederzukommen — gesperrt
+         * mit dem Grund daneben ist ehrlicher als eine Zeile, die springt.
+         */}
+        <label className={jobId ? 'check' : 'check check--off'} title={jobId ? undefined : t('history.needsSubject')}>
           <input
             type="checkbox"
             style={{ width: 'auto' }}
-            checked={onlyFailures}
+            disabled={!jobId}
+            checked={onlyFailures && Boolean(jobId)}
             onChange={(event) => setOnlyFailures(event.target.checked)}
           />
-          Nur fehlgeschlagene Dateien
+          {t('history.onlyFailures')}
         </label>
       </div>
 
-      {onlyFailures ? (
+      {onlyFailures && jobId ? (
         <FailureList resource={failures} />
       ) : runs.error ? (
         <Notice kind="error">{runs.error}</Notice>
       ) : !runs.data ? (
         <Loading />
       ) : runs.data.length === 0 ? (
-        <Empty>Dieser Job ist noch nie gelaufen.</Empty>
+        <Empty>{t('history.neverRan')}</Empty>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="table--runs">
             <thead>
               <tr>
-                <th>Beginn</th>
-                <th>Status</th>
-                <th className="numeric">Dauer</th>
-                <th className="numeric">Gefunden</th>
-                <th className="numeric">Übernommen</th>
-                <th className="numeric">Übersprungen</th>
-                <th className="numeric">Fehler</th>
-                <th />
+                {/*
+                 * Mandant und Gegenstand teilen sich eine Spalte, so wie Beginn
+                 * und Dauer. Der Gegenstand gehört dem Mandanten — untereinander
+                 * liest sich das als eine Angabe, und es spart den Innenabstand
+                 * einer zweiten Spalte.
+                 *
+                 * Sie stehen auch dann da, wenn beide Comboboxen auf einen
+                 * einzelnen zeigen: Bei „Alle Mandanten" sieht man, wessen Lauf
+                 * man vor sich hat, und die Tabelle behält ihre Spalten, wenn
+                 * man den Filter ändert.
+                 *
+                 * Es ist außerdem die einzige Spalte, die wachsen darf. Ohne sie
+                 * verteilte sich der übrige Platz auf die Zahlen, und vier
+                 * Ziffern nahmen über sechzig Prozent der Fläche ein.
+                 */}
+                <th>{t('history.who')}</th>
+                {/*
+                 * Beginn und Dauer teilen sich eine Spalte. Sie beschreiben
+                 * denselben Vorgang — wann er anfing und wie lange er dauerte —
+                 * und in zwei Spalten kostete das Breite, die die Tabelle auf
+                 * 1920×1080 nicht hat.
+                 */}
+                <th>{t('history.began')}</th>
+                <th>{t('history.status')}</th>
+                <th className="numeric">{t('history.found')}</th>
+                <th className="numeric">{t('history.taken')}</th>
+                <th className="numeric">{t('history.skipped')}</th>
+                <th className="numeric">{t('history.failed')}</th>
+                <th className="cell--open" />
               </tr>
             </thead>
             <tbody>
-              {runs.data.map((run) => (
-                <tr key={run.runId}>
-                  <td>{formatMoment(run.startedAt)}</td>
-                  <td>
-                    <RunBadge status={run.status} />
-                  </td>
-                  <td className="numeric">{formatDuration(run.durationMs)}</td>
-                  <td className="numeric">{run.filesFound}</td>
-                  <td className="numeric">{run.filesSucceeded}</td>
-                  <td className="numeric">{run.filesSkipped}</td>
-                  <td className="numeric">
-                    {run.filesFailed > 0 ? <strong style={{ color: 'var(--bad)' }}>{run.filesFailed}</strong> : 0}
-                  </td>
-                  <td>
-                    <button className="secondary" onClick={() => setRunId(run.runId)}>
-                      Öffnen
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {runs.data.map((run) => {
+                const job = jobById.get(run.jobId);
+                const tenant = job ? tenantById.get(job.tenantId) : undefined;
+
+                return (
+                  // Die ganze Zeile öffnet den Lauf. Der Knopf am Ende bleibt
+                  // trotzdem: eine Zeile ist mit der Tastatur nicht erreichbar,
+                  // und ohne ihn sähe niemand, dass hier etwas zu öffnen ist.
+                  <tr key={run.runId} className="row--opens" onClick={() => setRunId(run.runId)}>
+                    <td>
+                      <div>{tenant?.name ?? '—'}</div>
+                      <div className="cell__sub">{job?.name ?? '—'}</div>
+                    </td>
+                    <td>
+                      <div>{formatMoment(run.startedAt)}</div>
+                      <div className="cell__sub">{formatDuration(run.durationMs)}</div>
+                    </td>
+                    <td>
+                      <RunBadge status={run.status} />
+                    </td>
+                    <td className="numeric" title={times('history.found.each', run.filesFound)}>
+                      {run.filesFound}
+                    </td>
+                    <td className="numeric" title={times('history.taken.each', run.filesSucceeded)}>
+                      {run.filesSucceeded}
+                    </td>
+                    <td className="numeric" title={times('history.skipped.each', run.filesSkipped)}>
+                      {run.filesSkipped}
+                    </td>
+                    <td className="numeric" title={times('history.failed.each', run.filesFailed)}>
+                      {run.filesFailed > 0 ? <strong className="value--bad">{run.filesFailed}</strong> : 0}
+                    </td>
+                    <td className="cell--open">
+                      <OpenButton label={t('history.open')} onOpen={() => setRunId(run.runId)} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -116,8 +212,31 @@ export function HistoryScreen({ initialJobId }: Props) {
   );
 }
 
-/** Every file of this job that never made it, across all runs. */
+/** Der Pfeil am Zeilenende — dieselbe Wirkung wie ein Klick auf die Zeile. */
+function OpenButton({ label, onOpen }: { label: string; onOpen(): void }) {
+  return (
+    <button
+      type="button"
+      className="open-button"
+      aria-label={label}
+      title={label}
+      onClick={(event) => {
+        // Sonst zählte der Klick zweimal: einmal hier, einmal in der Zeile.
+        event.stopPropagation();
+        onOpen();
+      }}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="m9 5 7 7-7 7" />
+      </svg>
+    </button>
+  );
+}
+
+/** Jede Datei dieses Jobs, die es nie geschafft hat — über alle Läufe hinweg. */
 function FailureList({ resource }: { resource: ReturnType<typeof useResource<TransferFile[]>> }) {
+  const t = useText();
+
   if (resource.error) {
     return <Notice kind="error">{resource.error}</Notice>;
   }
@@ -127,7 +246,7 @@ function FailureList({ resource }: { resource: ReturnType<typeof useResource<Tra
   }
 
   if (resource.data.length === 0) {
-    return <Empty>Keine Datei dieses Jobs ist bisher fehlgeschlagen.</Empty>;
+    return <Empty>{t('history.noFailures')}</Empty>;
   }
 
   return (
@@ -135,9 +254,9 @@ function FailureList({ resource }: { resource: ReturnType<typeof useResource<Tra
       <table>
         <thead>
           <tr>
-            <th>Datei</th>
-            <th>Zeitpunkt</th>
-            <th>Grund</th>
+            <th>{t('history.file')}</th>
+            <th>{t('history.moment')}</th>
+            <th>{t('history.reason')}</th>
           </tr>
         </thead>
         <tbody>
@@ -145,11 +264,9 @@ function FailureList({ resource }: { resource: ReturnType<typeof useResource<Tra
             <tr key={file.id}>
               <td>
                 <div>{file.sourceFilename}</div>
-                <div className="muted" style={{ fontSize: '0.85rem' }}>
-                  {file.sourcePath}
-                </div>
+                <div className="cell__sub">{file.sourcePath}</div>
               </td>
-              <td>{formatMoment(file.startedAt)}</td>
+              <td className="cell--moment">{formatMoment(file.startedAt)}</td>
               <td>{file.errorMessage ?? file.errorCode ?? '—'}</td>
             </tr>
           ))}

@@ -32,7 +32,7 @@ test('a directory that does not exist is reported as a failure', async () => {
   // This used to answer "successful" without looking, which is the worst
   // possible answer for a button labelled "test connection".
   assert.equal(result.ok, false);
-  assert.match(result.message, /does not exist/);
+  assert.match(result.message, /gibt es nicht/);
 });
 
 test('a file instead of a directory is reported as a failure', async () => {
@@ -43,7 +43,7 @@ test('a file instead of a directory is reported as a failure', async () => {
   const result = await new LocalSourceAdapter(file).testConnection();
 
   assert.equal(result.ok, false);
-  assert.match(result.message, /not a directory/);
+  assert.match(result.message, /kein Verzeichnis/);
 });
 
 test('without a configured directory the test says so instead of passing', async () => {

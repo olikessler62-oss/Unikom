@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   allFeatures,
-  coreOnly,
+  noModules,
+  transferOnly,
   FeatureNotLicensedError,
   StaticFeatureSet,
 } from '../../domain/licensing/Feature.js';
@@ -31,14 +32,19 @@ const encryptingJob = createTransferJob({
   encryptionConfig: { enabled: true, provider: 'AES_256_GCM', keyCredentialId: 'key-1' },
 });
 
-test('the base product needs no module', () => {
-  assert.deepEqual(requiredFeaturesFor(localJob), []);
-  assertJobIsLicensed(localJob, coreOnly());
+test('moving files is a module of its own, and an installation without it may not', () => {
+  // It used to be the free base product. That only held while every other module
+  // was an addition to it; once consolidation can be bought alone, giving the
+  // transfer away would hand over the module that carries the rest.
+  assert.deepEqual(requiredFeaturesFor(localJob), ['TRANSFER']);
+
+  assert.throws(() => assertJobIsLicensed(localJob, noModules()), FeatureNotLicensedError);
+  assertJobIsLicensed(localJob, transferOnly());
 });
 
 test('a remote source and an encrypted destination each name their module', () => {
-  assert.deepEqual(requiredFeaturesFor(sftpJob), ['REMOTE_SOURCES']);
-  assert.deepEqual(requiredFeaturesFor(encryptingJob), ['ENCRYPTION']);
+  assert.deepEqual(requiredFeaturesFor(sftpJob), ['REMOTE_SOURCES', 'TRANSFER']);
+  assert.deepEqual(requiredFeaturesFor(encryptingJob), ['ENCRYPTION', 'TRANSFER']);
 });
 
 test('SFTP and FTPS belong to the same module', () => {
@@ -46,21 +52,28 @@ test('SFTP and FTPS belong to the same module', () => {
     sourceType: 'FTPS',
     sourceConfig: { type: 'FTPS', host: 'ftps.example.com', port: 990, directory: '/out' },
   });
-  const remoteOnly = new StaticFeatureSet(['REMOTE_SOURCES']);
+  // Remote access is a capability inside the transfer, not a product beside it:
+  // it needs both, and neither alone is enough.
+  const remote = new StaticFeatureSet(['REMOTE_SOURCES', 'TRANSFER']);
 
-  assertJobIsLicensed(sftpJob, remoteOnly);
-  assertJobIsLicensed(ftpsJob, remoteOnly);
+  assertJobIsLicensed(sftpJob, remote);
+  assertJobIsLicensed(ftpsJob, remote);
+
+  assert.throws(
+    () => assertJobIsLicensed(sftpJob, new StaticFeatureSet(['REMOTE_SOURCES'])),
+    FeatureNotLicensedError
+  );
 });
 
 test('saving a job without its module fails with the module named', async () => {
-  const service = new TransferJobService(new InMemoryTransferJobRepository(), coreOnly());
+  const service = new TransferJobService(new InMemoryTransferJobRepository(), noModules());
 
   await assert.rejects(
     () => service.create(sftpJob),
     (error: unknown) => {
       assert.ok(error instanceof FeatureNotLicensedError);
       assert.equal(error.feature, 'REMOTE_SOURCES');
-      assert.match(error.message, /Remote sources \(SFTP, FTPS\)/);
+      assert.match(error.message, /Entfernte Quellen \(SFTP, FTPS\)/);
       return true;
     }
   );
@@ -68,7 +81,7 @@ test('saving a job without its module fails with the module named', async () => 
 
 test('an update is checked against the merged job, not the patch', async () => {
   const repository = new InMemoryTransferJobRepository();
-  const service = new TransferJobService(repository, coreOnly());
+  const service = new TransferJobService(repository, transferOnly());
   await service.create(localJob);
 
   // Switching the source over arrives as two unremarkable field changes.
@@ -91,7 +104,7 @@ test('jobs that a downgrade left unrunnable can be named', async () => {
   await repository.save(localJob);
   await repository.save(sftpJob);
 
-  const unlicensed = await new TransferJobService(repository, coreOnly()).listUnlicensed();
+  const unlicensed = await new TransferJobService(repository, transferOnly()).listUnlicensed();
 
   assert.equal(unlicensed.length, 1);
   assert.equal(unlicensed[0].job.id, 'job-sftp');
@@ -99,7 +112,7 @@ test('jobs that a downgrade left unrunnable can be named', async () => {
 });
 
 test('no remote adapter is built without the module, even for a stored job', async () => {
-  const provider = new SourceAdapterProvider(undefined, coreOnly());
+  const provider = new SourceAdapterProvider(undefined, noModules());
 
   await assert.rejects(() => provider.forJob(sftpJob), FeatureNotLicensedError);
   // The base product still works.
@@ -121,7 +134,7 @@ test('an unlicensed encryption refuses instead of storing in the clear', async (
 
   const application = createInMemoryApplication({
     stagingRoot: path.join(root, 'application-data'),
-    features: coreOnly(),
+    features: noModules(),
     encryptionKeyProvider: { getKey: async () => 'a-passphrase-for-the-test' },
   });
 
@@ -138,7 +151,7 @@ test('an unlicensed encryption refuses instead of storing in the clear', async (
 
   const [record] = await application.transferFileRepository.listByJob('customer-a');
   assert.equal(record.status, FileTransferStatus.FAILED);
-  assert.match(record.errorMessage ?? '', /Encrypted storage/);
+  assert.match(record.errorMessage ?? '', /Verschlüsselte Ablage/);
 
   // The decisive part: nothing reached the destination, least of all plaintext.
   assert.deepEqual(await fs.readdir(destinationDirectory).catch(() => []), []);

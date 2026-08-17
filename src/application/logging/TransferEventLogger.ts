@@ -11,13 +11,30 @@ import type { TransferEventListener, TransferEventName } from '../transfer/Trans
  */
 const EVENT_LEVELS: Record<TransferEventName, LogLevel> = {
   TRANSFER_RUN_STARTED: 'INFO',
+  // Announcements are DEBUG, completions INFO: at INFO the log reads as what
+  // happened, at DEBUG as what was being attempted at every moment. Both are
+  // wanted, by different readers, at different times.
+  SOURCE_STEP: 'DEBUG',
+  RUN_STEP: 'DEBUG',
+  // Ein Abbruch ist kein Fehler, aber auch nichts, was im Kleingedruckten
+  // stehen darf: Jemand hat eingegriffen, und das erklärt den Rest des Laufs.
+  RUN_CANCELLED: 'WARNING',
+  FILE_CHECKED: 'DEBUG',
+  FILE_RENAMED: 'INFO',
   FILE_DISCOVERED: 'DEBUG',
   FILE_SELECTED: 'DEBUG',
   FILE_STABLE: 'DEBUG',
+  FILE_DOWNLOADING: 'DEBUG',
   FILE_DOWNLOADED: 'INFO',
+  FILE_VALIDATING: 'DEBUG',
   FILE_VALIDATED: 'INFO',
+  FILE_DECRYPTING: 'DEBUG',
+  FILE_DECRYPTED: 'INFO',
+  FILE_ENCRYPTING: 'DEBUG',
   FILE_ENCRYPTED: 'INFO',
+  FILE_STORING: 'DEBUG',
   FILE_STORED: 'INFO',
+  SOURCE_FILE_SETTLED: 'INFO',
   FILE_COMPLETED: 'DEBUG',
   FILE_RETRYING: 'WARNING',
   FILE_FAILED: 'ERROR',
@@ -45,6 +62,7 @@ export function createTransferEventLogger(
       runId: event.runId,
       filename: event.filename,
       context: event.details,
+      jobLevel: event.jobLevel,
     });
   };
 }

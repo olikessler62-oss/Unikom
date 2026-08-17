@@ -62,8 +62,8 @@ export class EnvironmentMasterKeyProvider implements MasterKeyProvider {
       // Never echo the configured value, not even its length in a way that
       // narrows it down beyond what the operator already knows.
       throw new Error(
-        `${this.variableName} must decode to exactly ${MASTER_KEY_BYTES} bytes, but it does not. ` +
-          `Generate a valid key with:
+        `${this.variableName} muss genau ${MASTER_KEY_BYTES} Byte ergeben, tut es aber nicht. ` +
+          `Einen gültigen Schlüssel erzeugen mit:
   ${MASTER_KEY_COMMAND}`
       );
     }
@@ -76,7 +76,7 @@ export class EnvironmentMasterKeyProvider implements MasterKeyProvider {
 export class StaticMasterKeyProvider implements MasterKeyProvider {
   constructor(private readonly key: Buffer) {
     if (key.length !== MASTER_KEY_BYTES) {
-      throw new Error(`A master key must be exactly ${MASTER_KEY_BYTES} bytes`);
+      throw new Error(`Ein Hauptschlüssel muss genau ${MASTER_KEY_BYTES} Byte lang sein`);
     }
   }
 

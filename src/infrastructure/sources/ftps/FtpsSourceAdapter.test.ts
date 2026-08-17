@@ -151,5 +151,5 @@ test('wrong credentials fail without echoing the password', async () => {
 test('a missing host is reported instead of attempted', async () => {
   const adapter = new FtpsSourceAdapter({ type: 'FTPS', directory: '/' });
 
-  assert.match((await adapter.testConnection()).message, /no host configured/);
+  assert.match((await adapter.testConnection()).message, /kein Server eingetragen/);
 });

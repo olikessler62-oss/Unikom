@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { createInMemoryApplication, type UnikomApplication } from '../../runtime/UnikomApplication.js';
-import { coreOnly, StaticFeatureSet } from '../../../domain/licensing/Feature.js';
+import { noModules, StaticFeatureSet } from '../../../domain/licensing/Feature.js';
 import type { FileProcessingContext } from '../../../domain/processing/FileProcessingContext.js';
 import type { ProcessingStage } from '../../../domain/processing/ProcessingStage.js';
 import { ProcessingStageRegistry } from '../ProcessingStageRegistry.js';
@@ -67,7 +67,7 @@ async function setup(encrypted = true): Promise<Harness> {
 function observer(harness: Harness): ProcessingStage {
   return {
     name: 'observer',
-    requiredFeature: 'STEP_2_CONSOLIDATION',
+    requiredFeature: 'CONSOLIDATION',
     process: async (context) => {
       harness.seen.push(context);
       // Reading has to happen here: staging is gone once the run has finished.
@@ -147,7 +147,7 @@ test('the result is re-encrypted with the destination key, not the job key', asy
   const delivered: FileProcessingContext[] = [];
   harness.application.processingStages.register({
     name: 'delivery',
-    requiredFeature: 'STEP_3_FILE_EXPORT',
+    requiredFeature: 'CONVERSION',
     process: async (context) => {
       // Copy it out before staging is cleared, standing in for an upload.
       await fs.copyFile(context.currentFilePath, path.join(harness.root, context.currentFilename));
@@ -201,7 +201,7 @@ test('a wrong job key is reported instead of yielding unusable content', async (
 });
 
 test('decryption needs the encryption module', () => {
-  const withoutEncryption = new ProcessingStageRegistry(new StaticFeatureSet(['STEP_2_CONSOLIDATION']));
+  const withoutEncryption = new ProcessingStageRegistry(new StaticFeatureSet(['CONSOLIDATION']));
   const application = createInMemoryApplication();
 
   assert.equal(
@@ -209,7 +209,7 @@ test('decryption needs the encryption module', () => {
     false
   );
   assert.equal(
-    new ProcessingStageRegistry(coreOnly()).register(new EncryptResultStage('destination-key', keyProvider)),
+    new ProcessingStageRegistry(noModules()).register(new EncryptResultStage('destination-key', keyProvider)),
     false
   );
 });

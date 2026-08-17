@@ -179,7 +179,7 @@ test('identical content under a different name is skipped once the job asks for 
   assert.equal(result.filesSkipped, 1);
   // Which of the two wins depends on scheduling, so assert on the pair.
   const skipped = result.outcomes.find((outcome) => outcome.status === FileTransferStatus.SKIPPED);
-  assert.match(skipped?.message ?? '', /[Ii]dentical content/);
+  assert.match(skipped?.message ?? '', /[Dd]erselbe Inhalt/);
 });
 
 test('the same filename in two subdirectories is two different files', async () => {
@@ -192,7 +192,12 @@ test('the same filename in two subdirectories is two different files', async () 
   const result = await harness.service.execute(harness.job, harness.adapter);
 
   assert.equal(result.filesSucceeded, 2, 'the second file must not count as a duplicate of the first');
-  assert.deepEqual((await fs.readdir(harness.destinationDirectory)).sort(), ['ORDER_001.csv', 'ORDER_001_001.csv']);
+  // Both carry the same stamp — they came in one run — so the counter decides
+  // between them.
+  const stored = (await fs.readdir(harness.destinationDirectory)).sort();
+  assert.equal(stored.length, 2);
+  assert.equal(stored[0], 'ORDER_001.csv');
+  assert.match(stored[1], /^ORDER_001_\d{8}_\d{6}\.csv$/);
 });
 
 test('an existing destination file is skipped by default', async () => {
@@ -219,8 +224,46 @@ test('conflict strategy OVERWRITE replaces the existing file', async () => {
   assert.equal(await fs.readFile(path.join(harness.destinationDirectory, 'ORDER_001.csv'), 'utf8'), CONTENT);
 });
 
-test('conflict strategy RENAME keeps both files', async () => {
+test('conflict strategy RENAME keeps both files and stamps the new one', async () => {
   const harness = await setup({ conflictStrategy: 'RENAME' });
+  await writeSourceFile(harness, 'ORDER_001.csv');
+  await fs.mkdir(harness.destinationDirectory, { recursive: true });
+  await fs.writeFile(path.join(harness.destinationDirectory, 'ORDER_001.csv'), 'older content');
+
+  // A fixed moment, so the name is the one thing under test here. It lies
+  // ahead of the source file's own time, which no age rule minds: a file is
+  // older than the run that fetches it, which is the normal case.
+  const result = await harness.service.execute(harness.job, harness.adapter, {
+    now: new Date('2027-03-04T08:09:10'),
+  });
+
+  assert.equal(result.filesSucceeded, 1);
+  assert.equal(path.basename(result.outcomes[0].destinationPath ?? ''), 'ORDER_001_04032027_080910.csv');
+  assert.equal(await exists(path.join(harness.destinationDirectory, 'ORDER_001.csv')), true);
+  assert.equal(
+    await fs.readFile(path.join(harness.destinationDirectory, 'ORDER_001.csv'), 'utf8'),
+    'older content',
+    'the file that was already there must stay untouched'
+  );
+});
+
+test('an American job writes the month before the day', async () => {
+  // Same moment, same job, one setting apart: 04032027 there, 03042027 here.
+  // A date of digits alone belongs to whoever reads it.
+  const harness = await setup({ conflictStrategy: 'RENAME', timestampNotation: 'MONTH_FIRST' });
+  await writeSourceFile(harness, 'ORDER_001.csv');
+  await fs.mkdir(harness.destinationDirectory, { recursive: true });
+  await fs.writeFile(path.join(harness.destinationDirectory, 'ORDER_001.csv'), 'older content');
+
+  const result = await harness.service.execute(harness.job, harness.adapter, {
+    now: new Date('2027-03-04T08:09:10'),
+  });
+
+  assert.equal(path.basename(result.outcomes[0].destinationPath ?? ''), 'ORDER_001_03042027_080910.csv');
+});
+
+test('conflict strategy NEW_NAME stores under the chosen name and keeps the extension', async () => {
+  const harness = await setup({ conflictStrategy: 'NEW_NAME', conflictFilename: 'Nachlieferung' });
   await writeSourceFile(harness, 'ORDER_001.csv');
   await fs.mkdir(harness.destinationDirectory, { recursive: true });
   await fs.writeFile(path.join(harness.destinationDirectory, 'ORDER_001.csv'), 'older content');
@@ -228,8 +271,32 @@ test('conflict strategy RENAME keeps both files', async () => {
   const result = await harness.service.execute(harness.job, harness.adapter);
 
   assert.equal(result.filesSucceeded, 1);
-  assert.equal(path.basename(result.outcomes[0].destinationPath ?? ''), 'ORDER_001_001.csv');
-  assert.equal(await exists(path.join(harness.destinationDirectory, 'ORDER_001.csv')), true);
+  assert.deepEqual((await fs.readdir(harness.destinationDirectory)).sort(), [
+    'Nachlieferung.csv',
+    'ORDER_001.csv',
+  ]);
+  assert.equal(await fs.readFile(path.join(harness.destinationDirectory, 'Nachlieferung.csv'), 'utf8'), CONTENT);
+});
+
+test('a chosen name that is taken as well gets counted up rather than lost', async () => {
+  // One name for every conflict this job ever has, so the second one meets
+  // itself. Nothing may be dropped over that.
+  const harness = await setup({ conflictStrategy: 'NEW_NAME', conflictFilename: 'Nachlieferung' });
+  await writeSourceFile(harness, 'ORDER_001.csv');
+  await writeSourceFile(harness, 'ORDER_002.csv', 'customer;amount\nB;7\n');
+  await fs.mkdir(harness.destinationDirectory, { recursive: true });
+  await fs.writeFile(path.join(harness.destinationDirectory, 'ORDER_001.csv'), 'older content');
+  await fs.writeFile(path.join(harness.destinationDirectory, 'ORDER_002.csv'), 'older content');
+
+  const result = await harness.service.execute(harness.job, harness.adapter);
+
+  assert.equal(result.filesSucceeded, 2);
+  assert.deepEqual((await fs.readdir(harness.destinationDirectory)).sort(), [
+    'Nachlieferung.csv',
+    'Nachlieferung_001.csv',
+    'ORDER_001.csv',
+    'ORDER_002.csv',
+  ]);
 });
 
 test('the source file is kept by default', async () => {
@@ -398,4 +465,51 @@ test('the staging directory is removed after the run', async () => {
   const result = await harness.service.execute(harness.job, harness.adapter);
 
   assert.equal(await exists(path.join(harness.root, 'application-data', 'staging', result.runId)), false);
+});
+
+/**
+ * Why the editor warns about an archive below the source directory.
+ *
+ * A file is recognised again by where it sat, what it was called, how big it
+ * was and when it was last written — and the move changes the first of those.
+ * So the archived file is a new file to the next run, which fetches it again
+ * and, unless the conflict strategy refuses it, stores it a second time.
+ *
+ * The test states the behaviour rather than fixing it: the archive belongs
+ * next to the source, not inside it, and no rule the engine could invent would
+ * be as clear as saying so where the directory is typed.
+ */
+test('an archive below the source comes back on the next run', async () => {
+  const harness = await setup({
+    includeSubdirectories: true,
+    sourceSuccessAction: 'MOVE',
+    conflictStrategy: 'RENAME',
+  });
+  harness.job.sourceArchiveDirectory = path.join(harness.sourceDirectory, 'archiv');
+  await writeSourceFile(harness, 'ORDER_001.csv');
+
+  const first = await harness.service.execute(harness.job, harness.adapter);
+  assert.equal(first.filesSucceeded, 1);
+  assert.equal(await exists(path.join(harness.sourceDirectory, 'archiv', 'ORDER_001.csv')), true);
+
+  const second = await harness.service.execute(harness.job, harness.adapter);
+
+  assert.equal(second.filesSucceeded, 1, 'the archived file counts as new because it sits somewhere else now');
+  assert.equal((await fs.readdir(harness.destinationDirectory)).length, 2, 'and so it lands a second time');
+});
+
+test('an archive beside the source is left alone', async () => {
+  const harness = await setup({
+    includeSubdirectories: true,
+    sourceSuccessAction: 'MOVE',
+    conflictStrategy: 'RENAME',
+  });
+  harness.job.sourceArchiveDirectory = path.join(harness.root, 'archiv');
+  await writeSourceFile(harness, 'ORDER_001.csv');
+
+  await harness.service.execute(harness.job, harness.adapter);
+  const second = await harness.service.execute(harness.job, harness.adapter);
+
+  assert.equal(second.filesSelected, 0, 'nothing is left in the source to find');
+  assert.deepEqual(await fs.readdir(harness.destinationDirectory), ['ORDER_001.csv']);
 });

@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { UnikomApplication } from '../../application/runtime/UnikomApplication.js';
 import { csrfTokenFor, type AuthenticatedSession } from '../../application/users/SessionService.js';
 import { FeatureNotLicensedError } from '../../domain/licensing/Feature.js';
+import { LicenceExpiredError } from '../../domain/licensing/Licence.js';
 import {
   ApiError,
   matchPath,
@@ -18,6 +19,8 @@ import { authRoutes, SESSION_COOKIE } from './routes/AuthRoutes.js';
 import { credentialRoutes } from './routes/CredentialRoutes.js';
 import { historyRoutes } from './routes/HistoryRoutes.js';
 import { jobRoutes } from './routes/JobRoutes.js';
+import { licenceRoutes, toLicenceView } from './routes/LicenceRoutes.js';
+import { runControlRoutes } from './routes/RunControlRoutes.js';
 import { tenantRoutes } from './routes/TenantRoutes.js';
 import { userRoutes } from './routes/UserRoutes.js';
 
@@ -56,6 +59,8 @@ export class ApiServer {
       ...credentialRoutes(application),
       ...tenantRoutes(application),
       ...userRoutes(application),
+      ...licenceRoutes(application),
+      ...runControlRoutes(application),
     ];
   }
 
@@ -154,7 +159,7 @@ export class ApiServer {
       session = await this.application.sessionService.resolve(token);
 
       if (!session) {
-        throw new ApiError(401, 'Not logged in');
+        throw new ApiError(401, 'Nicht angemeldet');
       }
 
       if (CHANGING_METHODS.has(route.method)) {
@@ -194,6 +199,13 @@ export class ApiServer {
 
     if (error instanceof FeatureNotLicensedError) {
       return { status: 402, body: { error: error.message, feature: error.feature } };
+    }
+
+    // The same 402: both say the installation may not do this until something
+    // has been paid for. The state travels so the interface can point at the
+    // licence rather than only repeating the sentence.
+    if (error instanceof LicenceExpiredError) {
+      return { status: 402, body: { error: error.message, licence: toLicenceView(error.status) } };
     }
 
     if (error instanceof Error) {
@@ -254,10 +266,10 @@ function assertCsrfToken(request: IncomingMessage, sessionToken: string): void {
   const expected = csrfTokenFor(sessionToken);
 
   if (typeof supplied !== 'string' || supplied.length !== expected.length) {
-    throw new ApiError(403, 'The request is missing its CSRF token');
+    throw new ApiError(403, 'Der Anfrage fehlt ihr Sicherheitsmerkmal');
   }
 
   if (!timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) {
-    throw new ApiError(403, 'The CSRF token does not match this session');
+    throw new ApiError(403, 'Das Sicherheitsmerkmal passt nicht zu dieser Sitzung');
   }
 }

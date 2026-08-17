@@ -137,7 +137,7 @@ test('a job cannot write outside its client directory', async () => {
       ),
     (error: unknown) => {
       assert.ok(error instanceof TenantBoundaryError);
-      assert.match(error.message, /outside the directory of "Kunde A"/);
+      assert.match(error.message, /außerhalb des Verzeichnisses von „Kunde A“/);
       return true;
     }
   );
@@ -206,7 +206,7 @@ test('a job cannot use another client credential', async () => {
       ),
     (error: unknown) => {
       assert.ok(error instanceof TenantBoundaryError);
-      assert.match(error.message, /belongs to client "Kunde B"/);
+      assert.match(error.message, /gehört dem Mandanten „Kunde B“/);
       return true;
     }
   );
@@ -258,7 +258,7 @@ test('the adapter refuses a credential that changed hands afterwards', async () 
   const { SourceAdapterProvider } = await import('../transfer/SourceAdapterProvider.js');
   const provider = new SourceAdapterProvider(application.credentialService);
 
-  await assert.rejects(() => provider.forJob(job), /belongs to another client/);
+  await assert.rejects(() => provider.forJob(job), /gehört einem anderen Mandanten/);
 });
 
 test('a client with jobs cannot be deleted by accident', async () => {
@@ -266,7 +266,7 @@ test('a client with jobs cannot be deleted by accident', async () => {
   const kunde = await application.tenantService.create({ name: 'Kunde A' });
   await application.jobService.create(createTransferJob({ id: 'job-a', tenantId: kunde.id }));
 
-  await assert.rejects(() => application.tenantService.delete(kunde.id), /still has 1 job/);
+  await assert.rejects(() => application.tenantService.delete(kunde.id), /hat noch 1 Workflow/);
 
   await application.jobRepository.delete('job-a');
   await application.tenantService.delete(kunde.id);
@@ -278,7 +278,7 @@ test('two clients cannot carry the same name', async () => {
   const { application } = await scenario();
   await application.tenantService.create({ name: 'Kunde A' });
 
-  await assert.rejects(() => application.tenantService.create({ name: 'Kunde A' }), /already a client named/);
+  await assert.rejects(() => application.tenantService.create({ name: 'Kunde A' }), /gibt es schon/);
 });
 
 test('a job pointing at a client that does not exist is refused', async () => {
@@ -286,6 +286,6 @@ test('a job pointing at a client that does not exist is refused', async () => {
 
   await assert.rejects(
     () => application.jobService.create(createTransferJob({ id: 'job-x', tenantId: 'gibtsnicht' })),
-    /does not exist/
+    /den es nicht gibt/
   );
 });

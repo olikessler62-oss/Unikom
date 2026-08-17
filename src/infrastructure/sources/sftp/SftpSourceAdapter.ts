@@ -1,12 +1,14 @@
 import crypto from 'node:crypto';
-import path from 'node:path';
+import type { Writable } from 'node:stream';
 import Client from 'ssh2-sftp-client';
 import type {
   ConnectionTestResult,
   DownloadResult,
   SourceAdapter,
   SourceCredentials,
+  SourceTrace,
 } from '../../../domain/source/SourceAdapter.js';
+import { RemotePathResolver } from '../../../domain/source/RemotePathResolver.js';
 import type { SourceConfig } from '../../../domain/transfer/TransferJob.js';
 import type { SourceFile } from '../../../domain/files/SourceFile.js';
 
@@ -32,52 +34,113 @@ function toDate(value: unknown): Date | undefined {
 export class SftpSourceAdapter implements SourceAdapter {
   private client?: Client;
   private hostKeyProblem?: string;
+  /**
+   * Every path this adapter sends to the server comes out of here. The class
+   * holds no path arithmetic of its own: what the operator typed is turned
+   * into a server path once, at the edge, and everything inside works with
+   * paths the server itself named.
+   */
+  private readonly paths: RemotePathResolver;
+  /** Set from outside; every step below reports through it. */
+  trace?: SourceTrace;
 
   constructor(
     private readonly config: SourceConfig,
     private readonly credentials: SourceCredentials = {}
-  ) {}
+  ) {
+    this.paths = new RemotePathResolver(config.remoteWorkingDirectory);
+  }
 
   async testConnection(): Promise<ConnectionTestResult> {
+    // The test keeps its own record of the steps and hands it back, so a failed
+    // connection can be read as a sequence instead of guessed from one line.
+    const steps: string[] = [];
+    const outer = this.trace;
+    this.trace = (message, details) => {
+      steps.push(message);
+      outer?.(message, details);
+    };
+
     try {
       const files = await this.listFiles(this.config.directory, false);
 
       return {
         ok: true,
-        message: `Connected to ${this.config.host}:${this.config.port ?? 22}, source directory reachable`,
+        message: `Verbunden mit ${this.config.host}:${this.config.port ?? 22}, Quellverzeichnis erreichbar`,
         filesFound: files.filter((file) => !file.isDirectory).length,
+        steps,
       };
     } catch (error) {
       // Never echo credentials; the library only reports the failure kind anyway.
-      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+      const reason = error instanceof Error ? error.message : String(error);
+      steps.push(`Fehlgeschlagen: ${reason}`);
+
+      return { ok: false, message: reason, steps };
+    } finally {
+      this.trace = outer;
     }
   }
 
   async listFiles(directory: string, recursive: boolean): Promise<SourceFile[]> {
+    const resolved = this.paths.resolve(directory);
+    this.trace?.(
+      `„${directory}“ wird gelesen als ${resolved} (Remote-Arbeitsverzeichnis ${this.paths.workingDirectory})`,
+      { entered: directory, resolved }
+    );
+
     const client = await this.connect();
-    return this.listInto(client, directory, recursive);
+    this.trace?.(`${resolved} wird gelesen${recursive ? ' samt Unterverzeichnissen' : ''}`);
+    const files = await this.listInto(client, resolved, recursive);
+    this.trace?.(`${resolved} gelesen: ${files.length} Einträge`);
+
+    return files;
   }
 
   async downloadFile(sourceFile: SourceFile, targetPath: string): Promise<DownloadResult> {
     const client = await this.connect();
+    this.trace?.(`${sourceFile.fullPath} wird über SFTP geholt`);
     await client.fastGet(sourceFile.fullPath, targetPath);
+    this.trace?.(`${sourceFile.fullPath} über SFTP geholt`);
 
-    return { ok: true, message: `Downloaded ${sourceFile.name} over SFTP`, localPath: targetPath };
+    return { ok: true, message: `${sourceFile.name} über SFTP geholt`, localPath: targetPath };
+  }
+
+  /**
+   * Streams the file instead of writing it to a path, so it can be encrypted
+   * on the way in. `fastGet` cannot do this: it opens the target file itself
+   * and would put plaintext on the disk before anybody could intervene.
+   */
+  async downloadTo(sourceFile: SourceFile, destination: Writable): Promise<DownloadResult> {
+    const client = await this.connect();
+    this.trace?.(`${sourceFile.fullPath} wird über SFTP im Strom gelesen`);
+    await client.get(sourceFile.fullPath, destination);
+    this.trace?.(`${sourceFile.fullPath} über SFTP im Strom gelesen`);
+
+    return { ok: true, message: `${sourceFile.name} über SFTP im Strom gelesen` };
   }
 
   async moveFile(sourceFile: SourceFile, targetDirectory: string): Promise<void> {
     const client = await this.connect();
 
-    if (!(await client.exists(targetDirectory))) {
-      await client.mkdir(targetDirectory, true);
+    const target = this.paths.resolve(targetDirectory);
+    this.trace?.(`Archiv „${targetDirectory}“ wird gelesen als ${target}`, { entered: targetDirectory, resolved: target });
+
+    if (!(await client.exists(target))) {
+      this.trace?.(`${target} wird angelegt`);
+      await client.mkdir(target, true);
     }
 
-    await client.rename(sourceFile.fullPath, path.posix.join(targetDirectory, sourceFile.name));
+    const destination = this.paths.join(target, sourceFile.name);
+    this.trace?.(`${sourceFile.fullPath} wird nach ${destination} verschoben`);
+    await client.rename(sourceFile.fullPath, destination);
+    this.trace?.(`${sourceFile.fullPath} nach ${destination} verschoben`);
   }
 
   async deleteFile(sourceFile: SourceFile): Promise<void> {
     const client = await this.connect();
+    this.trace?.(`${sourceFile.fullPath} wird gelöscht`);
     await client.delete(sourceFile.fullPath);
+    this.trace?.(`${sourceFile.fullPath} gelöscht`);
   }
 
   async dispose(): Promise<void> {
@@ -101,11 +164,17 @@ export class SftpSourceAdapter implements SourceAdapter {
     }
 
     if (!this.config.host) {
-      throw new Error('The SFTP source has no host configured');
+      throw new Error('Für diese SFTP-Quelle ist kein Server eingetragen');
     }
 
     const client = new Client();
     this.hostKeyProblem = undefined;
+
+    const method = this.credentials.privateKey ? 'Schlüsseldatei' : this.credentials.password ? 'Passwort' : 'ohne Anmeldedaten';
+    this.trace?.(
+      `Verbindung zu ${this.config.host}:${this.config.port ?? 22} als ` +
+        `„${this.credentials.username ?? this.config.username ?? '—'}“ über ${method}`
+    );
 
     try {
       await client.connect({
@@ -122,12 +191,15 @@ export class SftpSourceAdapter implements SourceAdapter {
       // A rejected host key surfaces as a generic handshake failure, which
       // would send the operator hunting in the wrong place.
       if (this.hostKeyProblem) {
+        this.trace?.(this.hostKeyProblem);
         throw new Error(this.hostKeyProblem);
       }
 
+      this.trace?.(`Verbindung fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
 
+    this.trace?.(`Verbunden und angemeldet über ${method}`);
     this.client = client;
     return client;
   }
@@ -139,6 +211,7 @@ export class SftpSourceAdapter implements SourceAdapter {
    */
   private verifyHostKey(hostKey: Buffer): boolean {
     const actual = fingerprintOf(hostKey);
+    this.trace?.(`Der Server zeigt den Hostkey ${actual}`);
 
     if (this.config.hostKeyFingerprint) {
       const expected = normaliseFingerprint(this.config.hostKeyFingerprint);
@@ -146,23 +219,28 @@ export class SftpSourceAdapter implements SourceAdapter {
         expected.length === actual.length &&
         crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(actual));
 
+      this.trace?.(
+        matches ? 'Der Hostkey stimmt mit dem hinterlegten Fingerabdruck überein' : 'Der Hostkey stimmt NICHT überein'
+      );
+
       if (!matches) {
         this.hostKeyProblem =
-          `The SSH host key of ${this.config.host} does not match the configured fingerprint. ` +
-          `Expected ${expected}, server presented ${actual}. The connection was refused.`;
+          `Der SSH-Hostkey von ${this.config.host} stimmt nicht mit dem hinterlegten Fingerabdruck überein. ` +
+          `Erwartet ${expected}, der Server zeigt ${actual}. Die Verbindung wurde abgelehnt.`;
       }
 
       return matches;
     }
 
     if (this.config.allowUnknownHostKey === true) {
+      this.trace?.('Der Hostkey wird ungeprüft angenommen, weil der Workflow einen unbekannten Schlüssel erlaubt');
       return true;
     }
 
     this.hostKeyProblem =
-      `No SSH host key fingerprint is configured for ${this.config.host}. ` +
-      `The server presented ${actual}. Store this value in hostKeyFingerprint after verifying it, ` +
-      'or set allowUnknownHostKey to accept any key deliberately.';
+      `Für ${this.config.host} ist kein SSH-Hostkey-Fingerabdruck hinterlegt. ` +
+      `Der Server zeigt ${actual}. Diesen Wert nach einer Prüfung als Fingerabdruck eintragen — ` +
+      'oder ausdrücklich erlauben, dass ein unbekannter Hostkey angenommen wird.';
 
     return false;
   }
@@ -172,7 +250,7 @@ export class SftpSourceAdapter implements SourceAdapter {
     const files: SourceFile[] = [];
 
     for (const entry of entries) {
-      const fullPath = path.posix.join(directory, entry.name);
+      const fullPath = this.paths.join(directory, entry.name);
 
       if (entry.type === 'd') {
         files.push({ name: entry.name, fullPath, isDirectory: true });

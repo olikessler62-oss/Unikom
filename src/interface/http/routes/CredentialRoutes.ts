@@ -14,7 +14,7 @@ const TYPES: CredentialType[] = ['USERNAME_PASSWORD', 'SSH_PRIVATE_KEY', 'ENCRYP
 
 function requireType(value: string): CredentialType {
   if (!(TYPES as string[]).includes(value)) {
-    throw new ApiError(400, `"${value}" is not a credential type. Expected one of: ${TYPES.join(', ')}`);
+    throw new ApiError(400, `„${value}“ ist kein Zugangstyp. Erwartet wird einer von: ${TYPES.join(', ')}`);
   }
 
   return value as CredentialType;
@@ -54,6 +54,24 @@ export function credentialRoutes(application: UnikomApplication): Route[] {
           );
         }
 
+        /*
+         * An SSH key takes a different road than a password: the uploaded file
+         * is parsed, and a passphrase may be needed to open it. Without any
+         * material, a pair is generated — the case where the customer has no
+         * key yet and the public half still has to be handed over.
+         */
+        if (type === 'SSH_PRIVATE_KEY') {
+          return created(
+            await application.credentialService.createSshKey({
+              name: requireString(input, 'name'),
+              username: optionalString(input, 'username'),
+              tenantId,
+              material: optionalString(input, 'secret'),
+              passphrase: optionalString(input, 'passphrase'),
+            })
+          );
+        }
+
         return created(
           await application.credentialService.create({
             name: requireString(input, 'name'),
@@ -74,7 +92,7 @@ export function credentialRoutes(application: UnikomApplication): Route[] {
         const renamed = await application.credentialService.rename(params.id, requireString(input, 'name'));
 
         if (!renamed) {
-          throw new ApiError(404, `There is no credential ${params.id}`);
+          throw new ApiError(404, `Den Zugang ${params.id} gibt es nicht`);
         }
 
         return ok(renamed);
@@ -92,10 +110,30 @@ export function credentialRoutes(application: UnikomApplication): Route[] {
         );
 
         if (!replaced) {
-          throw new ApiError(404, `There is no credential ${params.id}`);
+          throw new ApiError(404, `Den Zugang ${params.id} gibt es nicht`);
         }
 
         return ok(replaced);
+      },
+    },
+    {
+      /*
+       * The line to put into the source server's authorized_keys.
+       *
+       * A GET and not part of the summary: it is only interesting while
+       * somebody is setting the connection up, and deriving it means decrypting
+       * the private key — work that should happen when it is asked for, not on
+       * every listing of every credential.
+       */
+      method: 'GET',
+      pattern: '/api/credentials/:id/public-key',
+      authorization: 'MANAGE_CREDENTIALS',
+      handle: async ({ params }) => {
+        try {
+          return ok(await application.credentialService.publicKeyOf(params.id));
+        } catch (failure) {
+          throw new ApiError(404, failure instanceof Error ? failure.message : String(failure));
+        }
       },
     },
     {

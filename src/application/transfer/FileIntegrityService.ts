@@ -36,7 +36,7 @@ export class FileIntegrityService {
         ok: false,
         sha256,
         size,
-        message: `File size mismatch: expected ${options.expectedSize}, got ${size}`,
+        message: `Die Dateigröße stimmt nicht: erwartet ${options.expectedSize}, gelesen ${size}`,
       };
     }
 
@@ -45,7 +45,7 @@ export class FileIntegrityService {
         ok: false,
         sha256,
         size,
-        message: `SHA-256 mismatch: expected ${options.expectedSha256}, got ${sha256}`,
+        message: `Die Prüfsumme stimmt nicht: erwartet ${options.expectedSha256}, berechnet ${sha256}`,
       };
     }
 
@@ -53,7 +53,7 @@ export class FileIntegrityService {
       ok: true,
       sha256,
       size,
-      message: 'File integrity validation succeeded',
+      message: 'Die Datei ist vollständig und unverändert',
     };
   }
 }

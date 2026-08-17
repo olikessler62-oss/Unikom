@@ -1,10 +1,20 @@
-import type { SourceAdapter, ConnectionTestResult, DownloadResult } from '../../../domain/source/SourceAdapter.js';
+import type {
+  SourceAdapter,
+  ConnectionTestResult,
+  DownloadResult,
+  SourceTrace,
+} from '../../../domain/source/SourceAdapter.js';
 import type { SourceFile } from '../../../domain/files/SourceFile.js';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
+import type { Writable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 export class LocalSourceAdapter implements SourceAdapter {
+  /** Set from outside; the steps below report through it. */
+  trace?: SourceTrace;
+
   /**
    * The configured directory. Optional only because older callers built this
    * adapter without one; without it a connection test cannot say anything.
@@ -19,7 +29,7 @@ export class LocalSourceAdapter implements SourceAdapter {
    */
   async testConnection(): Promise<ConnectionTestResult> {
     if (!this.directory) {
-      return { ok: false, message: 'No source directory is configured' };
+      return { ok: false, message: 'Es ist kein Quellverzeichnis eingetragen' };
     }
 
     let entries;
@@ -30,20 +40,20 @@ export class LocalSourceAdapter implements SourceAdapter {
       const code = (error as NodeJS.ErrnoException).code;
 
       if (code === 'ENOENT') {
-        return { ok: false, message: `The directory ${this.directory} does not exist` };
+        return { ok: false, message: `Das Verzeichnis ${this.directory} gibt es nicht` };
       }
 
       if (code === 'ENOTDIR') {
-        return { ok: false, message: `${this.directory} is a file, not a directory` };
+        return { ok: false, message: `${this.directory} ist eine Datei, kein Verzeichnis` };
       }
 
       if (code === 'EACCES' || code === 'EPERM') {
-        return { ok: false, message: `No permission to read ${this.directory}` };
+        return { ok: false, message: `Keine Leseberechtigung für ${this.directory}` };
       }
 
       return {
         ok: false,
-        message: `${this.directory} cannot be read: ${error instanceof Error ? error.message : String(error)}`,
+        message: `${this.directory} lässt sich nicht lesen: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
 
@@ -51,7 +61,8 @@ export class LocalSourceAdapter implements SourceAdapter {
 
     return {
       ok: true,
-      message: `Directory ${this.directory} can be read`,
+      message: `Das Verzeichnis ${this.directory} ist lesbar`,
+      steps: [`${this.directory} wird gelesen`, `${entries.length} Einträge gefunden`],
       // Section 52: the editor shows this, so a directory that is reachable but
       // empty looks different from one that has something in it.
       filesFound,
@@ -95,7 +106,14 @@ export class LocalSourceAdapter implements SourceAdapter {
 
   async downloadFile(sourceFile: SourceFile, targetPath: string): Promise<DownloadResult> {
     await fs.copyFile(sourceFile.fullPath, targetPath);
-    return { ok: true, message: 'File copied successfully', localPath: targetPath };
+    return { ok: true, message: 'Datei kopiert', localPath: targetPath };
+  }
+
+  async downloadTo(sourceFile: SourceFile, destination: Writable): Promise<DownloadResult> {
+    // `pipeline` ends the destination on success and destroys it on failure,
+    // so a read error can never look like a complete file.
+    await pipeline(fsSync.createReadStream(sourceFile.fullPath), destination);
+    return { ok: true, message: 'File read successfully' };
   }
 
   async moveFile(sourceFile: SourceFile, targetDirectory: string): Promise<void> {
