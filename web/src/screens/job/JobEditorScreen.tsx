@@ -16,7 +16,17 @@ import type {
   Tenant,
 } from '../../api/types.js';
 import { CredentialForm, PublicKeyPanel } from '../../components/CredentialForm.js';
-import { CheckField, DurationField, Field, Hint, Loading, Modal, Notice } from '../../components/Pieces.js';
+import {
+  CheckField,
+  DurationField,
+  Field,
+  FieldButton,
+  FolderIcon,
+  Hint,
+  Loading,
+  Modal,
+  Notice,
+} from '../../components/Pieces.js';
 import { useLanguage } from '../../i18n/useText.js';
 import {
   DEFAULT_JOB_LOG_LEVEL,
@@ -912,6 +922,15 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
             {job.saveProtocol && (
               <Field
                 label="Protokollverzeichnis"
+                action={
+                  <FieldButton
+                    title="Protokollverzeichnis aussuchen"
+                    disabled={!job.tenantId || browsing.busy}
+                    onClick={() => void openBrowser(job.protocolDirectory ?? '', 'PROTOCOL')}
+                  >
+                    <FolderIcon />
+                  </FieldButton>
+                }
                 explain="Leer lassen für das Datenverzeichnis der Installation. Ein eigener Pfad ist der Fall „unsere Protokolle gehören auf Laufwerk P:“ — das Konto, unter dem Unikom läuft, braucht dort Schreibrecht."
               >
                 <input
@@ -922,22 +941,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               </Field>
             )}
 
-            {/*
-              * Immer lokal gesucht: Das Protokoll schreibt Unikom selbst, ganz
-              * gleich woher und wohin dieser Workflow überträgt.
-              */}
-            {job.saveProtocol && (
-              <div className="row">
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={!job.tenantId || browsing.busy}
-                  onClick={() => void openBrowser(job.protocolDirectory ?? '', 'PROTOCOL')}
-                >
-                  {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
-                </button>
-              </div>
-            )}
+
 
             <CheckField
               label="Job ist aktiv"
@@ -1138,6 +1142,15 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
 
               <Field
                 label={remote ? 'Remote-Quellverzeichnis' : 'Quellverzeichnis'}
+                action={
+                  <FieldButton
+                    title="Quellverzeichnis aussuchen"
+                    disabled={!job.tenantId || browsing.busy}
+                    onClick={() => void openBrowser(job.sourceDirectory, 'SOURCE')}
+                  >
+                    <FolderIcon />
+                  </FieldButton>
+                }
                 explain={
                   job.sourceType === 'LOCAL' ? (
                     'Verzeichnis auf diesem Rechner, aus dem geholt wird.'
@@ -1193,21 +1206,12 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 * Feld, in dem man am ehesten den Anfang sehen will.
                 */}
               {/*
-                * Aussuchen gilt für jede Herkunft, auch die lokale — geprüft
-                * wird dagegen nur, was über eine Verbindung erreicht wird. Ein
-                * lokales Verzeichnis beantwortet der Browser bereits im
-                * Aussuchen: Was er auflistet, gibt es.
+                * Geprüft wird nur, was über eine Verbindung erreicht wird. Ein
+                * lokales Verzeichnis beantwortet das Aussuchen schon: Was der
+                * Browser auflistet, gibt es.
                 */}
-              <div className="row">
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={!job.tenantId || browsing.busy}
-                  onClick={() => void openBrowser(job.sourceDirectory, 'SOURCE')}
-                >
-                  {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
-                </button>
-                {remote && (
+              {remote && (
+                <div className="row">
                   <button
                     type="button"
                     className="secondary"
@@ -1216,8 +1220,8 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   >
                     {checking ? 'Verzeichnis wird geprüft …' : 'Verzeichnis prüfen'}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               {/*
                 * Das Ergebnis steht als Zeile und nicht als Fenster: Es gehört
@@ -1624,6 +1628,15 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
 
               <Field
                 label="Zielverzeichnis"
+                action={
+                  <FieldButton
+                    title="Zielverzeichnis aussuchen"
+                    disabled={browsing.busy || (remoteTarget && !job.destinationConfig?.host)}
+                    onClick={() => void openBrowser(job.destinationDirectory, 'DESTINATION')}
+                  >
+                    <FolderIcon />
+                  </FieldButton>
+                }
                 explain={
                   remoteTarget
                     ? 'Ein Pfad auf dem Zielserver, vom Remote-Arbeitsverzeichnis aus gelesen.'
@@ -1653,25 +1666,6 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   {target.busy ? 'Ziel wird geprüft …' : 'Ziel prüfen'}
                 </button>
 
-                {/*
-                 * Auch für ein lokales Ziel, und ebenfalls vom Server beantwortet.
-                 *
-                 * Der Dateidialog des Betriebssystems wäre hier die falsche
-                 * Antwort, selbst wenn eine Seite im Browser ihn öffnen könnte:
-                 * Er nennt den Pfad des Rechners, an dem jemand sitzt, und das
-                 * ist bei einer Weboberfläche nicht der, auf dem Unikom
-                 * schreibt. Wer vom Arbeitsplatz aus einrichtet, wählte sonst
-                 * sein eigenes Laufwerk aus, und der Lauf legte die Dateien auf
-                 * dem Server an eine Stelle, die dort etwas anderes ist.
-                 */}
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={browsing.busy || (remoteTarget && !job.destinationConfig?.host)}
-                  onClick={() => void openBrowser(job.destinationDirectory, 'DESTINATION')}
-                >
-                  {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
-                </button>
               </div>
 
               {target.error && (
@@ -1915,21 +1909,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     />
                   </Field>
 
-                  {/*
-                    * Das Archiv liegt dort, wo die Quelle liegt — dorthin wird
-                    * die Datei nach dem Abholen verschoben, und das geschieht
-                    * auf dem Server, von dem sie kam.
-                    */}
-                  <div className="row">
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={!job.tenantId || browsing.busy}
-                      onClick={() => void openBrowser(job.sourceArchiveDirectory ?? '', 'ARCHIVE')}
-                    >
-                      {browsing.busy ? 'Öffnet …' : 'Verzeichnis wählen'}
-                    </button>
-                  </div>
+
 
                   {job.includeSubdirectories && archiveInsideSource(job) && (
                     <div className="notice notice--warn">

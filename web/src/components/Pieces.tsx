@@ -240,6 +240,7 @@ export function Field({
   label,
   hint,
   explain,
+  action,
   children,
 }: {
   label: string;
@@ -255,21 +256,68 @@ export function Field({
    * versteht, gehört dorthin.
    */
   explain?: ReactNode;
+  /**
+   * Ein Knopf, der auf dieses Feld wirkt — ein Verzeichnis aussuchen etwa.
+   *
+   * Er steht direkt neben dem Feld und nicht in einer Zeile darunter. Ein Knopf
+   * darunter gehört optisch zu nichts: Stehen mehrere Felder untereinander, ist
+   * nicht mehr zu sehen, welcher Knopf welches Feld meint. Vor dem Erklärknopf,
+   * wo es einen gibt — der gehört zum Feld als Ganzem, dieser zu seinem Inhalt.
+   */
+  action?: ReactNode;
   children: ReactNode;
 }) {
+  const beside = Boolean(explain) || Boolean(action);
+
   return (
     <div className="field">
       <label>{label}</label>
-      {explain ? (
+      {beside ? (
         <div className="field__row">
           {children}
-          <Hint title={label}>{explain}</Hint>
+          {action}
+          {explain && <Hint title={label}>{explain}</Hint>}
         </div>
       ) : (
         children
       )}
       {hint && <div className="field__hint">{hint}</div>}
     </div>
+  );
+}
+
+/**
+ * Der quadratische Knopf neben einem Feld.
+ *
+ * Quadratisch und so hoch wie das Feld, damit Ober- und Unterkante bündig
+ * bleiben — ein Knopf, der einen Hauch übersteht, sieht aus wie ein Versehen,
+ * und genau das ist es dann auch.
+ */
+export function FieldButton({
+  title,
+  disabled,
+  onClick,
+  children,
+}: {
+  /** Was er tut, als Satz — er trägt keine Beschriftung, nur ein Zeichen. */
+  title: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button type="button" className="field-button" title={title} aria-label={title} disabled={disabled} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+/** Ein Ordner, als Zeichen für „hier ein Verzeichnis aussuchen". */
+export function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2c.5 0 1 .24 1.3.64l1 1.36h7.5A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-14A1.5 1.5 0 0 1 3 17.5z" />
+    </svg>
   );
 }
 

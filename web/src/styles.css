@@ -1721,6 +1721,60 @@ option:hover {
 }
 
 /*
+ * Der quadratische Knopf neben einem Feld — Verzeichnis aussuchen.
+ *
+ * Die Kantenlänge wird vom Feld **abgeleitet**, nicht nachgerechnet.
+ * `align-self: stretch` nimmt die Höhe der Zeile, `aspect-ratio` macht daraus
+ * ein Quadrat. Der erste Versuch rechnete sie aus Innenabstand, Schriftgröße
+ * und Zeilenhöhe zusammen — gemessen kamen 43,8 gegen 44,5 Pixel heraus, weil
+ * der Browser Zeilenboxen anders rundet als die Formel. Ein Knopf, der einen
+ * Hauch übersteht, sieht aus wie ein Versehen, und er wäre auch eines.
+ */
+.field-button {
+  flex: 0 0 auto;
+  /*
+   * Höhe abgeleitet, Breite gemessen.
+   *
+   * `align-self: stretch` nimmt die Höhe der Zeile — die stimmt damit immer,
+   * ganz gleich was am Feld geändert wird. `aspect-ratio` würde daraus gern ein
+   * Quadrat machen, greift in einer Flex-Zeile aber nicht: Die Hauptachse wird
+   * aus dem Inhalt bestimmt, gemessen 19 Pixel statt 44,5. Deshalb steht die
+   * Kantenlänge hier als einzelne Marke, einmal am gebauten Stil nachgemessen.
+   * Ändert sich die Feldhöhe, bleibt der Knopf oben und unten bündig und wird
+   * nur ein wenig unquadratisch — ein deutlich kleinerer Fehler als ein Knopf,
+   * der übersteht.
+   */
+  align-self: stretch;
+  width: var(--field-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-small);
+  background: var(--g-1);
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.field-button svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+
+.field-button:hover:not(:disabled) {
+  border-color: rgba(var(--sheen), 0.3);
+  color: var(--text);
+}
+
+.field-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/*
  * Eine Combobox ohne Erklärknopf endet dort, wo die Eingabefelder mit einem
  * enden.
  *
@@ -1735,6 +1789,8 @@ option:hover {
  */
 :root {
   --hint-gutter: calc(1.9rem + 0.55rem);
+  /* Die Höhe eines Eingabefeldes, am gebauten Stil gemessen: 44,5 Pixel. */
+  --field-size: 2.78rem;
 }
 
 .field > select {
