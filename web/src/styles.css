@@ -1706,6 +1706,27 @@ option:hover {
 }
 
 /*
+ * Eine Combobox ohne Erklärknopf endet dort, wo die Eingabefelder mit einem
+ * enden.
+ *
+ * Ein Feld mit Knopf teilt sich die 640 Pixel mit ihm und wird dadurch schmaler
+ * — gemessen 600,8 gegen 640, also genau die 39,2 Pixel aus Knopfbreite und
+ * Abstand. In einer Spalte aus Feldern steht die Combobox damit als einzige
+ * über, und das liest sich wie ein Versehen, weil es eines ist.
+ *
+ * Als Rechnung aus denselben Marken, nicht als abgeschriebene Zahl: Wächst der
+ * Knopf, wandert die Kante von selbst mit. Eine 39 hier wäre schon beim
+ * nächsten Eingriff am Knopf still falsch.
+ */
+:root {
+  --hint-gutter: calc(1.9rem + 0.55rem);
+}
+
+.field > select {
+  max-width: calc(100% - var(--hint-gutter));
+}
+
+/*
  * Das Urteil über eine Eingabe — gefunden oder nicht.
  *
  * Eine Zeile und kein Fenster: Sie gehört neben das Feld, dessen Inhalt sie
