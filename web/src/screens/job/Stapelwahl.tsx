@@ -152,6 +152,40 @@ export function Stapelwahl({
           </Field>
 
           <Field
+            label="Feld, das zusammengehörige Dateien zusammenhält"
+            explain={
+              <>
+                <p>
+                  Ein Feldname — <code>lieferdatum</code>, <code>periode</code>, <code>stapelnummer</code>. Alle
+                  Dateien mit demselben Wert bilden einen Stapel.
+                </p>
+                <p>
+                  Gebraucht, sobald <strong>zwei Stapel gleichzeitig</strong> im Abholverzeichnis liegen können — die
+                  verspätete Lieferung von gestern neben der heutigen. Ohne Schlüssel würden beide zu einem
+                  verrührt: Die Plätze wären besetzt, und das Ergebnis enthielte zwei Tage.
+                </p>
+                <p>
+                  Je Lauf wird <strong>ein</strong> Stapel verarbeitet, der älteste vollständige. Der nächste kommt
+                  beim nächsten Durchgang — zwei in einem Lauf zu nehmen hieße, sie doch zusammenzulegen.
+                </p>
+                <p>
+                  Zum Preis: Die Dateien werden dafür aufgemacht. Trägt das Feld in <em>einer</em> Datei mehrere
+                  Werte, gehört sie zu keinem Stapel und es steht im Protokoll — dann ist der Schlüssel keine
+                  Eigenschaft dieser Datei, und sie enthält womöglich zwei Stapel.
+                </p>
+              </>
+            }
+          >
+            <input
+              value={stapel.schluesselfeld ?? ''}
+              placeholder="lieferdatum"
+              onChange={(event) =>
+                aendern({ stapel: { ...stapel, schluesselfeld: event.target.value || undefined } })
+              }
+            />
+          </Field>
+
+          <Field
             label="Frist ab der ersten Datei (Sekunden)"
             explain={
               <>

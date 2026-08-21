@@ -50,10 +50,20 @@ class Ablage implements Dateiablage {
     this.dateien.set(pfad, alsBytes(schreibeCsv(felder, zeilen)));
   }
 
+  /** Je Datei ein eigener Zeitpunkt — sonst haben alle denselben. */
+  readonly zeiten = new Map<string, string>();
+
+  geaendertAm(pfad: string, iso: string): void {
+    this.zeiten.set(pfad, iso);
+  }
+
   async liste(verzeichnis: string): Promise<Verzeichniseintrag[]> {
     return [...this.dateien.keys()]
       .filter((pfad) => pfad.startsWith(verzeichnis + '/'))
-      .map((pfad) => ({ name: pfad.slice(verzeichnis.length + 1), geaendert: '2026-08-20T02:00:00.000Z' }));
+      .map((pfad) => ({
+        name: pfad.slice(verzeichnis.length + 1),
+        geaendert: this.zeiten.get(pfad) ?? '2026-08-20T02:00:00.000Z',
+      }));
   }
 
   async lies(pfad: string): Promise<Uint8Array> {
@@ -1954,4 +1964,131 @@ test('ohne Stapelbedingung bleibt alles, wie es war', async () => {
 
   assert.equal(ergebnis.status, TransferRunStatus.SUCCESS);
   assert.deepEqual(bank.ablage.verschoben, []);
+});
+/* ---------- Der Stapelschlüssel im Lauf ---------- */
+
+function schluesseljob(): TransferJob {
+  return job({
+    consolidation: {
+      enabled: true,
+      input: { from: 'DIRECTORY', directory: '/abholung' },
+      regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+      dateien: {
+        stapel: { ...DREI_PLAETZE, schluesselfeld: 'lieferdatum' },
+        abholung: { arbeit: '/arbeit', erledigt: '/erledigt', gescheitert: '/gescheitert' },
+      },
+    },
+  });
+}
+
+/** Eine Filialdatei mit ihrem Lieferdatum in jeder Zeile. */
+function liefere(bank: Werkbank, teil: string, datum: string): void {
+  bank.ablage.lege(`/abholung/Filiale_${teil}_${datum.replaceAll('-', '')}.csv`, ['lieferdatum', 'kdnr'], [
+    [datum, '1'],
+    [datum, '2'],
+  ]);
+}
+
+test('zwei Stapel im Verzeichnis werden nicht verrührt', async () => {
+  /*
+   * Der Fall, für den es den Schlüssel gibt: Die verspätete Lieferung von
+   * gestern liegt neben der heutigen. Ohne ihn wären fünf Dateien da, die
+   * Plätze besetzt — und das Ergebnis enthielte zwei Tage.
+   */
+  const bank = werkbank();
+
+  liefere(bank, 'Nord', '2026-08-20');
+  liefere(bank, 'Sued', '2026-08-20');
+
+  for (const teil of ['Nord', 'Sued', 'West']) {
+    liefere(bank, teil, '2026-08-21');
+  }
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schluesseljob());
+
+  // Der vollständige Stapel vom 21. ist durch …
+  assert.ok(bank.ablage.verschoben.some((zug) => zug.includes('Filiale_West_20260821.csv')));
+
+  // … der unvollständige vom 20. liegt unangetastet im Abholverzeichnis.
+  assert.ok(bank.ablage.dateien.has('/abholung/Filiale_Nord_20260820.csv'));
+  assert.ok(bank.ablage.dateien.has('/abholung/Filiale_Sued_20260820.csv'));
+});
+
+test('eine Datei mit zwei Schlüsselwerten gehört zu keinem Stapel', async () => {
+  /*
+   * Dann ist der Schlüssel keine Eigenschaft dieser Datei — sie enthält
+   * womöglich zwei Stapel. Sie dem ersten Wert zuzuschlagen wäre der Fehler,
+   * der ein Ergebnis um fremde Datensätze vergrößert.
+   */
+  const bank = werkbank();
+
+  liefere(bank, 'Nord', '2026-08-21');
+  liefere(bank, 'Sued', '2026-08-21');
+  bank.ablage.lege('/abholung/Filiale_West_20260821.csv', ['lieferdatum', 'kdnr'], [
+    ['2026-08-21', '1'],
+    ['2026-08-20', '2'],
+  ]);
+
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schluesseljob());
+
+  // Kein Lauf: Der Stapel vom 21. ist ohne West unvollständig.
+  assert.equal(ergebnis.status, TransferRunStatus.SUCCESS_NO_FILES);
+  assert.deepEqual(bank.ablage.verschoben, []);
+});
+
+test('ein fehlendes Schlüsselfeld hält den Stapel auf und wird gesagt', async () => {
+  const bank = werkbank();
+
+  liefere(bank, 'Nord', '2026-08-21');
+  liefere(bank, 'Sued', '2026-08-21');
+  // Ohne die Spalte: Der Schlüssel lässt sich nicht bestimmen.
+  bank.ablage.lege('/abholung/Filiale_West_20260821.csv', ['kdnr'], [['3']]);
+
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schluesseljob());
+
+  assert.equal(ergebnis.status, TransferRunStatus.SUCCESS_NO_FILES);
+  assert.deepEqual(bank.ablage.verschoben, []);
+});
+test('verworfen wird dieser Stapel, nicht das Verzeichnis', async () => {
+  /*
+   * Zwei Stapel liegen da: Der alte ist über der Frist, der neue gerade
+   * angekommen. Nähme das Verwerfen das ganze Verzeichnis, riss ein alter, nie
+   * fertig gewordener Stapel jede Nacht einen frischen mit — und niemand käme
+   * je zu einem Ergebnis.
+   */
+  const bank = werkbank();
+
+  // Der alte: eine Filiale, lange her.
+  bank.ablage.lege('/abholung/Filiale_Nord_20260820.csv', ['lieferdatum', 'kdnr'], [['2026-08-20', '1']]);
+  bank.ablage.geaendertAm('/abholung/Filiale_Nord_20260820.csv', '2020-01-01T00:00:00.000Z');
+
+  // Der neue: eine Filiale, eben erst.
+  bank.ablage.lege('/abholung/Filiale_Sued_20260821.csv', ['lieferdatum', 'kdnr'], [['2026-08-21', '2']]);
+  bank.ablage.geaendertAm('/abholung/Filiale_Sued_20260821.csv', new Date().toISOString());
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/abholung' },
+        regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+        dateien: {
+          stapel: { ...DREI_PLAETZE, schluesselfeld: 'lieferdatum', fristSekunden: 60 },
+          abholung: { arbeit: '/arbeit', erledigt: '/erledigt', gescheitert: '/gescheitert' },
+        },
+      },
+    })
+  );
+
+  // Der alte ist fort …
+  assert.ok(
+    bank.ablage.verschoben.some((zug) => zug.endsWith('/gescheitert/Filiale_Nord_20260820.csv')),
+    'der abgelaufene Stapel liegt bei den gescheiterten'
+  );
+
+  // … der neue liegt unangetastet.
+  assert.ok(
+    bank.ablage.dateien.has('/abholung/Filiale_Sued_20260821.csv'),
+    'der junge Stapel bleibt im Abholverzeichnis'
+  );
 });

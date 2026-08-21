@@ -1799,3 +1799,139 @@ den einen Eintrag aus `testserver.local.json` und taugt für beides.
 
 **Ungeprüft bleibt so oder so** ein Datei-Server in einer Domäne: Kerberos, DFS,
 Gruppenrechte, Richtlinien. Das kann nur eine Kundenumgebung beantworten.
+# Etappe 19 — Der Stapel: erst vollständig, dann verarbeiten ✔ gebaut
+
+**Specs:** SPEC-06 §2.
+
+Für die Eingangsdateien eines Durchgangs stand ein einziges Textfeld: ein
+Namensmuster. Der Einwand des Betreibers traf: „Es gibt nichts, was
+kanalisiert, wenn mehrere Dateien zusammengeführt werden sollen."
+
+## Was gemessen wurde, bevor entschieden wurde
+
+| Eingabe | was hineinlief |
+|---|---|
+| *(leer)* | jede lesbare Datei — auch `Notizen.txt` und `Backup_alt.csv` |
+| `Filiale_*.csv, Umsatz_*.csv` | **nichts** |
+| `Filiale_*.csv` | die beiden Filialdateien |
+
+Die zweite Zeile ist die schlimmere: Das Komma wurde wörtlich genommen, es
+passte nichts, und der Lauf endete mit `SUCCESS_NO_FILES` und der Zeile
+„keine Quelle gefunden, nichts zu tun" — als **INFO**. Eine naheliegende
+Eingabe, die stillschweigend jede Nacht nichts tat.
+
+Dazu ein Widerspruch im eigenen Haus: `Eingang.ts` zitiert SPEC-06 §2 —
+„Ein Muster ist eine solche Regel. Ein Verzeichnis ist keine" — und
+fünfundzwanzig Zeilen darunter gab `passt(name, '')` ein `true` zurück.
+
+## Das Modell, das der Betreiber gesetzt hat
+
+Das Quellverzeichnis ist ein **reines Abholverzeichnis**. Was darin liegt,
+wartet auf Verarbeitung; danach wandert es fort, gelungen oder nicht. Wer
+etwas erneut verarbeiten will, legt es wieder hinein. Damit wird „alles, was
+drin liegt" zu einer zulässigen Regel — das Verzeichnis wird geleert, es
+lingert nichts. Und die Dubletten über Läufe erledigen sich mit dem
+Verschieben.
+
+## Vollständigkeit: zwei Bedingungen, die verschiedene Fehler fangen
+
+**Plätze** — je Beteiligtem ein Name und ein Muster. **Anzahl** — wie viele
+Dateien insgesamt. Beide zusammen:
+
+| Lage | Plätze | Anzahl | Ergebnis |
+|---|---|---|---|
+| Nord, Süd, West je einmal | ✓ | ✓ | läuft |
+| Nord zweimal, Süd fehlt | ✗ | ✓ | wartet |
+| Nord zweimal, alle anderen einmal | ✓ | ✗ | wartet, meldet „mehrfach geliefert" |
+
+Der Name der Plätze ist keine Zierde: „es fehlt ‚Filiale Süd'" beantwortet
+die Frage, die um sieben Uhr morgens gestellt wird. „2 von 3" nicht.
+
+## Vier Regeln, die nicht auf der Hand liegen
+
+1. **Eine Datei, die noch geschrieben wird, zählt nicht** — und startet die
+   Frist nicht. Wer 400 MB hineinkopiert, legt den endgültigen Namen sofort
+   an; ohne Reifezeit verarbeitete der Lauf ein abgeschnittenes Stück, und
+   ohne die zweite Hälfte bräuchte eine große Datei ihre eigene Frist auf,
+   während sie kopiert wird.
+2. **Die Frist rechnet ab der ersten Datei**, nicht ab einer Uhrzeit — wer um
+   22:00 liefert und wer um 03:00 liefert, bekommt dieselbe Spanne.
+3. **Ein vollständiger Stapel läuft nie ab.** Sonst würfe eine knappe Frist
+   einen Stapel fort, der gerade fertig geworden ist.
+4. **Ein unvollständiger Stapel gibt gar keine Dateien heraus.** Es gibt
+   nichts zu holen, was halb wäre.
+
+## Das Verschieben ist der Zugriff
+
+```text
+vollständig erkannt → genau diese Dateien ins Arbeitsverzeichnis
+                    → von dort lesen → Erledigt bzw. Gescheitert
+```
+
+Was danach im Abholverzeichnis ankommt, gehört zum nächsten Stapel und kann
+nicht halb mitkommen. Eine Datei ohne Platz bleibt liegen — sie mitzuräumen
+hieße, sie verschwinden zu lassen, ohne sie verarbeitet zu haben.
+
+Das Aufräumen liegt **um** den ganzen Durchgang und nicht an jedem Ausgang
+einzeln: Ein Ausgang, den später jemand hinzufügt, ist genau der, an dem es
+vergessen wird. Ein Teilerfolg zählt nicht als gelungen.
+
+Verstreicht die Frist, wird der Stapel gemeldet und nach *Gescheitert*
+geräumt — mit eigenem Meldeanlass `STAPEL_VERWORFEN` und nicht als
+„Lauf fehlgeschlagen": Unikom hat sich richtig verhalten. Zu melden ist eine
+ausgebliebene Lieferung, und darum kümmert sich ein anderer Mensch.
+
+## Der Schlüssel im Inhalt
+
+Gebraucht, sobald **zwei Stapel gleichzeitig** im Abholverzeichnis liegen
+können — die verspätete Lieferung von gestern neben der heutigen. Ohne ihn
+würden beide zu einem verrührt: Die Plätze wären besetzt, und das Ergebnis
+enthielte zwei Tage.
+
+Ein Feldname (`lieferdatum`), und alle Dateien mit demselben Wert bilden
+einen Stapel. Drei Entscheidungen darin:
+
+* **Je Lauf ein Stapel**, der älteste vollständige. Zwei in einem Lauf zu
+  nehmen hieße, sie doch zusammenzulegen. Älteste zuerst, weil sich sonst ein
+  Stapel, der nie fertig wird, immer wieder vor die fertigen drängte.
+* **Jede Gruppe hat ihre eigene Frist.** Sonst risse der alte Stapel den
+  neuen mit: Seine Uhr läuft länger.
+* **Verworfen wird dieser Stapel, nicht das Verzeichnis.** Sonst nähme ein
+  alter, nie fertig gewordener Stapel jede Nacht einen frischen mit, und
+  niemand käme je zu einem Ergebnis.
+
+**Der Preis:** Die Dateien werden zum Gruppieren aufgemacht und später noch
+einmal gelesen. Bewusst gezahlt — die Alternative wäre, den Wert aus dem
+Dateinamen zu raten, und dann wäre der Schlüssel wieder eine
+Namenskonvention und keine Tatsache. Trägt das Feld in *einer* Datei mehrere
+Werte, gehört sie zu keinem Stapel: Dann ist der Schlüssel keine Eigenschaft
+dieser Datei, und sie enthält womöglich zwei Stapel.
+
+## Die Oberfläche
+
+Eine eigene Fläche „Welche Dateien" zwischen Quelle und Verarbeitung: Muster,
+Reifezeit, der Schalter für den Stapel, die erwarteten Lieferungen als Liste,
+Anzahl, Schlüsselfeld, Frist, die drei Verzeichnisse. Dazu die Vorschau **„Was
+trifft das gerade?"** — sie liest das Abholverzeichnis und zeigt in zwei
+Spalten, was mitkommt und was draußen bleibt. Das ist die einzige Antwort auf
+„wie schließe ich anderes aus", die man vor dem Speichern glauben kann.
+
+Dass ein Komma nicht trennt, steht jetzt im Erklärtext des Musterfeldes.
+
+## Belegt
+
+31 Tests (18 auf der Regel, 13 auf dem Lauf), **27 von 27 Mutationen
+gebissen**. Die scharfen darunter prüfen die Reihenfolge und nicht das
+Ergebnis: dass aus dem Arbeitsverzeichnis gelesen wird und nicht aus dem
+Abholverzeichnis, dass fremde Dateien liegen bleiben, und dass beim Verwerfen
+nur der betroffene Stapel geht.
+
+## Was offen bleibt
+
+* Ein **Zeitfenster** („nur zwischen 22:00 und 02:00") gibt es nicht. Die
+  Frist relativ zur ersten Datei deckt den Bedarf, den der Betreiber genannt
+  hat; ein Fenster wäre eine zweite Zeitregel neben dem Zeitplan des
+  Workflows, und zwei Uhren an einer Sache sind eine zu viel.
+* **Ausschlussmuster** (`~$*` für die Sperrdateien von Excel) sind nicht
+  gebaut. Mit benannten Plätzen fällt der Bedarf meist fort — eine Datei ohne
+  Platz kommt ohnehin nicht mit.

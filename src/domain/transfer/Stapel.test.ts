@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { pruefeStapel, stapelmeldung, type Stapelbedingung, type Stapeldatei } from './Stapel.js';
+import {
+  pruefeStapel,
+  stapelgruppen,
+  stapelmeldung,
+  type Stapelbedingung,
+  type Stapeldatei,
+} from './Stapel.js';
 
 const DREI: Stapelbedingung = {
   plaetze: [
@@ -219,4 +225,103 @@ test('die Meldung nennt den Namen des Beteiligten, nicht eine Zahl', () => {
 
   assert.match(stapelmeldung(stand), /Filiale Süd/);
   assert.match(stapelmeldung(stand), /Filiale West/);
+});
+/* ---------- Der Schlüssel: zwei Stapel im selben Verzeichnis ---------- */
+
+/*
+ * Der Fall, für den es den Schlüssel gibt: Die verspätete Lieferung von gestern
+ * liegt neben der heutigen. Ohne ihn wären die Plätze besetzt, die Anzahl
+ * stimmte womöglich auch — und das Ergebnis enthielte zwei Tage.
+ */
+
+const MIT_SCHLUESSEL: Stapelbedingung = { ...DREI, schluesselfeld: 'lieferdatum' };
+
+function mit(name: string, schluessel: string, minute: number): Stapeldatei {
+  return {
+    name,
+    schluessel,
+    geaendert: new Date(`2026-08-21T05:${String(minute).padStart(2, '0')}:00.000Z`),
+  };
+}
+
+test('ohne Schlüsselfeld gibt es genau eine Gruppe', () => {
+  const aufteilung = stapelgruppen([datei('Filiale_Nord_0821.csv')], DREI, JETZT);
+
+  assert.equal(aufteilung.gruppen.length, 1);
+  assert.equal(aufteilung.gruppen[0].schluessel, undefined);
+  assert.deepEqual(aufteilung.ohneSchluessel, []);
+});
+
+test('zwei Lieferdaten ergeben zwei Stapel', () => {
+  const aufteilung = stapelgruppen(
+    [
+      mit('Filiale_Nord_0820.csv', '2026-08-20', 10),
+      mit('Filiale_Sued_0820.csv', '2026-08-20', 11),
+      mit('Filiale_Nord_0821.csv', '2026-08-21', 30),
+      mit('Filiale_Sued_0821.csv', '2026-08-21', 31),
+      mit('Filiale_West_0821.csv', '2026-08-21', 32),
+    ],
+    MIT_SCHLUESSEL,
+    JETZT
+  );
+
+  assert.equal(aufteilung.gruppen.length, 2);
+
+  // Der ältere zuerst — sonst drängte sich ein Stapel, der nie fertig wird,
+  // immer wieder vor die fertigen.
+  assert.equal(aufteilung.gruppen[0].schluessel, '2026-08-20');
+  assert.equal(aufteilung.gruppen[0].stand.vollstaendig, false);
+
+  // Und nur der vollständige ist vollständig — nicht die Summe beider.
+  assert.equal(aufteilung.gruppen[1].schluessel, '2026-08-21');
+  assert.equal(aufteilung.gruppen[1].stand.vollstaendig, true);
+});
+
+test('ohne Schlüssel gehört eine Datei zu keinem Stapel', () => {
+  /*
+   * Entweder fehlt das Feld, oder es trägt in einer Datei mehrere Werte. Der
+   * zweite Fall ist der ernstere: Dann ist der Schlüssel keine Eigenschaft
+   * dieser Datei — sie enthält womöglich zwei Stapel.
+   */
+  const aufteilung = stapelgruppen(
+    [mit('Filiale_Nord_0821.csv', '2026-08-21', 30), { name: 'Filiale_Sued_0821.csv' }],
+    MIT_SCHLUESSEL,
+    JETZT
+  );
+
+  assert.deepEqual(aufteilung.ohneSchluessel, ['Filiale_Sued_0821.csv']);
+  assert.equal(aufteilung.gruppen.length, 1);
+  // Sie zählt für keinen Platz — der Stapel bleibt unvollständig.
+  assert.equal(aufteilung.gruppen[0].stand.vollstaendig, false);
+});
+
+test('ein leerer Schlüssel ist kein Schlüssel', () => {
+  // Sonst bildeten alle Dateien ohne Wert gemeinsam einen Stapel, den niemand
+  // erwartet hat.
+  const aufteilung = stapelgruppen([mit('Filiale_Nord_0821.csv', '   ', 30)], MIT_SCHLUESSEL, JETZT);
+
+  assert.deepEqual(aufteilung.ohneSchluessel, ['Filiale_Nord_0821.csv']);
+  assert.equal(aufteilung.gruppen.length, 0);
+});
+
+test('jede Gruppe hat ihre eigene Frist', () => {
+  /*
+   * Ab der ersten Datei **ihrer** Gruppe. Sonst risse der alte Stapel den
+   * neuen mit: Seine Uhr läuft länger, und die Frist des neuen wäre schon um,
+   * bevor seine dritte Datei ankommt.
+   */
+  const aufteilung = stapelgruppen(
+    [
+      { name: 'Filiale_Nord_0820.csv', schluessel: 'alt', geaendert: new Date('2026-08-21T04:00:00.000Z') },
+      { name: 'Filiale_Nord_0821.csv', schluessel: 'neu', geaendert: new Date('2026-08-21T05:59:00.000Z') },
+    ],
+    { ...MIT_SCHLUESSEL, fristSekunden: 1800 },
+    JETZT
+  );
+
+  const alt = aufteilung.gruppen.find((gruppe) => gruppe.schluessel === 'alt');
+  const neu = aufteilung.gruppen.find((gruppe) => gruppe.schluessel === 'neu');
+
+  assert.equal(alt?.stand.abgelaufen, true);
+  assert.equal(neu?.stand.abgelaufen, false);
 });

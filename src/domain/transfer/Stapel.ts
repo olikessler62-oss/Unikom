@@ -47,6 +47,18 @@ export interface Stapeldatei {
    * lässt es weg — dann gilt sie als fertig, so wie bisher.
    */
   fertig?: boolean;
+  /**
+   * Der Wert, der die Zusammengehörigkeit zeigt — das Lieferdatum, die Periode,
+   * die Stapelnummer.
+   *
+   * Gelesen wird er **nicht hier**: Das ist Sache der Anwendungsschicht, die
+   * Dateien aufmachen darf. Hier steht nur, was er bedeutet.
+   *
+   * Fehlt er, wo ein Schlüsselfeld verlangt ist, gehört die Datei zu keiner
+   * Gruppe. Das ist kein Grund zu warten und keiner abzubrechen — aber es
+   * gehört gesagt, sonst verschwindet sie lautlos aus jeder Rechnung.
+   */
+  schluessel?: string;
 }
 
 /** Ein erwarteter Beteiligter. */
@@ -77,6 +89,17 @@ export interface Stapelbedingung {
    * Fehler, den niemand findet.
    */
   fristSekunden?: number;
+  /**
+   * Das Feld, dessen Wert zusammengehörige Dateien zusammenhält (SPEC-06 §2).
+   *
+   * Gebraucht, sobald **zwei Stapel gleichzeitig** im Abholverzeichnis liegen
+   * können — die verspätete Lieferung von gestern neben der heutigen. Ohne
+   * Schlüssel würden beide zu einem Stapel verrührt: Die Plätze wären besetzt,
+   * die Anzahl stimmte womöglich auch, und das Ergebnis enthielte zwei Tage.
+   *
+   * Ohne Angabe gilt alles als ein Stapel — so, wie es ohne diese Angabe war.
+   */
+  schluesselfeld?: string;
 }
 
 /** Warum eine Datei nicht mitzählt. */
@@ -95,6 +118,18 @@ export interface Stapelstand {
   unfertig: string[];
   /** Die Dateien des Stapels — nur bei `vollstaendig` gefüllt. */
   stapel: string[];
+  /**
+   * Alle Dateien, die zu diesem Stapel gehören — auch wenn er unvollständig ist.
+   *
+   * Gebraucht beim Verwerfen: Verworfen wird **dieser** Stapel und nicht das
+   * Verzeichnis. Liegt daneben ein zweiter, dessen Frist noch läuft, dürfen
+   * seine Dateien nicht mitgehen — sonst nähme ein alter, nie fertig gewordener
+   * Stapel jede Nacht einen frischen mit.
+   *
+   * Fremde Dateien und solche, die noch geschrieben werden, stehen nicht darin:
+   * Die erste gehört nicht dazu, die zweite ist noch nicht da.
+   */
+  zugeordnet: string[];
   /** Die Frist ist verstrichen und der Stapel ist nicht vollständig. */
   abgelaufen: boolean;
 }
@@ -151,6 +186,7 @@ export function pruefeStapel(
     fremd,
     unfertig,
     stapel: vollstaendig ? zugeordnet : [],
+    zugeordnet,
     abgelaufen: !vollstaendig && verstrichen(fertige, bedingung, jetzt),
   };
 }
@@ -174,6 +210,99 @@ function verstrichen(fertige: readonly Stapeldatei[], bedingung: Stapelbedingung
   }
 
   return jetzt.getTime() - Math.min(...zeiten) >= bedingung.fristSekunden * 1000;
+}
+
+/** Ein Stapel mit seinem Schlüssel. */
+export interface Stapelgruppe {
+  /** Fehlt, wenn ohne Schlüsselfeld gearbeitet wird — dann gibt es nur eine Gruppe. */
+  schluessel?: string;
+  stand: Stapelstand;
+  /** Der älteste Zeitpunkt der Gruppe; nach ihm wird die Reihenfolge bestimmt. */
+  seit?: number;
+}
+
+export interface Stapelaufteilung {
+  /**
+   * Die Gruppen, **älteste zuerst**.
+   *
+   * Die Reihenfolge ist keine Kosmetik: Je Lauf wird höchstens **eine** Gruppe
+   * verarbeitet. Zwei in einem Lauf zu nehmen hieße, sie in einem Ergebnis
+   * zusammenzulegen — genau das, was der Schlüssel verhindern soll. Und die
+   * älteste zuerst, weil sonst eine Gruppe, die nie vollständig wird, sich
+   * immer wieder vor die fertigen drängte.
+   */
+  gruppen: Stapelgruppe[];
+  /**
+   * Dateien, aus denen sich kein Schlüssel lesen ließ.
+   *
+   * Entweder fehlt das Feld, oder es trägt in einer Datei **mehrere**
+   * verschiedene Werte. Der zweite Fall ist der interessantere: Dann ist der
+   * Schlüssel keine Eigenschaft dieser Datei, und sie gehört in keinen Stapel
+   * — sie enthält womöglich zwei.
+   */
+  ohneSchluessel: string[];
+}
+
+/**
+ * Die Dateien eines Abholverzeichnisses, nach Stapeln getrennt.
+ *
+ * Ohne Schlüsselfeld gibt es genau eine Gruppe: alles, was da liegt. Mit
+ * Schlüsselfeld eine je Wert — und Dateien ohne lesbaren Schlüssel gehören zu
+ * keiner.
+ */
+export function stapelgruppen(
+  dateien: readonly Stapeldatei[],
+  bedingung: Stapelbedingung,
+  jetzt: Date
+): Stapelaufteilung {
+  if (!bedingung.schluesselfeld) {
+    return { gruppen: [{ stand: pruefeStapel(dateien, bedingung, jetzt), seit: aeltester(dateien) }], ohneSchluessel: [] };
+  }
+
+  const nachSchluessel = new Map<string, Stapeldatei[]>();
+  const ohneSchluessel: string[] = [];
+
+  for (const datei of dateien) {
+    const schluessel = datei.schluessel?.trim();
+
+    if (!schluessel) {
+      ohneSchluessel.push(datei.name);
+      continue;
+    }
+
+    const bisher = nachSchluessel.get(schluessel);
+
+    if (bisher) {
+      bisher.push(datei);
+    } else {
+      nachSchluessel.set(schluessel, [datei]);
+    }
+  }
+
+  const gruppen = [...nachSchluessel.entries()].map(([schluessel, ihre]) => ({
+    schluessel,
+    stand: pruefeStapel(ihre, bedingung, jetzt),
+    seit: aeltester(ihre),
+  }));
+
+  /*
+   * Älteste zuerst — und eine Gruppe ohne Zeitangabe hinten. Sie wäre sonst
+   * mit `undefined` unvergleichbar und landete an einer Stelle, die von der
+   * Laune der Sortierung abhängt.
+   */
+  gruppen.sort((links, rechts) => (links.seit ?? Infinity) - (rechts.seit ?? Infinity));
+
+  return { gruppen, ohneSchluessel };
+}
+
+/** Der früheste Änderungszeitpunkt unter fertigen Dateien. */
+function aeltester(dateien: readonly Stapeldatei[]): number | undefined {
+  const zeiten = dateien
+    .filter((datei) => datei.fertig !== false)
+    .map((datei) => datei.geaendert?.getTime())
+    .filter((zeit): zeit is number => zeit !== undefined);
+
+  return zeiten.length > 0 ? Math.min(...zeiten) : undefined;
 }
 
 /**

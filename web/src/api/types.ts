@@ -527,6 +527,12 @@ export interface Stapelbedingung {
   anzahl?: number;
   /** Wartezeit ab der **ersten** Datei; ohne Angabe wird unbegrenzt gewartet. */
   fristSekunden?: number;
+  /**
+   * Das Feld, dessen Wert zusammengehörige Dateien zusammenhält.
+   *
+   * Ohne Angabe gilt alles im Abholverzeichnis als ein Stapel.
+   */
+  schluesselfeld?: string;
 }
 
 /** Wohin die Eingangsdateien nach dem Durchgang wandern. */
