@@ -52,6 +52,7 @@ import {
   FolderIcon,
   FolderOpenIcon,
   Klappkarte,
+  listentasten,
   ListIcon,
   Hint,
   Loading,
@@ -662,7 +663,17 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
         */}
       {picking && (
         <Modal title={`${EXTENSION_CHOICES[picking].label} wählen`} onClose={() => setPicking(undefined)}>
-          <ul className="browse">
+          {/*
+            * Die Pfeiltasten bewegen den Fokus, nicht die Seite.
+            *
+            * Eine Liste, die dreißig Zeilen hat und nur mit der Maus zu bedienen
+            * ist, zwingt zum Wechseln der Hand — und wer die Tabulatortaste
+            * benutzt, springt sonst durch jede einzelne Zeile bis zum
+            * Schließen-Knopf. Gesucht werden die Geschwister im Baum und nicht
+            * eine gemerkte Nummer: Die Liste kann sich ändern, das DOM ist die
+            * Wahrheit.
+            */}
+          <ul className="browse pick" onKeyDown={listentasten}>
             {EXTENSION_CHOICES[picking].options.map((option) => {
               const chosen = extensionsOf(job, picking).some((entry) => sameExtension(entry, option.value));
 
@@ -670,6 +681,8 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 <li key={option.value}>
                   <button
                     type="button"
+                    className={chosen ? 'pick__row pick__row--an' : 'pick__row'}
+                    aria-pressed={chosen}
                     onClick={() => {
                       const current = extensionsOf(job, picking);
                       const next = chosen
@@ -684,17 +697,13 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     }}
                   >
                     <span className="pick__mark">{chosen ? '✓' : ''}</span>
-                    <code>{option.value}</code>
+                    <span className="pick__ext">{option.value}</span>
                     <span className="pick__hint">{option.hint}</span>
                   </button>
                 </li>
               );
             })}
           </ul>
-
-          <p className="browse__label">
-            Was hier fehlt, wird ins Feld getippt — die Liste ist eine Abkürzung, keine Schranke.
-          </p>
         </Modal>
       )}
 
@@ -1396,11 +1405,18 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 </div>
               </Field>
 
-              <CheckField
-                label="Groß- und Kleinschreibung beachten"
-                checked={job.caseSensitivePrefix}
-                onChange={(caseSensitivePrefix) => change({ caseSensitivePrefix })}
-              />
+              {/*
+                * „Groß- und Kleinschreibung beachten" stand hier und ist ganz
+                * fort — Feld, Vergleich und Übergabe.
+                *
+                * Bei Dateinamen ist die Unterscheidung keine, die jemand
+                * treffen will: Windows macht sie im Dateisystem nicht, und wer
+                * ein Muster schreibt, meint die Datei und nicht ihre
+                * Schreibweise. Nur das Bedienelement zu nehmen und den Wert
+                * stehenzulassen hieße, ein totes Feld zu hinterlassen — und am
+                * Ende steht ein Sammelsurium davon, das niemand mehr zu
+                * entfernen wagt.
+                */}
 
               <Field
                 label="Berücksichtigte Endungen"

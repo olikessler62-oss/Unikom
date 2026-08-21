@@ -22,7 +22,6 @@ function criteria(overrides: Partial<FileSelectionCriteria> = {}): FileSelection
     // Mit Stern, seit ein Muster ohne Stern den vollen Namen meint.
     filenamePrefix: 'ORDER_*',
     allowedExtensions: ['.csv'],
-    caseSensitivePrefix: false,
     minimumFileAgeSeconds: 60,
     requireStableFile: false,
     ignoredTemporaryExtensions: ['.part', '.tmp', '.temp'],
@@ -35,10 +34,13 @@ test('prefix comparison ignores case by default', () => {
   assert.equal(service.matches(file('order_001.csv'), criteria(), now), true);
 });
 
-test('prefix comparison can be case sensitive', () => {
-  const strict = criteria({ caseSensitivePrefix: true });
-  assert.equal(service.matches(file('ORDER_001.csv'), strict, now), true);
-  assert.equal(service.matches(file('order_001.csv'), strict, now), false);
+test('der Namensvergleich achtet nicht auf die Schreibweise', () => {
+  // Der Schalter dafür stand am Workflow und ist fort. Der Test bleibt und
+  // hält fest, dass es keinen Weg zurück gibt.
+  const gleich = criteria({});
+
+  assert.equal(service.matches(file('ORDER_001.csv'), gleich, now), true);
+  assert.equal(service.matches(file('order_001.csv'), gleich, now), true);
 });
 
 test('prefix must appear at the start of the filename', () => {
@@ -144,15 +146,18 @@ test('stars alone restrict nothing, and one in the middle is just a character', 
   assert.equal(service.matchesFilename('MeinDateiname.csv', 'Mein*name'), false);
 });
 
-test('the three shapes respect case sensitivity like the prefix always did', () => {
+test('die Schreibweise ist in allen drei Formen gleichgültig', () => {
+  /*
+   * Ein Schalter dafür stand einmal am Workflow. Er ist fort: Windows
+   * unterscheidet im Dateisystem nicht, und wer ein Muster schreibt, meint die
+   * Datei und nicht ihre Schreibweise. Der Test bleibt — er hält jetzt fest,
+   * dass es keine Form gibt, in der die Schreibweise doch zählt.
+   */
   const service = new FileSelectionService();
 
-  assert.equal(service.matchesFilename('ORDER_1.csv', 'order*', true), false);
-  assert.equal(service.matchesFilename('ORDER_1.csv', 'order*', false), true);
-  assert.equal(service.matchesFilename('Rechnung_EXPORT.csv', '*export', true), false);
-  assert.equal(service.matchesFilename('Rechnung_EXPORT.csv', '*export', false), true);
-  assert.equal(service.matchesFilename('a_EXPORT_b.csv', '*export*', true), false);
-  assert.equal(service.matchesFilename('a_EXPORT_b.csv', '*export*', false), true);
+  assert.equal(service.matchesFilename('ORDER_1.csv', 'order*'), true);
+  assert.equal(service.matchesFilename('Rechnung_EXPORT.csv', '*export'), true);
+  assert.equal(service.matchesFilename('a_EXPORT_b.csv', '*export*'), true);
 });
 
 test('an extension typed into the pattern is understood, not taken literally', () => {
@@ -190,14 +195,13 @@ test('the file itself decides whether the tail was an extension', () => {
   assert.equal(service.matchesFilename('Rechnung.v2.csv', 'Rechnung.v1'), false);
 });
 
-test('the extension in a pattern is compared without regard to case', () => {
+test('die Endung im Muster wird ohne Rücksicht auf die Schreibweise verglichen', () => {
   const service = new FileSelectionService();
 
-  // Ob die Quelle .CSV oder .csv schreibt, ist ihre Angewohnheit — und keine
-  // Aussage über den Namen, für den der Job auf Schreibweise achten mag.
-  assert.equal(service.matchesFilename('ORDER_1.CSV', 'ORDER_1.csv', true), true);
-  assert.equal(service.matchesFilename('ORDER_1.csv', 'ORDER_1.CSV', true), true);
-  assert.equal(service.matchesFilename('order_1.csv', 'ORDER_1.csv', true), false);
+  // Ob die Quelle .CSV oder .csv schreibt, ist ihre Angewohnheit.
+  assert.equal(service.matchesFilename('ORDER_1.CSV', 'ORDER_1.csv'), true);
+  assert.equal(service.matchesFilename('ORDER_1.csv', 'ORDER_1.CSV'), true);
+  assert.equal(service.matchesFilename('order_1.csv', 'ORDER_1.csv'), true);
 });
 
 test('a pattern that is only an extension asks for every file of that kind', () => {

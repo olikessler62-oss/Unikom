@@ -4,7 +4,7 @@ import type { RemoteDirectoryResult } from '../api/types.js';
 import { messageOf } from '../api/useResource.js';
 import { pathSegments } from '../screens/job/paths.js';
 import { mapNode, toNodes, type TreeNode } from '../screens/job/tree.js';
-import { Field, FieldButton, FolderIcon, FolderOpenIcon, Loading, Modal } from './Pieces.js';
+import { Field, FieldButton, FolderIcon, FolderOpenIcon, listentasten, Loading, Modal } from './Pieces.js';
 
 /**
  * Der Verzeichnisbaum im Auswahlfenster.
@@ -274,9 +274,10 @@ export function Verzeichnisfenster({
   return (
 
         <Modal
-          title={
-            titel
-          }
+          title={titel}
+          // Das Fenster bringt „Abbrechen" und „OK" mit; ein „Schließen"
+          // daneben wäre ein dritter Knopf für das, was der erste schon tut.
+          ownActions
           onClose={onClose}
         >
           {stand.busy && !stand.at ? (
@@ -346,7 +347,7 @@ export function Verzeichnisfenster({
               {stand.at.known && stand.at.known.length > 0 && (
                 <>
                   <p className="browse__label">Schon benutzt</p>
-                  <ul className="browse browse--known">
+                  <ul className="browse browse--known" onKeyDown={listentasten}>
                     {stand.at.known.map((entry) => (
                       <li key={entry.path}>
                         <button type="button" onClick={() => void oeffne(entry.path)}>
@@ -382,7 +383,7 @@ export function Verzeichnisfenster({
                   {(stand.at.files ?? []).length === 0 ? (
                     <p className="browse__empty">Keine Dateien in diesem Verzeichnis</p>
                   ) : (
-                    <ul className="browse">
+                    <ul className="browse" onKeyDown={listentasten}>
                       {(stand.at.files ?? []).map((datei) => (
                         <li key={datei.path}>
                           <button
@@ -430,7 +431,14 @@ export function Verzeichnisfenster({
 
               {folderError && <p className="verdict verdict--bad">✗ {folderError}</p>}
 
-              <div className="row">
+              {/*
+                * OK und Abbrechen, rechtsbündig — siehe `.modal__actions`.
+                *
+                * Vorher stand die Hauptaktion in einer eigenen Zeile und
+                * darunter „Schließen": zwei Zeilen für eine Entscheidung, und
+                * der Ausgang sah aus, als gehörte er nicht dazu.
+                */}
+              <div className="row modal__actions">
                 <button
                   type="button"
                   disabled={waehle === 'DATEI' && !chosen}
@@ -456,7 +464,10 @@ export function Verzeichnisfenster({
                     );
                   }}
                 >
-                  {waehle === 'DATEI' ? 'Diese Datei übernehmen' : 'Dieses Verzeichnis übernehmen'}
+                  OK
+                </button>
+                <button type="button" className="secondary" onClick={onClose}>
+                  Abbrechen
                 </button>
               </div>
             </>

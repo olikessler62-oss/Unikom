@@ -339,7 +339,7 @@ export function CredentialForm({
         </Field>
       )}
 
-      <div className="row">
+      <div className="row modal__actions">
         <button disabled={busy || !ready} onClick={() => void create()}>
           {busy ? 'Wird angelegt …' : 'Anlegen'}
         </button>

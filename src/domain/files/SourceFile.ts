@@ -10,7 +10,6 @@ export interface SourceFile {
 export interface FileSelectionCriteria {
   filenamePrefix?: string;
   allowedExtensions: string[];
-  caseSensitivePrefix: boolean;
   minimumFileAgeSeconds: number;
   /**
    * Whether the job demands a stability check. The check itself needs repeated

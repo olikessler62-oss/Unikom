@@ -89,6 +89,18 @@
   --picker-shadow: 0 20px 46px -20px rgba(0, 0, 0, 0.95);
 
   --live: 95, 191, 148;
+  /*
+   * Das Grün des Statuspunktes — kräftiger als `--live`.
+   *
+   * `--live` ist für Flächen gemacht: Abzeichen, Streifen, Hintergründe, wo
+   * ein sattes Grün schreien würde. Ein Punkt von fünf Pixeln hat diese Fläche
+   * nicht — gedämpft wird er auf dunklem Grund zu einem grauen Fleck, und
+   * genau die Auskunft „hier ist alles in Ordnung" geht verloren.
+   *
+   * Nur das Grün. Gelb und Rot sind von sich aus laut genug; ein Punkt, der
+   * überall schreit, sagt so wenig wie einer, der überall flüstert.
+   */
+  --dot-gut: 54, 214, 116;
   --caution: 217, 164, 65;
   --alarm: 226, 99, 92;
 
@@ -164,6 +176,8 @@
   --brand: #000000;
 
   --live: 30, 130, 95;
+  /* Auf hellem Grund trägt ein dunkles Grün — siehe `--dot-gut` oben. */
+  --dot-gut: 21, 128, 61;
   --caution: 165, 115, 20;
   --alarm: 190, 55, 50;
 
@@ -1071,8 +1085,8 @@ code {
 }
 
 .card--gueltig > h2:first-child::before {
-  background: rgb(var(--live));
-  box-shadow: 0 0 9px rgb(var(--live));
+  background: rgb(var(--dot-gut));
+  box-shadow: 0 0 9px rgb(var(--dot-gut));
 }
 /* Derselbe Grund wie bei `.card > *:last-child` — nur eine Ebene tiefer. */
 .klapp__body > div > *:last-child {
@@ -2327,18 +2341,61 @@ option:checked {
  * Liste beim Anklicken um ein Zeichen, und das Auge verlöre die Zeile, die es
  * gerade ansieht.
  */
-.pick__mark {
-  display: inline-block;
-  width: 1.2rem;
-  /* Die Marke ist ein RGB-Tripel, keine Farbe — ohne `rgb()` bliebe der Haken unsichtbar. */
-  color: rgb(var(--accent));
-  font-weight: 600;
+/*
+ * Eine Zeile der Endungsliste: Haken, Endung, Beschreibung.
+ *
+ * ## Warum ein Raster und keine Zeile aus Wörtern
+ *
+ * Nebeneinandergesetzt beginnt die Beschreibung dort, wo die Endung aufhört —
+ * und `xlsx` ist breiter als `edi`. Dann steht jede Beschreibung an einer
+ * anderen Stelle, und die Liste liest sich wie eine ausgefranste Kante. Die
+ * mittlere Spalte hat deshalb eine feste Breite: Vier Zeichen sind das
+ * Längste, was hier vorkommt.
+ */
+.browse li > button.pick__row {
+  display: grid;
+  grid-template-columns: 1.2rem 3.4rem 1fr;
+  align-items: center;
+  gap: 0.55rem;
 }
 
+.pick__mark {
+  /* Die Marke ist ein RGB-Tripel, keine Farbe — ohne `rgb()` bliebe der Haken unsichtbar. */
+  color: rgb(var(--accent));
+}
+
+/*
+ * Die Endung selbst: fest im Schnitt, damit sie sich lesen lässt.
+ *
+ * Halbfett in kleiner Festbreitenschrift verklebt — die Striche liegen dichter
+ * beieinander als die Zwischenräume, und `xls` gegen `xlsx` zu unterscheiden
+ * wird zur Suchaufgabe. Der Kasten hebt sie ohnehin hervor; das Fett wäre die
+ * zweite Betonung derselben Sache.
+ */
+.pick__ext {
+  justify-self: start;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  background: var(--g-3);
+  color: #e2d5c9;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+/*
+ * Die Beschreibung in der Fließschrift und nicht in der Festbreitenschrift.
+ *
+ * Festbreite ist für Dinge da, deren Zeichen einzeln zählen — Pfade, Endungen,
+ * Muster. Ein deutscher Satz gehört nicht dazu; in Festbreite wird er breiter
+ * und liest sich langsamer.
+ */
 .pick__hint {
-  margin-left: 0.7rem;
   color: var(--text-soft);
-  font-size: 0.86rem;
+  font-family: var(--sans);
+  font-size: 0.88rem;
+  letter-spacing: 0;
 }
 
 /*
@@ -2370,9 +2427,45 @@ option:checked {
   display: none;
 }
 
-.browse li > button:hover {
-  background: var(--pick);
-  color: var(--pick-text);
+/*
+ * Die hervorgehobene Zeile — beim Überfahren wie beim Tastaturfokus.
+ *
+ * `:focus-visible` gehört dazu, seit die Pfeiltasten den Fokus bewegen: Ohne
+ * ihn wanderte er unsichtbar durch die Liste, und die Tastaturbedienung wäre
+ * ein Blindflug.
+ */
+/*
+ * Die hervorgehobene Zeile — dieselbe Sprache wie im Verzeichnisbaum daneben.
+ *
+ * Vorher lag hier ein kräftiges Braun mit schwarzer Schrift. Neben einem Baum,
+ * dessen Zeilen sich beim Überfahren nur eine Stufe aufhellen, sah dieselbe
+ * Handlung nach zwei verschiedenen Dingen aus. Eine Hervorhebung soll sagen
+ * „hier steht der Zeiger" und nicht „hier ist etwas passiert".
+ */
+.browse li > button:hover,
+.browse li > button:focus-visible {
+  background: var(--g-2);
+  outline: none;
+}
+
+/*
+ * Die gewählte Zeile — deutlicher als das Überfahren, aus der Akzentfarbe
+ * gemischt statt in ihr. Deckend gefärbt verlöre die Schrift ihren Halt, und
+ * ausgerechnet die Zeile, auf die es ankommt, wäre die am schlechtesten
+ * lesbare.
+ */
+.browse li > button.pick__row--an {
+  background: rgba(var(--accent), 0.18);
+}
+
+.browse li > button.pick__row--an .pick__hint {
+  color: var(--text-loud);
+}
+
+/* Die Beschreibung tritt beim Überfahren vor — die Zeile bleibt sonst, wie sie ist. */
+.browse li > button:hover .pick__hint,
+.browse li > button:focus-visible .pick__hint {
+  color: var(--text);
 }
 
 .browse__up {
@@ -2708,6 +2801,35 @@ option:checked {
   max-width: 44rem;
   max-height: 82vh;
   overflow-y: auto;
+}
+
+/*
+ * In einem Fenster gilt keine Lesebreite.
+ *
+ * `.prose` deckelt auf 68 Zeichen — richtig für einen Fließtext auf einer
+ * breiten Seite, falsch in einem Fenster: Dort steht der Inhalt schon in einem
+ * Kasten von 44 rem, und der Deckel darin ließ rechts einen Streifen frei,
+ * während links der Innenabstand des Kastens saß. Zwei verschiedene Ränder für
+ * dieselbe Fläche, und keiner davon war beabsichtigt.
+ */
+.modal__box .prose {
+  max-width: none;
+}
+
+/*
+ * Die Knopfleiste eines Fensters.
+ *
+ * **Rechtsbündig, OK vor Abbrechen.** So steht es in jedem Fenster dieses
+ * Betriebssystems, und zwar seit Jahrzehnten. Wer eine Anwendung bedient,
+ * greift dorthin, ohne hinzusehen — eine eigene Anordnung kostet bei jedem
+ * Fenster einen Blick und gewinnt nichts.
+ *
+ * Als eine Regel für alle Fenster und nicht je Fenster: Sonst steht die Leiste
+ * dort rechts, wo jemand daran gedacht hat, und anderswo links.
+ */
+.modal__actions {
+  justify-content: flex-end;
+  margin-top: 1.2rem;
 }
 
 button {

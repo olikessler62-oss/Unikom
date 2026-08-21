@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type KeyboardEvent as Tastenereignis, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import type { RunStatus } from '../api/types.js';
@@ -180,7 +180,7 @@ export function Modal({
         <div className="prose">{children}</div>
 
         {!ownActions && (
-          <div className="row" style={{ marginTop: '1.2rem' }}>
+          <div className="row modal__actions">
             <button className="secondary" autoFocus onClick={onClose}>
               {t('piece.close')}
             </button>
@@ -666,4 +666,47 @@ export function Klappkarte({
       </div>
     </section>
   );
+}
+
+/**
+ * Pfeiltasten bewegen den Fokus in einer Liste von Knöpfen.
+ *
+ * An das umgebende `ul` gehängt, nicht an jede Zeile: Eine Liste, die sich
+ * ändert, hätte sonst Zeilen mit und ohne Tastatur, je nachdem, wann sie
+ * entstanden sind.
+ *
+ * `Pos1` und `Ende` gehen an den Anfang und ans Ende — bei dreißig Zeilen ist
+ * das der Unterschied zwischen einem Tastendruck und dreißig. Der Browser
+ * scrollt den fokussierten Knopf von selbst in den sichtbaren Bereich; eine
+ * eigene Rechnung dafür wäre eine, die bei jeder Änderung an der Zeilenhöhe
+ * still falsch würde.
+ *
+ * Gesucht werden die Geschwister im Baum und keine gemerkte Nummer: Die Liste
+ * kann sich ändern, das DOM ist die Wahrheit.
+ */
+export function listentasten(event: Tastenereignis<HTMLElement>): void {
+  const tasten = ['ArrowDown', 'ArrowUp', 'Home', 'End'];
+
+  if (!tasten.includes(event.key)) {
+    return;
+  }
+
+  const knoepfe = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('li > button')];
+
+  if (knoepfe.length === 0) {
+    return;
+  }
+
+  // Sonst scrollte die Seite zusätzlich — der Fokus wandert, die Liste bleibt.
+  event.preventDefault();
+
+  const jetzt = knoepfe.indexOf(document.activeElement as HTMLButtonElement);
+  const ziel =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? knoepfe.length - 1
+        : Math.min(knoepfe.length - 1, Math.max(0, jetzt + (event.key === 'ArrowDown' ? 1 : -1)));
+
+  knoepfe[ziel]?.focus();
 }

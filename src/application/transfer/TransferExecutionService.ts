@@ -1121,7 +1121,6 @@ export class TransferExecutionService {
     return {
       filenamePrefix: job.filenamePrefix,
       allowedExtensions: job.allowedExtensions,
-      caseSensitivePrefix: job.caseSensitivePrefix,
       minimumFileAgeSeconds: job.minimumFileAgeSeconds,
       requireStableFile: job.stabilityCheck.enabled,
       ignoredTemporaryExtensions: job.ignoredTemporaryExtensions,

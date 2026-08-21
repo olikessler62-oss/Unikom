@@ -20,7 +20,6 @@ export function createTransferJob(overrides: Partial<TransferJob> = {}): Transfe
     // Schreibweise für „Name beginnt so" — und die Dateien der Tests heißen
     // ORDER_001.csv, nicht ORDER_.
     filenamePrefix: 'ORDER_*',
-    caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
     ignoredTemporaryExtensions: ['.part', '.tmp'],
     minimumFileAgeSeconds: 0,

@@ -52,7 +52,6 @@ async function setup(jobOverrides: Partial<TransferJob> = {}): Promise<Harness> 
     sourceConfig: { type: 'LOCAL', directory: sourceDirectory },
     sourceDirectory,
     filenamePrefix: 'ORDER_*',
-    caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
     ignoredTemporaryExtensions: ['.part', '.tmp'],
     minimumFileAgeSeconds: 0,

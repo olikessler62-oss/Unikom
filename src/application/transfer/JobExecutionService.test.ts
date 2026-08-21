@@ -39,7 +39,6 @@ test('job execution service runs a transfer job from repository config', async (
     sourceConfig: { type: 'LOCAL', directory: sourceDir },
     sourceDirectory: sourceDir,
     filenamePrefix: 'ORDER_*',
-    caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
     ignoredTemporaryExtensions: ['.tmp'],
     minimumFileAgeSeconds: 0,

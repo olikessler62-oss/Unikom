@@ -61,20 +61,20 @@ export class FileSelectionService {
    * nichts. In einem Dateinamen, der maschinell verarbeitet wird, hat ein
    * Komma nichts verloren — also ist es hier als Trenner frei.
    */
-  matchesFilename(filename: string, pattern?: string, caseSensitive = false): boolean {
+  matchesFilename(filename: string, pattern?: string): boolean {
     const einzeln = (pattern ?? '')
       .split(',')
       .map((stueck) => stueck.trim())
       .filter((stueck) => stueck !== '');
 
     if (einzeln.length > 1) {
-      return einzeln.some((eines) => this.matchesOneFilename(filename, eines, caseSensitive));
+      return einzeln.some((eines) => this.matchesOneFilename(filename, eines));
     }
 
-    return this.matchesOneFilename(filename, pattern, caseSensitive);
+    return this.matchesOneFilename(filename, pattern);
   }
 
-  private matchesOneFilename(filename: string, pattern?: string, caseSensitive = false): boolean {
+  private matchesOneFilename(filename: string, pattern?: string): boolean {
     const wanted = pattern?.trim() ?? '';
 
     // Nichts, oder nur Sterne: schränkt nichts ein, wie ein leeres Feld.
@@ -108,8 +108,17 @@ export class FileSelectionService {
     // Feld darunter, und `MeinDateiname` soll `MeinDateiname.csv` treffen.
     const subjectText = carried || !trailing ? this.withoutExtension(filename) : filename;
 
-    const name = caseSensitive ? subjectText : subjectText.toLowerCase();
-    const needle = caseSensitive ? needleText : needleText.toLowerCase();
+    /*
+     * Ohne Rücksicht auf die Schreibweise.
+     *
+     * Ein Schalter dafür stand einmal am Workflow und ist fort: Windows
+     * unterscheidet im Dateisystem nicht, und wer ein Muster schreibt, meint die
+     * Datei und nicht ihre Schreibweise. Auf einem Linux-Server können
+     * `Filiale.csv` und `filiale.csv` nebeneinander liegen — dann kommen beide
+     * mit, und das ist die Antwort, die niemanden überrascht.
+     */
+    const name = subjectText.toLowerCase();
+    const needle = needleText.toLowerCase();
 
     if (leading && trailing) {
       return name.includes(needle);
@@ -225,7 +234,7 @@ export class FileSelectionService {
       return { selected: false, reason: 'TEMPORARY_EXTENSION' };
     }
 
-    if (!this.matchesFilename(file.name, criteria.filenamePrefix, criteria.caseSensitivePrefix)) {
+    if (!this.matchesFilename(file.name, criteria.filenamePrefix)) {
       return { selected: false, reason: 'PREFIX_MISMATCH' };
     }
 

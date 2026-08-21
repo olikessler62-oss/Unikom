@@ -32,7 +32,6 @@ function demoJob(): TransferJob {
     sourceConfig: { type: 'LOCAL', directory: SOURCE_DIRECTORY },
     sourceDirectory: SOURCE_DIRECTORY,
     filenamePrefix: 'ORDER_*',
-    caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
     ignoredTemporaryExtensions: ['.part', '.tmp', '.temp'],
     minimumFileAgeSeconds: 0,

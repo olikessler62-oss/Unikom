@@ -607,7 +607,6 @@ export interface Job {
   };
 
   filenamePrefix?: string;
-  caseSensitivePrefix: boolean;
   allowedExtensions: string[];
   ignoredTemporaryExtensions: string[];
   minimumFileAgeSeconds: number;

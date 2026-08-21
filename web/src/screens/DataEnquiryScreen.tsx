@@ -388,7 +388,7 @@ export function DataEnquiryScreen() {
                 nachzufassen.
               </p>
 
-              <div className="row" style={{ marginTop: '1.2rem' }}>
+              <div className="row modal__actions">
                 <button disabled={busy} onClick={() => void loeschen()}>
                   Ja, jetzt löschen
                 </button>

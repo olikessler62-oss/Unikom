@@ -268,7 +268,6 @@ export interface TransferJob {
   /** Absent means the source delivers plaintext, which is the normal case. */
   sourceEncryption?: SourceEncryptionConfig;
   filenamePrefix?: string;
-  caseSensitivePrefix: boolean;
   allowedExtensions: string[];
   ignoredTemporaryExtensions: string[];
   minimumFileAgeSeconds: number;

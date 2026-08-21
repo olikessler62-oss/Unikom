@@ -64,7 +64,6 @@ async function setup(
     sourceConfig: { type: 'LOCAL', directory: sourceDirectory },
     sourceDirectory,
     filenamePrefix: 'ORDER_*',
-    caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
     ignoredTemporaryExtensions: ['.part', '.tmp'],
     minimumFileAgeSeconds: 0,

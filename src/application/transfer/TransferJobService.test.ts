@@ -12,7 +12,6 @@ const job: TransferJob = {
   sourceType: 'LOCAL',
   sourceConfig: { type: 'LOCAL', directory: 'C:/Import' },
   sourceDirectory: 'C:/Import',
-  caseSensitivePrefix: false,
   allowedExtensions: ['csv'],
   ignoredTemporaryExtensions: ['.tmp'],
   minimumFileAgeSeconds: 30,

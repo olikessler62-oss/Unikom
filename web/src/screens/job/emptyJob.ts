@@ -158,7 +158,6 @@ export function emptyJob(tenantId: string, language: Language, features: readonl
     sourceConfig: { type: 'LOCAL', directory: '' },
     sourceDirectory: '',
 
-    caseSensitivePrefix: false,
     allowedExtensions: [],
     ignoredTemporaryExtensions: ['.part', '.tmp', '.temp', '.filepart'],
     minimumFileAgeSeconds: 60,
