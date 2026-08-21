@@ -38,7 +38,6 @@ test('job execution service runs a transfer job from repository config', async (
     sourceType: 'LOCAL',
     sourceConfig: { type: 'LOCAL', directory: sourceDir },
     sourceDirectory: sourceDir,
-    includeSubdirectories: false,
     filenamePrefix: 'ORDER_*',
     caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
@@ -95,15 +94,15 @@ test('an unknown job id yields no run', async () => {
 
 /** Ein Quelladapter, der mitschreibt, was mit ihm geschah. */
 function spyAdapter(files: SourceFile[] = []) {
-  const seen = { connected: 0, listed: [] as { directory: string; recursive: boolean }[], disposed: 0 };
+  const seen = { connected: 0, listed: [] as { directory: string }[], disposed: 0 };
 
   const adapter: SourceAdapter = {
     testConnection: async () => {
       seen.connected += 1;
       return { ok: true, message: 'Doppelgänger' };
     },
-    listFiles: async (directory: string, recursive: boolean) => {
-      seen.listed.push({ directory, recursive });
+    listFiles: async (directory: string) => {
+      seen.listed.push({ directory });
       return files;
     },
     downloadFile: async (file, targetPath) => ({ ok: true, message: 'kopiert', localPath: targetPath }),
@@ -155,18 +154,14 @@ test('a workflow that fetches asks for its source and reads the configured direc
   const { adapter, seen } = spyAdapter();
   const { provider, asked } = spyProvider(adapter);
 
-  const job = createTransferJob({
-    id: 'holt',
-    sourceDirectory: '/eingang',
-    includeSubdirectories: true,
-  });
+  const job = createTransferJob({ id: 'holt', sourceDirectory: '/eingang' });
 
   const result = await runWith(job, provider);
 
   assert.deepEqual(asked, ['holt']);
   assert.equal(seen.connected, 1);
-  // Genau das Verzeichnis des Jobs, und mit seiner Einstellung für Unterordner.
-  assert.deepEqual(seen.listed, [{ directory: '/eingang', recursive: true }]);
+  // Genau das Verzeichnis des Jobs — und nur dieses, ohne alles darunter.
+  assert.deepEqual(seen.listed, [{ directory: '/eingang' }]);
   // Nichts gefunden ist kein Fehler — die Quelle war erreichbar und leer.
   assert.equal(result?.status, TransferRunStatus.SUCCESS_NO_FILES);
   assert.equal(result?.filesFound, 0);
@@ -196,11 +191,37 @@ test('a switched-off transfer holds even when a later link is switched on', asyn
 
   const result = await runWith(job, provider);
 
-  // Das Glied ist noch nicht gebaut, also bricht der Lauf ab — aber geholt
-  // wurde davor schon nichts, und das ist die Zusage.
+  /*
+   * Keine Verbindung, obwohl in den Quellfeldern noch steht, was zuletzt darin
+   * getippt wurde. Das ist die Zusage: Wer nur konsolidiert, verlangt kein
+   * Modul für entfernte Quellen und öffnet keine Verbindung, die niemand nutzt.
+   */
   assert.deepEqual(asked, []);
+
+  /*
+   * Und der Lauf bricht nicht ab: „Konsolidiere die Datei, die schon in
+   * Verzeichnis X liegt" ist ein vollständiger Workflow und kein Rumpf. Für ihn
+   * ist das Holen erledigt, indem es nicht stattfand.
+   */
+  assert.equal(result?.status, TransferRunStatus.SUCCESS_NO_FILES);
+  assert.match(result!.message ?? '', /Ohne Übertragungsschritt/);
+});
+
+test('ein Workflow ganz ohne eingeschaltetes Glied bleibt ein Fehler', async () => {
+  /*
+   * Nichts einzuschalten ist keine Einstellung, sondern ein Versehen — und
+   * stillschweigend als Erfolg gezählt zu werden wäre die schlechteste Auskunft
+   * darüber.
+   */
+  const { provider } = spyProvider();
+
+  const result = await runWith(
+    createTransferJob({ id: 'leer', transfer: { enabled: false } }),
+    provider
+  );
+
   assert.equal(result?.status, TransferRunStatus.FAILED);
-  assert.match(result!.message ?? '', /Es wurde nichts geholt/);
+  assert.match(result!.message ?? '', /Es gibt nichts zu tun/);
 });
 
 test('the connection is closed again, also when the run fails', async () => {

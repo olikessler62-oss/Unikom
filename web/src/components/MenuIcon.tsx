@@ -22,6 +22,13 @@ const PATHS: Record<string, string> = {
   workflows: 'M6 6h4v4H6zM14 14h4v4h-4zM10 8h2a2 2 0 0 1 2 2v4',
   // Ein Haus mit Etagen — der Mandant.
   tenants: 'M4 20V7l8-4 8 4v13M9 20v-5h6v5M8 10h.01M12 10h.01M16 10h.01',
+  /*
+   * Drei Zuflüsse, die zu einem werden — das ist Konsolidierung, und es ist
+   * das Bild, das der Kunde im Kopf hat, wenn er das Modul kauft. Ein Pfeil
+   * allein hieße „irgendwohin", zwei Spalten hießen „zuordnen" — und das ist
+   * nur einer der Teile darin.
+   */
+  consolidation: 'M3 6h4c2.2 0 4 1.8 4 4v2M3 12h8M3 18h4c2.2 0 4-1.8 4-4v-2M11 12h7M15 9l3 3-3 3',
   // Person mit Schultern.
   users: 'M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM5 20a7 7 0 0 1 14 0',
   // Zahnrad, auf die Linien reduziert.
@@ -30,6 +37,13 @@ const PATHS: Record<string, string> = {
   signOut: 'M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8M17 15l3-3-3-3M10 12h10',
   // Schild — was geschützt wird.
   privacy: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
+  /*
+   * Dasselbe Schild mit einer Lupe darin: Auskunft und Löschauftrag sind das
+   * Suchen im Geschützten. Ein Schild allein stünde zweimal im Menü — einmal
+   * für die Erklärung, einmal für die Arbeit — und wäre dann kein Zeichen mehr,
+   * sondern eine Verwechslung.
+   */
+  enquiry: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM11.2 11.4a2.6 2.6 0 1 0 5.2 0 2.6 2.6 0 0 0-5.2 0zM10 15.2l2-2',
   // Blatt mit Zeilen.
   imprint: 'M6 3h9l3 3v15H6zM9 9h6M9 13h6M9 17h4',
 };

@@ -65,7 +65,7 @@ test('a connection test reports the reachable directory and its file count', asy
 test('listing returns files with size and modification time', async () => {
   const { adapter, stop } = await fixture();
 
-  const files = await adapter.listFiles('/', false);
+  const files = await adapter.listFiles('/');
   const order = files.find((file) => file.name === 'ORDER_001.csv');
 
   assert.equal(files.filter((file) => !file.isDirectory).length, 2);
@@ -75,15 +75,23 @@ test('listing returns files with size and modification time', async () => {
   await stop();
 });
 
-test('subdirectories are only traversed when asked for', async () => {
+test('was in einem Unterverzeichnis liegt, wird nicht mitgelesen', async () => {
+  // Das Unterverzeichnis selbst steht in der Liste — der Verzeichnisbrowser
+  // blättert damit. Sein Inhalt gehört nicht dazu: Ein Verzeichnis ist die
+  // Abmachung mit dem Absender, und was er daneben ablegt, geht diesen Workflow
+  // nichts an.
   const { adapter, stop } = await fixture({}, { 'ORDER_001.csv': ORDER, 'sub/ORDER_009.csv': ORDER });
 
-  const flat = await adapter.listFiles('/', false);
-  const deep = await adapter.listFiles('/', true);
+  const gelesen = await adapter.listFiles('/');
 
-  assert.equal(flat.filter((file) => !file.isDirectory).length, 1);
-  assert.equal(deep.filter((file) => !file.isDirectory).length, 2);
-  assert.ok(deep.some((file) => file.fullPath === '/sub/ORDER_009.csv'));
+  assert.deepEqual(
+    gelesen.filter((file) => !file.isDirectory).map((file) => file.name),
+    ['ORDER_001.csv']
+  );
+  assert.ok(
+    gelesen.some((file) => file.isDirectory && file.name === 'sub'),
+    'das Unterverzeichnis selbst bleibt sichtbar'
+  );
   await stop();
 });
 

@@ -463,10 +463,14 @@ effektive Recht aus ACLs, Gruppenzugehörigkeit und Freigabeberechtigungen, von
 denen keine in dem steht, was ein Dateisystemaufruf meldet. Die Testdatei wird
 sofort wieder entfernt.
 
-**Wichtig bei Freigaben:** Es zählt das Konto, unter dem Unikom läuft — nicht
-das der angemeldeten Person. Läuft Unikom als Windows-Dienst, braucht dieses
-Dienstkonto Zugriff. Zugangsdaten für eine Freigabe lassen sich nicht im Job
-hinterlegen; der Zugriff erfolgt mit der Identität des Prozesses.
+**Wichtig bei Freigaben:** Ein Zugang ist **Pflicht** — Benutzername und
+Kennwort, je Seite getrennt. Ohne ihn zählte das Konto, unter dem Unikom läuft,
+und nicht das der Person, die den Workflow anlegt: Beim Einrichten fiele das
+nicht auf, weil Unikom dann oft in deren Sitzung läuft; als Windows-Dienst
+fände derselbe Workflow nichts mehr. Verbunden wird je Server eine Sitzung
+gleichzeitig (`ShareConnectionService`), weil Windows SMB-Sitzungen je Konto
+und Server führt und einen zweiten Zugang zum selben Server mit Fehler 1219
+abweist.
 
 ## Aufbewahrung
 

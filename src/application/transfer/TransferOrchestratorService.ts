@@ -7,7 +7,6 @@ import type { TransferRunRepository } from '../../domain/transfer/TransferRunRep
 import { TransferRunStatus } from '../../domain/transfer/TransferRun.js';
 import type { RunGate } from '../../domain/licensing/Licence.js';
 import { JobSchedulerService } from '../scheduling/JobSchedulerService.js';
-import type { RunProtocolWriter } from '../logging/RunProtocolWriter.js';
 import type { RunControlRegistry } from './RunControlRegistry.js';
 import type { TransferExecutionOptions, TransferRunResult } from './TransferExecutionService.js';
 
@@ -46,13 +45,7 @@ export class TransferOrchestratorService {
      * Registers every run so it can be held or stopped while it is under way.
      * Absent means a run cannot be steered, which is what most tests want.
      */
-    private readonly controls?: RunControlRegistry,
-    /**
-     * Legt das Protokoll eines Laufs als Datei ab, wenn der Workflow es
-     * verlangt. Fehlt er, wird nichts abgelegt — so laufen die Tests, die von
-     * Protokolldateien nichts wissen wollen.
-     */
-    private readonly protocols?: RunProtocolWriter
+    private readonly controls?: RunControlRegistry
   ) {}
 
   /** True while a run for this job is in flight (spec section 29). */
@@ -183,14 +176,6 @@ export class TransferOrchestratorService {
 
     await this.runRepository.save(run);
     await this.jobRepository.save({ ...this.withNextExecution(job, now), lastExecutionAt: startedAt });
-
-    // Zuletzt, nachdem der Lauf gespeichert ist: Das Protokoll beschreibt den
-    // Lauf, also muss der Lauf feststehen. Und es darf ihn nicht scheitern
-    // lassen — eine volle Platte im Protokollverzeichnis wäre ein schlechter
-    // Grund, eine gelungene Übertragung als Fehler zu melden.
-    if (job.saveProtocol === true) {
-      await this.protocols?.write(job, run).catch(() => {});
-    }
 
     return run;
   }

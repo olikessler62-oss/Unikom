@@ -1,6 +1,6 @@
 import type { UnikomApplication } from '../../../application/runtime/UnikomApplication.js';
 import { csrfTokenFor, SESSION_IDLE_HOURS } from '../../../application/users/SessionService.js';
-import { permissionsOf, toSummary, type User } from '../../../domain/users/User.js';
+import { permissionsFor, toSummary, type User } from '../../../domain/users/User.js';
 import {
   ApiError,
   ok,
@@ -99,7 +99,7 @@ async function identityOf(
 ): Promise<Record<string, unknown>> {
   return {
     user: toSummary(user),
-    permissions: user.mustChangePassword ? [] : permissionsOf(user.role),
+    permissions: user.mustChangePassword ? [] : permissionsFor(user),
     mustChangePassword: user.mustChangePassword,
     // The page has to send this back in a header on every change.
     csrfToken: token ? csrfTokenFor(token) : undefined,

@@ -69,7 +69,7 @@ export class LocalSourceAdapter implements SourceAdapter {
     };
   }
 
-  async listFiles(directory: string, recursive: boolean): Promise<SourceFile[]> {
+  async listFiles(directory: string): Promise<SourceFile[]> {
     const entries = await fs.readdir(directory, { withFileTypes: true });
     const files: SourceFile[] = [];
 
@@ -78,10 +78,6 @@ export class LocalSourceAdapter implements SourceAdapter {
       const stat = await fs.stat(fullPath);
 
       if (entry.isDirectory()) {
-        if (recursive) {
-          const nested = await this.listFiles(fullPath, true);
-          files.push(...nested);
-        }
         files.push({
           name: entry.name,
           fullPath,

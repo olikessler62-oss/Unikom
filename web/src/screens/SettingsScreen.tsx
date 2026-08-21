@@ -128,7 +128,7 @@ export function SettingsScreen({ canManage, onLicenceChanged }: Props) {
 
           <Field
             label="Lizenztext"
-            hint="Eine Zeile, beginnend mit UNIKOM-LICENCE-1. Zeilenumbrüche aus einer E-Mail stören nicht."
+            explain="Eine Zeile, beginnend mit UNIKOM-LICENCE-1. Zeilenumbrüche aus einer E-Mail stören nicht."
           >
             <textarea
               rows={4}

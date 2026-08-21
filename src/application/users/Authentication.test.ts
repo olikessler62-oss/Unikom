@@ -6,7 +6,7 @@ import { createInMemoryApplication, type UnikomApplication } from '../runtime/Un
 import { ensureInitialAdministrator } from './InitialAdministrator.js';
 import { LOCK_MINUTES, MAX_FAILED_ATTEMPTS, MINIMUM_PASSWORD_LENGTH } from './UserService.js';
 import { SESSION_IDLE_HOURS, SESSION_MAXIMUM_HOURS } from './SessionService.js';
-import { may, permissionsOf } from '../../domain/users/User.js';
+import { may, permissionsFor, permissionsOf } from '../../domain/users/User.js';
 import { PasswordHasher } from '../../infrastructure/security/PasswordHasher.js';
 
 const PASSWORD = 'ein-ordentliches-Passwort-2026';
@@ -21,7 +21,8 @@ async function withAdmin(): Promise<{ application: UnikomApplication; adminId: s
   const application = createInMemoryApplication();
   const admin = await application.userService.create({
     username: 'anna',
-    displayName: 'Anna',
+    firstName: 'Anna',
+    lastName: 'Berger',
     role: 'ADMIN',
     password: PASSWORD,
   });
@@ -29,13 +30,17 @@ async function withAdmin(): Promise<{ application: UnikomApplication; adminId: s
   return { application, adminId: admin.id };
 }
 
-test('roles grant what their name suggests', () => {
+test('die zwei Stufen gewähren, was ihr Name sagt', () => {
   assert.equal(may('ADMIN', 'MANAGE_USERS'), true);
-  assert.equal(may('OPERATOR', 'MANAGE_JOBS'), true);
-  assert.equal(may('OPERATOR', 'MANAGE_CREDENTIALS'), false, 'credentials are for administrators');
-  assert.equal(may('OPERATOR', 'MANAGE_USERS'), false);
-  assert.equal(may('VIEWER', 'VIEW'), true);
-  assert.deepEqual(permissionsOf('VIEWER'), ['VIEW']);
+  assert.equal(may('STANDARD', 'MANAGE_JOBS'), true, 'Normal ist die Stufe, die die Arbeit macht');
+  assert.equal(may('STANDARD', 'RUN_JOBS'), true);
+  assert.equal(may('STANDARD', 'MANAGE_CREDENTIALS'), false, 'ein Zugang trägt ein fremdes Kennwort');
+  assert.equal(
+    may('STANDARD', 'MANAGE_USERS'),
+    false,
+    'wer Benutzer anlegen darf, kann sich selbst zum Administrator machen'
+  );
+  assert.deepEqual(permissionsOf('STANDARD'), ['VIEW', 'RUN_JOBS', 'MANAGE_JOBS']);
 });
 
 test('the stored record contains no password', async () => {
@@ -96,7 +101,8 @@ test('a second account cannot claim the same name in different capitalisation', 
   const { application } = await withAdmin();
 
   await assert.rejects(
-    () => application.userService.create({ username: 'Anna', displayName: 'X', role: 'VIEWER', password: PASSWORD }),
+    () => application.userService.create({ username: 'Anna', firstName: 'Xenia',
+ lastName: 'Xander', role: 'STANDARD', password: PASSWORD }),
     /gibt es schon/
   );
 });
@@ -108,8 +114,9 @@ test('a password below the minimum length is refused', async () => {
     () =>
       application.userService.create({
         username: 'kurz',
-        displayName: 'Kurz',
-        role: 'VIEWER',
+        firstName: 'Kurt',
+        lastName: 'Kurz',
+        role: 'STANDARD',
         password: 'x'.repeat(MINIMUM_PASSWORD_LENGTH - 1),
       }),
     new RegExp(`${MINIMUM_PASSWORD_LENGTH} Zeichen`)
@@ -152,7 +159,8 @@ test('a disabled account cannot log in', async () => {
   const { application, adminId } = await withAdmin();
   await application.userService.create({
     username: 'zweiter-admin',
-    displayName: 'Zweiter',
+    firstName: 'Zoe',
+    lastName: 'Zweig',
     role: 'ADMIN',
     password: PASSWORD,
   });
@@ -224,16 +232,17 @@ test('a session cannot be kept alive indefinitely', async () => {
 
 test('disabling a user invalidates their open sessions at once', async () => {
   const { application, adminId } = await withAdmin();
-  const viewer = await application.userService.create({
+  const normal = await application.userService.create({
     username: 'basti',
-    displayName: 'Basti',
-    role: 'VIEWER',
+    firstName: 'Basti',
+    lastName: 'Bauer',
+    role: 'STANDARD',
     password: PASSWORD,
   });
-  const token = await application.sessionService.issue(viewer.id);
+  const token = await application.sessionService.issue(normal.id);
   assert.ok(await application.sessionService.resolve(token));
 
-  await application.userService.setEnabled(viewer.id, false);
+  await application.userService.setEnabled(normal.id, false);
 
   assert.equal(await application.sessionService.resolve(token), undefined, 'a locked door has to lock now, not in 12 hours');
   assert.ok(adminId);
@@ -241,15 +250,16 @@ test('disabling a user invalidates their open sessions at once', async () => {
 
 test('a role change invalidates the session that still carries the old role', async () => {
   const { application } = await withAdmin();
-  const operator = await application.userService.create({
+  const bearbeiter = await application.userService.create({
     username: 'chris',
-    displayName: 'Chris',
-    role: 'OPERATOR',
+    firstName: 'Chris',
+    lastName: 'Conrad',
+    role: 'STANDARD',
     password: PASSWORD,
   });
-  const token = await application.sessionService.issue(operator.id);
+  const token = await application.sessionService.issue(bearbeiter.id);
 
-  await application.userService.setRole(operator.id, 'VIEWER');
+  await application.userService.setRole(bearbeiter.id, 'STANDARD');
 
   assert.equal(await application.sessionService.resolve(token), undefined);
 });
@@ -285,15 +295,16 @@ test('the new password has to differ from the old one', async () => {
 
 test('a handed-out password may do nothing but be replaced', async () => {
   const { application, adminId } = await withAdmin();
-  const viewer = await application.userService.create({
+  const normal = await application.userService.create({
     username: 'dana',
-    displayName: 'Dana',
-    role: 'VIEWER',
+    firstName: 'Dana',
+    lastName: 'Dorn',
+    role: 'STANDARD',
     password: PASSWORD,
   });
 
-  await application.userService.resetPassword(viewer.id, 'vom-Administrator-vergeben-2026');
-  const token = await application.sessionService.issue(viewer.id);
+  await application.userService.resetPassword(normal.id, 'vom-Administrator-vergeben-2026');
+  const token = await application.sessionService.issue(normal.id);
   const authenticated = await application.sessionService.resolve(token);
 
   assert.ok(authenticated);
@@ -303,8 +314,8 @@ test('a handed-out password may do nothing but be replaced', async () => {
     'until the password is replaced the session may only replace it'
   );
 
-  await application.userService.changePassword(viewer.id, 'vom-Administrator-vergeben-2026', 'selbst-gewaehlt-2026');
-  const fresh = await application.sessionService.resolve(await application.sessionService.issue(viewer.id));
+  await application.userService.changePassword(normal.id, 'vom-Administrator-vergeben-2026', 'selbst-gewaehlt-2026');
+  const fresh = await application.sessionService.resolve(await application.sessionService.issue(normal.id));
   assert.equal(fresh ? application.sessionService.authorize(fresh, 'VIEW') : false, true);
   assert.ok(adminId);
 });
@@ -312,7 +323,7 @@ test('a handed-out password may do nothing but be replaced', async () => {
 test('the last active administrator cannot remove themselves', async () => {
   const { application, adminId } = await withAdmin();
 
-  await assert.rejects(() => application.userService.setRole(adminId, 'VIEWER'), /letzte aktive Administrator/);
+  await assert.rejects(() => application.userService.setRole(adminId, 'STANDARD'), /letzte aktive Administrator/);
   await assert.rejects(() => application.userService.setEnabled(adminId, false), /letzte aktive Administrator/);
   await assert.rejects(() => application.userService.delete(adminId), /letzte aktive Administrator/);
 });
@@ -321,13 +332,14 @@ test('with a second administrator the first one may step down', async () => {
   const { application, adminId } = await withAdmin();
   await application.userService.create({
     username: 'berta',
-    displayName: 'Berta',
+    firstName: 'Berta',
+    lastName: 'Brandt',
     role: 'ADMIN',
     password: PASSWORD,
   });
 
-  const stepped = await application.userService.setRole(adminId, 'VIEWER');
-  assert.equal(stepped.role, 'VIEWER');
+  const stepped = await application.userService.setRole(adminId, 'STANDARD');
+  assert.equal(stepped.role, 'STANDARD');
 });
 
 test('the first start creates one administrator with a password shown once', async () => {
@@ -370,4 +382,195 @@ test('expired sessions can be swept up', async () => {
   );
 
   assert.equal(removed, 1);
+});
+
+test('ein neuer Benutzer bekommt sein Kürzel aus dem Namen, ohne es einzutippen', async () => {
+  const { application } = await withAdmin();
+  const angelegt = await application.userService.create({
+    username: 'chris',
+    firstName: 'Chris',
+    lastName: 'Conrad',
+    role: 'STANDARD',
+    password: PASSWORD,
+  });
+
+  assert.equal(angelegt.initials, 'CCD');
+  assert.equal(angelegt.displayName, 'Chris Conrad', 'der ausgeschriebene Name entsteht aus beiden Teilen');
+});
+
+test('zwei Namen, die dasselbe Kürzel ergäben, bekommen verschiedene', async () => {
+  // withAdmin legt Anna Berger an; das ist ABR.
+  const { application } = await withAdmin();
+  const zweite = await application.userService.create({
+    username: 'anne',
+    firstName: 'Anne',
+    lastName: 'Bauer',
+    role: 'STANDARD',
+    password: PASSWORD,
+  });
+
+  assert.equal(zweite.initials, 'ABN');
+  assert.equal(new Set((await application.userService.list()).map((user) => user.initials)).size, 2);
+});
+
+test('ein halber Name wird nicht angenommen', async () => {
+  const { application } = await withAdmin();
+
+  await assert.rejects(
+    () =>
+      application.userService.create({
+        username: 'halb',
+        firstName: 'Nur',
+        lastName: '   ',
+        role: 'STANDARD',
+        password: PASSWORD,
+      }),
+    /Vornamen und einen Nachnamen/
+  );
+});
+
+test('eine Namensberichtigung lässt das Kürzel stehen', async () => {
+  const { application, adminId } = await withAdmin();
+
+  const berichtigt = await application.userService.update(adminId, {
+    username: 'anna',
+    firstName: 'Anne',
+    lastName: 'Berger',
+    role: 'ADMIN',
+  });
+
+  // ABR passt weiter zu Anne Berger, also bleibt es. Ein Kürzel, das ohne Not
+  // wechselt, taugt nicht als Wiedererkennung.
+  assert.equal(berichtigt.initials, 'ABR');
+  assert.equal(berichtigt.displayName, 'Anne Berger');
+});
+
+test('ein wirklich anderer Name bekommt ein neues Kürzel', async () => {
+  const { application, adminId } = await withAdmin();
+
+  const geändert = await application.userService.update(adminId, {
+    username: 'anna',
+    firstName: 'Petra',
+    lastName: 'Sommer',
+    role: 'ADMIN',
+  });
+
+  assert.equal(geändert.initials, 'PSR');
+});
+
+test('der Anmeldename eines anderen lässt sich nicht übernehmen', async () => {
+  const { application, adminId } = await withAdmin();
+  await application.userService.create({
+    username: 'chris',
+    firstName: 'Chris',
+    lastName: 'Conrad',
+    role: 'STANDARD',
+    password: PASSWORD,
+  });
+
+  await assert.rejects(
+    () =>
+      application.userService.update(adminId, {
+        username: 'CHRIS',
+        firstName: 'Anna',
+        lastName: 'Berger',
+        role: 'ADMIN',
+      }),
+    /gibt es schon/
+  );
+
+  // Der eigene Name darf dagegen stehen bleiben, ohne dass er als vergeben gilt.
+  const gleich = await application.userService.update(adminId, {
+    username: 'anna',
+    firstName: 'Anna',
+    lastName: 'Berger',
+    role: 'ADMIN',
+  });
+
+  assert.equal(gleich.username, 'anna');
+});
+
+test('eine Herabstufung über das Formular beendet die offene Sitzung', async () => {
+  const { application } = await withAdmin();
+  const zweiter = await application.userService.create({
+    username: 'berta',
+    firstName: 'Berta',
+    lastName: 'Brandt',
+    role: 'ADMIN',
+    password: PASSWORD,
+  });
+  const token = await application.sessionService.issue(zweiter.id);
+
+  await application.userService.update(zweiter.id, {
+    username: 'berta',
+    firstName: 'Berta',
+    lastName: 'Brandt',
+    role: 'STANDARD',
+  });
+
+  assert.equal(await application.sessionService.resolve(token), undefined, 'die Sitzung trüge noch die alte Stufe');
+});
+
+test('auch über das Formular kann sich der letzte Administrator nicht herabstufen', async () => {
+  const { application, adminId } = await withAdmin();
+
+  await assert.rejects(
+    () =>
+      application.userService.update(adminId, {
+        username: 'anna',
+        firstName: 'Anna',
+        lastName: 'Berger',
+        role: 'STANDARD',
+      }),
+    /letzte aktive Administrator/
+  );
+});
+
+test('das Recht auf Konfliktdaten folgt nicht aus der Stufe', () => {
+  // Im Konfliktbestand stehen die Werte im Klartext. Wer sie sehen darf, soll
+  // namentlich feststehen — auch ein Administrator bekommt es nicht nebenbei.
+  assert.equal(permissionsFor({ role: 'ADMIN', handleConflicts: false }).includes('HANDLE_CONFLICTS'), false);
+  assert.equal(permissionsFor({ role: 'STANDARD', handleConflicts: false }).includes('HANDLE_CONFLICTS'), false);
+  assert.equal(permissionsFor({ role: 'STANDARD', handleConflicts: true }).includes('HANDLE_CONFLICTS'), true);
+});
+
+test('das Recht wird beim Anlegen nicht mitgegeben, sondern ausdrücklich erteilt', async () => {
+  const { application } = await withAdmin();
+  const ohne = await application.userService.create({
+    username: 'ohne',
+    firstName: 'Ohne',
+    lastName: 'Recht',
+    role: 'STANDARD',
+    password: PASSWORD,
+  });
+
+  assert.equal(ohne.handleConflicts, false);
+
+  const mit = await application.userService.update(ohne.id, {
+    username: 'ohne',
+    firstName: 'Ohne',
+    lastName: 'Recht',
+    role: 'STANDARD',
+    handleConflicts: true,
+  });
+
+  assert.equal(mit.handleConflicts, true);
+});
+
+test('eine Sitzung darf nur, was ihr Benutzer darf', async () => {
+  const { application } = await withAdmin();
+  const bearbeiter = await application.userService.create({
+    username: 'konflikt',
+    firstName: 'Konny',
+    lastName: 'Fliktmann',
+    role: 'STANDARD',
+    password: PASSWORD,
+    handleConflicts: true,
+  });
+
+  const sitzung = await application.sessionService.resolve(await application.sessionService.issue(bearbeiter.id));
+  assert.ok(sitzung);
+
+  assert.equal(application.sessionService.authorize(sitzung, 'HANDLE_CONFLICTS'), true);
+  assert.equal(application.sessionService.authorize(sitzung, 'MANAGE_USERS'), false, 'die Stufe bleibt, wie sie war');
 });

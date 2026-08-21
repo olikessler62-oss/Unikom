@@ -24,9 +24,11 @@ const FILE_TONE: Record<FileStatus, string> = {
 };
 
 /**
- * Das Protokoll liegt im Arbeitsspeicher des Servers und verschwindet mit dem
- * Neustart. Was aufgehoben werden soll, holt man sich hier als Datei — mit
- * jeder Zeile, nicht nur mit denen des eingestellten Detailgrads.
+ * Das Protokoll steht in der Datenbank und übersteht einen Neustart. Wer es aus
+ * dem Haus geben will — an den Hersteller, an den Betreiber des Gegenservers —
+ * oder über seine Aufbewahrungsfrist hinaus behalten möchte, holt es sich hier
+ * als Datei: mit jeder Zeile, nicht nur mit denen des eingestellten
+ * Detailgrads.
  */
 async function saveProtocol(runId: string): Promise<void> {
   const document_ = await api.get<{ filename: string; text: string }>(`/api/runs/${runId}/protokoll`);

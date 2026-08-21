@@ -185,3 +185,97 @@ test('a new file after the restart is still picked up', async () => {
   assert.equal(run?.filesSkipped, 1);
   assert.equal(await exists(path.join(destinationDirectory, 'ORDER_002.csv')), true);
 });
+
+/*
+ * Das Protokoll ist der einzige Zeuge dessen, was ein Lauf getan hat, und
+ * gebraucht wird er fast immer später: Was um drei Uhr nachts schiefging, sieht
+ * jemand um acht — und dazwischen kann der Rechner neu gestartet haben. Steht
+ * das Protokoll nur im Arbeitsspeicher, ist es genau dann fort, wenn es
+ * gebraucht wird, und ein Kunde, der keinen Zugang zu seinem System gewährt,
+ * hat nichts, was er schicken könnte.
+ */
+test('das Protokoll eines Laufs übersteht den Neustart', async () => {
+  const { dataDirectory, sourceDirectory, destinationDirectory } = await workspace();
+  await fs.writeFile(path.join(sourceDirectory, 'ORDER_001.csv'), 'customer;amount\nA;42\n');
+
+  const first = createPersistentApplication(dataDirectory);
+  await first.jobRepository.save(
+    createTransferJob({ id: 'customer-a', sourceDirectory, destinationDirectory })
+  );
+  const run = await first.runtime.orchestrator.runJobNow('customer-a', new Date('2026-08-13T03:45:00.000Z'));
+  first.close();
+
+  assert.equal(run?.filesSucceeded, 1);
+
+  // Neustart: eine ganz neue Anwendung auf demselben Datenverzeichnis.
+  const second = createPersistentApplication(dataDirectory);
+  const protokoll = await second.logRepository.list({ runId: run?.id ?? '' });
+
+  assert.ok(protokoll.length > 0, 'ohne Zeilen wäre nach dem Neustart nicht mehr zu klären, was der Lauf tat');
+  assert.ok(
+    protokoll.some((line) => line.filename === 'ORDER_001.csv'),
+    'die Datei muss im Protokoll namentlich vorkommen'
+  );
+  assert.ok(protokoll[0].timestamp instanceof Date, 'gespeicherte Zeitpunkte müssen als Datum zurückkommen');
+  second.close();
+});
+
+/*
+ * Die Region eines Mandanten muss den Neustart überstehen.
+ *
+ * Sie steht in einer eigenen Spalte, und eine Spalte, die beim Schreiben
+ * vergessen wird, fällt nirgends auf: Der Mandant lädt, sieht vollständig aus
+ * und liest ab dem Neustart jedes Datum nach der Voreinstellung — also
+ * womöglich Monat statt Tag zuerst, ohne eine einzige Meldung.
+ */
+test('die Region eines Mandanten übersteht den Neustart', async () => {
+  const { dataDirectory } = await workspace();
+
+  const first = createPersistentApplication(dataDirectory);
+  const angelegt = await first.tenantService.create({
+    name: 'Kunde USA',
+    region: { locale: 'en-US', timeZone: 'America/New_York' },
+  });
+  first.close();
+
+  const second = createPersistentApplication(dataDirectory);
+  const wieder = await second.tenantService.getById(angelegt.id);
+
+  assert.deepEqual(wieder?.region, { locale: 'en-US', timeZone: 'America/New_York' });
+
+  // Und ein Mandant ohne eigene Angabe bleibt ohne — nicht mit einer erfundenen.
+  const ohne = await second.tenantService.create({ name: 'Kunde ohne Angabe' });
+  second.close();
+
+  const third = createPersistentApplication(dataDirectory);
+  assert.equal((await third.tenantService.getById(ohne.id))?.region, undefined);
+  third.close();
+});
+
+/*
+ * Die Kennung des Urhebers muss den Neustart überstehen.
+ *
+ * Sie steht in einer eigenen Spalte, und eine vergessene Spalte fällt hier
+ * besonders spät auf: Das Protokoll sieht vollständig aus, nur die Antwort auf
+ * „wer war das" fehlt — und gefragt wird sie erst, wenn es darauf ankommt.
+ */
+test('wer eine Änderung veranlasst hat, steht nach dem Neustart noch da', async () => {
+  const { dataDirectory } = await workspace();
+
+  const first = createPersistentApplication(dataDirectory);
+  first.logger.log({
+    timestamp: new Date(),
+    level: 'INFO',
+    userId: 'benutzer-4711',
+    username: 'anna',
+    message: 'PUT /api/tenants/default — geändert von anna',
+  });
+  first.close();
+
+  const second = createPersistentApplication(dataDirectory);
+  const [zeile] = await second.logRepository.list({});
+
+  assert.equal(zeile.userId, 'benutzer-4711');
+  assert.equal(zeile.username, 'anna');
+  second.close();
+});

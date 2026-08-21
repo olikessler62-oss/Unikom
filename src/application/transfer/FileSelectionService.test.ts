@@ -23,7 +23,6 @@ function criteria(overrides: Partial<FileSelectionCriteria> = {}): FileSelection
     filenamePrefix: 'ORDER_*',
     allowedExtensions: ['.csv'],
     caseSensitivePrefix: false,
-    includeSubdirectories: false,
     minimumFileAgeSeconds: 60,
     requireStableFile: false,
     ignoredTemporaryExtensions: ['.part', '.tmp', '.temp'],

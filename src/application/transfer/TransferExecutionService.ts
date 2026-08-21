@@ -6,11 +6,11 @@ import type { SourceAdapter } from '../../domain/source/SourceAdapter.js';
 import type { DestinationAdapter } from '../../domain/destination/DestinationAdapter.js';
 import { LocalDestinationAdapter } from '../../infrastructure/destinations/local/LocalDestinationAdapter.js';
 import type { SourceFile } from '../../domain/files/SourceFile.js';
-import { DEFAULT_JOB_LOG_LEVEL, type DateNotation, type TransferJob } from '../../domain/transfer/TransferJob.js';
+import { jobLogLevel, type DateNotation, type TransferJob } from '../../domain/transfer/TransferJob.js';
 import type { TransferFile } from '../../domain/transfer/TransferFile.js';
 import type { TransferFileRepository } from '../../domain/transfer/TransferFileRepository.js';
 import type { RunControl } from '../../domain/transfer/RunControl.js';
-import { activeStages, STAGE_LABELS } from '../../domain/transfer/WorkflowStages.js';
+import { activeStages, STAGE_LABELS, type StageId } from '../../domain/transfer/WorkflowStages.js';
 import { FileTransferStatus, TransferRunStatus } from '../../domain/transfer/TransferRun.js';
 import {
   UnavailableEncryptionKeyProvider,
@@ -38,12 +38,6 @@ import type { ShareAccessProvider } from './ShareAccessProvider.js';
 /** System default from spec section 79; parallelism is never unbounded. */
 export const DEFAULT_MAX_CONCURRENT_FILES = 3;
 
-/**
- * Directory a file actually sits in. With `includeSubdirectories` the job's
- * source directory is not specific enough: two files of the same name in two
- * subdirectories would otherwise share one identity and the second would be
- * discarded as a duplicate of the first (spec section 40).
- */
 /**
  * A failure with everything that was known about it.
  *
@@ -223,16 +217,23 @@ export interface TransferExecutionOptions {
 }
 
 /**
- * Chain links a job has switched on that this build cannot walk yet. The editor
- * already saves the wiring for steps ② and ③ — where they read, where they
- * write — while the processing itself is still being built.
+ * Kettenglieder, die dieser Stand noch nicht durchlaufen kann.
  *
- * Remove an entry here the moment its engine exists; this list is the single
- * place that decides whether such a job may run.
+ * Der Editor speichert die Verdrahtung eines Gliedes, bevor es die Maschine
+ * dazu gibt. Ein solcher Workflow darf nicht laufen: Schritt ① auszuführen und
+ * den Rest still fallen zu lassen, lieferte unverarbeitete Daten unter dem
+ * Namen eines Workflows, der Verarbeitung verspricht — der eine Ausgang, den
+ * niemand bemerkt.
+ *
+ * **Diese Liste ist die einzige Stelle, die das entscheidet.** Ein Glied
+ * verschwindet hier in dem Augenblick, in dem seine Maschine steht — das
+ * Konsolidieren ist gerade so verschwunden.
  */
+const NOCH_NICHT_GEBAUT: StageId[] = ['DELIVER'];
+
 export function unbuiltStages(job: TransferJob): string[] {
   return activeStages(job)
-    .filter((stage) => stage !== 'TRANSFER')
+    .filter((stage) => NOCH_NICHT_GEBAUT.includes(stage))
     .map((stage) => `"${STAGE_LABELS[stage]}"`);
 }
 
@@ -362,19 +363,44 @@ export class TransferExecutionService {
       );
     }
 
-    // Reached only if a job without step ① got past the checks above — which
-    // means its other steps are switched off too, and there is nothing to do.
     const source = sourceAdapter;
+
     if (!source) {
+      /*
+       * Kein Übertragungsschritt — und das ist seit Modul 2 ein vollständiger
+       * Workflow und kein Rumpf: „Konsolidiere die Datei, die schon in
+       * Verzeichnis X liegt." Für diesen Lauf ist das Holen erledigt, indem es
+       * nicht stattfand; was danach kommt, entscheidet der nächste Schritt.
+       *
+       * Nur wenn wirklich **nichts** eingeschaltet ist, bleibt es ein Fehler.
+       * Ein Workflow ohne ein einziges Glied ist keine Einstellung, sondern ein
+       * Versehen, und stillschweigend als Erfolg gezählt zu werden wäre die
+       * schlechteste Auskunft darüber.
+       */
+      const weitere = activeStages(job).filter((stage) => stage !== 'TRANSFER');
+
+      if (weitere.length === 0 || options.sourceProblem) {
+        return this.finish(
+          runId,
+          job,
+          TransferRunStatus.FAILED,
+          0,
+          0,
+          [],
+          options.sourceProblem ??
+            'Dieser Workflow holt keine Dateien, und kein anderer Schritt ist eingeschaltet. Es gibt nichts zu tun.'
+        );
+      }
+
       return this.finish(
         runId,
         job,
-        TransferRunStatus.FAILED,
+        TransferRunStatus.SUCCESS_NO_FILES,
         0,
         0,
         [],
-        options.sourceProblem ??
-          'Dieser Workflow holt keine Dateien, und kein anderer Schritt ist eingeschaltet. Es gibt nichts zu tun.'
+        `Ohne Übertragungsschritt: ${weitere.map((stage) => STAGE_LABELS[stage]).join(' und ')} ` +
+          'arbeitet auf Dateien, die bereits vorliegen'
       );
     }
 
@@ -388,9 +414,7 @@ export class TransferExecutionService {
     let discovered: SourceFile[];
     try {
       discovered = await retry.run(
-        async () => (await source.listFiles(job.sourceDirectory, job.includeSubdirectories)).filter(
-          (file) => !file.isDirectory
-        ),
+        async () => (await source.listFiles(job.sourceDirectory)).filter((file) => !file.isDirectory),
         ({ attempt, delaySeconds }) => {
           void source.dispose?.();
           this.event(
@@ -560,7 +584,7 @@ export class TransferExecutionService {
 
     try {
       const stability = await this.stabilityService.check(file, job.stabilityCheck, async (candidate) => {
-        const current = await sourceAdapter.listFiles(job.sourceDirectory, job.includeSubdirectories);
+        const current = await sourceAdapter.listFiles(job.sourceDirectory);
         const found = current.find((entry) => entry.fullPath === candidate.fullPath);
         return found ? { size: found.size, lastModified: found.lastModified } : undefined;
       });
@@ -1098,7 +1122,6 @@ export class TransferExecutionService {
       filenamePrefix: job.filenamePrefix,
       allowedExtensions: job.allowedExtensions,
       caseSensitivePrefix: job.caseSensitivePrefix,
-      includeSubdirectories: job.includeSubdirectories,
       minimumFileAgeSeconds: job.minimumFileAgeSeconds,
       requireStableFile: job.stabilityCheck.enabled,
       ignoredTemporaryExtensions: job.ignoredTemporaryExtensions,
@@ -1117,7 +1140,7 @@ export class TransferExecutionService {
     message: string,
     details?: Record<string, unknown>
   ): void {
-    this.emit({ name, runId, jobId: job.id, filename, message, details, jobLevel: job.logLevel ?? DEFAULT_JOB_LOG_LEVEL });
+    this.emit({ name, runId, jobId: job.id, filename, message, details, jobLevel: jobLogLevel(job) });
   }
 
   /**

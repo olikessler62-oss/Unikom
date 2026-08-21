@@ -16,6 +16,8 @@ interface LogRow {
   job_id: string | null;
   run_id: string | null;
   filename: string | null;
+  user_id: string | null;
+  username: string | null;
   message: string;
   context: string | null;
 }
@@ -27,6 +29,8 @@ function toEntry(row: LogRow): LogEntry {
     jobId: row.job_id ?? undefined,
     runId: row.run_id ?? undefined,
     filename: row.filename ?? undefined,
+    userId: row.user_id ?? undefined,
+    username: row.username ?? undefined,
     message: row.message,
     context: row.context ? (JSON.parse(row.context) as Record<string, unknown>) : undefined,
     sequence: Number(row.id),
@@ -44,8 +48,8 @@ export class SqliteTransferLogStore implements Logger, TransferLogRepository {
   log(entry: LogEntry): void {
     this.database
       .prepare(
-        `INSERT INTO transfer_logs (timestamp, level, job_id, run_id, filename, message, context)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO transfer_logs (timestamp, level, job_id, run_id, filename, user_id, username, message, context)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         entry.timestamp.toISOString(),
@@ -53,6 +57,8 @@ export class SqliteTransferLogStore implements Logger, TransferLogRepository {
         nullable(entry.jobId),
         nullable(entry.runId),
         nullable(entry.filename),
+        nullable(entry.userId),
+        nullable(entry.username),
         entry.message,
         entry.context ? JSON.stringify(entry.context) : null
       );
@@ -82,7 +88,7 @@ export class SqliteTransferLogStore implements Logger, TransferLogRepository {
 
     const rows = this.database
       .prepare(
-        `SELECT id, timestamp, level, job_id, run_id, filename, message, context
+        `SELECT id, timestamp, level, job_id, run_id, filename, user_id, username, message, context
          FROM transfer_logs ${where} ORDER BY id ASC ${limit}`
       )
       .all(...parameters) as unknown as LogRow[];

@@ -12,7 +12,6 @@ const job: TransferJob = {
   sourceType: 'LOCAL',
   sourceConfig: { type: 'LOCAL', directory: 'C:/Import' },
   sourceDirectory: 'C:/Import',
-  includeSubdirectories: false,
   caseSensitivePrefix: false,
   allowedExtensions: ['csv'],
   ignoredTemporaryExtensions: ['.tmp'],
@@ -157,10 +156,39 @@ test('eine Freigabe ohne Netzwerkpfad wird beim Speichern abgelehnt', async () =
   );
 });
 
-test('eine Freigabe mit Netzwerkpfad wird angenommen, auch ohne Zugang', async () => {
-  // Der häufige Fall in einem Haus mit einem Domänenkonto: Die Freigabe steht
-  // dem Dienst ohnehin offen. Einen Zugang zu verlangen wäre eine Regel, die
-  // mehr kostet als sie einbringt.
+test('eine Freigabe ohne Zugang wird beim Speichern abgelehnt', async () => {
+  /*
+   * Ohne Zugang würde die Freigabe mit dem Konto erreicht, unter dem der Dienst
+   * gerade läuft — nicht mit dem der Person, die den Workflow anlegt. Beim
+   * Einrichten fällt das nicht auf, weil Unikom dann oft in deren Sitzung
+   * läuft; nach der Dienstinstallation findet derselbe Workflow nichts mehr und
+   * sieht dabei aus wie ein Netzproblem.
+   */
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () =>
+      service.create({
+        ...job,
+        sourceType: 'SHARE',
+        sourceDirectory: String.raw`\\SERVER01\Austausch\Eingang`,
+        sourceConfig: { type: 'SHARE', directory: String.raw`\\SERVER01\Austausch\Eingang` },
+      }),
+    /kein Zugang hinterlegt/
+  );
+
+  await assert.rejects(
+    () =>
+      service.create({
+        ...job,
+        destinationType: 'SHARE',
+        destinationDirectory: String.raw`\\SERVER01\Austausch\Ziel`,
+      }),
+    /kein Zugang hinterlegt/
+  );
+});
+
+test('eine Freigabe mit Netzwerkpfad und Zugang wird angenommen', async () => {
   const service = new TransferJobService(new InMemoryTransferJobRepository());
 
   const gespeichert = await service.create({
@@ -168,6 +196,7 @@ test('eine Freigabe mit Netzwerkpfad wird angenommen, auch ohne Zugang', async (
     sourceType: 'SHARE',
     sourceDirectory: String.raw`\\SERVER01\Austausch\Eingang`,
     sourceConfig: { type: 'SHARE', directory: String.raw`\\SERVER01\Austausch\Eingang` },
+    credentialId: 'zugang-dateiserver',
   });
 
   assert.equal(gespeichert.sourceType, 'SHARE');

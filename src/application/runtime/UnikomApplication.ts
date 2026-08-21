@@ -36,9 +36,6 @@ import { SecretCipher } from '../../infrastructure/security/SecretCipher.js';
 import { CredentialEncryptionKeyProvider } from '../credentials/CredentialEncryptionKeyProvider.js';
 import { CredentialService } from '../credentials/CredentialService.js';
 import { CompositeLogger, DEFAULT_LOG_LEVEL, LevelFilteredLogger } from '../logging/Loggers.js';
-import { ProtocolArchive } from '../logging/ProtocolArchive.js';
-import { RunProtocolMemo } from '../logging/RunProtocolMemo.js';
-import { RunProtocolWriter } from '../logging/RunProtocolWriter.js';
 import { combineEventListeners, createTransferEventLogger } from '../logging/TransferEventLogger.js';
 import type { TenantRepository } from '../../domain/tenants/Tenant.js';
 import type { SessionRepository } from '../../domain/users/Session.js';
@@ -49,6 +46,46 @@ import { InMemoryUserRepository } from '../../infrastructure/persistence/InMemor
 import { SqliteSessionRepository } from '../../infrastructure/persistence/sqlite/SqliteSessionRepository.js';
 import { SqliteTenantRepository } from '../../infrastructure/persistence/sqlite/SqliteTenantRepository.js';
 import { SqliteUserRepository } from '../../infrastructure/persistence/sqlite/SqliteUserRepository.js';
+import { SqliteProfilRepository } from '../../infrastructure/persistence/sqlite/SqliteProfilRepository.js';
+import { SqliteSnapshotRepository } from '../../infrastructure/persistence/sqlite/SqliteSnapshotRepository.js';
+import { PrivacyService } from '../privacy/PrivacyService.js';
+import { dateiBestand } from '../../infrastructure/privacy/DateiBestand.js';
+import {
+  angekuendigterBestand,
+  laufprotokollBestand,
+  uebertrageneDateienBestand,
+} from '../../infrastructure/privacy/SqliteBestaende.js';
+import type { Bestand } from '../../domain/privacy/DataStore.js';
+import { InMemoryProfilRepository } from '../../infrastructure/persistence/InMemoryProfilRepository.js';
+import { InMemorySnapshotRepository } from '../../infrastructure/persistence/InMemorySnapshotRepository.js';
+import type { ProfilRepository } from '../../domain/consolidation/Profil.js';
+import type { SchnappschussRepository } from '../../domain/consolidation/Snapshot.js';
+import { BackgroundService } from '../background/BackgroundService.js';
+import { ConflictService } from '../conflicts/ConflictService.js';
+import { ResultService } from '../result/ResultService.js';
+import { ConsolidationService } from '../consolidation/ConsolidationService.js';
+import { ProfileService } from '../consolidation/ProfileService.js';
+import { MappingService } from '../mapping/MappingService.js';
+import { QualityService } from '../quality/QualityService.js';
+import type { Benachrichtigungsbestand } from '../../domain/background/Benachrichtigung.js';
+import type { Herzschlagbestand } from '../../domain/background/Heartbeat.js';
+import type { Konfliktbestand } from '../../domain/conflicts/Konfliktbestand.js';
+import type { Ergebnisbestand } from '../../domain/result/Ergebnisstand.js';
+import type { MappingRepository } from '../../domain/mapping/Regelbestand.js';
+import { SqliteConflictRepository } from '../../infrastructure/persistence/sqlite/SqliteConflictRepository.js';
+import { SqliteResultRepository } from '../../infrastructure/persistence/sqlite/SqliteResultRepository.js';
+import {
+  SqliteHeartbeatRepository,
+  SqliteNotificationRepository,
+} from '../../infrastructure/persistence/sqlite/SqliteBackgroundRepository.js';
+import { SqliteMappingRepository } from '../../infrastructure/persistence/sqlite/SqliteMappingRepository.js';
+import { InMemoryConflictRepository } from '../../infrastructure/persistence/InMemoryConflictRepository.js';
+import { InMemoryResultRepository } from '../../infrastructure/persistence/InMemoryResultRepository.js';
+import {
+  InMemoryHeartbeatRepository,
+  InMemoryNotificationRepository,
+} from '../../infrastructure/persistence/InMemoryBackgroundRepository.js';
+import { InMemoryMappingRepository } from '../../infrastructure/persistence/InMemoryMappingRepository.js';
 import { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
 import { RetentionService } from '../retention/RetentionService.js';
 import { TenantService } from '../tenants/TenantService.js';
@@ -60,8 +97,30 @@ import { RunControlRegistry } from '../transfer/RunControlRegistry.js';
 import { RemoteDirectoryService } from '../transfer/RemoteDirectoryService.js';
 import { LocalDirectoryService } from '../transfer/LocalDirectoryService.js';
 import { DestinationAdapterProvider } from '../transfer/DestinationAdapterProvider.js';
+import { NodeDateiablage } from '../../infrastructure/filesystem/NodeDateiablage.js';
+import { Umformungsvorschaudienst } from '../workflow/Umformungsvorschau.js';
+import { Zuordnungsvorschaudienst } from '../workflow/Zuordnungsvorschau.js';
+import { Ausleitungsdienst } from '../conflicts/Ausleitungsdienst.js';
+import { Referenzquellendienst } from '../consolidation/Referenzquellendienst.js';
+import type { Referenzquellenbestand } from '../../domain/consolidation/Referenzquelle.js';
+import { InMemoryReferenzquellenRepository } from '../../infrastructure/persistence/InMemoryReferenzquellenRepository.js';
+import { SqliteReferenzquellenRepository } from '../../infrastructure/persistence/sqlite/SqliteReferenzquellenRepository.js';
+import type { Ausleitungsbestand } from '../../domain/conflicts/Ausleitung.js';
+import { InMemoryAusleitungsRepository } from '../../infrastructure/persistence/InMemoryAusleitungsRepository.js';
+import { SqliteAusleitungsRepository } from '../../infrastructure/persistence/sqlite/SqliteAusleitungsRepository.js';
+import { TransferRunStatus } from '../../domain/transfer/TransferRun.js';
+import { InMemoryZwischenstandRepository } from '../../infrastructure/persistence/InMemoryZwischenstandRepository.js';
+import { SqliteZwischenstandRepository } from '../../infrastructure/persistence/sqlite/SqliteZwischenstandRepository.js';
+import { BlockweiseKonsolidierung } from '../consolidation/BlockweiseKonsolidierung.js';
+import type { Zwischenstandbestand } from '../../domain/consolidation/Zwischenstand.js';
+import type { Konsolidierungsbericht } from '../consolidation/ConsolidationService.js';
+import { SmtpPostbote } from '../../infrastructure/mail/SmtpPostbote.js';
+import { meldeeinstellungenAus, ZugangsAnmeldebuch } from '../background/Postfach.js';
 import { ShareAccessProvider } from '../transfer/ShareAccessProvider.js';
-import { ShareConnectionService } from '../../infrastructure/filesystem/ShareConnectionService.js';
+import {
+  ShareConnectionService,
+  type ShareConnections,
+} from '../../infrastructure/filesystem/ShareConnectionService.js';
 import { SourceAdapterProvider } from '../transfer/SourceAdapterProvider.js';
 import { TransferJobService } from '../transfer/TransferJobService.js';
 import { JobRuntimeService } from './JobRuntimeService.js';
@@ -90,6 +149,23 @@ export interface UnikomApplication {
   userService: UserService;
   sessionService: SessionService;
   userRepository: UserRepository;
+  profilRepository: ProfilRepository;
+  snapshots: SchnappschussRepository;
+  profileService: ProfileService;
+  mappingRepository: MappingRepository;
+  mappingService: MappingService;
+  qualityService: QualityService;
+  consolidationService: ConsolidationService;
+  conflictRepository: Konfliktbestand;
+  conflictService: ConflictService;
+  /** Schreibt Konflikt- und Konfliktzieldateien und raeumt sie nach Frist fort (SPEC-07 §5). */
+  ausleitungsdienst: Ausleitungsdienst;
+  /** Verwaltet die Referenzquellen und liest sie zum Lauf (SPEC-04 §6, §8). */
+  referenzquellen: Referenzquellendienst;
+  resultRepository: Ergebnisbestand;
+  resultService: ResultService;
+  /** Herzschlag, abgebrochene Läufe und Benachrichtigungen (Etappe 8). */
+  backgroundService: BackgroundService;
   sessionRepository: SessionRepository;
   /** The operator's own clients ("Mandant"); always at least the standard one. */
   tenantService: TenantService;
@@ -100,13 +176,37 @@ export interface UnikomApplication {
   /** Looks at a remote server while a job is being set up: exists, and what is inside. */
   remoteDirectories: RemoteDirectoryService;
   localDirectories: LocalDirectoryService;
+  /** Zeigt, was die eingestellten Umformungen mit einer echten Datei tun (SPEC-09 §11). */
+  umformungsvorschau: Umformungsvorschaudienst;
+  /** Zeigt, welchem internen Feld eine Spalte entspricht (SPEC-09 §11). */
+  zuordnungsvorschau: Zuordnungsvorschaudienst;
+  /**
+   * Verbindet Windows-Freigaben mit ihrem hinterlegten Zugang.
+   *
+   * Nicht nur für den Lauf: Auch Verbindungsprobe, Verzeichnisbrowser und
+   * Zielprüfung gehen hier durch. Sie sollen sehen, was der Lauf sieht — sonst
+   * urteilt der Editor über das Konto, unter dem Unikom gerade läuft, und
+   * nicht über den Zugang, der nachts benutzt wird.
+   */
+  shares: ShareConnections;
+  shareAccess: ShareAccessProvider;
   logger: Logger;
+  /** Auskunft und Löschauftrag über alle Bestände (FR_009). */
+  privacyService: PrivacyService;
   runtime: JobRuntimeService;
   /** Releases the storage handle; a no-op for the in-memory variant. */
   close(): void;
 }
 
 export interface ApplicationOptions {
+  /**
+   * Wie viele Datensätze eine Konsolidierung höchstens umfasst.
+   *
+   * Fehlt sie, gilt `HOECHSTMENGE`. Sie beschreibt den Rechner und nicht den
+   * Kunden — zwei Mandanten auf derselben Maschine teilen sich denselben
+   * Arbeitsspeicher.
+   */
+  hoechstmenge?: number;
   /**
    * Protects the stored credentials. Defaults to the UNIKOM_MASTER_KEY
    * environment variable, which is only read when a secret is actually used.
@@ -135,6 +235,14 @@ export interface ApplicationOptions {
   licence?: LicenceServiceOptions;
   /** Log retention for jobs that do not set one; defaults to 90 days. */
   logRetentionDays?: number;
+  /**
+   * Die Bestände für Auskunft und Löschauftrag (FR_009).
+   *
+   * Nur für die flüchtige Bauart: Die echten hängen an der Datenbank und werden
+   * dort verdrahtet. Ohne diesen Weg ließe sich das Verhalten der Schnittstelle
+   * nicht prüfen — eine Installation ohne Bestände beauskunftet nichts.
+   */
+  bestaende?: Bestand[];
 }
 
 interface Wiring {
@@ -144,9 +252,24 @@ interface Wiring {
   credentialRepository: CredentialRepository;
   logStore: Logger & TransferLogRepository;
   userRepository: UserRepository;
+  profilRepository: ProfilRepository;
+  snapshots: SchnappschussRepository;
+  mappingRepository: MappingRepository;
+  conflictRepository: Konfliktbestand;
+  resultRepository: Ergebnisbestand;
+  heartbeatRepository: Herzschlagbestand;
+  notificationRepository: Benachrichtigungsbestand;
+  /** Die Zwischenstände der blockweisen Konsolidierung (SPEC-06, Abschnitt 15). */
+  blockRepository: Zwischenstandbestand<Konsolidierungsbericht>;
   sessionRepository: SessionRepository;
   tenantRepository: TenantRepository;
   installationStateRepository: InstallationStateRepository;
+  /** Die Ausleitungen des Konfliktbestands (SPEC-07, Dateimodell). */
+  ausleitungsbestand: Ausleitungsbestand;
+  /** Die verwalteten Referenzquellen (SPEC-04, Abschnitt 8). */
+  referenzquellenbestand: Referenzquellenbestand;
+  /** Die Bestände für Auskunft und Löschauftrag (FR_009); leer in der flüchtigen Bauart. */
+  bestaende?: Bestand[];
   close(): void;
 }
 
@@ -198,21 +321,11 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
   const features = licenceService.features();
   const runControls = new RunControlRegistry();
   const processingStages = new ProcessingStageRegistry(features);
-  /*
-   * Abgelegt wird nur, wo ein Workflow es verlangt — und nur, wo es ein
-   * Datenverzeichnis gibt. Die flüchtige Verdrahtung für Tests hat keines,
-   * und ein Protokoll ins Arbeitsverzeichnis zu streuen wäre dort das
-   * Gegenteil von hilfreich.
-   */
-  const protocolArchive = defaultStagingRoot ? new ProtocolArchive(defaultStagingRoot) : undefined;
-  const protocolWriter = protocolArchive ? new RunProtocolWriter(wiring.logStore, protocolArchive) : undefined;
-
   const retentionService = new RetentionService(
     wiring.jobRepository,
     wiring.logStore,
     wiring.transferFileRepository,
-    options.logRetentionDays,
-    protocolArchive
+    options.logRetentionDays
   );
 
   const userService = new UserService(wiring.userRepository, wiring.sessionRepository);
@@ -228,8 +341,91 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
   const shares = new ShareConnectionService();
   const shareAccess = new ShareAccessProvider(credentialService);
 
+  /*
+   * Die Dienste der Etappen 5 bis 8 stehen hier oben und nicht erst im
+   * Rueckgabewert: Der Lauf braucht sie. Ein Workflow mit eingeschaltetem
+   * Konsolidierungsschritt lief bis hierher still ohne ihn — die Kette war
+   * gebaut, aber nirgends angeschlossen.
+   */
+  const consolidationService = new ConsolidationService();
+  /*
+   * Die blockweise Verarbeitung legt sich um den Dienst und ersetzt ihn nicht:
+   * Bei einem Block läuft genau der Weg von vorher. Ein zweiter Weg durch
+   * dieselbe Rechnung wäre die Stelle, an der die beiden eines Tages
+   * verschiedene Ergebnisse liefern.
+   */
+  const blockweise = new BlockweiseKonsolidierung(consolidationService, wiring.blockRepository, logger);
+  const conflictService = new ConflictService(wiring.conflictRepository, logger);
+  const resultService = new ResultService(wiring.resultRepository, logger);
+  const backgroundService = new BackgroundService(
+    wiring.heartbeatRepository,
+    wiring.notificationRepository,
+    wiring.runRepository,
+    logger,
+    undefined,
+    {
+      postbote: new SmtpPostbote(new ZugangsAnmeldebuch(credentialService)),
+      einstellungen: meldeeinstellungenAus(wiring.tenantRepository),
+    }
+  );
+
+  const mappingService = new MappingService(wiring.mappingRepository, logger);
+
+  /*
+   * Eine Ablage für beide Vorschauen.
+   *
+   * Sie sehen dieselben Verzeichnisse und müssen dieselbe Datei wählen — zwei
+   * Ablagen wären zwei Gelegenheiten, das auseinanderlaufen zu lassen.
+   */
+  const ablage = new NodeDateiablage();
+
+  const referenzquellen = new Referenzquellendienst(wiring.referenzquellenbestand, ablage, logger);
+
+  const ausleitungsdienst = new Ausleitungsdienst(
+    wiring.conflictRepository,
+    wiring.ausleitungsbestand,
+    ablage,
+    logger,
+    {
+      /*
+       * Ein Lauf ist durch, wenn er nicht mehr laeuft und nicht misslungen
+       * ist. Alles andere behaelt seine Unterlagen: Wer einen misslungenen
+       * Lauf untersucht, braucht genau die Dateien, die eine Frist sonst
+       * fortraeumte (SPEC-07, Abschnitt 5).
+       */
+      abgeschlossen: async (laufId) => {
+        const lauf = await wiring.runRepository.getById(laufId);
+
+        return (
+          lauf?.status === TransferRunStatus.SUCCESS || lauf?.status === TransferRunStatus.SUCCESS_NO_FILES
+        );
+      },
+    },
+    {
+      /*
+       * Die Frist je Mandant (SPEC-07 §5). Was je Kunde verschieden sein kann,
+       * gehört nicht an die Installation.
+       */
+      tage: async (tenantId) => (await wiring.tenantRepository.getById(tenantId))?.ausleitungenTage,
+    }
+  );
+
   return {
     jobRepository: wiring.jobRepository,
+    profilRepository: wiring.profilRepository,
+    snapshots: wiring.snapshots,
+    profileService: new ProfileService(wiring.profilRepository, wiring.snapshots, wiring.tenantRepository, logger),
+    mappingRepository: wiring.mappingRepository,
+    mappingService,
+    qualityService: new QualityService(),
+    consolidationService,
+    conflictRepository: wiring.conflictRepository,
+    conflictService,
+    ausleitungsdienst,
+    referenzquellen,
+    resultRepository: wiring.resultRepository,
+    resultService,
+    backgroundService,
     runRepository: wiring.runRepository,
     transferFileRepository: wiring.transferFileRepository,
     credentialRepository: wiring.credentialRepository,
@@ -256,7 +452,12 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     destinationProvider,
     remoteDirectories: new RemoteDirectoryService(adapterProvider),
     localDirectories: new LocalDirectoryService(wiring.tenantRepository),
+    umformungsvorschau: new Umformungsvorschaudienst(ablage),
+    zuordnungsvorschau: new Zuordnungsvorschaudienst(ablage, mappingService),
+    shares,
+    shareAccess,
     logger,
+    privacyService: new PrivacyService(wiring.bestaende ?? [], logger),
     historyService: new TransferHistoryService(
       wiring.runRepository,
       wiring.transferFileRepository,
@@ -277,9 +478,27 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
       features,
       processingStages,
       retentionService,
+      ausleitungen: ausleitungsdienst,
       runGate: licenceService,
       runControls,
-      protocols: protocolWriter,
+      terminwache: (versaeumt) => backgroundService.meldeAusbleiben(versaeumt).then(() => undefined),
+      konsolidierung: {
+        consolidation: consolidationService,
+        conflicts: conflictService,
+        results: resultService,
+        tenants: wiring.tenantRepository,
+        ablage: new NodeDateiablage(),
+        // Damit ein Durchgang, der von einer Windows-Freigabe liest, sie mit
+        // dem hinterlegten Zugang verbindet und nicht mit dem Dienstkonto.
+        freigaben: shares,
+        freigabezugang: shareAccess,
+        referenzen: referenzquellen,
+        blockweise,
+        background: backgroundService,
+        logger,
+        features,
+        hoechstmenge: options.hoechstmenge,
+      },
     }),
     close: wiring.close,
   };
@@ -304,25 +523,72 @@ export function createPersistentApplication(
   dataDirectory: string,
   options: ApplicationOptions = {}
 ): UnikomApplication {
-  const database = openDatabase(dataDirectory);
+  /*
+   * Was die Datenbank beim Öffnen an bestehenden Daten umgestellt hat. Das
+   * Protokoll steht in eben dieser Datenbank, es gibt also im Augenblick der
+   * Umstellung noch keines — die Meldungen warten hier und werden geschrieben,
+   * sobald der Protokollierer steht.
+   */
+  const umstellungen: string[] = [];
+  const database = openDatabase(dataDirectory, (message) => umstellungen.push(message));
 
-  return assemble(
+  const jobRepository = new SqliteTransferJobRepository(database);
+
+  /*
+   * Protokoll und Dateiliste kennen den Workflow, nicht den Mandanten. Ohne
+   * diese Auflösung könnten sie die Eingrenzung auf einen Mandanten nur
+   * vortäuschen — und ein Löschauftrag „nur für Mandant A" nähme die Zeilen
+   * aller anderen mit (FR_009, Abschnitt 5).
+   */
+  const jobsOfTenant = async (tenantId: string): Promise<string[]> =>
+    (await jobRepository.list()).filter((job) => job.tenantId === tenantId).map((job) => job.id);
+
+  const application = assemble(
     {
-      jobRepository: new SqliteTransferJobRepository(database),
+      jobRepository,
       runRepository: new SqliteTransferRunRepository(database),
       transferFileRepository: new SqliteTransferFileRepository(database),
       credentialRepository: new SqliteCredentialRepository(database),
       /*
-       * Das Laufprotokoll steht im Arbeitsspeicher und nicht in der Datenbank.
+       * Das Laufprotokoll steht in der Datenbank.
        *
-       * Es ist eine Mitschrift: gebraucht, solange jemand hinsieht, und danach
-       * nur, wenn jemand es aufhebt — durch Speichern. Die Datenbank wächst
-       * dadurch nicht mehr mit jeder Zeile mit (gemessen: 1,6 kB je Datei bei
-       * ausführlicher Protokollierung), und ein Neustart nimmt die Protokolle
-       * mit. Beides ist gewollt.
+       * Es ist der einzige Zeuge dessen, was ein Lauf getan hat, und gebraucht
+       * wird er fast immer später: Was um drei Uhr schiefging, sieht jemand um
+       * acht, und dazwischen kann der Rechner neu gestartet haben. Ein
+       * Protokoll, das ein Neustart mitnimmt, ist genau dann fort, wenn es
+       * gebraucht wird — und ein Kunde, der keinen Zugang zu seinem System
+       * gewährt, hat dann nichts, was er schicken könnte.
+       *
+       * Das kostet Platz: gemessene 1,6 kB je Datei bei ausführlicher
+       * Protokollierung. Dagegen steht die Aufbewahrung — voreingestellt
+       * neunzig Tage, je Workflow einstellbar (`RetentionConfig.logDays`), und
+       * sie räumt hier wirklich etwas fort. Eine Datei wird daneben nicht mehr
+       * geschrieben; wer ein Protokoll aus der Hand geben will, speichert es in
+       * der Laufansicht.
        */
-      logStore: new RunProtocolMemo(),
+      logStore: new SqliteTransferLogStore(database),
       userRepository: new SqliteUserRepository(database),
+      profilRepository: new SqliteProfilRepository(database),
+      snapshots: new SqliteSnapshotRepository(database),
+      mappingRepository: new SqliteMappingRepository(database),
+      conflictRepository: new SqliteConflictRepository(database),
+      ausleitungsbestand: new SqliteAusleitungsRepository(database),
+      referenzquellenbestand: new SqliteReferenzquellenRepository(database),
+      resultRepository: new SqliteResultRepository(database),
+      heartbeatRepository: new SqliteHeartbeatRepository(database),
+      notificationRepository: new SqliteNotificationRepository(database),
+      blockRepository: new SqliteZwischenstandRepository<Konsolidierungsbericht>(database),
+      bestaende: [
+        laufprotokollBestand(database, jobsOfTenant),
+        uebertrageneDateienBestand(database, jobsOfTenant),
+        dateiBestand(new SqliteTenantRepository(database)),
+        angekuendigterBestand(
+          'konflikte',
+          'Konfliktbestand',
+          'Feldwerte im Klartext, zur Bearbeitung durch einen Menschen',
+          'Diesen Bestand gibt es in dieser Fassung noch nicht; er entsteht mit der Konfliktbearbeitung (SPEC-07)'
+        ),
+      ],
       sessionRepository: new SqliteSessionRepository(database),
       tenantRepository: new SqliteTenantRepository(database),
       installationStateRepository: new SqliteInstallationStateRepository(database),
@@ -341,6 +607,12 @@ export function createPersistentApplication(
     },
     dataDirectory
   );
+
+  for (const message of umstellungen) {
+    application.logger.log({ timestamp: new Date(), level: 'WARNING', message });
+  }
+
+  return application;
 }
 
 /** Volatile wiring for tests and experiments; nothing survives the process. */
@@ -351,11 +623,22 @@ export function createInMemoryApplication(options: ApplicationOptions = {}): Uni
       runRepository: new InMemoryTransferRunRepository(),
       transferFileRepository: new InMemoryTransferFileRepository(),
       credentialRepository: new InMemoryCredentialRepository(),
-      logStore: new RunProtocolMemo(),
+      logStore: new InMemoryTransferLogStore(),
       userRepository: new InMemoryUserRepository(),
+      profilRepository: new InMemoryProfilRepository(),
+      snapshots: new InMemorySnapshotRepository(),
+      mappingRepository: new InMemoryMappingRepository(),
+      conflictRepository: new InMemoryConflictRepository(),
+      ausleitungsbestand: new InMemoryAusleitungsRepository(),
+      referenzquellenbestand: new InMemoryReferenzquellenRepository(),
+      resultRepository: new InMemoryResultRepository(),
+      heartbeatRepository: new InMemoryHeartbeatRepository(),
+      notificationRepository: new InMemoryNotificationRepository(),
+      blockRepository: new InMemoryZwischenstandRepository<Konsolidierungsbericht>(),
       sessionRepository: new InMemorySessionRepository(),
       tenantRepository: new InMemoryTenantRepository(),
       installationStateRepository: new InMemoryInstallationStateRepository(),
+      bestaende: options.bestaende,
       close: () => {},
     },
     options

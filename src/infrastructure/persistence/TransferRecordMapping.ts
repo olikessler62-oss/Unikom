@@ -1,6 +1,7 @@
 import type { TransferFile } from '../../domain/transfer/TransferFile.js';
 import type { TransferJob } from '../../domain/transfer/TransferJob.js';
 import type { TransferRun } from '../../domain/transfer/TransferRun.js';
+import type { StageConfig } from '../../domain/transfer/WorkflowStages.js';
 
 /**
  * Turns stored records back into domain objects. Dates are the reason this
@@ -23,12 +24,52 @@ export function requiredDate(value: unknown, field: string): Date {
 export function reviveJob(raw: Record<string, unknown>): TransferJob {
   return {
     ...(raw as unknown as TransferJob),
+    delivery: reviveDelivery(raw),
     encryptionConfig: reviveEncryption(raw.encryptionConfig),
     lastExecutionAt: optionalDate(raw.lastExecutionAt),
     nextExecutionAt: optionalDate(raw.nextExecutionAt),
     createdAt: requiredDate(raw.createdAt, 'createdAt'),
     updatedAt: requiredDate(raw.updatedAt, 'updatedAt'),
   };
+}
+
+/**
+ * Liest einen Workflow, der noch zwei Glieder für das Ausliefern hatte.
+ *
+ * „Daten importieren" und „Daten konvertieren" standen einmal als zwei
+ * Kettenglieder nebeneinander. Das war falsch: Wer in eine Datenbank
+ * importiert, konvertiert davor keine Datei, und das Konvertieren las in dieser
+ * Kette aus dem Import — der Tabellen füllt und keine Datei hinterlässt.
+ *
+ * Aus zweien wird deshalb eines mit einer Verzweigung. War beides eingeschaltet,
+ * **gewinnt der Datenbankimport**: Er ist der Zweig, der ein fremdes System
+ * berührt, und ein stiller Wechsel auf die Datei wäre die gefährlichere
+ * Auslegung. Der Fall ist theoretisch — die Kette konnte so nie sinnvoll
+ * laufen —, aber er darf nicht unentschieden bleiben.
+ *
+ * Übersetzt beim Lesen und nicht in einer Migration: Ein gespeicherter Workflow
+ * wird weit öfter gelesen als geschrieben, und einer, der nie wieder gespeichert
+ * wird, behielte sonst für immer seine alte Schreibweise.
+ */
+function reviveDelivery(raw: Record<string, unknown>): TransferJob['delivery'] {
+  const bereits = raw.delivery as TransferJob['delivery'];
+
+  if (bereits) {
+    return bereits;
+  }
+
+  const alterImport = raw.dataImport as StageConfig | undefined;
+  const alteKonvertierung = raw.conversion as StageConfig | undefined;
+
+  if (alterImport?.enabled) {
+    return { ...alterImport, ziel: 'DATENBANK' };
+  }
+
+  if (alteKonvertierung?.enabled) {
+    return { ...alteKonvertierung, ziel: 'DATEI', konvertieren: { format: 'CSV' } };
+  }
+
+  return undefined;
 }
 
 /**

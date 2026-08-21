@@ -10,6 +10,15 @@ import { Field, Notice } from './Pieces.js';
  * jeden fragen: Zugang wozu — und beim Verschlüsselungsschlüssel lautet die
  * Antwort „zu nichts": er öffnet keine Tür, er verschließt eine Datei.
  */
+/**
+ * Ein Beispielpfad, aus Zeichen zusammengesetzt.
+ *
+ * Als Literal geschrieben ueberlebt er den Weg durch Werkzeuge nicht: Aus
+ * doppelten Rueckstrichen werden einfache, und aus einem UNC-Pfad wird ein
+ * Beispiel, das keines mehr ist.
+ */
+const FREIGABE_BEISPIEL = String.fromCharCode(92, 92) + 'SERVER01' + String.fromCharCode(92) + 'Austausch';
+
 export const CREDENTIAL_TYPE_LABELS: Record<Credential['type'], string> = {
   USERNAME_PASSWORD: 'Anmeldung am Quellserver — Passwort (SFTP/FTPS)',
   SSH_PRIVATE_KEY: 'Anmeldung am Quellserver — SSH-Schlüssel (SFTP)',
@@ -20,6 +29,7 @@ interface Draft {
   name: string;
   type: Credential['type'];
   username: string;
+  freigabe: string;
   secret: string;
   tenantId: string;
   /** Beim Schlüssel: erzeugen lassen, statt einen auszudenken. */
@@ -70,6 +80,7 @@ export function CredentialForm({
     name: '',
     type: types[0],
     username: '',
+    freigabe: '',
     secret: '',
     tenantId,
     generate: true,
@@ -99,6 +110,7 @@ export function CredentialForm({
         name: draft.name,
         type: draft.type,
         username: draft.username || undefined,
+        freigabe: draft.type === 'USERNAME_PASSWORD' ? draft.freigabe.trim() || undefined : undefined,
         tenantId: draft.tenantId || undefined,
         // Ohne Geheimnis erzeugt der Server einen Schlüssel.
         secret: generating ? undefined : draft.secret,
@@ -169,7 +181,7 @@ export function CredentialForm({
       )}
 
       {chooseTenant && (
-        <Field label="Mandant" hint="Ohne Zuordnung steht der Eintrag allen Mandanten zur Verfügung.">
+        <Field label="Mandant" explain="Ohne Zuordnung steht der Eintrag allen Mandanten zur Verfügung.">
           <select value={draft.tenantId} onChange={(event) => setDraft({ ...draft, tenantId: event.target.value })}>
             <option value="">Übergreifend</option>
             {tenants.map((tenant) => (
@@ -184,6 +196,39 @@ export function CredentialForm({
       {draft.type !== 'ENCRYPTION_KEY' && (
         <Field label="Benutzername">
           <input value={draft.username} onChange={(event) => setDraft({ ...draft, username: event.target.value })} />
+        </Field>
+      )}
+
+      {/*
+        * Wofür der Zugang gilt — nur bei Benutzer/Kennwort: Ein Schlüssel meldet
+        * sich an keiner Windows-Freigabe an.
+        *
+        * Freiwillig. Ohne Angabe bleibt der Zugang, was er war: einer, den man
+        * am Workflow selbst aussucht. Mit Angabe wird er gefunden, sobald
+        * jemand ein Verzeichnis darunter aussucht — und niemand sucht ihn zum
+        * zweiten Mal aus einer Liste heraus.
+        */}
+      {draft.type === 'USERNAME_PASSWORD' && (
+        <Field
+          label="Gilt für diese Freigabe"
+          explain={
+            <>
+              <p>
+                Der UNC-Pfad, für den dieser Zugang gilt — etwa <code>{FREIGABE_BEISPIEL}</code>. Wer später ein
+                Verzeichnis darunter aussucht, bekommt diesen Zugang von selbst eingetragen.
+              </p>
+              <p>
+                Leer lassen ist in Ordnung: Dann wird der Zugang wie bisher am Workflow ausgesucht. Gibt es zwei
+                Zugänge auf demselben Server, gewinnt der genauere — der mit dem längeren Pfad.
+              </p>
+            </>
+          }
+        >
+          <input
+            value={draft.freigabe}
+            placeholder={FREIGABE_BEISPIEL}
+            onChange={(event) => setDraft({ ...draft, freigabe: event.target.value })}
+          />
         </Field>
       )}
 
@@ -238,7 +283,7 @@ export function CredentialForm({
             <>
               <Field
                 label="Schlüsseldatei"
-                hint="OpenSSH oder PuTTY (.ppk in Version 2). Die Datei wird hier gelesen, nicht irgendwohin geladen."
+                explain="OpenSSH oder PuTTY (.ppk in Version 2). Die Datei wird hier gelesen, nicht irgendwohin geladen."
               >
                 <input
                   type="file"
@@ -271,7 +316,7 @@ export function CredentialForm({
 
               <Field
                 label="Passphrase der Datei"
-                hint="Nur falls der Schlüssel eine hat. Sie öffnet die Datei einmal und wird nicht gespeichert — der Eintrag selbst liegt ohnehin verschlüsselt."
+                explain="Nur falls der Schlüssel eine hat. Sie öffnet die Datei einmal und wird nicht gespeichert — der Eintrag selbst liegt ohnehin verschlüsselt."
               >
                 <input
                   type="password"

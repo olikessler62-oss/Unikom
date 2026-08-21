@@ -6,10 +6,11 @@ import path from 'node:path';
 import { createInMemoryApplication } from '../runtime/UnikomApplication.js';
 import { TransferRunStatus } from '../../domain/transfer/TransferRun.js';
 import { createTransferJob } from '../../testing/TransferJobFixture.js';
+import type { JobLogLevel } from '../../domain/transfer/TransferJob.js';
 
 const ORDER = 'customer;amount\nA;42\n';
 
-async function scenario(files: Record<string, string> = { 'ORDER_001.csv': ORDER }, logLevel?: 'DEBUG' | 'INFO') {
+async function scenario(files: Record<string, string> = { 'ORDER_001.csv': ORDER }, logLevel?: JobLogLevel) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-history-'));
   const sourceDirectory = path.join(root, 'source');
   const destinationDirectory = path.join(root, 'incoming');
@@ -87,23 +88,31 @@ test('the run log follows the sequence from the spec', async () => {
   assert.ok(messages.some((message) => /STEP_1_COMPLETED/.test(message)));
 });
 
-test('the default level keeps discovery noise out of the log', async () => {
-  const quiet = await scenario({ 'ORDER_001.csv': ORDER, 'INVOICE_001.csv': 'ignored\n' });
-  const quietRun = await quiet.application.runtime.orchestrator.runJobNow('customer-a', new Date());
-  const quietLogs = await quiet.application.logRepository.list({ runId: quietRun?.id });
-
-  assert.equal(
-    quietLogs.some((entry) => entry.level === 'DEBUG'),
-    false
-  );
-
-  const verbose = await scenario({ 'ORDER_001.csv': ORDER, 'INVOICE_001.csv': 'ignored\n' }, 'DEBUG');
-  const verboseRun = await verbose.application.runtime.orchestrator.runJobNow('customer-a', new Date());
-  const verboseLogs = await verbose.application.logRepository.list({ runId: verboseRun?.id });
+test('voreingestellt steht jeder Schritt im Protokoll, und wer will, stellt leiser', async () => {
+  /*
+   * Voreingestellt ist jeder Schritt, und die Zwischenstufe „Das Wesentliche"
+   * gibt es nicht mehr: Was an der Nacht, in der etwas schieflief, das
+   * Wesentliche war, entscheidet sich erst hinterher. Die Frage, die dann
+   * zählt, ist „warum hat er die Datei nicht genommen" — und die beantwortet
+   * nur eine Zeile, die auch geschrieben wurde.
+   */
+  const laut = await scenario({ 'ORDER_001.csv': ORDER, 'INVOICE_001.csv': 'ignored\n' });
+  const lauterLauf = await laut.application.runtime.orchestrator.runJobNow('customer-a', new Date());
+  const lauteZeilen = await laut.application.logRepository.list({ runId: lauterLauf?.id });
 
   assert.ok(
-    verboseLogs.some((entry) => entry.level === 'DEBUG' && /wird nicht genommen/.test(entry.message)),
-    'DEBUG must explain why a file was rejected'
+    lauteZeilen.some((entry) => entry.level === 'DEBUG' && /wird nicht genommen/.test(entry.message)),
+    'ohne eigene Angabe muss im Protokoll stehen, warum eine Datei abgelehnt wurde'
+  );
+
+  // Der Workflow, der jede Minute läuft, darf trotzdem leise sein.
+  const leise = await scenario({ 'ORDER_001.csv': ORDER, 'INVOICE_001.csv': 'ignored\n' }, 'WARNING');
+  const leiserLauf = await leise.application.runtime.orchestrator.runJobNow('customer-a', new Date());
+  const leiseZeilen = await leise.application.logRepository.list({ runId: leiserLauf?.id });
+
+  assert.equal(
+    leiseZeilen.some((entry) => entry.level === 'DEBUG' || entry.level === 'INFO'),
+    false
   );
 });
 
@@ -162,17 +171,19 @@ test('scheduled jobs appear in the dashboard ordered by their next run', async (
   );
 });
 
-test('the protocol of a run stays until newer runs push it out', async () => {
-  // Es liegt im Arbeitsspeicher, nicht in der Datenbank: Aufräumen nach Alter
-  // gibt es dort nicht, und der Dienst behauptet auch nichts anderes.
+test('das Protokoll eines Laufs bleibt liegen und lässt sich nach Alter aufräumen', async () => {
+  // Es wird aufbewahrt und nicht verdrängt: Wer am Morgen wissen will, was um
+  // drei Uhr geschah, findet es noch vor. Fort ist es erst, wenn seine Frist
+  // abgelaufen ist — und dann wirklich.
   const { application } = await scenario();
   await application.runtime.orchestrator.runJobNow('customer-a', new Date());
 
   const before = (await application.logRepository.list({})).length;
   assert.ok(before > 0);
 
-  assert.equal(await application.historyService.pruneLogs(new Date(Date.now() + 60_000)), 0);
-  assert.equal((await application.logRepository.list({})).length, before);
+  assert.equal((await application.logRepository.list({})).length, before, 'nichts wird von selbst verdrängt');
+  assert.equal(await application.historyService.pruneLogs(new Date(Date.now() + 60_000)), before);
+  assert.equal((await application.logRepository.list({})).length, 0);
 });
 
 test('the history without a single job picked spans them all, newest first', async () => {

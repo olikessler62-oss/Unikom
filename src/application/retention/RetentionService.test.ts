@@ -43,11 +43,9 @@ async function ageEverything(application: UnikomApplication, jobId: string, days
 }
 
 /*
- * Das Laufprotokoll steht im Arbeitsspeicher und wird nicht nach Alter
- * gelöscht, sondern verdrängt, wenn neuere Läufe kommen — siehe
- * `RunProtocolMemo`. Was hier geprüft wird, ist deshalb der
- * Aufbewahrungsdienst selbst, mit einer Ablage, die aufbewahrt: Sobald ein
- * Protokoll dauerhaft geschrieben wird, gilt wieder genau das hier.
+ * Der Aufbewahrungsdienst für sich, an einer Ablage, die sich wie die
+ * Datenbank verhält: Sie behält, was hineingeschrieben wird, und löscht nach
+ * Alter. Genau darauf beruht die Zusage, dass ein Protokoll nicht ewig liegt.
  */
 async function retentionOver(store: InMemoryTransferLogStore, retention?: RetentionConfig) {
   const jobs = new InMemoryTransferJobRepository();
@@ -85,9 +83,11 @@ test('a shorter period configured on the job wins', async () => {
   assert.equal((await store.list({ jobId: 'customer-a' })).length, 0);
 });
 
-test('a memo protocol is not pruned by age, and says so instead of pretending', async () => {
-  // Der Regelfall seit der Umstellung: Es gibt nichts zu löschen, und der
-  // Dienst meldet null statt einer Zahl, die nach Aufräumen aussieht.
+test('das Protokoll eines Laufs wird nach seiner Frist wirklich aufgeräumt', async () => {
+  // Am ganzen Bauwerk und nicht nur am Dienst: Ein Lauf schreibt sein
+  // Protokoll, die Frist läuft ab, und danach ist es fort. Ohne diese Prüfung
+  // könnte die Ablage alles behalten, ohne dass irgendwo etwas auffiele — die
+  // Zusage „neunzig Tage" wäre dann in Wahrheit „für immer".
   const { application } = await scenario({ logDays: 1 });
   await application.runtime.orchestrator.runJobNow('customer-a', new Date());
 
@@ -96,14 +96,13 @@ test('a memo protocol is not pruned by age, and says so instead of pretending', 
 
   const [outcome] = await application.retentionService.apply(new Date(Date.now() + 400 * DAY));
 
-  assert.equal(outcome.logEntriesDeleted, 0);
-  assert.equal((await application.logRepository.list({ jobId: 'customer-a' })).length, before);
+  assert.equal(outcome.logEntriesDeleted, before);
+  assert.equal((await application.logRepository.list({ jobId: 'customer-a' })).length, 0);
 });
 
 test('retention stops at the job it belongs to', async () => {
   // Zwei Workflows, zwei Aufbewahrungszeiten: Was für den einen gilt, darf den
-  // anderen nicht treffen. Geprüft an der dauerhaften Ablage, denn nur dort
-  // wird nach Alter gelöscht.
+  // anderen nicht treffen.
   const store = new InMemoryTransferLogStore();
   store.log(entry('customer-a', 8));
   store.log(entry('customer-b', 8));

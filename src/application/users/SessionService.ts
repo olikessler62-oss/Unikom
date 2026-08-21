@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 
 import type { Session, SessionRepository } from '../../domain/users/Session.js';
-import { may, type Permission, type User, type UserRepository } from '../../domain/users/User.js';
+import { mayUser, type Permission, type User, type UserRepository } from '../../domain/users/User.js';
 
 /** Idle time after which a session expires. Every use pushes it back. */
 export const SESSION_IDLE_HOURS = 12;
@@ -101,7 +101,7 @@ export class SessionService {
       return false;
     }
 
-    return may(authenticated.user.role, permission);
+    return mayUser(authenticated.user, permission);
   }
 
   private exceedsMaximumAge(session: Session, now: Date): boolean {

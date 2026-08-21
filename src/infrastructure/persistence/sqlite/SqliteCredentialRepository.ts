@@ -8,12 +8,13 @@ interface CredentialRow {
   name: string;
   type: string;
   username: string | null;
+  share_path: string | null;
   encrypted_secret: string;
   created_at: string;
   updated_at: string;
 }
 
-const COLUMNS = 'id, tenant_id, name, type, username, encrypted_secret, created_at, updated_at';
+const COLUMNS = 'id, tenant_id, name, type, username, share_path, encrypted_secret, created_at, updated_at';
 
 function toCredential(row: CredentialRow): Credential {
   return {
@@ -22,6 +23,7 @@ function toCredential(row: CredentialRow): Credential {
     name: row.name,
     type: row.type as CredentialType,
     username: row.username ?? undefined,
+    freigabe: row.share_path ?? undefined,
     encryptedSecret: row.encrypted_secret,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
@@ -58,13 +60,14 @@ export class SqliteCredentialRepository implements CredentialRepository {
   async save(credential: Credential): Promise<Credential> {
     this.database
       .prepare(
-        `INSERT INTO credentials (id, tenant_id, name, type, username, encrypted_secret, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO credentials (id, tenant_id, name, type, username, share_path, encrypted_secret, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            tenant_id        = excluded.tenant_id,
            name             = excluded.name,
            type             = excluded.type,
            username         = excluded.username,
+           share_path       = excluded.share_path,
            encrypted_secret = excluded.encrypted_secret,
            updated_at       = excluded.updated_at`
       )
@@ -74,6 +77,7 @@ export class SqliteCredentialRepository implements CredentialRepository {
         credential.name,
         credential.type,
         nullable(credential.username),
+        nullable(credential.freigabe),
         credential.encryptedSecret,
         credential.createdAt.toISOString(),
         credential.updatedAt.toISOString()

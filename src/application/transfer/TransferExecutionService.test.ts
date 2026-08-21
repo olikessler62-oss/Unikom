@@ -51,7 +51,6 @@ async function setup(jobOverrides: Partial<TransferJob> = {}): Promise<Harness> 
     sourceType: 'LOCAL',
     sourceConfig: { type: 'LOCAL', directory: sourceDirectory },
     sourceDirectory,
-    includeSubdirectories: false,
     filenamePrefix: 'ORDER_*',
     caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
@@ -180,24 +179,6 @@ test('identical content under a different name is skipped once the job asks for 
   // Which of the two wins depends on scheduling, so assert on the pair.
   const skipped = result.outcomes.find((outcome) => outcome.status === FileTransferStatus.SKIPPED);
   assert.match(skipped?.message ?? '', /[Dd]erselbe Inhalt/);
-});
-
-test('the same filename in two subdirectories is two different files', async () => {
-  const harness = await setup({ includeSubdirectories: true, conflictStrategy: 'RENAME', maxConcurrentFiles: 1 });
-  await fs.mkdir(path.join(harness.sourceDirectory, 'kunde-a'), { recursive: true });
-  await fs.mkdir(path.join(harness.sourceDirectory, 'kunde-b'), { recursive: true });
-  await fs.writeFile(path.join(harness.sourceDirectory, 'kunde-a', 'ORDER_001.csv'), 'customer;amount\nA;1\n');
-  await fs.writeFile(path.join(harness.sourceDirectory, 'kunde-b', 'ORDER_001.csv'), 'customer;amount\nB;2\n');
-
-  const result = await harness.service.execute(harness.job, harness.adapter);
-
-  assert.equal(result.filesSucceeded, 2, 'the second file must not count as a duplicate of the first');
-  // Both carry the same stamp — they came in one run — so the counter decides
-  // between them.
-  const stored = (await fs.readdir(harness.destinationDirectory)).sort();
-  assert.equal(stored.length, 2);
-  assert.equal(stored[0], 'ORDER_001.csv');
-  assert.match(stored[1], /^ORDER_001_\d{8}_\d{6}\.csv$/);
 });
 
 test('an existing destination file is skipped by default', async () => {
@@ -378,7 +359,7 @@ test('one failing file does not stop the remaining files', async () => {
   const local = new LocalSourceAdapter(harness.sourceDirectory);
   const failingAdapter: SourceAdapter = {
     testConnection: () => local.testConnection(),
-    listFiles: (directory, recursive) => local.listFiles(directory, recursive),
+    listFiles: (directory: string) => local.listFiles(directory),
     async downloadFile(sourceFile: SourceFile, targetPath: string) {
       if (sourceFile.name === 'ORDER_002.csv') {
         throw new Error('Simulated network failure');
@@ -442,8 +423,8 @@ test('an unstable file waits for the next scheduler run', async () => {
   let listings = 0;
   const growingAdapter: SourceAdapter = {
     testConnection: () => local.testConnection(),
-    async listFiles(directory: string, recursive: boolean) {
-      const files = await local.listFiles(directory, recursive);
+    async listFiles(directory: string) {
+      const files = await local.listFiles(directory);
       listings += 1;
       // The second listing reports a larger file, as if it were still uploading.
       return files.map((file) => (listings > 1 ? { ...file, size: (file.size ?? 0) + 5_000 } : file));
@@ -467,24 +448,32 @@ test('the staging directory is removed after the run', async () => {
   assert.equal(await exists(path.join(harness.root, 'application-data', 'staging', result.runId)), false);
 });
 
-/**
- * Why the editor warns about an archive below the source directory.
+/*
+ * Das Archiv wird nicht wieder eingesammelt — wo es auch liegt.
  *
- * A file is recognised again by where it sat, what it was called, how big it
- * was and when it was last written — and the move changes the first of those.
- * So the archived file is a new file to the next run, which fetches it again
- * and, unless the conflict strategy refuses it, stores it a second time.
- *
- * The test states the behaviour rather than fixing it: the archive belongs
- * next to the source, not inside it, and no rule the engine could invent would
- * be as clear as saying so where the directory is typed.
+ * Früher war das eine Falle: Ein Archiv *unter* der Quelle wurde beim nächsten
+ * Lauf mitgelesen, die verschobene Datei galt als neu, und sie landete ein
+ * zweites Mal im Ziel. Der Editor warnte davor. Seit ein Lauf nur noch das
+ * Quellverzeichnis selbst liest, gibt es die Falle nicht mehr, und die Warnung
+ * ist mit ihr gestrichen — geprüft wird beides, daneben und darunter.
  */
-test('an archive below the source comes back on the next run', async () => {
-  const harness = await setup({
-    includeSubdirectories: true,
-    sourceSuccessAction: 'MOVE',
-    conflictStrategy: 'RENAME',
-  });
+test('ein Archiv neben der Quelle wird nicht wieder eingesammelt', async () => {
+  const harness = await setup({ sourceSuccessAction: 'MOVE', conflictStrategy: 'RENAME' });
+  harness.job.sourceArchiveDirectory = path.join(harness.root, 'archiv');
+  await writeSourceFile(harness, 'ORDER_001.csv');
+
+  await harness.service.execute(harness.job, harness.adapter);
+  const second = await harness.service.execute(harness.job, harness.adapter);
+
+  assert.equal(second.filesSelected, 0, 'nothing is left in the source to find');
+  assert.deepEqual(await fs.readdir(harness.destinationDirectory), ['ORDER_001.csv']);
+});
+
+test('ein Archiv unter der Quelle ebenso wenig', async () => {
+  // Der Fall, der früher zurückschlug: Das Archiv liegt im Quellverzeichnis.
+  // Ein Lauf liest nur dieses Verzeichnis selbst — was darunter liegt, sieht er
+  // nicht, und die verschobene Datei bleibt liegen, wo sie hingelegt wurde.
+  const harness = await setup({ sourceSuccessAction: 'MOVE', conflictStrategy: 'RENAME' });
   harness.job.sourceArchiveDirectory = path.join(harness.sourceDirectory, 'archiv');
   await writeSourceFile(harness, 'ORDER_001.csv');
 
@@ -494,22 +483,6 @@ test('an archive below the source comes back on the next run', async () => {
 
   const second = await harness.service.execute(harness.job, harness.adapter);
 
-  assert.equal(second.filesSucceeded, 1, 'the archived file counts as new because it sits somewhere else now');
-  assert.equal((await fs.readdir(harness.destinationDirectory)).length, 2, 'and so it lands a second time');
-});
-
-test('an archive beside the source is left alone', async () => {
-  const harness = await setup({
-    includeSubdirectories: true,
-    sourceSuccessAction: 'MOVE',
-    conflictStrategy: 'RENAME',
-  });
-  harness.job.sourceArchiveDirectory = path.join(harness.root, 'archiv');
-  await writeSourceFile(harness, 'ORDER_001.csv');
-
-  await harness.service.execute(harness.job, harness.adapter);
-  const second = await harness.service.execute(harness.job, harness.adapter);
-
-  assert.equal(second.filesSelected, 0, 'nothing is left in the source to find');
+  assert.equal(second.filesSelected, 0, 'die abgelegte Datei darf kein zweites Mal geholt werden');
   assert.deepEqual(await fs.readdir(harness.destinationDirectory), ['ORDER_001.csv']);
 });

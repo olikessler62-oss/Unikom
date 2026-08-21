@@ -10,37 +10,54 @@ import type { Feature, Job, StageConfig, StageId } from '../../api/types.js';
  */
 
 /** Die Reihenfolge, in der die Daten durchlaufen. */
-export const STAGE_ORDER: StageId[] = ['TRANSFER', 'CONSOLIDATE', 'IMPORT', 'CONVERT'];
+export const STAGE_ORDER: StageId[] = ['TRANSFER', 'CONSOLIDATE', 'DELIVER'];
 
 /** Der Name trägt die Identität des Moduls — die Nummer nicht. */
 export const STAGE_LABELS: Record<StageId, string> = {
   TRANSFER: 'Daten übertragen',
   CONSOLIDATE: 'Daten konsolidieren',
-  IMPORT: 'Daten importieren',
-  CONVERT: 'Daten konvertieren',
+  DELIVER: 'Daten exportieren/importieren',
 };
 
 export const STAGE_DESCRIPTIONS: Record<StageId, string> = {
   TRANSFER: 'Dateien aus einer Quelle abholen und in einem Zielverzeichnis ablegen.',
-  CONSOLIDATE:
-    'Mehrere Dateien zusammenführen, Werte korrigieren und anreichern, doppelte Datensätze erkennen.',
-  IMPORT: 'Datensätze in Datenbanktabellen übernehmen.',
-  CONVERT: 'Die Daten in ein anderes Dateiformat schreiben.',
+  CONSOLIDATE: 'Werte ermitteln, prüfen, korrigieren, zusammenführen usw.',
+  DELIVER:
+    'Das Ergebnis hinausgeben: entweder in eine Datenbank importieren oder als Datei exportieren — ' +
+    'diese wahlweise vorher in ein anderes Format konvertiert.',
 };
 
 /** Welches Modul ein Glied braucht. Das Übertragen ist das Grundprodukt. */
 export const STAGE_FEATURES: Record<StageId, Feature | undefined> = {
-  TRANSFER: undefined,
+  TRANSFER: 'TRANSFER',
   CONSOLIDATE: 'CONSOLIDATION',
-  IMPORT: 'DATA_IMPORT',
-  CONVERT: 'CONVERSION',
+  // Das Ausliefern hat keine feste Lizenz — sie hängt am gewählten Zweig.
+  DELIVER: undefined,
 };
+
+/** Die beiden Hälften, aus denen das Ausliefern besteht. */
+export const LIEFERMODULE: Feature[] = ['DATA_IMPORT', 'CONVERSION'];
+
+/**
+ * Ob dieses Glied dem Kunden überhaupt zur Verfügung steht.
+ *
+ * Beim Ausliefern genügt **eine** der beiden Hälften: Wer nur den Import
+ * gekauft hat, sieht das Glied und darin nur den Datenbankzweig.
+ */
+export function stageAvailable(stage: StageId, features: readonly Feature[]): boolean {
+  if (stage === 'DELIVER') {
+    return LIEFERMODULE.some((feature) => features.includes(feature));
+  }
+
+  const feature = STAGE_FEATURES[stage];
+
+  return feature === undefined || features.includes(feature);
+}
 
 /** Wo die Einstellung eines Gliedes am Job liegt. */
 export const STAGE_FIELDS = {
   CONSOLIDATE: 'consolidation',
-  IMPORT: 'dataImport',
-  CONVERT: 'conversion',
+  DELIVER: 'delivery',
 } as const;
 
 export type ConfigurableStage = keyof typeof STAGE_FIELDS;

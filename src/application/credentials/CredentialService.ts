@@ -45,6 +45,7 @@ export class CredentialService {
       name: input.name,
       type: input.type,
       username: input.username,
+      freigabe: input.freigabe,
       encryptedSecret: this.secretCipher.encrypt(input.secret),
       createdAt: now,
       updatedAt: now,

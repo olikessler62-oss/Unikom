@@ -7,12 +7,16 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx src/index.ts",
     "serve": "tsx src/server.ts",
+    "worker": "tsx src/worker.ts",
+    "agent": "tsx src/agent.ts",
     "start": "node dist/server.js",
     "web:dev": "vite",
     "web:build": "vite build",
     "licence": "tsx src/tools/licence.ts",
+    "backup": "tsx src/tools/backup.ts",
+    "testdaten": "tsx src/tools/testdaten.ts",
     "check": "tsc --noEmit && tsc -p web --noEmit",
-    "test": "tsx --test --test-timeout=30000 \"src/**/*.test.ts\"",
+    "test": "tsx --test --test-timeout=30000 \"src/**/*.test.ts\" \"web/src/**/*.test.ts\"",
     "test:real": "tsx --test --test-timeout=200000 \"src/**/*.realtest.ts\""
   },
   "devDependencies": {

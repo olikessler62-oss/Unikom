@@ -37,7 +37,7 @@ export class FtpsSourceAdapter implements SourceAdapter {
     };
 
     try {
-      const files = await this.listFiles(this.config.directory, false);
+      const files = await this.listFiles(this.config.directory);
 
       return {
         ok: true,
@@ -55,7 +55,7 @@ export class FtpsSourceAdapter implements SourceAdapter {
     }
   }
 
-  async listFiles(directory: string, recursive: boolean): Promise<SourceFile[]> {
+  async listFiles(directory: string): Promise<SourceFile[]> {
     const resolved = this.paths.resolve(directory);
     this.trace?.(
       `„${directory}“ wird gelesen als ${resolved} (Remote-Arbeitsverzeichnis ${this.paths.workingDirectory})`,
@@ -63,8 +63,8 @@ export class FtpsSourceAdapter implements SourceAdapter {
     );
 
     const client = await this.connect();
-    this.trace?.(`${resolved} wird gelesen${recursive ? ' samt Unterverzeichnissen' : ''}`);
-    const files = await this.listInto(client, resolved, recursive);
+    this.trace?.(`${resolved} wird gelesen`);
+    const files = await this.listInto(client, resolved);
     this.trace?.(`${resolved} gelesen: ${files.length} Einträge`);
 
     return files;
@@ -137,7 +137,7 @@ export class FtpsSourceAdapter implements SourceAdapter {
     return this.client;
   }
 
-  private async listInto(client: Client, directory: string, recursive: boolean): Promise<SourceFile[]> {
+  private async listInto(client: Client, directory: string): Promise<SourceFile[]> {
     const entries = await client.list(directory);
     const files: SourceFile[] = [];
 
@@ -146,10 +146,6 @@ export class FtpsSourceAdapter implements SourceAdapter {
 
       if (entry.type === FileType.Directory) {
         files.push({ name: entry.name, fullPath, isDirectory: true });
-
-        if (recursive) {
-          files.push(...(await this.listInto(client, fullPath, true)));
-        }
         continue;
       }
 

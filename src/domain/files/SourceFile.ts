@@ -11,7 +11,6 @@ export interface FileSelectionCriteria {
   filenamePrefix?: string;
   allowedExtensions: string[];
   caseSensitivePrefix: boolean;
-  includeSubdirectories: boolean;
   minimumFileAgeSeconds: number;
   /**
    * Whether the job demands a stability check. The check itself needs repeated

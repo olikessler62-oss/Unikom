@@ -223,4 +223,3 @@ test('verschlüsselt geliefert und entschlüsselt abgelegt', async () => {
     await b.abbauen();
   }
 });
-

@@ -321,6 +321,130 @@ export function FolderIcon() {
   );
 }
 
+/**
+ * Derselbe Ordner, offen — für einen aufgeklappten Zweig im Verzeichnisbaum.
+ *
+ * Als eigenes Zeichen und nicht als gedrehtes: Ein Ordner, der sich beim
+ * Aufklappen nur neigt, liest sich als Bewegung; einer, der offen steht, sagt
+ * den Zustand. Und der Zustand ist hier die Auskunft — der Baum zeigt an
+ * derselben Stelle mal drei Zeilen und mal dreißig.
+ */
+export function FolderOpenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2.5 6.5A1.5 1.5 0 0 1 4 5h4.2c.5 0 1 .24 1.3.64l1 1.36H18A1.5 1.5 0 0 1 19.5 8.5V10H7.7c-.9 0-1.7.6-2 1.45L3.4 18.5a1.5 1.5 0 0 1-.9-1.37z" />
+      <path d="M6.6 12.2c.2-.6.75-1 1.4-1h13.1c1.03 0 1.76.99 1.44 1.96l-1.75 5.3c-.2.63-.78 1.04-1.44 1.04H4.3z" />
+    </svg>
+  );
+}
+
+/**
+ * Eine Liste zum Abhaken, als Zeichen für „hier aus einer Liste aussuchen".
+ *
+ * Drei Kästchen mit Zeilen daneben — dasselbe Bild wie das Fenster, das sich
+ * öffnet. Ein Ordner wäre hier falsch: Er verspricht ein Verzeichnis, und es
+ * kommt eine Auswahl von Endungen. Gefüllte Flächen, keine Striche: Der Knopf
+ * färbt seine Zeichen über `fill`, ein Strichbild bliebe unsichtbar.
+ */
+export function ListIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 4h4.5v4.5H3zM3 9.75h4.5v4.5H3zM3 15.5h4.5v4.5H3zM10.5 5h10.5v2.5H10.5zM10.5 10.75h10.5v2.5H10.5zM10.5 16.5h10.5v2.5H10.5z" />
+    </svg>
+  );
+}
+
+/**
+ * Ein quadratischer Knopf in einer Tabellenzeile.
+ *
+ * Drei beschriftete Knöpfe nebeneinander verbrauchen mehr Breite als der Inhalt
+ * der Zeile: In der Benutzerliste blieb für den Namen so wenig übrig, dass
+ * „Administrator" umbrach und die Zeile zwei hoch wurde. Ein Zeichen sagt
+ * dasselbe auf einem Achtel der Fläche.
+ *
+ * Was es bedeutet, steht im `title` — sichtbar beim Verweilen und für
+ * Vorlesegeräte über `aria-label`. Ein Zeichen ohne Erklärung wäre ein Rätsel,
+ * und Rätsel gehören nicht in eine Benutzerverwaltung.
+ */
+export function RowButton({
+  title,
+  tone,
+  disabled,
+  onClick,
+  children,
+}: {
+  /** Was er tut, als kurzer Satz — er trägt keine Beschriftung. */
+  title: string;
+  /** `bad` färbt ihn erst beim Verweilen ein: Löschen soll sich ankündigen. */
+  tone?: 'bad';
+  disabled?: boolean;
+  onClick(): void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className={tone === 'bad' ? 'row-button row-button--bad' : 'row-button'}
+      title={title}
+      aria-label={title}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+/*
+ * Die Zeichen der Zeilenknöpfe. Gleiche Grammatik wie im Hauptmenü: 24er-Raster,
+ * nur Linien, gleiche Strichstärke — die Farbe kommt vom Knopf.
+ */
+
+/** Stift — etwas ändern. */
+export function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />
+    </svg>
+  );
+}
+
+/** Schlüssel — ein Passwort vergeben. */
+export function KeyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M13 11a3 3 0 1 0 6 0 3 3 0 0 0-6 0M13 11H4M6 11v3M9 11v2" />
+    </svg>
+  );
+}
+
+/** Geschlossenes Schloss — sperren. */
+export function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3" />
+    </svg>
+  );
+}
+
+/** Offenes Schloss — wieder freigeben. Der Bügel steht auf, das ist der Unterschied. */
+export function UnlockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 5.8-1.1" />
+    </svg>
+  );
+}
+
+/** Papierkorb — löschen. */
+export function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13M10 10.5v6M14 10.5v6" />
+    </svg>
+  );
+}
+
 export function CheckField({
   label,
   hint,
@@ -436,5 +560,104 @@ export function DurationField({
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * Ein Winkel, der die Richtung zeigt.
+ *
+ * Nur einer, nicht zwei: Ein Zeichen, das sich dreht, sagt „hier bewegt sich
+ * etwas, und zwar dorthin". Zwei verschiedene Zeichen für auf und zu sagen
+ * dasselbe zweimal und lassen sich beim Umschalten nicht verfolgen — der eine
+ * springt, der andere wandert.
+ *
+ * Gefüllt und nicht gestrichelt, weil die Stile der Oberfläche `fill:
+ * currentColor` setzen: Ein Pfad, der auf `stroke` baut, käme hier als
+ * schwarzer Klecks an.
+ */
+export function ChevronIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9.1 4.9 16.2 12l-7.1 7.1-2.1-2.1L12 12 7 7z" />
+    </svg>
+  );
+}
+
+/**
+ * Eine Karte, die sich zuklappen lässt.
+ *
+ * ## Warum überhaupt zuklappen
+ *
+ * Der Workflow-Editor stellt in einem Glied mehr ein, als auf einen Bildschirm
+ * geht. Wer die Quelle einmal festgelegt hat, arbeitet danach unten weiter und
+ * scrollt an ihr jedes Mal vorbei. Zugeklappt bleibt sie sichtbar — als Pille
+ * mit ihrem Namen —, nimmt aber keine Höhe mehr.
+ *
+ * ## Warum die Höhe nicht gemessen wird
+ *
+ * Aufgeklappt wird über `grid-template-rows: 0fr → 1fr`. Der Browser rechnet
+ * die Zielhöhe selbst aus. Eine gemessene Höhe (`max-height: 800px`) wäre eine
+ * Zahl, die rät: Zu klein schneidet sie ab, zu groß macht die Bewegung träge —
+ * und beides ändert sich mit jedem Feld, das dazukommt.
+ *
+ * ## Der Zustand gehört nicht an den Workflow
+ *
+ * Ob eine Karte offen steht, ist eine Sache des Hinsehens und keine des
+ * Auftrags. Gespeichert würde daraus eine Einstellung, die zwei Leute
+ * gegeneinander verstellen.
+ */
+export function Klappkarte({
+  titel,
+  belegt = false,
+  anfangsOffen = true,
+  children,
+}: {
+  titel: string;
+  /**
+   * Ob in dieser Fläche schon etwas Vollständiges steht.
+   *
+   * Trägt den hellen Streifen am linken Rand. Er beantwortet die Frage, die man
+   * beim Vorbeiscrollen an einem Dutzend zugeklappter Flächen hat: Wo habe ich
+   * schon etwas eingetragen?
+   *
+   * Was das je Fläche heißt, entscheidet der Aufrufer — die Karte weiß nichts
+   * von Workflows. Für den Editor steht es in `screens/job/belegt.ts`, samt der
+   * Begründung, warum eine brauchbare Voreinstellung noch keine Eingabe ist.
+   */
+  belegt?: boolean;
+  /** Ob sie beim ersten Erscheinen offen steht. */
+  anfangsOffen?: boolean;
+  children: ReactNode;
+}) {
+  const [offen, setOffen] = useState(anfangsOffen);
+
+  return (
+    <section
+      className={['card', 'card--klapp', offen ? '' : 'card--zu', belegt ? 'card--belegt' : '']
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {/*
+        * Die Überschrift steht **vor** dem Knopf, obwohl der Knopf oben links
+        * sitzt: Die Pille entsteht über `.card h2:first-child`. Käme der Knopf
+        * zuerst, verlöre die Überschrift ihre Form. Er liegt ohnehin absolut
+        * und richtet sich nicht nach der Reihenfolge.
+        */}
+      <h2>{titel}</h2>
+
+      <button
+        type="button"
+        className="klapp"
+        aria-expanded={offen}
+        title={offen ? `„${titel}" zuklappen` : `„${titel}" aufklappen`}
+        onClick={() => setOffen(!offen)}
+      >
+        <ChevronIcon />
+      </button>
+
+      <div className="klapp__body" data-offen={offen}>
+        <div>{children}</div>
+      </div>
+    </section>
   );
 }

@@ -22,6 +22,25 @@ export interface LogEntry {
   /** Never put secrets in here; log entries are persisted (spec section 51). */
   context?: Record<string, unknown>;
   /**
+   * Wer die Handlung ausgelöst hat — die dauerhafte Kennung des Benutzers.
+   *
+   * Fehlt bei allem, was der Zeitplan von selbst tut: Ein nächtlicher Lauf hat
+   * keinen Urheber, und einen zu erfinden wäre schlimmer als keiner.
+   */
+  userId?: string;
+  /**
+   * Sein Anmeldename **zum Zeitpunkt der Handlung**, mitgeschrieben und nicht
+   * nachgeschlagen.
+   *
+   * Die Kennung ist eindeutig und dauerhaft, aber niemand liest sie: In einem
+   * Protokoll, das ein Kunde per Mail schickt, sagt `9f2c…` nichts. Der Name
+   * sagt es — und er steht so da, wie er damals war. Wer ihn später ändert oder
+   * das Konto löscht, ändert nichts an dem, was geschehen ist. Beides zusammen
+   * beantwortet auch die Frage, die eines Tages kommt: zwei Namen, eine Person,
+   * oder ein Name, zwei Personen?
+   */
+  username?: string;
+  /**
    * The detail this entry's job asked for, where it differs from what the
    * installation asked for.
    *

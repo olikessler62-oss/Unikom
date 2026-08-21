@@ -7,6 +7,7 @@ import {
   activeStages,
   followingStage,
   precedingStage,
+  schreibtDatei,
   stageConfig,
   STAGE_LABELS,
 } from '../../domain/transfer/WorkflowStages.js';
@@ -146,13 +147,23 @@ export function assertRemoteConnectionsAreComplete(job: TransferJob): void {
   const benannt = (host: string | undefined): boolean => (host ?? '').trim().length > 0;
 
   /*
-   * Eine Freigabe braucht einen UNC-Pfad.
+   * Eine Freigabe braucht einen UNC-Pfad und einen Zugang.
    *
    * `D:\Daten` als Freigabe einzutragen ergäbe einen Workflow, der einen Zugang
    * mit sich trägt, den nichts benutzt: Verbunden wird nur, was über das Netz
    * führt. Er liefe scheinbar richtig und griffe die ganze Zeit auf die eigene
    * Platte zu — die Art zu wechseln wäre folgenlos geblieben, und genau das
    * merkt niemand.
+   *
+   * Und der Zugang: Ohne ihn wird die Freigabe mit dem Konto erreicht, unter
+   * dem Unikom gerade läuft. Das ist nicht das Konto dessen, der den Workflow
+   * anlegt, und im Betrieb als Windows-Dienst ist es womöglich eines, das im
+   * Netz überhaupt nichts darf. Ein Workflow, der beim Einrichten funktioniert
+   * und nach der Dienstinstallation nichts mehr findet, ist der teuerste
+   * Fehler von allen: Er zeigt sich Monate später und sieht nach einem
+   * Netzproblem aus. Deshalb ist der Zugang hier Pflicht und keine
+   * Möglichkeit — anders als bei SFTP und FTPS, wo es offene Server ohne
+   * Anmeldung wirklich gibt.
    */
   const alsFreigabe = (directory: string, was: string): void => {
     if (!/^\\\\[^\\/]+\\/.test(directory.trim())) {
@@ -164,12 +175,25 @@ export function assertRemoteConnectionsAreComplete(job: TransferJob): void {
     }
   };
 
+  const mitZugang = (credentialId: string | undefined, was: string): void => {
+    if (!(credentialId ?? '').trim()) {
+      throw new Error(
+        `${was} ist als Freigabe eingestellt, es ist aber kein Zugang hinterlegt. Eine Freigabe wird mit ` +
+          'Benutzername und Kennwort verbunden — ohne beides würde sie mit dem Konto erreicht, unter dem der ' +
+          'Dienst gerade läuft, und das ist nicht Ihres.'
+      );
+    }
+  };
+
   if (job.sourceType === 'SHARE') {
     alsFreigabe(job.sourceDirectory, 'Die Quelle');
+    mitZugang(job.credentialId, 'Die Quelle');
+
   }
 
   if (job.destinationType === 'SHARE') {
     alsFreigabe(job.destinationDirectory, 'Das Ziel');
+    mitZugang(job.destinationCredentialId, 'Das Ziel');
   }
 
   if ((job.sourceType === 'SFTP' || job.sourceType === 'FTPS') && !benannt(job.sourceConfig.host)) {
@@ -274,10 +298,22 @@ export function assertStagesAreCoherent(job: TransferJob): void {
       }
     } else if (config.output) {
       named(config.output.directory, `Das Ziel von ${label}`);
-    } else if (stage !== 'IMPORT') {
-      // The import writes into tables, so it has no directory. Everything else
-      // produces a file, and a file needs somewhere to be written.
+    } else if (schreibtDatei(job, stage)) {
+      /*
+       * Der Datenbankimport schreibt in Tabellen und hat deshalb kein
+       * Verzeichnis. Alles andere legt eine Datei ab, und die braucht einen
+       * Ort — auch die Konsolidierung, wenn nach ihr nichts mehr kommt: „Wenn
+       * Modul 3 nicht ausgeführt werden kann (nicht angehakt, nicht gekauft),
+       * dann brauchen wir bei Modul 2 ein Ergebnis-Verzeichnis, das angegeben
+       * werden muss."
+       *
+       * Der Ergebnisbestand aus Etappe 7 ersetzt das nicht. Er ist Unikoms
+       * eigene Buchführung — geprüft, freigegeben, mit Geschichte. Der Kunde
+       * kommt an seine Daten über ein Verzeichnis, und wer nur Modul 2 gekauft
+       * hat, hat kein anderes Glied, das sie ihm hinlegt.
+       */
       throw new Error(`Das Ziel von ${label} braucht ein Verzeichnis.`);
     }
   }
 }
+

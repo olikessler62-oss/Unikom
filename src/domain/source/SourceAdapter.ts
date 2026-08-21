@@ -52,7 +52,15 @@ export interface SourceAdapter {
    */
   trace?: SourceTrace;
   testConnection(): Promise<ConnectionTestResult>;
-  listFiles(directory: string, recursive: boolean): Promise<SourceFile[]>;
+  /**
+   * Was in diesem Verzeichnis liegt — nur dort, nie darunter.
+   *
+   * Unterverzeichnisse mitzunehmen gab es einmal und ist gestrichen: Ein
+   * Verzeichnis ist die Abmachung mit dem Absender, und was er daneben ablegt,
+   * geht diesen Workflow nichts an. Die Unterverzeichnisse stehen weiter in der
+   * Liste — der Verzeichnisbrowser blättert damit —, ihr Inhalt aber nicht.
+   */
+  listFiles(directory: string): Promise<SourceFile[]>;
   downloadFile(sourceFile: SourceFile, targetPath: string): Promise<DownloadResult>;
   /**
    * Writes the file into a stream instead of onto a path, so the bytes can be

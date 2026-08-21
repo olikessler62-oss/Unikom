@@ -64,7 +64,7 @@ function observingAdapter(sourceDirectory: string, delayMs = 20): { adapter: Sou
     peak: () => peak,
     adapter: {
       testConnection: () => local.testConnection(),
-      listFiles: (directory, recursive) => local.listFiles(directory, recursive),
+      listFiles: (directory: string) => local.listFiles(directory),
       async downloadFile(file: SourceFile, targetPath: string) {
         active += 1;
         peak = Math.max(peak, active);
@@ -159,26 +159,47 @@ test('identical content is stored once even when processed concurrently', async 
 });
 
 test('concurrent name conflicts each get their own name', async () => {
+  /*
+   * Vier Dateien, die gleichzeitig denselben Namen wollen.
+   *
+   * „Unter neuem Namen anlegen" ist ein Name für jede Datei, die je auf einen
+   * Konflikt trifft — treffen vier gleichzeitig darauf, entscheidet ein Zähler
+   * zwischen ihnen. Ohne ihn überschrieben sie einander, und der Lauf meldete
+   * vier Erfolge bei einer Datei im Ziel.
+   */
   const harness = await setup({
     maxConcurrentFiles: 4,
-    conflictStrategy: 'RENAME',
-    includeSubdirectories: true,
+    conflictStrategy: 'NEW_NAME',
+    conflictFilename: 'Nachlieferung',
   });
-  // The same filename in two subdirectories maps to one destination name.
-  await writeFiles(harness.sourceDirectory, {
-    'kunde-a/ORDER_001.csv': 'a;1\n',
-    'kunde-b/ORDER_001.csv': 'b;2\n',
-  });
+
+  const namen = ['ORDER_001.csv', 'ORDER_002.csv', 'ORDER_003.csv', 'ORDER_004.csv'];
+  await writeFiles(
+    harness.sourceDirectory,
+    Object.fromEntries(namen.map((name, nummer) => [name, `a;${nummer}\n`]))
+  );
+
+  // Im Ziel liegen sie schon — damit trifft jede der vier auf einen Konflikt.
+  await fs.mkdir(harness.destinationDirectory, { recursive: true });
+  for (const name of namen) {
+    await fs.writeFile(path.join(harness.destinationDirectory, name), 'alt\n');
+  }
 
   const result = await harness.build().execute(harness.job, observingAdapter(harness.sourceDirectory).adapter);
 
-  assert.equal(result.filesSucceeded, 2);
-  // One free name and one stamped with the time of the run — never twice the
-  // same name, which is what this test is about.
-  const stored = (await fs.readdir(harness.destinationDirectory)).sort();
-  assert.equal(stored.length, 2);
-  assert.equal(stored[0], 'ORDER_001.csv');
-  assert.match(stored[1], /^ORDER_001_\d{8}_\d{6}\.csv$/);
+  assert.equal(result.filesSucceeded, 4);
+
+  const angelegt = (await fs.readdir(harness.destinationDirectory))
+    .filter((name) => name.startsWith('Nachlieferung'))
+    .sort();
+
+  assert.equal(new Set(angelegt).size, 4, 'kein Name darf zweimal vergeben werden');
+  assert.deepEqual(angelegt, [
+    'Nachlieferung.csv',
+    'Nachlieferung_001.csv',
+    'Nachlieferung_002.csv',
+    'Nachlieferung_003.csv',
+  ]);
 });
 
 test('a temporary download failure is retried and then succeeds', async () => {
@@ -189,7 +210,7 @@ test('a temporary download failure is retried and then succeeds', async () => {
   let attempts = 0;
   const flakyAdapter: SourceAdapter = {
     testConnection: () => local.testConnection(),
-    listFiles: (directory, recursive) => local.listFiles(directory, recursive),
+    listFiles: (directory: string) => local.listFiles(directory),
     async downloadFile(file: SourceFile, targetPath: string) {
       attempts += 1;
       if (attempts < 3) {
@@ -214,7 +235,7 @@ test('a permanent download failure is not retried', async () => {
   let attempts = 0;
   const rejectingAdapter: SourceAdapter = {
     testConnection: () => local.testConnection(),
-    listFiles: (directory, recursive) => local.listFiles(directory, recursive),
+    listFiles: (directory: string) => local.listFiles(directory),
     async downloadFile() {
       attempts += 1;
       throw new Error('Permission denied');
@@ -237,7 +258,7 @@ test('a retry reconnects instead of reusing the broken connection', async () => 
   let disposals = 0;
   const flakyAdapter: SourceAdapter = {
     testConnection: () => local.testConnection(),
-    listFiles: (directory, recursive) => local.listFiles(directory, recursive),
+    listFiles: (directory: string) => local.listFiles(directory),
     async downloadFile(file: SourceFile, targetPath: string) {
       attempts += 1;
       if (attempts === 1) {

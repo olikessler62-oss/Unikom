@@ -786,6 +786,26 @@ code {
  * Innenabstand der Fläche und machte jedes Panel um 19 Pixel höher, als es
  * aussehen wollte. Den Abstand zum Rand bestimmt die Fläche, nicht ihr Inhalt.
  */
+/*
+ * Eine Karte in einer Karte — eine einzelne Regel innerhalb eines Schritts.
+ *
+ * Flacher als die äußere: Derselbe Schatten und derselbe Farbverlauf noch
+ * einmal ergäben eine Tiefe, die es nicht gibt, und der Blick fände die
+ * eigentliche Gliederung nicht mehr. Der linke Strich sagt, dass es
+ * dazugehört; das genügt.
+ */
+.card--nested {
+  background: rgba(var(--sheen), 0.03);
+  border-left: 3px solid rgba(var(--accent), 0.45);
+  box-shadow: none;
+  padding: 1rem 1.1rem;
+  margin: 0.6rem 0;
+}
+
+.card--nested::before {
+  content: none;
+}
+
 .card > *:last-child {
   margin-bottom: 0;
 }
@@ -836,6 +856,226 @@ code {
   border-radius: 50%;
   background: rgb(var(--accent));
   box-shadow: 0 0 9px rgb(var(--accent));
+}
+
+/*
+ * Eine Karte, die sich zuklappen lässt.
+ *
+ * ## Wo der Pfeil steht
+ *
+ * Zehn Pixel von der oberen und der linken Kante — **über** der Pille und nicht
+ * neben ihr. Neben ihr müsste er mit der Länge des Namens wandern: „QUELLE"
+ * und „WELCHE DATEIEN" ergäben zwei verschiedene Stellen, und eine Reihe von
+ * Karten hätte ihre Pfeile über die Breite verstreut. Darüber stehen sie in
+ * einer Flucht, und das Auge findet sie, ohne zu suchen.
+ *
+ * Die Karte bekommt oben die Luft dafür — aus denselben Marken gerechnet, damit
+ * ein größerer Pfeil sich seinen Platz von selbst nimmt.
+ */
+:root {
+  --klapp-pfeil: 1.15rem;
+  --klapp-rand: 10px;
+  /*
+   * Die Höhe einer Pille, aus ihren eigenen Marken gerechnet: Innenabstand oben
+   * und unten, die Zeile selbst, dazu die beiden Rahmenlinien.
+   */
+  --pille-hoehe: calc(0.32rem * 2 + 0.72rem * 1.2 + 2px);
+}
+
+/*
+ * Offen steht der Pfeil **über** der Pille, zugeklappt **neben** ihr.
+ *
+ * Das ist der ganze Trick am Platzsparen: Eine zugeklappte Fläche braucht keine
+ * eigene Zeile für den Pfeil, also rückt die Pille in seine Zeile hinauf und
+ * die Fläche schrumpft auf die Höhe einer Pille. Bei einem Dutzend Flächen ist
+ * das der Unterschied zwischen einer Rolle und einer Übersicht.
+ *
+ * Beides sind Innenabstände derselben Fläche — deshalb lässt sich der Übergang
+ * überhaupt weich rechnen. Mit zwei verschiedenen Anordnungen (etwa Raster
+ * gegen Fluss) gäbe es nichts zu überblenden, und die Pille spränge.
+ */
+.card--klapp {
+  padding-top: calc(var(--klapp-rand) + var(--klapp-pfeil) + 0.8rem);
+  transition: border-color 220ms ease, box-shadow 220ms ease, padding 240ms ease,
+    margin-bottom 240ms ease, border-radius 240ms ease;
+}
+
+.card--klapp > h2:first-child {
+  transition: margin 240ms ease;
+}
+
+.card--zu {
+  padding-top: var(--klapp-rand);
+  padding-bottom: var(--klapp-rand);
+}
+
+.card--zu > h2:first-child {
+  /* Kein Nachlauf mehr: Darunter kommt nichts, wozu Abstand zu halten wäre. */
+  margin-bottom: 0;
+  /*
+   * Aus dem Weg des Pfeils, der auf seinem Platz bleibt — und nur so weit, wie
+   * nötig: Die Pille steht ohnehin schon beim Innenabstand der Fläche
+   * (`1.6rem`), also fehlt nur die Strecke bis hinter den Pfeil. Um seine volle
+   * Breite zu rücken wäre eine Lücke, die niemand erklärt.
+   */
+  margin-left: calc(var(--klapp-rand) + var(--klapp-pfeil) + 0.5rem - 1.6rem);
+}
+
+/*
+ * Der Pfeil rückt in die Mitte der Pille, sobald sie neben ihm steht.
+ *
+ * Gerechnet und nicht abgemessen: halbe Pillenhöhe minus halber Pfeilhöhe. Eine
+ * geschriebene Zahl wäre beim nächsten Eingriff an der Schriftgröße still
+ * falsch.
+ */
+.card--zu .klapp {
+  top: calc(var(--klapp-rand) + (var(--pille-hoehe) - var(--klapp-pfeil)) / 2);
+}
+
+/*
+ * Zugeklappte Flächen untereinander werden ein Stapel.
+ *
+ * Der Abstand zwischen ihnen fällt fort und die Rahmen legen sich aufeinander,
+ * sodass zwischen zwei Zeilen eine einzige Linie steht statt zweier Kanten mit
+ * Luft dazwischen. Die Rundungen entfallen an den Innenkanten — sonst sähe ein
+ * Stapel aus wie eine Reihe von Karten, die sich zufällig berühren.
+ *
+ * `:has` prüft dabei nach vorn: Eine Fläche weiß nicht, ob unter ihr noch eine
+ * zugeklappte folgt, ohne nachzusehen. Ohne diese Prüfung verlöre auch die
+ * letzte des Stapels ihre untere Rundung und der Stapel liefe unten aus.
+ */
+.card--klapp.card--zu:has(+ .card--klapp.card--zu) {
+  margin-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.card--klapp.card--zu + .card--klapp.card--zu {
+  /* Die beiden Rahmen teilen sich eine Linie, statt zwei nebeneinanderzulegen. */
+  margin-top: -1px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.klapp {
+  position: absolute;
+  top: var(--klapp-rand);
+  left: var(--klapp-rand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--klapp-pfeil);
+  height: var(--klapp-pfeil);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color 180ms ease, transform 220ms ease;
+}
+
+.klapp svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.klapp:hover {
+  color: rgb(var(--accent));
+}
+
+.klapp:focus-visible {
+  outline: none;
+  color: rgb(var(--accent));
+}
+
+/* Zu zeigt nach rechts, offen nach unten: ein Zeichen, eine Vierteldrehung. */
+.klapp[aria-expanded='true'] {
+  transform: rotate(90deg);
+}
+
+/*
+ * Die Höhe wird nicht gemessen, sondern gerechnet: `0fr` zu `1fr`. Eine
+ * geschriebene Höhe wäre eine Zahl, die rät — zu klein schneidet sie ab, zu
+ * groß macht die Bewegung träge, und beides ändert sich mit jedem Feld, das
+ * dazukommt.
+ */
+.klapp__body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 240ms ease;
+}
+
+.klapp__body[data-offen='false'] {
+  grid-template-rows: 0fr;
+}
+
+/*
+ * `min-height: 0` ist keine Zierde, sondern die Bedingung: Ein Rasterfeld ist
+ * von Haus aus mindestens so hoch wie sein Inhalt, und dann führte `0fr` zu
+ * nichts.
+ */
+.klapp__body > div {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/*
+ * Zugeklappt ist auch für die Tastatur zu.
+ *
+ * Sonst wandert der Fokus in Felder, die niemand sieht — und die Seite
+ * scrollt an eine Stelle, an der nichts steht. Erst am Ende der Bewegung, damit
+ * der Inhalt nicht schon verschwunden ist, während die Karte noch zufährt.
+ */
+.klapp__body[data-offen='false'] > div {
+  visibility: hidden;
+  transition: visibility 0s linear 240ms;
+}
+
+/*
+ * Der helle Streifen am linken Rand: Hier steht schon etwas.
+ *
+ * ## Warum am Rand und nicht als Zeichen in der Pille
+ *
+ * Ein Dutzend zugeklappter Flächen untereinander liest man nicht, man
+ * überfliegt sie. Ein Streifen an der immer gleichen Stelle wird dabei zu einer
+ * Spalte, die man auf einen Blick abliest — ein Häkchen in der Pille müsste
+ * jedes Mal gesucht werden, weil die Pillen verschieden breit sind.
+ *
+ * ## Warum die halbe Höhe
+ *
+ * Über die volle Höhe wäre er ein zweiter Rahmen und die Fläche sähe
+ * ausgewählt aus. Auf halber Höhe und mittig liest er sich als Merkzeichen an
+ * einer Fläche, nicht als Zustand der Fläche selbst. Er wächst mit: Eine
+ * aufgeklappte Fläche bekommt einen längeren Streifen, und das ist richtig —
+ * er zeigt an ihr entlang, wie viel dort steht.
+ *
+ * ## Warum das tiefe Orange und warum nur ein Pixel
+ *
+ * Der Akzent gehört der einen Hauptaktion je Ansicht. Leuchteten zehn Flächen
+ * in derselben Farbe wie der Speichern-Knopf, hätte die Farbe ihre Bedeutung
+ * verloren. `--accent-deep` ist erkennbar derselben Familie, aber dunkler —
+ * und ein Merkzeichen soll nicht leuchten, sondern dastehen.
+ *
+ * Ein Pixel, weil er auf dem Rahmen liegt und nicht neben ihm: Er ersetzt ihn
+ * auf dieser Strecke, statt eine zweite Kante danebenzustellen. Breiter wäre
+ * er eine Leiste, und die Fläche sähe angewählt aus. Ohne Leuchten aus
+ * demselben Grund.
+ */
+.card--belegt::after {
+  content: '';
+  position: absolute;
+  /* Auf dem Rahmen, nicht daneben: Er ersetzt ihn auf dieser Strecke. */
+  left: -1px;
+  top: 25%;
+  width: 1px;
+  height: 50%;
+  background: rgb(var(--accent-deep));
+}
+
+/* Derselbe Grund wie bei `.card > *:last-child` — nur eine Ebene tiefer. */
+.klapp__body > div > *:last-child {
+  margin-bottom: 0;
 }
 
 .cards {
@@ -912,6 +1152,157 @@ code {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--text-soft);
+}
+
+/*
+ * Eine Fläche innerhalb einer Fläche.
+ *
+ * Für Dinge, von denen es mehrere gibt und die je für sich zusammengehören:
+ * eine Quelle mit Namen und Inhalt, ein Konflikt mit seinen sieben Angaben.
+ * Ohne eigene Umrandung liefen sie ineinander, und mit der vollen Fläche
+ * sähen sie aus wie eigene Abschnitte des Bildschirms, was sie nicht sind —
+ * deshalb leiser: weniger Schatten, flacherer Verlauf.
+ */
+.card--inner {
+  padding: 1rem 1.1rem;
+  background: linear-gradient(168deg, var(--g-2) 0%, var(--g-1) 100%);
+  box-shadow: none;
+}
+
+.card--inner:hover {
+  border-color: var(--rule);
+}
+
+/*
+ * Die Zeile, an der man gerade arbeitet.
+ *
+ * In einer Konfliktliste steht die Auswahl über allem: Darunter liegt ein
+ * Formular, das sich auf genau diese Zeile bezieht. Wer nicht sieht, welche
+ * gemeint ist, entscheidet über den falschen Fall.
+ */
+.row--selected > td {
+  background: rgba(var(--sheen), 0.06);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/*
+ * Die Glocke im Kopf.
+ *
+ * Sie steht dort und nicht in einer Ansicht: Eine Meldung, die nur sieht, wer
+ * zufällig auf dem richtigen Bildschirm ist, hat ihren Zweck verfehlt.
+ */
+.bell {
+  position: relative;
+}
+
+.bell__button {
+  position: relative;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.bell__button svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/*
+ * Die Alarmfarbe erscheint erst, wenn etwas darunter ist, das eine Handlung
+ * verlangt. Eine Glocke, die immer rot ist, ist eine Glocke, die niemand mehr
+ * ansieht.
+ */
+.bell__button--urgent {
+  border-color: rgba(var(--alarm), 0.55);
+  color: rgb(var(--alarm));
+}
+
+.bell__count {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  min-width: 1.05rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: rgb(var(--alarm));
+  color: #fff;
+  font-size: 0.68rem;
+  line-height: 1.05rem;
+  text-align: center;
+}
+
+.bell__panel {
+  position: absolute;
+  top: 2.6rem;
+  right: 0;
+  z-index: 40;
+  width: min(28rem, calc(100vw - 2rem));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: linear-gradient(168deg, var(--g-3) 0%, var(--g-2) 55%, var(--g-1) 100%);
+  box-shadow: 0 28px 60px -30px rgba(var(--shade), 0.95);
+}
+
+.bell__list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+}
+
+.bell__item {
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--rule);
+}
+
+.bell__item p {
+  margin: 0.3rem 0;
+}
+
+/* Erledigtes bleibt lesbar und tritt zurück — fort ist es damit nicht. */
+.bell__item--done {
+  opacity: 0.55;
+}
+
+/* Eine Zeile, deren Enden auseinanderstreben — Überschrift links, Knopf rechts. */
+.row--between {
+  justify-content: space-between;
+  width: 100%;
+}
+
+/*
+ * Begriff und Erklärung untereinander, in zwei Spalten.
+ *
+ * Ein Konflikt nennt Erwartetes, Vorgefundenes, Ursache und nächste Schritte.
+ * Als Fließtext läse das niemand zu Ende; als Liste mit vorangestelltem Begriff
+ * findet das Auge die Zeile, die es sucht.
+ */
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1rem;
+  margin: 0.6rem 0 0;
+}
+
+.details dt {
+  color: var(--text-soft);
+  font-size: 0.86rem;
+}
+
+.details dd {
+  margin: 0;
 }
 
 /* ---------- Tabellen ---------- */
@@ -1293,6 +1684,31 @@ textarea::placeholder {
   opacity: 1;
 }
 
+/*
+ * Dieselbe Regel für ein Feld, das noch keine Eingabe trägt.
+ *
+ * Ein `select` kennt keinen Platzhalter: Es zeigt immer einen Wert, auch bevor
+ * jemand einen ausgesucht hat. Dieser Wert gilt zwar — er ist die Voreinstellung
+ * —, aber eingetragen hat ihn niemand. Das Grau sagt genau das: „Das ist der
+ * Vorschlag." Sobald jemand wählt, steht er da wie jeder andere Eintrag.
+ */
+.field__preset {
+  color: var(--text-faint);
+}
+
+/*
+ * Kursiv nur, wo getippt wird.
+ *
+ * In einem Auswahlfeld schlägt die Schrägstellung auf die aufgeklappte Liste
+ * durch: Dann steht jeder Eintrag schräg, auch der, den man gerade wählt — und
+ * eine Wahl, die man trifft, ist keine Andeutung mehr. Das Grau trägt den
+ * Hinweis hier allein.
+ */
+input.field__preset,
+textarea.field__preset {
+  font-style: italic;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -1334,15 +1750,30 @@ option {
 }
 
 /*
- * Der hervorgehobene Eintrag. Ohne Angabe malt ihn der Browser in seinem
- * Systemblau — auf jedem Rechner dasselbe und in keinem der beiden
- * Erscheinungsbilder vorgesehen.
+ * Zwei Zustände, zwei Stärken.
+ *
+ * Der gewählte Eintrag beantwortet „was ist eingestellt", der überfahrene nur
+ * „wohin zeige ich gerade". In derselben Farbe gezeichnet verschmelzen beide:
+ * Wer die Liste aufklappt und mit der Maus darüberfährt, sieht zwei gleich
+ * kräftige Balken und weiß nicht mehr, welcher der eingestellte war.
+ *
+ * Die schwächere Fläche wird gemischt und nicht danebengeschrieben: Ändert sich
+ * `--pick`, folgt sie von selbst. Eine zweite Farbe als eigene Marke wäre die,
+ * die beim nächsten Eingriff an der Palette stehen bleibt.
  *
  * Der Verlauf ist kein Schmuck: Für eine einfache Fläche nimmt der Browser an
  * dieser Stelle keine Farbe an.
  */
-option:checked,
 option:hover {
+  background: linear-gradient(
+    color-mix(in srgb, var(--pick) 35%, var(--picker-fill)),
+    color-mix(in srgb, var(--pick) 35%, var(--picker-fill))
+  );
+  color: var(--text);
+}
+
+/* Nach dem Überfahren notiert: Ist ein Eintrag beides, gilt „eingestellt". */
+option:checked {
   background: linear-gradient(var(--pick), var(--pick));
   color: var(--pick-text);
 }
@@ -1775,13 +2206,20 @@ option:hover {
 }
 
 /*
- * Eine Combobox ohne Erklärknopf endet dort, wo die Eingabefelder mit einem
- * enden.
+ * Eine Combobox endet dort, wo die Eingabefelder neben ihr enden.
  *
- * Ein Feld mit Knopf teilt sich die 640 Pixel mit ihm und wird dadurch schmaler
- * — gemessen 600,8 gegen 640, also genau die 39,2 Pixel aus Knopfbreite und
- * Abstand. In einer Spalte aus Feldern steht die Combobox damit als einzige
- * über, und das liest sich wie ein Versehen, weil es eines ist.
+ * Ein Feld mit Erklärknopf teilt sich die 640 Pixel mit ihm und wird dadurch
+ * schmaler — gemessen 600,8 gegen 640, also genau die 39,2 Pixel aus
+ * Knopfbreite und Abstand. Steht in einem Abschnitt auch nur ein solches Feld,
+ * endet die ganze Spalte dort, und eine Combobox, die überstünde, läse sich wie
+ * ein Versehen.
+ *
+ * Umgekehrt genauso, und das ist der Grund für die Bedingung: In einem
+ * Abschnitt ohne einen einzigen Erklärknopf gibt es nichts freizuhalten. Eine
+ * Combobox, die dort trotzdem 39 Pixel früher aufhört, steht als einzige zurück
+ * — derselbe Fehler, nur in die andere Richtung. Der Abschnitt entscheidet
+ * darüber, nicht das Feld: Ob die Spalte einen Rand hat, sieht man an ihr und
+ * nicht an einem einzelnen Eintrag darin.
  *
  * Als Rechnung aus denselben Marken, nicht als abgeschriebene Zahl: Wächst der
  * Knopf, wandert die Kante von selbst mit. Eine 39 hier wäre schon beim
@@ -1793,7 +2231,7 @@ option:hover {
   --field-size: 2.78rem;
 }
 
-.field > select {
+.card:has(.hint-button) .field > select {
   max-width: calc(100% - var(--hint-gutter));
 }
 
@@ -1889,7 +2327,16 @@ option:hover {
   font-size: 0.86rem;
 }
 
-.browse button {
+/*
+ * Die Zeilen der Kurzliste — „schon benutzt“.
+ *
+ * Auf `li > button` eingegrenzt und nicht auf jeden Knopf im Kasten: Seit im
+ * selben Kasten ein Baum steht, träfe `.browse button` auch dessen Dreiecke
+ * und Namen und machte aus jedem einen Block über die volle Breite. Gemessen:
+ * Der Namensknopf schrumpfte auf 22 Pixel, während sein Text 661 breit blieb
+ * und rechts hinausragte.
+ */
+.browse li > button {
   display: block;
   width: 100%;
   padding: 0.5rem 0.7rem;
@@ -1905,11 +2352,11 @@ option:hover {
   color: var(--text);
 }
 
-.browse button::after {
+.browse li > button::after {
   display: none;
 }
 
-.browse button:hover {
+.browse li > button:hover {
   background: var(--pick);
   color: var(--pick-text);
 }
@@ -1941,6 +2388,245 @@ option:hover {
   margin-left: auto;
   font-size: 0.82rem;
   color: var(--text-faint);
+}
+
+/*
+ * Die Pfadleiste: jedes Glied ein Knopf, die Trennzeichen dazwischen gezeichnet
+ * statt geschrieben.
+ *
+ * Sie darf umbrechen — ein tiefer Pfad auf einer Freigabe wird lang, und ein
+ * Fenster, das dadurch breiter wird als der Bildschirm, hilft niemandem.
+ */
+.browse__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.browse__crumb {
+  padding: 0.1rem 0.35rem;
+  border: 0;
+  border-radius: var(--radius-small);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text);
+  background: none;
+  cursor: pointer;
+}
+
+.browse__crumb:hover,
+.browse__crumb:focus-visible {
+  color: var(--text-loud);
+  background: var(--g-3);
+}
+
+/* Zwischen zwei Gliedern ein Trennzeichen, vor dem ersten keines. */
+.browse__crumb + .browse__crumb::before {
+  margin-right: 0.35rem;
+  color: var(--text-faint);
+  content: '›';
+}
+
+/* Adresszeile und Ordnerzeile: das Feld nimmt den Platz, der Knopf seinen. */
+.browse__jump,
+.browse__new {
+  margin-bottom: 0.9rem;
+}
+
+.browse__jump > input,
+.browse__new > input {
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * Der Pfad steht zum Lesen und Kopieren da, nicht zum Tippen. Ruhiger Grund und
+ * feste Zeichenbreite: Er wird verglichen, nicht gelesen — Zeichen für Zeichen,
+ * wenn jemand wissen will, warum der Lauf woanders schreibt.
+ */
+.browse__jump > input[readonly] {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--text-soft);
+  background: var(--g-2);
+  cursor: text;
+}
+
+.browse__new > button {
+  flex: 0 0 auto;
+}
+
+/*
+ * Der Verzeichnisbaum.
+ *
+ * Die Einrückung kommt aus der Verschachtelung: Jede Liste rückt gegenüber
+ * ihrer Elternliste ein, und damit stimmt sie in jeder Tiefe, ohne dass
+ * irgendwo eine Ebene mitgezählt wird.
+ */
+.tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tree .tree {
+  padding-left: 1.15rem;
+  /* Die Linie, an der das Auge die Ebene wiederfindet. */
+  border-left: 1px solid var(--rule);
+  margin-left: 0.55rem;
+}
+
+/*
+ * Eine Zeile im Baum ist eine Zeile und keine zwei Kacheln.
+ *
+ * Ein `button` trägt in diesem Erscheinungsbild Verlauf, Rahmen, Schein,
+ * Großbuchstaben und einen Lichtstreifen — richtig für „Speichern", falsch für
+ * einen Verzeichnisnamen. Ohne diese Rücknahme stand jede Zeile als zwei
+ * leuchtende Kacheln da, das Dreieck als kleine und der Name als große daneben,
+ * und der Name selbst in Versalien: aus `application-data` wurde
+ * `APPLICATION-DATA`.
+ *
+ * Zurückgenommen wird an einer Stelle für beide Knöpfe. Die Hervorhebung trägt
+ * die Zeile, nicht der Knopf darin — nur so umfasst sie Dreieck und Namen
+ * zusammen, und die Zeile liest sich als eine.
+ */
+.tree__toggle,
+.tree__name {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  transition: none;
+}
+
+/* Der Lichtstreifen, der über einen großen Knopf wandert, gehört hier nicht hin. */
+.tree__toggle::after,
+.tree__name::after {
+  display: none;
+}
+
+/* Und das Anheben beim Überfahren ebenso wenig: Eine Zeile hebt nicht ab. */
+.tree__toggle:hover:not(:disabled),
+.tree__name:hover:not(:disabled) {
+  transform: none;
+  filter: none;
+}
+
+.tree__row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  border-radius: var(--radius-small);
+}
+
+.tree__row:hover {
+  background: var(--g-2);
+}
+
+/*
+ * Der gewählte Zweig. Deutlich und nicht nur eine Spur anders: Er entscheidet,
+ * was der Knopf unten übernimmt, und wer das verwechselt, trägt ein Verzeichnis
+ * ein, das er nicht gemeint hat.
+ */
+.tree__row--chosen,
+.tree__row--chosen:hover {
+  background: rgba(var(--accent), 0.18);
+}
+
+.tree__toggle {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  padding: 0.3rem 0;
+  border: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1;
+  color: var(--text-faint);
+  background: none;
+  cursor: pointer;
+}
+
+.tree__toggle:hover {
+  color: rgb(var(--accent));
+}
+
+.tree__name {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.4rem;
+  border: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  cursor: pointer;
+}
+
+/*
+ * Das Symbol bleibt, der Name weicht.
+ *
+ * `flex: 0 0 auto` am Zeichen und `min-width: 0` am Text: Ohne beides schrumpft
+ * in einer Flex-Zeile zuerst das Symbol und der lange Name schiebt es platt —
+ * man sähe einen Strich statt eines Ordners, und zwar nur bei den langen Namen,
+ * also genau dort, wo die Zeile ohnehin schwer zu lesen ist.
+ */
+.tree__name svg {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  fill: var(--text-faint);
+}
+
+.tree__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree__row--chosen .tree__name {
+  color: var(--text-loud);
+}
+
+/*
+ * Beim Überfahren leuchtet das Zeichen auf — beim gewählten Ordner nicht.
+ *
+ * Die Hervorhebung der Zeile ist selbst aus der Akzentfarbe gemischt. Ein
+ * Zeichen in derselben Farbe darauf verschwimmt mit dem Grund: Man sieht einen
+ * Fleck statt eines Ordners, und ausgerechnet in der Zeile, auf die es
+ * ankommt. Dort trägt das Zeichen deshalb die Schriftfarbe wie der Name
+ * daneben.
+ */
+.tree__row:hover .tree__name svg {
+  fill: rgb(var(--accent));
+}
+
+.tree__row--chosen .tree__name svg,
+.tree__row--chosen:hover .tree__name svg {
+  fill: var(--text-loud);
+}
+
+.tree__empty,
+.tree__error {
+  margin: 0 0 0 2.4rem;
+  padding: 0.2rem 0;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+.tree__error {
+  color: rgb(var(--alarm));
 }
 
 /*
@@ -2388,6 +3074,22 @@ button.secondary::after {
   flex-wrap: wrap;
 }
 
+/*
+ * Ein Knopf zwischen Feldern ist selbst ein Feld.
+ *
+ * „Ziel prüfen“ stand ohne diesen Abstand unmittelbar über der Beschriftung des
+ * nächsten Feldes — gemessen 2,5 Pixel gegen die 21,6, die zwischen allen
+ * anderen Feldern stehen. Das liest sich, als gehörte die Beschriftung zum
+ * Knopf, und genau das tut sie nicht.
+ *
+ * Ausgenommen sind Zeilen, die selbst Felder tragen — Server und Port
+ * nebeneinander etwa. Deren Abstand bringt das innere Feld schon mit, und
+ * zweimal wäre doppelt so viel.
+ */
+.card .row:not(:has(.field)) {
+  margin-bottom: 1.2rem;
+}
+
 /* Wer Bewegung abgeschaltet hat, bekommt dieselbe Oberfläche im Stillstand. */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -2778,6 +3480,27 @@ button.secondary::after {
   color: #000000;
 }
 
+/*
+ * Die überfahrene Zeile im Verzeichnisbaum, in Spring.
+ *
+ * Ein Knopf färbt sich hier beim Überfahren fast schwarz (`#23262b`) — richtig
+ * für „Speichern", und die Baumzeilen erben es, weil sie Knöpfe sind. Ihre
+ * Schrift bleibt dabei schwarz, und schwarz auf fast schwarz ist genau die
+ * Zeile, auf die man gerade zeigt: unlesbar in dem Moment, in dem man sie
+ * liest.
+ *
+ * Deshalb hier hell — Schrift und Ordnerzeichen zusammen. Nur beim Überfahren:
+ * Die ruhende Zeile steht auf hellem Grund und braucht ihre schwarze Schrift.
+ */
+:where([data-theme='spring']) .tree__toggle:hover:not(:disabled),
+:where([data-theme='spring']) .tree__name:hover:not(:disabled) {
+  color: #e8eaec;
+}
+
+:where([data-theme='spring']) .tree__name:hover:not(:disabled) svg {
+  fill: #e8eaec;
+}
+
 :where([data-theme='spring']) button:focus-visible {
   outline: 2px solid #000000;
   outline-offset: 2px;
@@ -2821,6 +3544,10 @@ button.secondary::after {
   color: var(--text-faint);
   font-style: italic;
   opacity: 1;
+}
+
+:where([data-theme='spring']) .field__preset {
+  color: var(--text-faint);
 }
 
 /* Anzeigewerte ohne Leuchten: die Zahl trägt sich selbst. */
@@ -3246,6 +3973,18 @@ button.secondary::after {
   border: none;
 }
 
+/*
+ * In einer Spalte aus Feldern aber so hoch wie ein Eingabefeld.
+ *
+ * Die flachen 38 Pixel sind für Leisten gedacht — Filter über einer Tabelle,
+ * Knöpfe in einer Zeile. Untereinander mit Eingabefeldern gestellt fehlen ihnen
+ * gemessene 6,5 Pixel, und eine Spalte, in der ein Element aus der Reihe fällt,
+ * sieht falsch aus, ohne dass man gleich sagen kann, warum.
+ */
+:where([data-theme='spring']) .field select {
+  height: var(--field-size);
+}
+
 /* ===================================================================
  * Spring — Lesbarkeit dort, wo Fläche und Schrift dieselbe Marke tragen
  *
@@ -3485,12 +4224,18 @@ button.secondary::after {
   }
 
   /*
-   * Und hier ist das Blau endgültig weg. Gewählt, überfahren und mit der
-   * Tastatur angesteuert sehen gleich aus: Es ist derselbe Zustand — „dieser
-   * hier". Drei Farben dafür wären drei Fragen an den Leser.
+   * Und hier ist das Blau endgültig weg.
+   *
+   * Überfahren und mit der Tastatur angesteuert sind derselbe Zustand — „hier
+   * zeige ich gerade hin" — und teilen sich deshalb die schwächere Fläche. Der
+   * eingestellte Eintrag steht darüber: Er ist die Antwort und nicht die Frage.
    */
   select option:hover,
-  select option:focus,
+  select option:focus {
+    background: color-mix(in srgb, var(--pick) 35%, var(--picker-fill));
+    color: var(--text);
+  }
+
   select option:checked {
     background: var(--pick);
     color: var(--pick-text);
@@ -3519,4 +4264,96 @@ button.secondary::after {
 /* Auch die Kettenglieder stehen auf der gemeinsamen Höhe. */
 :where([data-theme='spring']) .chain__step {
   min-height: 38px;
+}
+
+/* ---------- Knöpfe in einer Tabellenzeile ---------- */
+
+/*
+ * Ein Zeichen statt eines Wortes.
+ *
+ * In der Benutzerliste standen rechts drei beschriftete Knöpfe. Sie brauchten
+ * mehr Breite als die Angaben links davon, „Administrator" brach mitten im Wort
+ * um, und aus einer Zeile wurden zwei. Ein quadratisches Zeichen sagt dasselbe
+ * und lässt der Zeile ihren Platz; was es bedeutet, steht im Tooltip.
+ */
+.row-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-small);
+  background: var(--g-1);
+  color: var(--text-soft);
+  cursor: pointer;
+  box-shadow: none;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.row-button::after {
+  display: none;
+}
+
+.row-button svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.row-button:hover:not(:disabled) {
+  transform: none;
+  filter: none;
+  border-color: var(--rule-strong);
+  background: var(--g-4);
+  color: var(--text-loud);
+}
+
+/*
+ * Löschen kündigt sich an, statt rot dazustehen.
+ *
+ * Ein dauerhaft rotes Zeichen in jeder Zeile liest sich als Warnung vor dem
+ * Benutzer, nicht vor der Handlung. Die Farbe kommt, wenn der Zeiger darauf
+ * steht — also genau dann, wenn sie gemeint ist.
+ */
+.row-button--bad:hover:not(:disabled) {
+  border-color: rgba(var(--alarm), 0.55);
+  color: rgb(var(--alarm));
+}
+
+.row-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Alle Knöpfe einer Zeile rechtsbündig und ohne Umbruch. */
+.row-actions {
+  display: flex;
+  gap: 0.3rem;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+/*
+ * Eine Zeile, die eine Zeile bleibt.
+ *
+ * Die Benutzerliste trägt kurze Angaben — Name, Kürzel, zwei Abzeichen, ein
+ * Zeitpunkt. Mit dem Innenabstand und der Schriftgröße der Laufhistorie wurde
+ * daraus eine Zeile, die höher war als ihr Inhalt.
+ */
+.table--compact td {
+  padding: 0.42rem 0.9rem;
+  font-size: 0.86rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table--compact .badge {
+  font-size: 0.58rem;
 }

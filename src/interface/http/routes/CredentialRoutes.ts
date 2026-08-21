@@ -77,6 +77,10 @@ export function credentialRoutes(application: UnikomApplication): Route[] {
             name: requireString(input, 'name'),
             type,
             username: optionalString(input, 'username'),
+            // Nur bei Benutzer/Kennwort sinnvoll; ein Schluessel meldet sich an
+            // keiner Freigabe an. Mitgeschrieben wird trotzdem, was ankommt —
+            // die Oberflaeche bietet das Feld nur dort an.
+            freigabe: optionalString(input, 'freigabe'),
             tenantId,
             secret: requireString(input, 'secret'),
           })

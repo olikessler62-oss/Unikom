@@ -1,3 +1,6 @@
+import type { Meldeeinstellungen } from '../../domain/background/Postausgang.js';
+import type { Mandanteneinstellungen } from '../../domain/consolidation/Einstellungen.js';
+import { pruefeEinstellungen } from '../../domain/consolidation/Einstellungspruefung.js';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -6,6 +9,7 @@ import {
   type Tenant,
   type TenantRepository,
 } from '../../domain/tenants/Tenant.js';
+import { assertRegionIsUsable, type Region } from '../../domain/tenants/Region.js';
 import {
   assertWithinTenant,
   rootsOverlap,
@@ -27,7 +31,12 @@ export class TenantService {
     return this.tenantRepository.getById(id);
   }
 
-  async create(input: { name: string; description?: string; rootDirectory?: string }): Promise<Tenant> {
+  async create(input: {
+    name: string;
+    description?: string;
+    rootDirectory?: string;
+    region?: Region;
+  }): Promise<Tenant> {
     const name = input.name.trim();
 
     if (!name) {
@@ -40,6 +49,10 @@ export class TenantService {
 
     await this.assertRootIsFree(input.rootDirectory, undefined);
 
+    if (input.region) {
+      assertRegionIsUsable(input.region);
+    }
+
     const now = new Date();
 
     return this.tenantRepository.save({
@@ -47,6 +60,7 @@ export class TenantService {
       name,
       description: input.description?.trim() || undefined,
       rootDirectory: input.rootDirectory?.trim() || undefined,
+      region: input.region,
       enabled: true,
       createdAt: now,
       updatedAt: now,
@@ -55,9 +69,54 @@ export class TenantService {
 
   async update(
     id: string,
-    changes: { name?: string; description?: string; rootDirectory?: string; enabled?: boolean }
+    changes: {
+      name?: string;
+      description?: string;
+      rootDirectory?: string;
+      region?: Region;
+      enabled?: boolean;
+      /** Wohin Meldungen gehen. `null` löscht die Einstellung. */
+      benachrichtigung?: Meldeeinstellungen | null;
+      /**
+       * Die Konsolidierungseinstellungen dieses Kunden — die Ebene, die in der
+       * Hierarchie gewinnt (SPEC-02, Abschnitt 40).
+       *
+       * Sie war bis hierher nur lesbar: Neun Stellen im Erzeugnis fragten
+       * danach, und keine einzige konnte sie setzen. Die Spitze der Hierarchie
+       * war damit immer leer, und es galt überall die Voreinstellung.
+       */
+      consolidation?: Mandanteneinstellungen | null;
+      /**
+       * Wie lange Ausleitungen liegen bleiben (SPEC-07 §5). `null` nimmt die
+       * Einstellung fort — dann gilt wieder die Voreinstellung.
+       */
+      ausleitungenTage?: number | null;
+    }
   ): Promise<Tenant> {
     const tenant = await this.require(id);
+
+    /*
+     * Geprüft wird, bevor irgendetwas gespeichert wird. Eine Region, die still
+     * auf die Einstellung des Rechners ausweicht, stünde sonst im Mandanten,
+     * und jede Datei dieses Kunden würde danach anders gelesen als angezeigt.
+     */
+    if (changes.region !== undefined) {
+      assertRegionIsUsable(changes.region);
+    }
+
+    /*
+     * Geprüft, bevor irgendetwas gespeichert wird — und alle Fehler auf einmal.
+     * Ein Zahlendreher hier wirkt auf jeden Lauf jedes Workflows dieses Kunden,
+     * und er fällt nicht auf: Eine Stichprobe von drei liefert Typen, nur eben
+     * geratene.
+     */
+    if (changes.consolidation) {
+      const fehler = pruefeEinstellungen(changes.consolidation);
+
+      if (fehler.length > 0) {
+        throw new Error(fehler.map((eintrag) => eintrag.grund).join(' — '));
+      }
+    }
 
     if (changes.name !== undefined) {
       const conflicting = await this.tenantRepository.findByName(changes.name.trim());
@@ -78,7 +137,22 @@ export class TenantService {
       description: changes.description === undefined ? tenant.description : changes.description.trim() || undefined,
       rootDirectory:
         changes.rootDirectory === undefined ? tenant.rootDirectory : changes.rootDirectory.trim() || undefined,
+      region: changes.region ?? tenant.region,
       enabled: changes.enabled ?? tenant.enabled,
+      /*
+       * `null` heißt „fortnehmen", `undefined` heißt „nicht angefasst". Ohne
+       * diesen Unterschied ließe sich ein einmal eingetragener Postausgang nie
+       * wieder abschalten.
+       */
+      benachrichtigung: changes.benachrichtigung === undefined
+        ? tenant.benachrichtigung
+        : (changes.benachrichtigung ?? undefined),
+      consolidation: changes.consolidation === undefined
+        ? tenant.consolidation
+        : (changes.consolidation ?? undefined),
+      ausleitungenTage: changes.ausleitungenTage === undefined
+        ? tenant.ausleitungenTage
+        : (changes.ausleitungenTage ?? undefined),
       updatedAt: new Date(),
     });
   }

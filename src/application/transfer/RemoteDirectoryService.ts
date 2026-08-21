@@ -38,6 +38,16 @@ export interface RemoteDirectoryResult {
   /** Files in this directory, as a hint that it is the right one. */
   filesFound?: number;
   /**
+   * Die Dateien selbst — für Felder, in denen eine **Datei** gewählt wird.
+   *
+   * Getrennt von `entries`, nicht daruntergemischt: Wer ein Verzeichnis
+   * aussucht, soll nicht durch tausend Dateien scrollen, und wer eine Datei
+   * aussucht, soll sie nicht zwischen Ordnern suchen. Die Zahl `filesFound`
+   * bleibt daneben stehen — sie gilt auch dann, wenn diese Liste nicht
+   * mitgeschickt wurde.
+   */
+  files?: RemoteDirectoryEntry[];
+  /**
    * Orte, an denen dieser Mandant schon arbeitet — im Fenster obenan.
    *
    * Sie stammen aus den vorhandenen Workflows, nicht aus einer eigenen
@@ -100,7 +110,7 @@ export class RemoteDirectoryService {
 
       for (const candidate of candidates) {
         try {
-          found.push({ path: candidate, listing: await adapter.listFiles(candidate, false) });
+          found.push({ path: candidate, listing: await adapter.listFiles(candidate) });
         } catch (error) {
           failures.push(`${candidate} (${error instanceof Error ? error.message : String(error)})`);
         }

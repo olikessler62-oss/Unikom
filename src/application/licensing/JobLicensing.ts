@@ -4,7 +4,7 @@ import {
   type FeatureSet,
 } from '../../domain/licensing/Feature.js';
 import type { TransferJob } from '../../domain/transfer/TransferJob.js';
-import { activeStages, STAGE_FEATURES } from '../../domain/transfer/WorkflowStages.js';
+import { activeStages, eineGenuegt, stageFeatures } from '../../domain/transfer/WorkflowStages.js';
 
 /**
  * Which modules a job needs in order to run. A job with a local source and
@@ -38,18 +38,44 @@ export function requiredFeaturesFor(job: TransferJob): Feature[] {
     required.push('ENCRYPTION');
   }
 
-  // Every switched-on link asks for its own module, and only for its own. Two
-  // links of the same workflow do not share a licence: somebody who bought the
-  // conversion must not get the import along with it.
+  /*
+   * Jedes eingeschaltete Glied verlangt sein eigenes Modul und nur seins. Zwei
+   * Glieder desselben Workflows teilen sich keine Lizenz: Wer die Konvertierung
+   * gekauft hat, bekommt den Import nicht dazu.
+   *
+   * Beim Ausliefern hängt das Modul am **Zweig** und nicht am Glied: in eine
+   * Datenbank verlangt „Daten importieren", ein konvertierter Export „Daten
+   * konvertieren". Ein unveränderter Export verlangt eines von beiden — dort
+   * steht die Liste für „irgendeine Hälfte von Modul 3", und `eineGenuegt`
+   * sagt der Prüfung, dass sie nicht alle verlangen darf.
+   */
   for (const stage of activeStages(job)) {
-    const feature = STAGE_FEATURES[stage];
+    if (eineGenuegt(stage, job)) {
+      continue;
+    }
 
-    if (feature && !required.includes(feature)) {
-      required.push(feature);
+    for (const feature of stageFeatures(stage, job)) {
+      if (!required.includes(feature)) {
+        required.push(feature);
+      }
     }
   }
 
   return required;
+}
+
+/**
+ * Die Glieder, bei denen eines von mehreren Modulen genügt.
+ *
+ * Getrennt von `requiredFeaturesFor`, weil „alle davon" und „eines davon"
+ * verschiedene Prüfungen sind. In eine Liste geworfen würde aus dem Oder ein
+ * Und, und ein Kunde mit nur einer Hälfte von Modul 3 könnte nichts mehr
+ * ausliefern.
+ */
+export function alternativeFeaturesFor(job: TransferJob): Feature[][] {
+  return activeStages(job)
+    .filter((stage) => eineGenuegt(stage, job))
+    .map((stage) => stageFeatures(stage, job));
 }
 
 /**
@@ -66,6 +92,12 @@ export function assertJobIsLicensed(job: TransferJob, features: FeatureSet): voi
   for (const feature of requiredFeaturesFor(job)) {
     if (!features.isEnabled(feature)) {
       throw new FeatureNotLicensedError(feature, `The job "${job.name}"`);
+    }
+  }
+
+  for (const auswahl of alternativeFeaturesFor(job)) {
+    if (!auswahl.some((feature) => features.isEnabled(feature))) {
+      throw new FeatureNotLicensedError(auswahl[0], `The job "${job.name}"`);
     }
   }
 }

@@ -31,6 +31,22 @@ export interface ShareCredentials {
   password: string;
 }
 
+/**
+ * Was ein Aufrufer von der Verbindungsverwaltung braucht — mehr nicht.
+ *
+ * Als eigene Schnittstelle und nicht als Klasse, damit eine Prüfung sie
+ * ersetzen kann, ohne `net use` und ohne Windows: Was hier zu prüfen ist, ist
+ * *ob* verbunden wird und mit welchem Zugang, nicht wie das Kommando heißt.
+ */
+export interface ShareConnections {
+  withConnection<T>(
+    directory: string,
+    credentials: ShareCredentials | undefined,
+    trace: SourceTrace | undefined,
+    work: () => Promise<T>
+  ): Promise<T>;
+}
+
 export class ShareConnectionError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
@@ -55,7 +71,7 @@ export function isUncPath(value: string): boolean {
   return /^\\\\[^\\/]+\\/.test(value.trim());
 }
 
-export class ShareConnectionService {
+export class ShareConnectionService implements ShareConnections {
   /**
    * Was je Server gerade läuft, als Kette.
    *

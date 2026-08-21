@@ -2,7 +2,6 @@ import type { TransferLogRepository } from '../../domain/logging/LogEntry.js';
 import type { RetentionConfig, TransferJob } from '../../domain/transfer/TransferJob.js';
 import type { TransferFileRepository } from '../../domain/transfer/TransferFileRepository.js';
 import type { TransferJobRepository } from '../../domain/transfer/TransferJobRepository.js';
-import { DEFAULT_PROTOCOL_RETENTION_DAYS, type ProtocolArchive } from '../logging/ProtocolArchive.js';
 
 /**
  * How long a log is kept when a job says nothing about it. Long enough to
@@ -17,8 +16,6 @@ export interface RetentionOutcome {
   jobId: string;
   jobName: string;
   logEntriesDeleted: number;
-  /** Abgelegte Protokolldateien, die zu alt geworden sind. */
-  protocolFilesDeleted?: number;
   fileRecordsDeleted: number;
 }
 
@@ -34,12 +31,7 @@ export class RetentionService {
     private readonly jobRepository: TransferJobRepository,
     private readonly logRepository: TransferLogRepository,
     private readonly transferFileRepository: TransferFileRepository,
-    private readonly defaultLogRetentionDays: number = DEFAULT_LOG_RETENTION_DAYS,
-    /**
-     * Räumt abgelegte Protokolldateien auf. Fehlt er, gibt es keine — dann
-     * gibt es auch nichts aufzuräumen.
-     */
-    private readonly protocols?: ProtocolArchive
+    private readonly defaultLogRetentionDays: number = DEFAULT_LOG_RETENTION_DAYS
   ) {}
 
   async apply(now: Date = new Date()): Promise<RetentionOutcome[]> {
@@ -66,18 +58,7 @@ export class RetentionService {
         ? await this.transferFileRepository.deleteOlderThan(cutoff(now, retention.historyDays), job.id)
         : 0;
 
-    // Abgelegte Protokolle wachsen sonst ohne Ende: Wer das Ablegen
-    // einschaltet, will nicht in einem Jahr ein Verzeichnis mit
-    // achttausend Dateien vorfinden.
-    const protocolFilesDeleted =
-      job.saveProtocol === true && this.protocols
-        ? await this.protocols.prune(
-            cutoff(now, job.retention?.protocolDays ?? DEFAULT_PROTOCOL_RETENTION_DAYS),
-            job.protocolDirectory
-          )
-        : 0;
-
-    return { jobId: job.id, jobName: job.name, logEntriesDeleted, fileRecordsDeleted, protocolFilesDeleted };
+    return { jobId: job.id, jobName: job.name, logEntriesDeleted, fileRecordsDeleted };
   }
 }
 

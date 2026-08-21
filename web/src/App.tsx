@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 
+import { Meldungen } from './components/Meldungen.js';
 import { MenuIcon } from './components/MenuIcon.js';
 import { useText } from './i18n/useText.js';
 import type { TextKey } from './i18n/texts.js';
@@ -14,6 +15,8 @@ import { PrivacyScreen } from './screens/PrivacyScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
 import { TenantsScreen } from './screens/TenantsScreen.js';
 import { UsersScreen } from './screens/UsersScreen.js';
+import { DataEnquiryScreen } from './screens/DataEnquiryScreen.js';
+import { ConsolidationScreen } from './screens/ConsolidationScreen.js';
 import { WorkflowsScreen } from './screens/WorkflowsScreen.js';
 import { useSession } from './session/useSession.js';
 import { HEADER_ACTIONS, Notice } from './components/Pieces.js';
@@ -50,10 +53,12 @@ const BLOCKS: Area[][] = [
     { id: 'jobs', label: 'nav.jobs', permission: 'VIEW' },
     { id: 'history', label: 'nav.history', permission: 'VIEW' },
     { id: 'workflows', label: 'nav.workflows', permission: 'VIEW' },
+    { id: 'consolidation', label: 'nav.consolidation', permission: 'MANAGE_JOBS' },
   ],
   [{ id: 'tenants', label: 'nav.tenants', permission: 'VIEW' }],
   [
     { id: 'users', label: 'nav.users', permission: 'MANAGE_USERS' },
+    { id: 'enquiry', label: 'nav.enquiry', permission: 'MANAGE_USERS' },
     { id: 'settings', label: 'nav.settings', permission: 'MANAGE_USERS' },
   ],
 ];
@@ -231,6 +236,12 @@ export function App() {
              * `HeaderAction` hinein.
              */}
             <div id={HEADER_ACTIONS} className="main__header__actions" />
+            {/*
+              * Die Glocke steht im Kopf und nicht in einer Ansicht: Eine
+              * Meldung, die nur sieht, wer zufällig auf dem richtigen
+              * Bildschirm ist, hat ihren Zweck verfehlt.
+              */}
+            <Meldungen tenantId="default" />
           </div>
         )}
 
@@ -282,12 +293,16 @@ export function App() {
               onEdit={(jobId) => setView({ area: 'workflows', editingJob: jobId })}
               onShowHistory={(jobId) => setView({ area: 'history', historyJob: jobId })}
             />
+          ) : current?.id === 'consolidation' ? (
+            <ConsolidationScreen />
           ) : current?.id === 'history' ? (
             <HistoryScreen key={view.historyJob ?? 'all'} initialJobId={view.historyJob} />
           ) : current?.id === 'tenants' ? (
             <TenantsScreen canManage={canManageCredentials} />
           ) : current?.id === 'users' ? (
             <UsersScreen ownUserId={identity.user.id} />
+          ) : current?.id === 'enquiry' ? (
+            <DataEnquiryScreen />
           ) : current?.id === 'settings' ? (
             /*
              * Hier stand einmal auch die Verwaltung der Schlüssel und Zugänge.

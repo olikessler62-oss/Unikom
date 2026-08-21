@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { SessionRepository } from '../../domain/users/Session.js';
+import { chooseInitials } from '../../domain/users/Initials.js';
 import {
   toSummary,
   type Role,
@@ -42,20 +43,15 @@ export class UserService {
 
   async create(input: {
     username: string;
-    displayName: string;
+    firstName: string;
+    lastName: string;
     role: Role;
     password: string;
     mustChangePassword?: boolean;
+    handleConflicts?: boolean;
   }): Promise<UserSummary> {
-    const username = input.username.trim();
-
-    if (!username) {
-      throw new Error('Ein Benutzer braucht einen Anmeldenamen');
-    }
-
-    if (await this.userRepository.findByUsername(username)) {
-      throw new Error(`Den Anmeldenamen „${username}“ gibt es schon`);
-    }
+    const name = assertNameIsComplete(input);
+    const username = await this.freeUsername(input.username);
 
     assertPasswordIsAcceptable(input.password);
 
@@ -63,17 +59,56 @@ export class UserService {
     const user: User = {
       id: randomUUID(),
       username,
-      displayName: input.displayName.trim() || username,
+      ...name,
+      initials: chooseInitials(name, await this.takenInitials()),
       role: input.role,
       passwordHash: await this.hasher.hash(input.password),
       mustChangePassword: input.mustChangePassword ?? false,
       enabled: true,
+      // Ausdrücklich nicht voreingestellt: Wer die Klartextwerte sehen darf,
+      // wird benannt und ergibt sich nicht nebenbei aus dem Anlegen.
+      handleConflicts: input.handleConflicts ?? false,
       failedLoginAttempts: 0,
       createdAt: now,
       updatedAt: now,
     };
 
     return toSummary(await this.userRepository.save(user));
+  }
+
+  /**
+   * Was ein Administrator an einem bestehenden Konto ändern darf: Name,
+   * Anmeldename, Berechtigungsstufe. In einem Zug, weil es in der Oberfläche
+   * ein Formular mit einem Knopf ist — drei getrennte Aufrufe könnten zur
+   * Hälfte gelingen und einen halb geänderten Benutzer hinterlassen.
+   */
+  async update(
+    userId: string,
+    input: { username: string; firstName: string; lastName: string; role: Role; handleConflicts?: boolean }
+  ): Promise<UserSummary> {
+    const user = await this.require(userId);
+    const name = assertNameIsComplete(input);
+    const username = await this.freeUsername(input.username, userId);
+
+    await this.assertNotTheLastAdministrator(user, { role: input.role });
+
+    const updated = await this.userRepository.save({
+      ...user,
+      ...name,
+      username,
+      // Das bisherige Kürzel bleibt stehen, solange es zum Namen passt.
+      initials: chooseInitials(name, await this.takenInitials(userId), user.initials),
+      role: input.role,
+      handleConflicts: input.handleConflicts ?? user.handleConflicts,
+      updatedAt: new Date(),
+    });
+
+    if (input.role !== user.role) {
+      // Die offene Sitzung trägt noch die alte Stufe.
+      await this.sessionRepository.deleteByUser(userId);
+    }
+
+    return toSummary(updated);
   }
 
   /**
@@ -197,6 +232,29 @@ export class UserService {
     await this.userRepository.delete(userId);
   }
 
+  /** Die Kürzel aller anderen — gegen die muss ein neues sich abgrenzen. */
+  private async takenInitials(exceptId?: string): Promise<string[]> {
+    return (await this.userRepository.list())
+      .filter((user) => user.id !== exceptId)
+      .map((user) => user.initials);
+  }
+
+  private async freeUsername(wanted: string, ownId?: string): Promise<string> {
+    const username = wanted.trim();
+
+    if (!username) {
+      throw new Error('Ein Benutzer braucht einen Anmeldenamen');
+    }
+
+    const other = await this.userRepository.findByUsername(username);
+
+    if (other && other.id !== ownId) {
+      throw new Error(`Den Anmeldenamen „${username}“ gibt es schon`);
+    }
+
+    return username;
+  }
+
   private async require(userId: string): Promise<User> {
     const user = await this.userRepository.getById(userId);
 
@@ -249,6 +307,24 @@ export class UserService {
 
 function invalidCredentials(): AuthenticationResult {
   return { ok: false, reason: 'INVALID_CREDENTIALS', message: 'Username or password is not correct' };
+}
+
+/**
+ * Beide Namen sind Pflicht — aus ihnen entsteht das Kürzel, und ein Kürzel aus
+ * einem halben Namen ist keines, das jemand wiedererkennt.
+ */
+function assertNameIsComplete(input: { firstName: string; lastName: string }): {
+  firstName: string;
+  lastName: string;
+} {
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+
+  if (!firstName || !lastName) {
+    throw new Error('Ein Benutzer braucht einen Vornamen und einen Nachnamen');
+  }
+
+  return { firstName, lastName };
 }
 
 function assertPasswordIsAcceptable(password: string): void {

@@ -1,4 +1,6 @@
 import type { Feature } from '../licensing/Feature.js';
+import type { Dateiwahl, Konsolidierungsregeln, Umformungsplan } from './Konsolidierungsschritt.js';
+
 
 /**
  * The links a workflow can be built from.
@@ -29,7 +31,27 @@ import type { Feature } from '../licensing/Feature.js';
 /** Where a stage reads. */
 export type StageInput =
   | { from: 'PRECEDING' }
-  | { from: 'DIRECTORY'; directory: string };
+  | {
+      from: 'DIRECTORY';
+      directory: string;
+      /**
+       * Örtliches Verzeichnis oder Windows-Freigabe. Fehlt heißt örtlich —
+       * genau das, was jeder Schritt aus der Zeit vor dieser Angabe war.
+       *
+       * Weiter geht die Auswahl bewusst nicht: Die Konsolidierung liest auf dem
+       * Dateisystem dieses Rechners, und ein UNC-Pfad ist ein Pfad im
+       * Dateisystem — nur einer, der über das Netz führt. SFTP und FTPS wären
+       * eine Abholung, und die gehört dem Übertragen.
+       */
+      art?: 'LOCAL' | 'SHARE';
+      /**
+       * Der Zugang zur Freigabe.
+       *
+       * Ohne ihn wird sie mit dem Konto erreicht, unter dem der Dienst läuft —
+       * und das ist beim Kunden selten das richtige.
+       */
+      credentialId?: string;
+    };
 
 /** Where a stage writes. */
 export type StageOutput =
@@ -59,14 +81,198 @@ export interface StageConfig {
   output?: StageOutput;
 }
 
-export type StageId = 'TRANSFER' | 'CONSOLIDATE' | 'IMPORT' | 'CONVERT';
+/**
+ * Das zweite Glied: **Daten konsolidieren**.
+ *
+ * Es trägt seine Regeln mit sich. Ein Schritt, der nur `enabled: true` sagt,
+ * lässt sich anzeigen und nicht ausführen — und genau das war er, solange die
+ * Konsolidierung ausschließlich über die Schnittstelle lief. Ohne Regeln läuft
+ * er als reines Zusammenlegen gleichartiger Quellen (`STANDARDREGELN`), und das
+ * ist eine Festlegung und keine Vermutung: Einen Schlüssel zu erraten ist
+ * ausdrücklich untersagt (SPEC-04, Abschnitt 7).
+ */
+/**
+ * Ein Durchgang der Konsolidierung.
+ *
+ * Mehrere davon ergeben eine Folge (SPEC-06, Abschnitt 7): erst die
+ * Filialdateien zusammenlegen, dann das Ergebnis gegen die Kundenliste
+ * anreichern. Jeder Durchgang sagt wie jedes Glied für sich, wo er liest und
+ * wo er schreibt — sonst hätte der zweite keine Quelle als die Vermutung, der
+ * erste habe schon irgendwohin geschrieben.
+ */
+/**
+ * In welchem Format die Ergebnisdatei geschrieben wird.
+ *
+ * `FESTBREITEN` braucht eine Feldbeschreibung — ohne sie weiß niemand, welches
+ * Feld an welcher Stelle steht, und geraten wird sie nicht: Eine falsch geratene
+ * Breite fällt erst dem Empfänger auf, und dort als Datenfehler.
+ */
+export type Ergebnisformat = 'CSV' | 'FESTBREITEN';
+
+/**
+ * Ein Feld fester Breite in der Ausgabe.
+ *
+ * Hier beschrieben und nicht aus dem Schreiber geholt: Die Domäne sagt, was ein
+ * Workflow einstellen kann; wie es auf die Platte kommt, ist Sache der
+ * Infrastruktur. Die beiden Beschreibungen passen zueinander, weil sie
+ * dieselben Felder tragen — nicht, weil eine die andere kennt.
+ */
+export interface Festbreitenfeld {
+  name: string;
+  /** Erste Stelle, ab 1 gezählt — so, wie ein Mensch eine Feldbeschreibung liest. */
+  start: number;
+  laenge: number;
+  ausrichtung?: 'LINKS' | 'RECHTS';
+  /** Womit aufgefüllt wird; ohne Angabe das Leerzeichen. */
+  fuellzeichen?: string;
+  /** Ob ein zu langer Wert gekürzt werden darf. Ohne Angabe nicht. */
+  kuerzen?: boolean;
+}
+
+export interface Festbreitenausgabe {
+  felder: readonly Festbreitenfeld[];
+  kopfzeile?: boolean;
+}
+
+/**
+ * Die optionale Prüfung der Eingangsdateien gegen ein JSON Schema
+ * (SPEC-03 §7; SPEC-08 §2).
+ *
+ * Geprüft wird **vor** der Verarbeitung: Eine Prüfung hinterher sagt, dass ein
+ * Ergebnis auf schlechten Daten beruht — da liegt es aber schon im
+ * Zielverzeichnis.
+ */
+export interface Schemapruefungsregel {
+  /** Der Pfad der Schemadatei. */
+  datei: string;
+  /**
+   * Was mit einer Datei geschieht, die dem Schema nicht genügt. Ohne Angabe
+   * wird sie nicht verarbeitet: Wer ein Schema hinterlegt, will nicht, dass
+   * eine verletzende Datei trotzdem durchläuft.
+   */
+  bei?: 'WARNEN' | 'ABBRECHEN';
+}
+
+export interface Konsolidierungsdurchgang {
+  /** Wie die Ergebnisdatei geschrieben wird; ohne Angabe als CSV. */
+  format?: Ergebnisformat;
+  festbreiten?: Festbreitenausgabe;
+  /** Prüfung der Eingangsdateien gegen ein JSON Schema (SPEC-03 §7). */
+  schema?: Schemapruefungsregel;
+  /** Wie er einem Menschen gegenüber heißt; er steht so in jeder Meldung. */
+  name?: string;
+  input: StageInput;
+  output?: StageOutput;
+  regeln?: Konsolidierungsregeln;
+  dateien?: Dateiwahl;
+  umformung?: Umformungsplan;
+}
+
+export interface KonsolidierungConfig extends StageConfig {
+  name?: string;
+  format?: Ergebnisformat;
+  festbreiten?: Festbreitenausgabe;
+  schema?: Schemapruefungsregel;
+  regeln?: Konsolidierungsregeln;
+  dateien?: Dateiwahl;
+  /**
+   * Weitere Durchgänge hinter diesem (SPEC-06, Abschnitt 7).
+   *
+   * Der Schritt selbst ist der erste; diese Liste ist seine Fortsetzung. Das
+   * Glied bleibt eines — wie oft es rechnet, ist seine eigene Sache und keine
+   * Frage an die Nummerierung des Workflows oder an die Lizenz.
+   */
+  weitere?: Konsolidierungsdurchgang[];
+  /**
+   * Was **vor** dem Konsolidieren mit den Feldern geschieht (SPEC-09 §8, §9).
+   *
+   * Trimmen, Schreibweise, Datums- und Zahlenformat, Felder zusammenführen und
+   * aufteilen. Vorher und nicht nachher: Ein Schlüssel über „ Meier" und
+   * „Meier" fände zwei Kunden, wo einer ist — und die Zusammenführung, die das
+   * hätte heilen sollen, findet dann gar nicht erst statt.
+   */
+  umformung?: Umformungsplan;
+}
+
+/**
+ * Die Durchgänge als eine Liste — der erste eingeschlossen.
+ *
+ * Damit gibt es im Ausführer keinen Sonderfall „der erste". Ein Sonderfall wäre
+ * die Stelle, an der eine Regel für den ersten Durchgang gilt und für die
+ * übrigen vergessen wird.
+ */
+export function durchgaenge(schritt: KonsolidierungConfig | undefined): Konsolidierungsdurchgang[] {
+  if (!schritt) {
+    return [];
+  }
+
+  return [
+    {
+      name: schritt.name,
+      format: schritt.format,
+      festbreiten: schritt.festbreiten,
+      schema: schritt.schema,
+      input: schritt.input,
+      output: schritt.output,
+      regeln: schritt.regeln,
+      dateien: schritt.dateien,
+      umformung: schritt.umformung,
+    },
+    ...(schritt.weitere ?? []),
+  ];
+}
+
+export type StageId = 'TRANSFER' | 'CONSOLIDATE' | 'DELIVER';
+
+/**
+ * Wohin das Ergebnis geht — die Verzweigung im dritten Glied.
+ *
+ * Entweder in eine Datenbank oder als Datei hinaus. **Nicht beides:** Ein
+ * Schritt, der zugleich in Tabellen schreibt und eine Datei ablegt, wäre zwei
+ * Schritte, und dann müsste geklärt werden, was gilt, wenn einer davon
+ * misslingt. Wer beides braucht, baut zwei Workflows.
+ */
+export type Lieferziel = 'DATENBANK' | 'DATEI';
+
+/** Die Dateiformate, in die geschrieben werden kann. */
+export const LIEFERFORMATE = ['CSV', 'JSON', 'XML'] as const;
+
+export type Lieferformat = (typeof LIEFERFORMATE)[number];
+
+/**
+ * Das dritte Glied: **Daten exportieren/importieren** (SPEC-01, Abschnitt 32).
+ *
+ * ```text
+ * Daten exportieren/importieren
+ *   ├─ in eine Datenbank importieren        Lizenz „Daten importieren"
+ *   └─ exportieren                          Ergebnis-Verzeichnis
+ *        └─ optional: vorher konvertieren   Lizenz „Daten konvertieren"
+ * ```
+ *
+ * Es war einmal in zwei Glieder zerlegt — „Daten importieren" und „Daten
+ * konvertieren" —, und das war falsch. Die beiden sind keine aufeinander
+ * folgenden Schritte: Wer in eine Datenbank importiert, konvertiert davor keine
+ * Datei, und wer eine Datei ausliefert, importiert nichts. Nebeneinander in
+ * einer Kette gestellt, las das Konvertieren aus dem Import — der Tabellen
+ * füllt und keine Datei hinterlässt.
+ *
+ * Das Konvertieren ist deshalb kein Glied, sondern ein **Häkchen am Export**.
+ */
+export interface DeliverConfig extends StageConfig {
+  ziel: Lieferziel;
+  /**
+   * Vor dem Export in ein anderes Format bringen. Fehlt: Das Ergebnis geht
+   * hinaus, wie es entstanden ist.
+   */
+  konvertieren?: { format: Lieferformat };
+}
 
 /** The shape of a workflow: which links it is built from. */
 export interface WorkflowShape {
   transfer?: TransferStageConfig;
-  consolidation?: StageConfig;
-  dataImport?: StageConfig;
-  conversion?: StageConfig;
+  consolidation?: KonsolidierungConfig;
+  /** Daten exportieren/importieren. */
+  delivery?: DeliverConfig;
 }
 
 /**
@@ -75,14 +281,13 @@ export interface WorkflowShape {
  * because "convert, then consolidate" would mean consolidating a format the
  * consolidation no longer recognises.
  */
-export const STAGE_ORDER: StageId[] = ['TRANSFER', 'CONSOLIDATE', 'IMPORT', 'CONVERT'];
+export const STAGE_ORDER: StageId[] = ['TRANSFER', 'CONSOLIDATE', 'DELIVER'];
 
 /** What each link is called. The name is the identity; the number is not. */
 export const STAGE_LABELS: Record<StageId, string> = {
   TRANSFER: 'Daten übertragen',
   CONSOLIDATE: 'Daten konsolidieren',
-  IMPORT: 'Daten importieren',
-  CONVERT: 'Daten konvertieren',
+  DELIVER: 'Daten exportieren/importieren',
 };
 
 /**
@@ -91,25 +296,80 @@ export const STAGE_LABELS: Record<StageId, string> = {
  * a customer can buy consolidation alone, handing them the transfer for nothing
  * would give away the module that carries the others.
  */
-export const STAGE_FEATURES: Record<StageId, Feature> = {
+export const STAGE_FEATURES: Record<StageId, Feature | undefined> = {
   TRANSFER: 'TRANSFER',
   CONSOLIDATE: 'CONSOLIDATION',
-  IMPORT: 'DATA_IMPORT',
-  CONVERT: 'CONVERSION',
+  // Das dritte Glied hat keine feste Lizenz — sie hängt am gewählten Ziel.
+  DELIVER: undefined,
 };
+
+/** Die beiden Lizenzen, aus denen das dritte Glied besteht. */
+export const LIEFERMODULE: readonly Feature[] = ['DATA_IMPORT', 'CONVERSION'];
+
+/**
+ * Welche Module ein Glied braucht — beim Ausliefern abhängig vom Zweig.
+ *
+ * ```text
+ * in eine Datenbank        →  „Daten importieren"
+ * exportieren, konvertiert →  „Daten konvertieren"
+ * exportieren, unverändert →  eines von beiden
+ * ```
+ *
+ * Die letzte Zeile ist eine Festlegung und keine Ableitung: Ein unveränderter
+ * Export ist selbst keine Konvertierung und kein Datenbankimport. Ohne diese
+ * Regel könnte aber jemand ganz ohne Modul 3 Dateien hinausschreiben — und das
+ * widerspräche der Grenze, die genau das verhindern soll.
+ */
+export function stageFeatures(stage: StageId, shape: WorkflowShape): Feature[] {
+  if (stage !== 'DELIVER') {
+    const feature = STAGE_FEATURES[stage];
+
+    return feature ? [feature] : [];
+  }
+
+  const delivery = shape.delivery;
+
+  if (!delivery) {
+    return [];
+  }
+
+  if (delivery.ziel === 'DATENBANK') {
+    return ['DATA_IMPORT'];
+  }
+
+  return delivery.konvertieren ? ['CONVERSION'] : [...LIEFERMODULE];
+}
+
+/**
+ * Ob eines der Liefermodule genügt oder alle gebraucht werden.
+ *
+ * Nur beim unveränderten Export reicht **eines**: Dort steht die Liste für
+ * „irgendeine Hälfte von Modul 3", nicht für „beide".
+ */
+export function eineGenuegt(stage: StageId, shape: WorkflowShape): boolean {
+  return stage === 'DELIVER' && shape.delivery?.ziel === 'DATEI' && !shape.delivery.konvertieren;
+}
 
 /** The configuration of one link, whichever it is. */
 export function stageConfig(shape: WorkflowShape, stage: StageId): StageConfig | undefined {
   switch (stage) {
     case 'CONSOLIDATE':
       return shape.consolidation;
-    case 'IMPORT':
-      return shape.dataImport;
-    case 'CONVERT':
-      return shape.conversion;
+    case 'DELIVER':
+      return shape.delivery;
     default:
       return undefined;
   }
+}
+
+/**
+ * Ob dieses Glied eine Datei ablegt.
+ *
+ * Der Datenbankimport tut es nicht — er schreibt in Tabellen. Alles andere
+ * braucht ein Verzeichnis, in das das Ergebnis kommt.
+ */
+export function schreibtDatei(shape: WorkflowShape, stage: StageId): boolean {
+  return stage !== 'DELIVER' || shape.delivery?.ziel !== 'DATENBANK';
 }
 
 /**
@@ -184,3 +444,4 @@ export function outputDirectories(shape: WorkflowShape): { stage: StageId; direc
 
   return directories;
 }
+

@@ -16,7 +16,6 @@ export function createTransferJob(overrides: Partial<TransferJob> = {}): Transfe
     sourceType: 'LOCAL',
     sourceConfig: { type: 'LOCAL', directory: sourceDirectory },
     sourceDirectory,
-    includeSubdirectories: false,
     // Mit Stern: Seit ein Muster ohne Stern den vollen Namen meint, ist das die
     // Schreibweise für „Name beginnt so" — und die Dateien der Tests heißen
     // ORDER_001.csv, nicht ORDER_.

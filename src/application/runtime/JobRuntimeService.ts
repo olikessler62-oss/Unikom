@@ -19,8 +19,10 @@ import type { FeatureSet } from '../../domain/licensing/Feature.js';
 import type { RunGate } from '../../domain/licensing/Licence.js';
 import type { RunControlRegistry } from '../transfer/RunControlRegistry.js';
 import type { ProcessingStageRegistry } from '../processing/ProcessingStageRegistry.js';
-import type { RunProtocolWriter } from '../logging/RunProtocolWriter.js';
 import type { RetentionService } from '../retention/RetentionService.js';
+import type { Konsolidierungsumgebung } from '../workflow/WorkflowExecutionService.js';
+import { WorkflowExecutionService } from '../workflow/WorkflowExecutionService.js';
+import { ausgeblieben, type Versaeumnis } from '../../domain/scheduling/Ausbleiben.js';
 import { RuntimeBootstrapService } from './RuntimeBootstrapService.js';
 
 export interface RuntimeOptions {
@@ -42,12 +44,32 @@ export interface RuntimeOptions {
   processingStages?: ProcessingStageRegistry;
   /** Deletes expired log and history entries once a day; absent means never. */
   retentionService?: RetentionService;
+  /**
+   * Räumt die Ausleitungen des Konfliktbestands nach Frist fort (SPEC-07 §5);
+   * fehlt sie, bleibt jede Ausleitung liegen.
+   */
+  ausleitungen?: { bereinige(optionen: { jetzt?: Date }): Promise<unknown> };
   /** Asked before any transfer starts; absent means the paid period is not checked. */
   runGate?: RunGate;
   /** Makes running transfers steerable; absent means they only run to the end. */
   runControls?: RunControlRegistry;
-  /** Legt das Protokoll ab, wenn ein Workflow es verlangt; sonst geschieht nichts. */
-  protocols?: RunProtocolWriter;
+  /**
+   * Was der Lauf nach dem Uebertragen tut.
+   *
+   * Fehlt sie, endet ein Lauf mit dem ersten Glied — so lief das Erzeugnis,
+   * solange die Konsolidierung nur ueber die Schnittstelle zu erreichen war.
+   * Ein Workflow mit eingeschaltetem Konsolidierungsschritt liefe dann still
+   * ohne ihn, und genau das war der offene Punkt.
+   */
+  konsolidierung?: Konsolidierungsumgebung;
+  /**
+   * Wer erfährt, dass ein Termin verstrichen ist, ohne dass etwas geschah.
+   *
+   * Fehlt sie, wird nicht nachgesehen — dann meldet sich eine ausgebliebene
+   * Verarbeitung überhaupt nicht, und das ist genau die Lücke, die es zu
+   * schließen galt.
+   */
+  terminwache?: (versaeumt: Versaeumnis[]) => Promise<void>;
 }
 
 /**
@@ -59,11 +81,16 @@ export class JobRuntimeService {
   /** Calendar day the retention last ran on, so a tick a minute does not. */
   private retentionAppliedOn?: string;
   private readonly retentionService?: RetentionService;
+  private readonly ausleitungen?: { bereinige(optionen: { jetzt?: Date }): Promise<unknown> };
 
   readonly orchestrator: TransferOrchestratorService;
   readonly bootstrap: RuntimeBootstrapService;
+  private readonly jobRepository: TransferJobRepository;
+  private readonly terminwache?: (versaeumt: Versaeumnis[]) => Promise<void>;
 
   constructor(jobRepository: TransferJobRepository, options: RuntimeOptions = {}) {
+    this.jobRepository = jobRepository;
+    this.terminwache = options.terminwache;
     const transferFileRepository = options.transferFileRepository ?? new InMemoryTransferFileRepository();
     const runRepository = options.runRepository ?? new InMemoryTransferRunRepository();
 
@@ -79,17 +106,31 @@ export class JobRuntimeService {
       shareAccess: options.shareAccess,
     });
 
+    /*
+     * Die Konsolidierung legt sich **um** die Uebertragung und ersetzt sie
+     * nicht: Zeitplan, Doppellaufsperre und Lauf-Eintrag bleiben beim
+     * Orchestrator, der davon nichts wissen muss.
+     */
+    const uebertragung = new JobExecutionService(
+      jobRepository,
+      transferExecutionService,
+      options.adapterProvider,
+      options.runGate
+    );
+
     this.orchestrator = new TransferOrchestratorService(
       jobRepository,
-      new JobExecutionService(jobRepository, transferExecutionService, options.adapterProvider, options.runGate),
+      options.konsolidierung
+        ? new WorkflowExecutionService(uebertragung, options.konsolidierung)
+        : uebertragung,
       runRepository,
       undefined,
       options.runGate,
-      options.runControls,
-      options.protocols
+      options.runControls
     );
     this.bootstrap = new RuntimeBootstrapService(jobRepository);
     this.retentionService = options.retentionService;
+    this.ausleitungen = options.ausleitungen;
   }
 
   /** Rebuilds the schedules and performs one scheduler tick. */
@@ -99,10 +140,40 @@ export class JobRuntimeService {
   }
 
   async runOnce(now: Date = new Date()): Promise<SchedulerTickResult> {
+    await this.pruefeVersaeumnisse(now);
+
     const result = await this.orchestrator.runDueJobs(now);
     await this.applyRetentionOncePerDay(now);
 
     return result;
+  }
+
+  /**
+   * Zuerst nachsehen, was verpasst wurde — dann arbeiten.
+   *
+   * In dieser Reihenfolge, weil der Tick die versäumten Termine gleich darauf
+   * nachholt und `nextExecutionAt` weiterstellt. Danach wäre die Spur fort, und
+   * ein Ausfall der ganzen Nacht sähe aus wie ein Lauf, der ein bisschen spät
+   * war.
+   *
+   * Ein Fehler hier hält den Zeitplan nicht auf. Eine Meldung über einen
+   * ausgebliebenen Lauf ist wichtig; sie zum Anlass zu nehmen, auch die
+   * übrigen Läufe ausfallen zu lassen, wäre grotesk.
+   */
+  private async pruefeVersaeumnisse(now: Date): Promise<void> {
+    if (!this.terminwache) {
+      return;
+    }
+
+    try {
+      const versaeumt = ausgeblieben(await this.jobRepository.list(), now);
+
+      if (versaeumt.length > 0) {
+        await this.terminwache(versaeumt);
+      }
+    } catch (error) {
+      console.error('Terminwache failed:', error instanceof Error ? error.message : String(error));
+    }
   }
 
   /**
@@ -117,16 +188,28 @@ export class JobRuntimeService {
   private async applyRetentionOncePerDay(now: Date): Promise<void> {
     const today = now.toISOString().slice(0, 10);
 
-    if (!this.retentionService || this.retentionAppliedOn === today) {
+    if ((!this.retentionService && !this.ausleitungen) || this.retentionAppliedOn === today) {
       return;
     }
 
     this.retentionAppliedOn = today;
 
     try {
-      await this.retentionService.apply(now);
+      await this.retentionService?.apply(now);
     } catch (error) {
       console.error('Retention failed:', error instanceof Error ? error.message : String(error));
+    }
+
+    /*
+     * Eigener Versuch: Die Ausleitungen sind Dateien, die Aufbewahrung der
+     * Protokolle ist Datenbankarbeit. Scheitert das eine, soll das andere
+     * trotzdem laufen — sonst hängt das Forträumen der Konfliktdateien an einer
+     * gesperrten Datenbank.
+     */
+    try {
+      await this.ausleitungen?.bereinige({ jetzt: now });
+    } catch (error) {
+      console.error('Bereinigung der Ausleitungen fehlgeschlagen:', error instanceof Error ? error.message : String(error));
     }
   }
 

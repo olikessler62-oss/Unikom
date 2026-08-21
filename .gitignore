@@ -33,3 +33,6 @@ id_ed25519*
 # öffentlich, gehört zum Bauwerk und muss jedem Klon vorliegen.
 !src/testing/certs/test-cert.pem
 !src/testing/certs/test-key.pem
+
+# Aus dem Fallkatalog erzeugt (npm run testdaten)
+testdaten/

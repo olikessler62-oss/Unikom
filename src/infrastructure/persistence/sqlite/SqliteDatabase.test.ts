@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { DATABASE_FILENAME, openDatabase } from './SqliteDatabase.js';
+import { DatabaseSync } from 'node:sqlite';
+
+import { backupDatabase, BUSY_TIMEOUT_MS, DATABASE_FILENAME, openDatabase } from './SqliteDatabase.js';
 
 async function database() {
   const directory = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-sqlite-')), 'application-data');
@@ -165,4 +167,131 @@ test('a growing history does not slow the duplicate lookup down', async () => {
     `expected an indexed lookup, but each one took ${microsecondsPerLookup.toFixed(1)} microseconds`
   );
   db.close();
+});
+
+test('eine Datenbank von früher bekommt Namen, Kürzel und die neuen Stufen', async () => {
+  const { directory, db } = await database();
+
+  // Die alte Gestalt: ein einziges Namensfeld, drei Rollen, kein Kürzel.
+  db.exec('DROP TABLE users');
+  db.exec(
+    `CREATE TABLE users (
+       id TEXT PRIMARY KEY, username TEXT NOT NULL, username_lower TEXT NOT NULL UNIQUE,
+       display_name TEXT NOT NULL, role TEXT NOT NULL, password_hash TEXT NOT NULL,
+       must_change_password INTEGER NOT NULL, enabled INTEGER NOT NULL,
+       failed_login_attempts INTEGER NOT NULL, locked_until TEXT, last_login_at TEXT,
+       created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`
+  );
+
+  const anlegen = db.prepare(
+    `INSERT INTO users (id, username, username_lower, display_name, role, password_hash,
+                        must_change_password, enabled, failed_login_attempts, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'x', 0, 1, 0, ?, ?)`
+  );
+
+  anlegen.run('1', 'anna', 'anna', 'Anna Berger', 'ADMIN', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+  anlegen.run('2', 'chris', 'chris', 'Chris Conrad', 'OPERATOR', '2026-01-02T00:00:00.000Z', '2026-01-02T00:00:00.000Z');
+  // Zwei Namen, die nach der Regel dasselbe Kürzel ergäben.
+  anlegen.run('3', 'anne', 'anne', 'Anne Bauer', 'VIEWER', '2026-01-03T00:00:00.000Z', '2026-01-03T00:00:00.000Z');
+  anlegen.run('4', 'admin', 'admin', 'Administrator', 'ADMIN', '2026-01-04T00:00:00.000Z', '2026-01-04T00:00:00.000Z');
+  db.close();
+
+  const meldungen: string[] = [];
+  const reopened = openDatabase(directory, (message) => meldungen.push(message));
+  const rows = reopened
+    .prepare('SELECT username, first_name, last_name, initials, role FROM users ORDER BY created_at')
+    .all() as unknown as { username: string; first_name: string; last_name: string; initials: string; role: string }[];
+
+  assert.deepEqual(
+    rows.map((row) => [row.username, row.first_name, row.last_name, row.initials, row.role]),
+    [
+      ['anna', 'Anna', 'Berger', 'ABR', 'ADMIN'],
+      ['chris', 'Chris', 'Conrad', 'CCD', 'STANDARD'],
+      // Anne Bauer bekäme ebenfalls ABR; die dritte Stelle wandert weiter.
+      ['anne', 'Anne', 'Bauer', 'ABN', 'STANDARD'],
+      // Ein einziges Wort wird der Nachname, der Vorname bleibt offen.
+      ['admin', '', 'Administrator', 'AAR', 'ADMIN'],
+    ]
+  );
+
+  // Aus Betrachter wird Normal — das sind mehr Rechte als vorher, und genau
+  // das muss jemand später nachlesen können.
+  assert.ok(
+    meldungen.some((message) => /anne/.test(message) && /VIEWER/.test(message) && /ändern und starten/.test(message)),
+    `keine Meldung über die angehobenen Rechte: ${meldungen.join(' / ')}`
+  );
+
+  reopened.close();
+});
+
+test('zwei Benutzer können nicht dasselbe Kürzel tragen', async () => {
+  const { db } = await database();
+
+  const anlegen = db.prepare(
+    `INSERT INTO users (id, username, username_lower, first_name, last_name, initials, display_name, role,
+                        password_hash, must_change_password, enabled, failed_login_attempts, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'ADMIN', 'x', 0, 1, 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+  );
+
+  anlegen.run('1', 'anna', 'anna', 'Anna', 'Berger', 'ABR', 'Anna Berger');
+
+  // Nicht nur der Dienst wacht darüber: die Datenbank selbst lässt es nicht zu.
+  assert.throws(() => anlegen.run('2', 'arno', 'arno', 'Arno', 'Bauer', 'ABR', 'Arno Bauer'), /UNIQUE/);
+  db.close();
+});
+
+test('ein zweiter Zugang wartet, statt sofort abzubrechen', async () => {
+  const { db } = await database();
+
+  const gesetzt = db.prepare('PRAGMA busy_timeout').get() as unknown as { timeout: number };
+
+  // Ohne diese Wartezeit bekommt der Sicherungslauf oder der spätere
+  // Worker-Prozess ein SQLITE_BUSY, sobald der Server gerade schreibt.
+  assert.equal(Number(gesetzt.timeout), BUSY_TIMEOUT_MS);
+  db.close();
+});
+
+test('eine Sicherung enthält auch das, was noch im Write-ahead-Log steht', async () => {
+  const { directory, db } = await database();
+
+  db.prepare('INSERT INTO transfer_jobs (id, enabled, next_execution_at, document) VALUES (?, ?, ?, ?)').run(
+    'job-sicherung',
+    1,
+    null,
+    '{"name":"Nachtlauf"}'
+  );
+
+  // Nicht schließen: Die Sicherung muss im laufenden Betrieb gelingen, und
+  // genau dann steht der jüngste Stand noch nicht in der .db-Datei.
+  const ziel = path.join(directory, 'backups', 'sicherung.db');
+  backupDatabase(db, ziel);
+
+  const kopie = new DatabaseSync(ziel);
+  const row = kopie.prepare('SELECT document FROM transfer_jobs WHERE id = ?').get('job-sicherung') as unknown as {
+    document: string;
+  };
+
+  assert.equal(row.document, '{"name":"Nachtlauf"}');
+
+  // Eine einzige Datei, kein -wal daneben: so lässt sie sich fortgeben.
+  assert.equal(await fs.access(`${ziel}-wal`).then(() => true, () => false), false);
+
+  kopie.close();
+  db.close();
+});
+
+test('eine Sicherung überschreibt keine bestehende Datei', async () => {
+  const { directory, db } = await database();
+  const ziel = path.join(directory, 'backups', 'zweimal.db');
+
+  backupDatabase(db, ziel);
+
+  assert.throws(() => backupDatabase(db, ziel), /gibt es schon/);
+  db.close();
+});
+
+test('eine Datenbank auf einer Freigabe wird gar nicht erst geöffnet', () => {
+  // Der Pfad wird geprüft, bevor irgendetwas angelegt wird — sonst stünde
+  // nach dem Fehlschlag ein halbes Datenverzeichnis auf der Freigabe.
+  assert.throws(() => openDatabase('\\\\FILESERVER\\unikom-daten'), /lokalen Platte/);
 });

@@ -4,7 +4,6 @@ import {
   ApiError,
   created,
   ok,
-  optionalString,
   requireObject,
   requireString,
   type Route,
@@ -46,11 +45,31 @@ export function userRoutes(application: UnikomApplication): Route[] {
         return created(
           await application.userService.create({
             username: requireString(input, 'username'),
-            displayName: optionalString(input, 'displayName') ?? requireString(input, 'username'),
+            firstName: requireString(input, 'firstName'),
+            lastName: requireString(input, 'lastName'),
             role: requireRole(requireString(input, 'role')),
             password: requireString(input, 'password'),
+            handleConflicts: input.handleConflicts === true,
             // Somebody else chose this password, so it is not theirs yet.
             mustChangePassword: true,
+          })
+        );
+      },
+    },
+    {
+      method: 'PUT',
+      pattern: '/api/users/:id',
+      authorization: 'MANAGE_USERS',
+      handle: async ({ params, body }) => {
+        const input = requireObject(body, 'The user');
+
+        return ok(
+          await application.userService.update(params.id, {
+            username: requireString(input, 'username'),
+            firstName: requireString(input, 'firstName'),
+            lastName: requireString(input, 'lastName'),
+            role: requireRole(requireString(input, 'role')),
+            handleConflicts: input.handleConflicts === true,
           })
         );
       },

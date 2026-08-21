@@ -11,9 +11,12 @@ import type { CredentialService } from '../credentials/CredentialService.js';
  * können soll. Derselbe Zugang für beide Seiten ist erlaubt, aber es ist eine
  * Entscheidung und keine Voreinstellung.
  *
- * Ohne Zugang bleibt es beim bisherigen Verhalten: Die Freigabe wird mit der
- * Identität des Dienstes erreicht. Das ist der häufige Fall in einem Haus mit
- * einem Domänenkonto, und er darf nichts kosten.
+ * Ein Zugang ist bei einer Freigabe Pflicht; abgewiesen wird das schon beim
+ * Speichern (siehe `assertRemoteConnectionsAreComplete`). Fehlt hier trotzdem
+ * einer — ein Datensatz kann unmittelbar in die Datenbank geschrieben worden
+ * sein —, wird die Freigabe mit der Identität des Dienstes erreicht. Das ist
+ * kein Ersatz, sondern der Weg, auf dem ein solcher Workflow an der Freigabe
+ * scheitert statt hier.
  */
 export class ShareAccessProvider {
   constructor(private readonly credentialService?: CredentialService) {}
@@ -26,9 +29,23 @@ export class ShareAccessProvider {
     return this.resolve(job.destinationType === 'SHARE' ? job.destinationCredentialId : undefined, job, 'Ziel');
   }
 
+  /**
+   * Derselbe Zugang für den Editor, der eine Seite prüft, die es als Workflow
+   * noch gar nicht gibt: Verbindungsprobe, Verzeichnisbrowser, Zielprüfung.
+   * Sie müssen dasselbe sehen wie der Lauf — sonst beruhigt ein grünes Häkchen
+   * über ein Konto, das nachts gar nicht benutzt wird.
+   */
+  forShare(
+    job: Pick<TransferJob, 'name' | 'tenantId'>,
+    credentialId: string | undefined,
+    seite: 'Quelle' | 'Ziel'
+  ): Promise<ShareCredentials | undefined> {
+    return this.resolve(credentialId, job, seite);
+  }
+
   private async resolve(
     credentialId: string | undefined,
-    job: TransferJob,
+    job: Pick<TransferJob, 'name' | 'tenantId'>,
     seite: 'Quelle' | 'Ziel'
   ): Promise<ShareCredentials | undefined> {
     if (!credentialId) {

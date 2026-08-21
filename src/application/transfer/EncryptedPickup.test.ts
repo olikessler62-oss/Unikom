@@ -63,7 +63,6 @@ async function setup(
     sourceType: 'LOCAL',
     sourceConfig: { type: 'LOCAL', directory: sourceDirectory },
     sourceDirectory,
-    includeSubdirectories: false,
     filenamePrefix: 'ORDER_*',
     caseSensitivePrefix: false,
     allowedExtensions: ['csv'],
@@ -184,7 +183,7 @@ test('no plaintext exists on disk at any moment while the file is being fetched'
   // plaintext copy would exist if the file were written before being encrypted.
   const watching: SourceAdapter = {
     testConnection: () => local.testConnection(),
-    listFiles: (directory, recursive) => local.listFiles(directory, recursive),
+    listFiles: (directory: string) => local.listFiles(directory),
     downloadFile: (file, target) => local.downloadFile(file, target),
     async downloadTo(file: SourceFile, destination: Writable): Promise<DownloadResult> {
       const bytes = await fs.readFile(file.fullPath);
@@ -243,7 +242,7 @@ test('a source that cannot stream is refused instead of being fetched in the cle
   // An adapter from before streaming existed: it can only write to a path.
   const oldFashioned: SourceAdapter = {
     testConnection: () => local.testConnection(),
-    listFiles: (directory, recursive) => local.listFiles(directory, recursive),
+    listFiles: (directory: string) => local.listFiles(directory),
     downloadFile: (file, target) => local.downloadFile(file, target),
   };
 
@@ -262,7 +261,7 @@ test('without the encryption module nothing is fetched at all', async () => {
 
   const counting: SourceAdapter = {
     testConnection: () => local.testConnection(),
-    listFiles: (directory, recursive) => local.listFiles(directory, recursive),
+    listFiles: (directory: string) => local.listFiles(directory),
     downloadFile: (file, target) => {
       fetched += 1;
       return local.downloadFile(file, target);
@@ -286,7 +285,7 @@ test('a download that breaks halfway leaves no fragment behind', async () => {
 
   const breaking: SourceAdapter = {
     testConnection: () => local.testConnection(),
-    listFiles: (directory, recursive) => local.listFiles(directory, recursive),
+    listFiles: (directory: string) => local.listFiles(directory),
     downloadFile: (file, target) => local.downloadFile(file, target),
     async downloadTo(_file: SourceFile, destination: Writable): Promise<DownloadResult> {
       destination.write(Buffer.from('customer;amo', 'utf8'));

@@ -30,7 +30,10 @@ export async function ensureInitialAdministrator(
 
   await userService.create({
     username,
-    displayName: 'Administrator',
+    // Ein Platzhaltername, den der erste Mensch hier auf seinen eigenen ändert;
+    // Vor- und Nachname sind Pflicht, weil das Kürzel daraus entsteht.
+    firstName: 'System',
+    lastName: 'Administrator',
     role: 'ADMIN',
     password,
     // Until it is replaced, the session may do nothing but replace it.

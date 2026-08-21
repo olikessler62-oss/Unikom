@@ -11,11 +11,13 @@ import {
   followingStage,
   numberedStages,
   precedingStage,
+  type DeliverConfig,
   type StageConfig,
 } from '../../domain/transfer/WorkflowStages.js';
 import { InMemoryTransferFileRepository } from '../../infrastructure/persistence/InMemoryTransferFileRepository.js';
 import { InMemoryTransferJobRepository } from '../../infrastructure/persistence/InMemoryTransferJobRepository.js';
 import { LocalSourceAdapter } from '../../infrastructure/sources/local/LocalSourceAdapter.js';
+import { reviveJob } from '../../infrastructure/persistence/TransferRecordMapping.js';
 import { createTransferJob } from '../../testing/TransferJobFixture.js';
 import { requiredFeaturesFor } from '../licensing/JobLicensing.js';
 import { TransferExecutionService } from './TransferExecutionService.js';
@@ -44,6 +46,16 @@ const STANDALONE: StageConfig = {
 
 const OFF = { enabled: false } as const;
 
+/** Ausliefern als Datei, mit eigenem Ergebnisverzeichnis. */
+const EXPORT: DeliverConfig = { ...STANDALONE, ziel: 'DATEI' };
+
+/** Ausliefern in eine Datenbank — kein Verzeichnis, es schreibt in Tabellen. */
+const IN_DIE_DATENBANK: DeliverConfig = {
+  enabled: true,
+  input: { from: 'DIRECTORY', directory: '/verzeichnis-x' },
+  ziel: 'DATENBANK',
+};
+
 test('consolidating a directory is a whole workflow on its own', async () => {
   const service = new TransferJobService(new InMemoryTransferJobRepository());
 
@@ -57,37 +69,71 @@ test('consolidating a directory is a whole workflow on its own', async () => {
   assert.ok(!requiredFeaturesFor(saved).includes('TRANSFER'), 'nobody pays for a transfer they never run');
 });
 
-test('converting and importing are separate modules that each stand alone', async () => {
+/**
+ * Ausliefern ist **ein** Glied mit einer Verzweigung — nicht zwei Glieder
+ * hintereinander. Wer in eine Datenbank importiert, konvertiert davor keine
+ * Datei; wer eine Datei ausliefert, importiert nichts. Als Kette gestellt las
+ * das Konvertieren aus dem Import, der Tabellen füllt und keine Datei
+ * hinterlässt.
+ */
+test('der Zweig entscheidet, welches Modul das Ausliefern verlangt', async () => {
   const service = new TransferJobService(new InMemoryTransferJobRepository());
 
-  const converting = await service.create(
-    createTransferJob({ transfer: OFF, conversion: { ...STANDALONE } })
+  const konvertiert = await service.create(
+    createTransferJob({ transfer: OFF, delivery: { ...EXPORT, konvertieren: { format: 'JSON' } } })
   );
-  const importing = await service.create(
-    createTransferJob({
-      transfer: OFF,
-      // An import writes into tables, so it names no destination directory.
-      dataImport: { enabled: true, input: { from: 'DIRECTORY', directory: '/verzeichnis-x' } },
-    })
+  const inDieDatenbank = await service.create(
+    createTransferJob({ transfer: OFF, delivery: { ...IN_DIE_DATENBANK } })
   );
 
-  assert.deepEqual(requiredFeaturesFor(converting), ['CONVERSION']);
-  assert.deepEqual(requiredFeaturesFor(importing), ['DATA_IMPORT']);
+  assert.deepEqual(requiredFeaturesFor(konvertiert), ['CONVERSION']);
+  assert.deepEqual(requiredFeaturesFor(inDieDatenbank), ['DATA_IMPORT']);
 
-  // Buying one must not hand over the other.
-  assert.ok(!requiredFeaturesFor(converting).includes('DATA_IMPORT'));
-  assert.ok(!requiredFeaturesFor(importing).includes('CONVERSION'));
+  // Eines zu kaufen darf das andere nicht mitliefern.
+  assert.ok(!requiredFeaturesFor(konvertiert).includes('DATA_IMPORT'));
+  assert.ok(!requiredFeaturesFor(inDieDatenbank).includes('CONVERSION'));
 });
 
-test('transfer and conversion without consolidation chain directly', async () => {
+test('ein unveränderter Export verlangt eine der beiden Hälften, nicht beide', async () => {
+  /*
+   * Ein Export ohne Konvertierung ist selbst keine Konvertierung und kein
+   * Datenbankimport. Verlangte man beide, könnte ein Kunde mit nur einer Hälfte
+   * gar nichts ausliefern; verlangte man keine, ginge es ganz ohne Modul 3.
+   */
+  const nurImport = new TransferJobService(
+    new InMemoryTransferJobRepository(),
+    new StaticFeatureSet(['DATA_IMPORT'])
+  );
+  const nurKonvertierung = new TransferJobService(
+    new InMemoryTransferJobRepository(),
+    new StaticFeatureSet(['CONVERSION'])
+  );
+  const ohneModulDrei = new TransferJobService(
+    new InMemoryTransferJobRepository(),
+    new StaticFeatureSet(['CONSOLIDATION'])
+  );
+
+  await nurImport.create(createTransferJob({ transfer: OFF, delivery: { ...EXPORT } }));
+  await nurKonvertierung.create(createTransferJob({ transfer: OFF, delivery: { ...EXPORT } }));
+
+  await assert.rejects(
+    () => ohneModulDrei.create(createTransferJob({ transfer: OFF, delivery: { ...EXPORT } })),
+    /Daten importieren|Daten konvertieren/,
+    'ohne Modul 3 verlässt keine Datei das Haus'
+  );
+});
+
+test('transfer and delivery without consolidation chain directly', async () => {
   const service = new TransferJobService(new InMemoryTransferJobRepository());
 
-  const saved = await service.create(createTransferJob({ conversion: { ...CHAINED } }));
+  const saved = await service.create(
+    createTransferJob({ delivery: { ...CHAINED, ziel: 'DATEI', konvertieren: { format: 'CSV' } } })
+  );
 
-  assert.deepEqual(activeStages(saved), ['TRANSFER', 'CONVERT']);
+  assert.deepEqual(activeStages(saved), ['TRANSFER', 'DELIVER']);
   assert.deepEqual(requiredFeaturesFor(saved), ['TRANSFER', 'CONVERSION'], 'two links, two modules');
-  assert.equal(precedingStage('CONVERT', saved), 'TRANSFER', 'it reads what the transfer put down');
-  assert.equal(followingStage('CONVERT', saved), undefined, 'nothing follows the last link');
+  assert.equal(precedingStage('DELIVER', saved), 'TRANSFER', 'it reads what the transfer put down');
+  assert.equal(followingStage('DELIVER', saved), undefined, 'nothing follows the last link');
 });
 
 /**
@@ -98,9 +144,8 @@ test('transfer and conversion without consolidation chain directly', async () =>
  */
 test('the numbers count the links this workflow actually uses', () => {
   const full = createTransferJob({
-    consolidation: { ...CHAINED },
-    dataImport: { enabled: true, input: { from: 'PRECEDING' } },
-    conversion: { ...CHAINED },
+    consolidation: { ...CHAINED, output: { to: 'FOLLOWING' } },
+    delivery: { ...CHAINED, ziel: 'DATEI' },
   });
 
   assert.deepEqual(
@@ -108,19 +153,22 @@ test('the numbers count the links this workflow actually uses', () => {
     [
       ['TRANSFER', 1],
       ['CONSOLIDATE', 2],
-      ['IMPORT', 3],
-      ['CONVERT', 4],
+      ['DELIVER', 3],
     ]
   );
 
-  // The same conversion link is number 2 for somebody who bought less.
-  const two = createTransferJob({ transfer: OFF, consolidation: { ...STANDALONE }, conversion: { ...CHAINED } });
+  // Dasselbe Ausliefern ist Nummer 2 für jemanden, der weniger gekauft hat.
+  const two = createTransferJob({
+    transfer: OFF,
+    consolidation: { ...STANDALONE, output: { to: 'FOLLOWING' } },
+    delivery: { ...CHAINED, ziel: 'DATEI' },
+  });
 
   assert.deepEqual(
     [...numberedStages(two)],
     [
       ['CONSOLIDATE', 1],
-      ['CONVERT', 2],
+      ['DELIVER', 2],
     ]
   );
 });
@@ -165,7 +213,7 @@ test('a link cannot hand on when nothing follows it', async () => {
   await service.create(
     createTransferJob({
       consolidation: { ...CHAINED, output: { to: 'FOLLOWING' } },
-      conversion: { ...CHAINED },
+      delivery: { ...CHAINED, ziel: 'DATEI' },
     })
   );
 });
@@ -182,15 +230,80 @@ test('a directory that was chosen but left empty is refused', async () => {
   );
 
   await assert.rejects(
-    () => service.create(createTransferJob({ conversion: { ...CHAINED, output: undefined } })),
-    /Ziel von „Daten konvertieren“ braucht ein Verzeichnis/
+    () => service.create(createTransferJob({ delivery: { ...CHAINED, ziel: 'DATEI', output: undefined } })),
+    /braucht ein Verzeichnis/
   );
 });
 
-test('an import needs no directory, because it writes into tables', async () => {
+test('ein Datenbankimport braucht kein Verzeichnis, weil er in Tabellen schreibt', async () => {
   const service = new TransferJobService(new InMemoryTransferJobRepository());
 
-  await service.create(createTransferJob({ dataImport: { enabled: true, input: { from: 'PRECEDING' } } }));
+  await service.create(
+    createTransferJob({ delivery: { enabled: true, input: { from: 'PRECEDING' }, ziel: 'DATENBANK' } })
+  );
+});
+
+test('ohne ein Glied dahinter braucht die Konsolidierung ein Ergebnisverzeichnis', async () => {
+  /*
+   * Festgelegt am 20.08.2026: „Wenn Modul 3 nicht ausgeführt werden kann (nicht
+   * angehakt, nicht gekauft), dann brauchen wir bei Modul 2 ein
+   * Ergebnis-Verzeichnis, das angegeben werden muss."
+   *
+   * Der Ergebnisbestand aus Etappe 7 hebt das **nicht** auf, so naheliegend der
+   * Gedanke ist: Er ist Unikoms eigene Buchführung — geprüft, freigegeben, mit
+   * Geschichte. Der Kunde kommt an seine Daten über ein Verzeichnis, und wer nur
+   * Modul 2 gekauft hat, hat kein anderes Glied, das sie ihm hinlegt.
+   */
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () =>
+      service.create(
+        createTransferJob({ transfer: OFF, consolidation: { ...STANDALONE, output: undefined } })
+      ),
+    /Ziel von „Daten konsolidieren“ braucht ein Verzeichnis/
+  );
+});
+
+test('ein leer gelassenes Ergebnisverzeichnis ist keine Angabe', async () => {
+  // Sonst schriebe der Lauf in ein Verzeichnis namens „" — und das Formular
+  // hätte den Benutzer glauben lassen, er sei fertig.
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () =>
+      service.create(
+        createTransferJob({
+          transfer: OFF,
+          consolidation: { ...STANDALONE, output: { to: 'DIRECTORY', directory: '   ' } },
+        })
+      ),
+    /braucht ein Verzeichnis/
+  );
+});
+
+test('mit einem Glied dahinter genügt das Weiterreichen', async () => {
+  /*
+   * Die Bedingung ist „wenn Modul 3 nicht ausgeführt werden kann". Läuft es,
+   * nimmt es das Ergebnis entgegen — dann wäre ein Verzeichnis dazwischen eine
+   * Ablage, die niemand leert.
+   */
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  const angelegt = await service.create(
+    createTransferJob({
+      transfer: OFF,
+      consolidation: { ...STANDALONE, output: { to: 'FOLLOWING' } },
+      delivery: {
+        enabled: true,
+        input: { from: 'PRECEDING' },
+        output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+        ziel: 'DATEI',
+      },
+    })
+  );
+
+  assert.deepEqual(angelegt.consolidation?.output, { to: 'FOLLOWING' });
 });
 
 test('a stored job that predates the switches still transfers', () => {
@@ -212,13 +325,15 @@ test('a job needing a module the installation lacks is refused when it is saved'
   );
 
   // The ones they do have go through.
-  await service.create(createTransferJob({ conversion: { ...CHAINED } }));
+  await service.create(
+    createTransferJob({ delivery: { ...CHAINED, ziel: 'DATEI', konvertieren: { format: 'XML' } } })
+  );
 });
 
 test('a switched-off link costs nothing', () => {
   const job = createTransferJob({
     consolidation: { ...CHAINED, enabled: false },
-    conversion: { ...CHAINED, enabled: false },
+    delivery: { ...CHAINED, ziel: 'DATEI', enabled: false },
   });
 
   // The transfer is still on, and it is a module like the others now.
@@ -253,14 +368,15 @@ test('a workflow whose module is not built yet refuses to run instead of doing h
       sourceDirectory: source,
       destinationDirectory: destination,
       allowedExtensions: ['csv'],
-      consolidation: { ...CHAINED },
+      // Das Ausliefern ist das Glied, das noch aussteht — Modul 3.
+      delivery: { ...CHAINED, ziel: 'DATEI' },
     }),
     new LocalSourceAdapter(source)
   );
 
   assert.equal(result.status, TransferRunStatus.FAILED);
   assert.match(result.message, /noch nicht gebaut/);
-  assert.match(result.message, /Daten konsolidieren/, 'the message names the link, not a number');
+  assert.match(result.message, /Daten exportieren\/importieren/, 'the message names the link, not a number');
   assert.deepEqual(await fs.readdir(destination), [], 'nothing may have been delivered');
   assert.deepEqual(await fs.readdir(source), ['ORDER_001.csv'], 'and the source is untouched');
 });
@@ -292,4 +408,52 @@ test('a workflow that only transfers still runs', async () => {
 
   assert.equal(result.filesSucceeded, 1, result.message);
   assert.deepEqual(await fs.readdir(destination), ['ORDER_001.csv']);
+});
+
+/* ---------- Was aus gespeicherten Workflows wird ---------- */
+
+test('ein gespeicherter Workflow mit zwei Ausliefer-Gliedern wird zu einem', () => {
+  /*
+   * „Daten importieren" und „Daten konvertieren" standen einmal als zwei
+   * Kettenglieder nebeneinander. Wer so gespeichert hat, soll nach dem Umbau
+   * nicht plötzlich einen Workflow haben, der nichts mehr ausliefert.
+   */
+  const alterExport = reviveJob({
+    ...createTransferJob({}),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    conversion: { enabled: true, input: { from: 'PRECEDING' }, output: { to: 'DIRECTORY', directory: '/aus' } },
+  } as unknown as Record<string, unknown>);
+
+  assert.equal(alterExport.delivery?.enabled, true);
+  assert.equal(alterExport.delivery?.ziel, 'DATEI');
+  assert.equal(alterExport.delivery?.konvertieren?.format, 'CSV');
+  assert.deepEqual(activeStages(alterExport), ['TRANSFER', 'DELIVER']);
+});
+
+test('war beides eingeschaltet, gewinnt der Datenbankimport', () => {
+  // Er ist der Zweig, der ein fremdes System berührt; ein stiller Wechsel auf
+  // die Datei wäre die gefährlichere Auslegung.
+  const beides = reviveJob({
+    ...createTransferJob({}),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    dataImport: { enabled: true, input: { from: 'PRECEDING' } },
+    conversion: { enabled: true, input: { from: 'PRECEDING' }, output: { to: 'DIRECTORY', directory: '/aus' } },
+  } as unknown as Record<string, unknown>);
+
+  assert.equal(beides.delivery?.ziel, 'DATENBANK');
+  assert.equal(beides.delivery?.konvertieren, undefined);
+});
+
+test('ein abgeschaltetes altes Glied wird nicht wieder eingeschaltet', () => {
+  const aus = reviveJob({
+    ...createTransferJob({}),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    conversion: { enabled: false, input: { from: 'PRECEDING' } },
+  } as unknown as Record<string, unknown>);
+
+  assert.equal(aus.delivery, undefined);
+  assert.deepEqual(activeStages(aus), ['TRANSFER']);
 });

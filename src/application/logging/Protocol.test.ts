@@ -204,22 +204,24 @@ test('a failing step names the file, the step and the reason', async () => {
 
 test('ein Workflow trägt seine Ausführlichkeit selbst, nicht die der Installation', async () => {
   /*
-   * Ohne eigene Angabe gilt INFO — und zwar unabhängig davon, worauf die
-   * Installation steht. Die Wahl „wie die Installation" gab es einmal und ist
-   * gestrichen: Wer im Störungsfall wissen will, wie laut ein Workflow
-   * schreibt, soll es an ihm ablesen können.
+   * Ohne eigene Angabe gilt jeder Schritt — und zwar unabhängig davon, worauf
+   * die Installation steht. Die Wahl „wie die Installation" gab es einmal und
+   * ist gestrichen: Wer im Störungsfall wissen will, wie laut ein Workflow
+   * schreibt, soll es an ihm ablesen können. Eine stillgestellte Installation
+   * darf einen Workflow deshalb nicht mit stillstellen — sonst stünde am
+   * Morgen nichts da, und niemand hätte das angeordnet.
    */
-  const quiet = await setup({ logLevel: undefined }, 'DEBUG');
+  const ohneAngabe = await setup({ logLevel: undefined }, 'ERROR');
 
   try {
-    await quiet.service.execute(quiet.job, quiet.adapter);
-    assert.equal(
-      /Verbindung zu 127/.test(transcript(quiet.entries)),
-      false,
-      'ohne eigene Angabe schreibt der Workflow auf INFO, auch wenn die Installation auf DEBUG steht'
+    await ohneAngabe.service.execute(ohneAngabe.job, ohneAngabe.adapter);
+    assert.match(
+      transcript(ohneAngabe.entries),
+      /Verbindung zu 127/,
+      'ohne eigene Angabe schreibt der Workflow jeden Schritt, auch wenn die Installation nur Fehler will'
     );
   } finally {
-    await quiet.stop();
+    await ohneAngabe.stop();
   }
 
   const loud = await setup({ logLevel: 'DEBUG' }, 'INFO');
@@ -233,6 +235,29 @@ test('ein Workflow trägt seine Ausführlichkeit selbst, nicht die der Installat
     );
   } finally {
     await loud.stop();
+  }
+});
+
+/*
+ * „Das Wesentliche" ist gestrichen, und zwar nicht nur aus der Liste.
+ *
+ * Ein Workflow, der die Angabe noch trägt, weil er vor der Änderung angelegt
+ * wurde, schriebe sonst still weiter nach einer Regel, die es in der
+ * Oberfläche nicht mehr gibt: Dort stünde „Jeder Schritt", und im Protokoll
+ * fehlte genau die Zeile, wegen der man hinsieht.
+ */
+test('ein Workflow, der noch „Das Wesentliche" trägt, schreibt jeden Schritt', async () => {
+  const altlast = await setup({ logLevel: 'INFO' as unknown as TransferJob['logLevel'] }, 'ERROR');
+
+  try {
+    await altlast.service.execute(altlast.job, altlast.adapter);
+    assert.match(
+      transcript(altlast.entries),
+      /Verbindung zu 127/,
+      'die gestrichene Angabe darf nicht als Schwelle überleben'
+    );
+  } finally {
+    await altlast.stop();
   }
 });
 

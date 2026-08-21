@@ -1,5 +1,5 @@
 import type { LogLevel } from '../logging/LogEntry.js';
-import type { StageConfig, TransferStageConfig } from './WorkflowStages.js';
+import type { DeliverConfig, KonsolidierungConfig, TransferStageConfig } from './WorkflowStages.js';
 
 /**
  * Woher gelesen und wohin geschrieben wird.
@@ -52,7 +52,6 @@ export interface SourceConfig {
    * would point somewhere else on every second server.
    */
   remoteWorkingDirectory?: string;
-  recursive?: boolean;
   host?: string;
   port?: number;
   username?: string;
@@ -119,12 +118,6 @@ export interface RetentionConfig {
    * decision stays with whoever configures the job.
    */
   historyDays?: number;
-  /**
-   * Wie lange abgelegte Protokolldateien bleiben; ohne Angabe 30 Tage. Sie
-   * sind für den akuten Fall gedacht — wer eines länger braucht, hat es
-   * längst verschickt.
-   */
-  protocolDays?: number;
 }
 
 export interface StabilityCheckConfig {
@@ -215,10 +208,46 @@ export interface JobSchedule {
 }
 
 /**
+ * Die Ausführlichkeit, die ein Workflow für sich verlangen kann.
+ *
+ * Ohne `INFO`. „Das Wesentliche" stand einmal dafür und ist gestrichen, weil
+ * die Angabe nichts aussagt: Was an der Nacht, in der etwas schieflief, das
+ * Wesentliche war, entscheidet sich erst hinterher — und dann fehlt genau die
+ * Zeile, die niemand für wesentlich gehalten hat. Geblieben sind drei Angaben,
+ * die man ohne Rückfrage versteht: jeder Schritt, nur Warnungen und Konflikte,
+ * nur Konflikte.
+ *
+ * `INFO` bleibt als Stufe einer *Zeile* bestehen — die meisten Zeilen tragen
+ * sie. Nur als Schwelle eines Workflows gibt es sie nicht mehr.
+ */
+export type JobLogLevel = Exclude<LogLevel, 'INFO'>;
+
+/**
  * Wie ausführlich ein Workflow mitschreibt, wenn er nichts anderes sagt.
+ *
+ * Jeder Schritt. Ein Protokoll wird gebraucht, wenn etwas schiefging, und dann
+ * ist es zu spät, es lauter zu stellen: Der Lauf von heute Nacht kommt nicht
+ * wieder. Was das kostet, steht in `RetentionConfig.logDays` — die Zeilen
+ * bleiben nicht ewig liegen.
+ *
  * Das Gegenstück in der Oberfläche steht in `web/src/screens/job/emptyJob.ts`.
  */
-export const DEFAULT_JOB_LOG_LEVEL: LogLevel = 'INFO';
+export const DEFAULT_JOB_LOG_LEVEL: JobLogLevel = 'DEBUG';
+
+/**
+ * Die Ausführlichkeit dieses Workflows, wie der Lauf sie anwendet.
+ *
+ * Alles, was keine der drei Angaben ist, wird zur Voreinstellung: kein
+ * Eintrag, und ebenso das gestrichene `INFO` aus einem älteren Datensatz. Ohne
+ * diese Umsetzung schriebe ein solcher Workflow still nach einer Regel weiter,
+ * die es in der Oberfläche nicht mehr gibt — man läse dort „Jeder Schritt" und
+ * bekäme etwas anderes.
+ */
+export function jobLogLevel(job: Pick<TransferJob, 'logLevel'>): JobLogLevel {
+  const chosen = job.logLevel as LogLevel | undefined;
+
+  return chosen === 'DEBUG' || chosen === 'WARNING' || chosen === 'ERROR' ? chosen : DEFAULT_JOB_LOG_LEVEL;
+}
 
 export interface TransferJob {
   id: string;
@@ -238,7 +267,6 @@ export interface TransferJob {
   sourceDirectory: string;
   /** Absent means the source delivers plaintext, which is the normal case. */
   sourceEncryption?: SourceEncryptionConfig;
-  includeSubdirectories: boolean;
   filenamePrefix?: string;
   caseSensitivePrefix: boolean;
   allowedExtensions: string[];
@@ -307,23 +335,10 @@ export interface TransferJob {
    * Installation. Die Wahl „wie die Installation" gab es einmal und ist
    * gestrichen: Wer im Störungsfall wissen will, wie laut ein Workflow
    * schreibt, soll es an ihm ablesen können, statt es aus zwei Stellen
-   * zusammenzusetzen. Ältere Datensätze ohne Angabe bekommen damit INFO, also
-   * genau das, was die Installation voreingestellt hatte.
+   * zusammenzusetzen. Angewendet wird sie über `jobLogLevel`, das auch ältere
+   * Datensätze auf eine der drei Angaben bringt.
    */
-  logLevel?: LogLevel;
-  /**
-   * Ob das Protokoll jedes Laufs zusätzlich als Datei abgelegt wird.
-   *
-   * Voreingestellt aus. Das Protokoll steht sonst nur im Arbeitsspeicher und
-   * ist nach einem Neustart fort — was für einen Lauf, dem jemand zusieht,
-   * genügt und für einen um drei Uhr nachts nicht.
-   */
-  saveProtocol?: boolean;
-  /**
-   * Wohin, wenn nicht in das Protokollverzeichnis der Installation. Ein
-   * eigener Pfad ist der Fall „unsere Protokolle gehören auf Laufwerk P:".
-   */
-  protocolDirectory?: string;
+  logLevel?: JobLogLevel;
   /**
    * Whether two files with identical content but different names count as
    * duplicates, so that the second one is not stored. **Off by default.**
@@ -349,12 +364,13 @@ export interface TransferJob {
    * on files that are already lying somewhere.
    */
   transfer?: TransferStageConfig;
-  /** Consolidating, correcting and deduplicating records. */
-  consolidation?: StageConfig;
-  /** Loading records into database tables. */
-  dataImport?: StageConfig;
-  /** Writing the records out in another file format. */
-  conversion?: StageConfig;
+  /** Consolidating, correcting and deduplicating records — mit seinen Regeln. */
+  consolidation?: KonsolidierungConfig;
+  /**
+   * Daten exportieren/importieren — entweder in eine Datenbank oder als Datei,
+   * die Datei wahlweise vorher konvertiert.
+   */
+  delivery?: DeliverConfig;
 
   executionMode: ExecutionMode;
   schedule?: JobSchedule;

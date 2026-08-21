@@ -86,11 +86,13 @@ export function historyRoutes(application: UnikomApplication): Route[] {
     },
     {
       /*
-       * Das Protokoll zum Aufheben.
+       * Das Protokoll zum Aus-der-Hand-geben.
        *
-       * Es liegt im Arbeitsspeicher und verschwindet mit dem Neustart — was
-       * bleiben soll, speichert der Benutzer. Deshalb hier alles ohne Filter:
-       * Die Anzeige zeigt einen Detailgrad, die Datei nimmt jede Zeile mit.
+       * Mitgeschrieben wird in die Datenbank; wer ein Protokoll verschicken
+       * oder über seine Aufbewahrungsfrist hinaus behalten will, holt es sich
+       * hier als Datei. Ohne Filter: Die Anzeige zeigt einen Detailgrad, die
+       * Datei nimmt jede Zeile mit — wer sie weitergibt, soll nicht vorher
+       * entscheiden müssen, welche Zeile die wichtige ist.
        */
       method: 'GET',
       pattern: '/api/runs/:id/protokoll',
@@ -99,7 +101,7 @@ export function historyRoutes(application: UnikomApplication): Route[] {
         const detail = await application.historyService.getRun(params.id, 'DEBUG');
 
         if (!detail) {
-          throw new ApiError(404, `Den Lauf ${params.id} gibt es nicht — oder sein Protokoll ist nicht mehr im Speicher`);
+          throw new ApiError(404, `Den Lauf ${params.id} gibt es nicht`);
         }
 
         const entries = await application.logRepository.list({ runId: params.id, limit: 1_000_000 });

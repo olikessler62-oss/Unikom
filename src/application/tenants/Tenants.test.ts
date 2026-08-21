@@ -6,6 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { createInMemoryApplication, type UnikomApplication } from '../runtime/UnikomApplication.js';
+import {
+  einstellungenDesMandanten,
+  wirksameEinstellungen,
+} from '../../domain/consolidation/Einstellungen.js';
 import { DEFAULT_TENANT_ID, type Tenant } from '../../domain/tenants/Tenant.js';
 import { assertWithinTenant, rootsOverlap, TenantBoundaryError } from '../../domain/tenants/TenantContainment.js';
 import { StaticMasterKeyProvider } from '../../infrastructure/security/MasterKeyProvider.js';
@@ -288,4 +292,94 @@ test('a job pointing at a client that does not exist is refused', async () => {
     () => application.jobService.create(createTransferJob({ id: 'job-x', tenantId: 'gibtsnicht' })),
     /den es nicht gibt/
   );
+});
+
+/* ---------- Die Ebene, die gewinnt ---------- */
+
+test('was am Mandanten eingestellt wird, steht danach auch dort', async () => {
+  /*
+   * Die Mandantenebene gewinnt in der Hierarchie (SPEC-02, Abschnitt 40) — und
+   * war die einzige, die niemand setzen konnte. Neun Stellen im Erzeugnis
+   * fragten danach, und es stand immer nichts darin.
+   */
+  const { application } = await scenario();
+
+  await application.tenantService.update(DEFAULT_TENANT_ID, {
+    consolidation: { nullWerte: ['keine Angabe', 'unbekannt'], jahrhundertGrenze: 30 },
+  });
+
+  const mandant = await application.tenantService.getById(DEFAULT_TENANT_ID);
+
+  assert.deepEqual(mandant?.consolidation?.nullWerte, ['keine Angabe', 'unbekannt']);
+  assert.equal(mandant?.consolidation?.jahrhundertGrenze, 30);
+});
+
+test('sie wirkt sich auf die Vererbung aus und nicht nur auf den Bestand', async () => {
+  // Sonst wäre sie eine Angabe, die man setzen kann und die nichts tut.
+  const { application } = await scenario();
+
+  await application.tenantService.update(DEFAULT_TENANT_ID, {
+    consolidation: { nullWerte: ['keine Angabe'] },
+  });
+
+  const mandant = await application.tenantService.getById(DEFAULT_TENANT_ID);
+  const wirksam = wirksameEinstellungen(einstellungenDesMandanten(mandant!), undefined);
+
+  assert.deepEqual(wirksam.nullWerte, ['keine Angabe']);
+});
+
+test('unbrauchbare Einstellungen werden abgelehnt, bevor irgendetwas gespeichert ist', async () => {
+  /*
+   * Ein Zahlendreher hier wirkt auf jeden Lauf jedes Workflows dieses Kunden.
+   * Halb gespeichert wäre schlimmer als gar nicht: Dann stünde der neue Name im
+   * Bestand und die alte Stichprobe daneben.
+   */
+  const { application } = await scenario();
+
+  await assert.rejects(
+    application.tenantService.update(DEFAULT_TENANT_ID, {
+      name: 'Umbenannt',
+      consolidation: { stichprobe: 2 },
+    }),
+    /mindestens 10 Werte/
+  );
+
+  const mandant = await application.tenantService.getById(DEFAULT_TENANT_ID);
+
+  assert.notEqual(mandant?.name, 'Umbenannt', 'auch der Name darf nicht durchgekommen sein');
+  assert.equal(mandant?.consolidation, undefined);
+});
+
+test('alle Beanstandungen kommen auf einmal', async () => {
+  // Sonst korrigiert jemand vier Mal hintereinander je einen Wert.
+  const { application } = await scenario();
+
+  await assert.rejects(
+    application.tenantService.update(DEFAULT_TENANT_ID, {
+      consolidation: { stichprobe: 2, jahrhundertGrenze: 150 },
+    }),
+    (fehler: Error) => {
+      assert.match(fehler.message, /Stichprobe/);
+      assert.match(fehler.message, /Jahrhundertgrenze/);
+
+      return true;
+    }
+  );
+});
+
+test('null nimmt die Einstellungen fort, undefined lässt sie stehen', async () => {
+  /*
+   * Ohne diesen Unterschied ließe sich eine einmal gesetzte Einstellung nie
+   * wieder abschalten — oder jedes Speichern des Formulars schriebe sie erneut.
+   */
+  const { application } = await scenario();
+
+  await application.tenantService.update(DEFAULT_TENANT_ID, { consolidation: { jahrhundertGrenze: 30 } });
+  await application.tenantService.update(DEFAULT_TENANT_ID, { name: 'Standard' });
+
+  assert.equal((await application.tenantService.getById(DEFAULT_TENANT_ID))?.consolidation?.jahrhundertGrenze, 30);
+
+  await application.tenantService.update(DEFAULT_TENANT_ID, { consolidation: null });
+
+  assert.equal((await application.tenantService.getById(DEFAULT_TENANT_ID))?.consolidation, undefined);
 });

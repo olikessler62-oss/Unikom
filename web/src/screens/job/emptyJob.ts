@@ -1,15 +1,30 @@
-import type { Job } from '../../api/types.js';
+import type { Feature, Job, KonsolidierungConfig, StageConfig, StageId } from '../../api/types.js';
+import { LIEFERMODULE } from './stages.js';
 
 /**
- * Wie ausführlich ein neuer Workflow mitschreibt.
+ * Wie ausführlich ein Workflow mitschreibt, solange niemand etwas anderes sagt.
  *
- * Es gab einmal die Wahl „Wie die Installation" — ein Workflow ohne eigene
- * Angabe erbte die des Servers. Das ist gestrichen: Wer im Störungsfall wissen
- * will, wie laut ein Workflow schreibt, soll es an ihm ablesen können, statt es
- * aus zwei Stellen zusammenzusetzen. Jeder Workflow trägt seine Ausführlichkeit
- * selbst, und das hier ist der Wert, mit dem er beginnt.
+ * Jeder Schritt. Ein Protokoll wird gebraucht, wenn etwas schiefging, und dann
+ * ist es zu spät, es lauter zu stellen: Der Lauf von heute Nacht kommt nicht
+ * wieder. Muss mit `DEFAULT_JOB_LOG_LEVEL` in `src/domain/transfer/TransferJob.ts`
+ * übereinstimmen — der Lauf richtet sich nach jenem, die Anzeige nach diesem,
+ * und beide müssten dasselbe sagen.
  */
-export const DEFAULT_JOB_LOG_LEVEL: NonNullable<Job['logLevel']> = 'INFO';
+export const DEFAULT_JOB_LOG_LEVEL: NonNullable<Job['logLevel']> = 'DEBUG';
+
+/** Die drei Ausführlichkeiten, die zur Wahl stehen. */
+const JOB_LOG_LEVELS: NonNullable<Job['logLevel']>[] = ['DEBUG', 'WARNING', 'ERROR'];
+
+/**
+ * Die Angabe dieses Workflows — oder nichts, wenn er keine trägt.
+ *
+ * „Nichts" ist auch das, was ein älterer Workflow mit „Das Wesentliche"
+ * (`INFO`) zurückbekommt: Diese Angabe gibt es nicht mehr, gelaufen wird nach
+ * der Voreinstellung, und die Anzeige muss dasselbe sagen wie der Lauf.
+ */
+export function chosenLogLevel(job: Job): NonNullable<Job['logLevel']> | undefined {
+  return JOB_LOG_LEVELS.includes(job.logLevel as NonNullable<Job['logLevel']>) ? job.logLevel : undefined;
+}
 import type { Language } from '../../settings/preferences.js';
 
 /**
@@ -25,14 +40,115 @@ export function notationOf(language: Language): Job['timestampNotation'] {
 }
 
 /**
+ * Welche Kettenglieder ein neuer Workflow einschaltet: **alle, die der Kunde
+ * hat.**
+ *
+ * Ein Kunde, der drei Module besitzt und nur eines angehakt sieht, hält die
+ * anderen leicht für nicht vorhanden. Sie stehen zwar ausgegraut in der Kette,
+ * aber „ausgegraut" liest sich für viele als „gesperrt" — und dann fragt jemand
+ * beim Support nach etwas, das er längst gekauft hat.
+ *
+ * Der Preis: Ein neuer Workflow hat mehrere Schritte, die noch kein Verzeichnis
+ * kennen. Das ist der bessere Preis. Ein Feld, das sichtbar leer ist, fordert
+ * zum Ausfüllen auf; ein Modul, das man nicht sieht, fordert zu gar nichts auf.
+ *
+ * Wer weniger will, hakt ab — und das ist die leichtere Bewegung: Man sieht,
+ * was man wegnimmt.
+ */
+function ketteFuer(features: readonly Feature[]): Pick<Job, 'transfer' | 'consolidation' | 'delivery'> {
+  const hat = (feature: Feature): boolean => features.includes(feature);
+
+  /*
+   * Die Reihenfolge der Verarbeitung — sie steht fest, gewählt wird nur, welche
+   * Glieder mitlaufen. Das Ausliefern ist **ein** Glied: Wer eine der beiden
+   * Hälften besitzt, bekommt es.
+   */
+  const liefert = LIEFERMODULE.some(hat);
+  const aktiv = [
+    ...(hat('TRANSFER') ? (['TRANSFER'] as const) : []),
+    ...(hat('CONSOLIDATION') ? (['CONSOLIDATE'] as const) : []),
+    ...(liefert ? (['DELIVER'] as const) : []),
+  ];
+
+  /**
+   * Wie ein Glied verdrahtet wird.
+   *
+   * **Vorbestückt aus dem Schritt davor**, wo es einen gibt: Der Workflow soll
+   * übernehmen, was das vorige Glied ablegt. Wo keiner davorsteht, bleibt das
+   * Verzeichnis leer und wartet auf eine Angabe — geraten wird hier nichts.
+   *
+   * Verbindlich ist davon nichts: Jedes Glied lässt sich auf ein eigenes
+   * Verzeichnis umstellen, auch wenn ein Schritt davor läuft.
+   */
+  const glied = (stage: StageId, mitAusgang: boolean): StageConfig | undefined => {
+    const stelle = aktiv.indexOf(stage as (typeof aktiv)[number]);
+
+    if (stelle < 0) {
+      return undefined;
+    }
+
+    const davor = stelle > 0;
+    const dahinter = stelle < aktiv.length - 1;
+
+    return {
+      enabled: true,
+      input: davor ? { from: 'PRECEDING' } : { from: 'DIRECTORY', directory: '' },
+      ...(mitAusgang
+        ? { output: dahinter ? { to: 'FOLLOWING' } : { to: 'DIRECTORY', directory: '' } }
+        : {}),
+    };
+  };
+
+  const konsolidierung = (basis?: StageConfig): KonsolidierungConfig | undefined =>
+    basis ? { ...basis, regeln: { betriebsart: 'SAMMELN', art: 'APPEND' } } : undefined;
+
+  /**
+   * Der Zweig, mit dem das Ausliefern beginnt.
+   *
+   * Die **Datei** ist die Voreinstellung, auch wenn beide Hälften gekauft sind:
+   * Ein Export legt eine Datei ab, die man ansehen und wegwerfen kann. Ein
+   * Datenbankimport berührt ein fremdes System — das soll niemand voreingestellt
+   * bekommen, sondern ausdrücklich wählen.
+   */
+  const ziel = hat('CONVERSION') || !hat('DATA_IMPORT') ? 'DATEI' : 'DATENBANK';
+  const ausliefern = glied('DELIVER', ziel === 'DATEI');
+
+  return {
+    /*
+     * Ausdrücklich gesetzt und nicht weggelassen. „Fehlt" heißt beim Übertragen
+     * **an** — eine Regel für Workflows aus der Zeit, als das Glied noch nicht
+     * abschaltbar war. Für einen neuen Workflow wäre sie ein Fehler: Ein Kunde
+     * ohne dieses Modul konnte damit gar keinen Workflow anlegen, weil das
+     * Speichern ein Modul verlangte, das er nie gekauft hat.
+     */
+    transfer: { enabled: hat('TRANSFER') },
+    /*
+     * Mit Regeln, nicht ohne. Ein Schritt, der nur „eingeschaltet" sagt, ließe
+     * sich speichern und nicht ausführen. „Sammeln, aneinander" ist dabei eine
+     * Festlegung und keine Vermutung: Es ist das, was ohne Schlüssel überhaupt
+     * möglich ist — und einen Schlüssel zu erraten ist untersagt.
+     */
+    consolidation: konsolidierung(glied('CONSOLIDATE', true)),
+    /*
+     * Ein Glied, eine Verzweigung. Beim Datenbankimport fehlt das
+     * Zielverzeichnis — er schreibt in Tabellen. Konvertiert wird
+     * voreingestellt **nicht**: Das Ergebnis geht hinaus, wie es entstanden
+     * ist, bis jemand ein anderes Format verlangt.
+     */
+    delivery: ausliefern ? { ...ausliefern, ziel } : undefined,
+  };
+}
+
+/**
  * A new job that is already safe rather than already convenient.
  *
  * SKIP over OVERWRITE, KEEP over DELETE, stability check on: the defaults are
  * the ones where a mistake costs nothing. Somebody who wants a file deleted at
  * the source should have to say so.
  */
-export function emptyJob(tenantId: string, language: Language): Job {
+export function emptyJob(tenantId: string, language: Language, features: readonly Feature[] = []): Job {
   return {
+    ...ketteFuer(features),
     id: '',
     tenantId,
     name: '',
@@ -41,7 +157,6 @@ export function emptyJob(tenantId: string, language: Language): Job {
     sourceType: 'LOCAL',
     sourceConfig: { type: 'LOCAL', directory: '' },
     sourceDirectory: '',
-    includeSubdirectories: false,
 
     caseSensitivePrefix: false,
     allowedExtensions: [],
@@ -58,14 +173,20 @@ export function emptyJob(tenantId: string, language: Language): Job {
     destinationDirectory: '',
     createDestinationDirectory: true,
     conflictStrategy: 'SKIP',
-    // Jeder Workflow trägt seine Ausführlichkeit selbst. „Wie die Installation"
-    // gab es einmal und gibt es nicht mehr: Wer im Störungsfall wissen will,
-    // wie laut ein Workflow schreibt, soll es an ihm ablesen können und nicht
-    // an zwei Stellen zusammensuchen müssen.
-    logLevel: DEFAULT_JOB_LOG_LEVEL,
+    // Ohne Angabe: Die Voreinstellung steht im Feld als Vorschlag, grau und
+    // kursiv, und gilt auch so. Sie hier einzutragen sähe aus wie eine
+    // Entscheidung, die niemand getroffen hat.
     timestampNotation: notationOf(language),
     encryptionConfig: { enabled: false, provider: 'NONE' },
-    sourceSuccessAction: 'KEEP',
+    /*
+     * Löschen als Voreinstellung, nicht Liegenlassen (FR_009, Abschnitt 4).
+     *
+     * Eine verarbeitete Eingangsdatei, die im Quellverzeichnis stehen bleibt,
+     * ist ein Bestand, den niemand verwaltet — bei einer abgelegten E-Mail
+     * einer mit Kopfzeilen, Signatur und allem, was sonst darin stand. Wer sie
+     * behalten will, sagt es; das Feld steht sichtbar im Formular.
+     */
+    sourceSuccessAction: 'DELETE',
 
     detectContentDuplicates: false,
 

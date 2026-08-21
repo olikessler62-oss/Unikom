@@ -44,6 +44,17 @@ function line(entry: LogEntry): string {
     parts.splice(2, 0, `[${entry.filename}]`);
   }
 
+  /*
+   * Der Urheber wandert in die gespeicherte Fassung mit — mit Name *und*
+   * Kennung. Der Name ist das, was jemand liest; die Kennung ist das, was
+   * eindeutig bleibt, wenn der Name sich später ändert oder zweimal vorkommt.
+   * In einem Protokoll, das per Mail zum Hersteller geht, entscheidet genau das
+   * über die Frage „wer hat das eingestellt".
+   */
+  if (entry.username || entry.userId) {
+    parts.push(`(${entry.username ?? 'unbekannt'}${entry.userId ? `, ${entry.userId}` : ''})`);
+  }
+
   const rendered = parts.join(' ');
 
   // Zusatzangaben in die nächste Zeile, eingerückt: Sie gehören zur Zeile

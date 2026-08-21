@@ -103,7 +103,7 @@ for (const { label, open } of protocols) {
       const { adapter, stop } = await open({ remoteWorkingDirectory: '/customer123' });
 
       try {
-        const files = await adapter.listFiles(spelling, false);
+        const files = await adapter.listFiles(spelling);
 
         assert.deepEqual(
           files.filter((file) => !file.isDirectory).map((file) => file.name),
@@ -121,7 +121,7 @@ for (const { label, open } of protocols) {
     const { adapter, stop } = await open({ remoteWorkingDirectory: '/customer123' });
 
     try {
-      const files = await adapter.listFiles('orders/incoming', false);
+      const files = await adapter.listFiles('orders/incoming');
 
       assert.equal(files[0]?.fullPath, '/customer123/orders/incoming/ORDER_001.csv');
     } finally {
@@ -134,7 +134,7 @@ for (const { label, open } of protocols) {
 
     try {
       await assert.rejects(
-        () => adapter.listFiles('../customer1234/orders/incoming', false),
+        () => adapter.listFiles('../customer1234/orders/incoming'),
         /nicht verlassen/,
         'the other customer must stay unreachable'
       );
@@ -149,7 +149,7 @@ for (const { label, open } of protocols) {
     const { adapter, stop } = await open({ remoteWorkingDirectory: '/customer123' });
 
     try {
-      const files = await adapter.listFiles('/customer1234/orders/incoming', false);
+      const files = await adapter.listFiles('/customer1234/orders/incoming');
 
       // Read as relative — so it lands inside the customer's own area, where
       // there is no such directory, rather than in the neighbour's.
@@ -238,7 +238,7 @@ for (const { label, open } of protocols) {
     const { adapter, stop } = await open();
 
     try {
-      const files = await adapter.listFiles('/customer123/orders/incoming', false);
+      const files = await adapter.listFiles('/customer123/orders/incoming');
 
       assert.deepEqual(
         files.map((file) => file.name),
@@ -254,7 +254,7 @@ test('SFTP: the archive directory is resolved the same way as the source', async
   const { adapter, root, stop } = await sftp({ remoteWorkingDirectory: '/customer123' });
 
   try {
-    const [file] = await adapter.listFiles('orders/incoming', false);
+    const [file] = await adapter.listFiles('orders/incoming');
     // Typed as a Windows operator would, with backslashes and no leading slash.
     await adapter.moveFile?.(file, '\\orders\\archive\\');
 
@@ -324,7 +324,7 @@ for (const { label, open } of protocols) {
     const { adapter, stop } = await open({ remoteWorkingDirectory: '/customer123' });
 
     try {
-      const files = await adapter.listFiles('orders/orders', false);
+      const files = await adapter.listFiles('orders/orders');
 
       assert.deepEqual(
         files.filter((file) => !file.isDirectory).map((file) => file.name),

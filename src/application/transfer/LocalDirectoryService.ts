@@ -160,6 +160,14 @@ export class LocalDirectoryService {
       relativePath: resolved,
       parentPath: this.parentOf(resolved, tenant),
       filesFound: entries.length - directories.length,
+      files: entries
+        .filter((entry) => entry.isFile())
+        .map((entry) => ({
+          name: entry.name,
+          path: path.join(resolved, entry.name),
+          relativePath: path.join(resolved, entry.name),
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
       entries: directories
         .map((entry) => ({
           name: entry.name,
