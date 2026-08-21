@@ -1,4 +1,4 @@
-import { passt } from '../consolidation/Namensmuster.js';
+import { passtMitSchluessel, STAPELMARKE } from '../consolidation/Namensmuster.js';
 
 /**
  * Wann ein Stapel zusammengehöriger Dateien vollständig ist (SPEC-06 §2).
@@ -47,18 +47,6 @@ export interface Stapeldatei {
    * lässt es weg — dann gilt sie als fertig, so wie bisher.
    */
   fertig?: boolean;
-  /**
-   * Der Wert, der die Zusammengehörigkeit zeigt — das Lieferdatum, die Periode,
-   * die Stapelnummer.
-   *
-   * Gelesen wird er **nicht hier**: Das ist Sache der Anwendungsschicht, die
-   * Dateien aufmachen darf. Hier steht nur, was er bedeutet.
-   *
-   * Fehlt er, wo ein Schlüsselfeld verlangt ist, gehört die Datei zu keiner
-   * Gruppe. Das ist kein Grund zu warten und keiner abzubrechen — aber es
-   * gehört gesagt, sonst verschwindet sie lautlos aus jeder Rechnung.
-   */
-  schluessel?: string;
 }
 
 /** Ein erwarteter Beteiligter. */
@@ -89,17 +77,6 @@ export interface Stapelbedingung {
    * Fehler, den niemand findet.
    */
   fristSekunden?: number;
-  /**
-   * Das Feld, dessen Wert zusammengehörige Dateien zusammenhält (SPEC-06 §2).
-   *
-   * Gebraucht, sobald **zwei Stapel gleichzeitig** im Abholverzeichnis liegen
-   * können — die verspätete Lieferung von gestern neben der heutigen. Ohne
-   * Schlüssel würden beide zu einem Stapel verrührt: Die Plätze wären besetzt,
-   * die Anzahl stimmte womöglich auch, und das Ergebnis enthielte zwei Tage.
-   *
-   * Ohne Angabe gilt alles als ein Stapel — so, wie es ohne diese Angabe war.
-   */
-  schluesselfeld?: string;
 }
 
 /** Warum eine Datei nicht mitzählt. */
@@ -158,7 +135,7 @@ export function pruefeStapel(
      * schlechtere Antwort darauf, weil dann die Anzahl nicht mehr stimmt und
      * niemand sähe, warum.
      */
-    const platz = bedingung.plaetze.find((kandidat) => passt(datei.name, kandidat.muster));
+    const platz = bedingung.plaetze.find((kandidat) => passtMitSchluessel(datei.name, kandidat.muster).passt);
 
     if (platz) {
       zuordnung.get(platz)!.push(datei.name);
@@ -241,6 +218,13 @@ export interface Stapelaufteilung {
    * — sie enthält womöglich zwei.
    */
   ohneSchluessel: string[];
+  /**
+   * Einrichtungsfehler in den Mustern.
+   *
+   * Getrennt von den übrigen Hinweisen, weil sie nicht die Lieferung betreffen,
+   * sondern den Workflow: Sie ändern sich nicht dadurch, dass jemand wartet.
+   */
+  maengel: string[];
 }
 
 /**
@@ -255,17 +239,34 @@ export function stapelgruppen(
   bedingung: Stapelbedingung,
   jetzt: Date
 ): Stapelaufteilung {
-  if (!bedingung.schluesselfeld) {
-    return { gruppen: [{ stand: pruefeStapel(dateien, bedingung, jetzt), seit: aeltester(dateien) }], ohneSchluessel: [] };
+  /*
+   * Ob überhaupt gruppiert wird, entscheidet das Muster selbst: Wer `{stapel}`
+   * hineinschreibt, sagt damit, welcher Teil des Namens die Zugehörigkeit
+   * ausmacht. Ein zweiter Schalter daneben wäre eine Angabe, die dem Muster
+   * widersprechen kann.
+   */
+  if (!bedingung.plaetze.some((platz) => platz.muster.includes(STAPELMARKE))) {
+    return {
+      gruppen: [{ stand: pruefeStapel(dateien, bedingung, jetzt), seit: aeltester(dateien) }],
+      ohneSchluessel: [],
+      maengel: [],
+    };
   }
 
   const nachSchluessel = new Map<string, Stapeldatei[]>();
   const ohneSchluessel: string[] = [];
+  const maengel = new Set<string>();
 
   for (const datei of dateien) {
-    const schluessel = datei.schluessel?.trim();
+    const schluessel = schluesselAusNamen(datei.name, bedingung, maengel);
 
-    if (!schluessel) {
+    if (schluessel === undefined) {
+      /*
+       * Kein Schlüssel heißt: Die Datei passt zu keinem Platz, oder ihr Platz
+       * trägt keine Marke. Beides ist kein Grund zu warten und keiner
+       * abzubrechen — aber es gehört gesagt, sonst verschwindet sie lautlos aus
+       * jeder Rechnung.
+       */
       ohneSchluessel.push(datei.name);
       continue;
     }
@@ -292,8 +293,49 @@ export function stapelgruppen(
    */
   gruppen.sort((links, rechts) => (links.seit ?? Infinity) - (rechts.seit ?? Infinity));
 
-  return { gruppen, ohneSchluessel };
+  return { gruppen, ohneSchluessel, maengel: [...maengel] };
 }
+
+/**
+ * Das Stapelmerkmal im Namen dieser Datei.
+ *
+ * Gesucht wird über die Plätze: Der erste, dessen Muster passt, liefert den
+ * Schlüssel. Passt keiner, gehört die Datei zu keinem Stapel; passt einer, der
+ * keine Marke trägt, ebenso — dann steht in seinem Muster nicht, woran seine
+ * Lieferungen auseinanderzuhalten sind.
+ */
+function schluesselAusNamen(
+  name: string,
+  bedingung: Stapelbedingung,
+  maengel: Set<string>
+): string | undefined {
+  for (const platz of bedingung.plaetze) {
+    const urteil = passtMitSchluessel(name, platz.muster);
+
+    if (urteil.fehler) {
+      maengel.add(`Platz „${platz.name}": ${urteil.fehler}`);
+      continue;
+    }
+
+    if (!urteil.passt) {
+      continue;
+    }
+
+    if (urteil.schluessel === undefined) {
+      maengel.add(
+        `Platz „${platz.name}": Im Muster „${platz.muster}" fehlt ${STAPELMARKE} — ` +
+          'ohne die Marke ist nicht zu sagen, zu welchem Stapel eine Lieferung gehört'
+      );
+
+      return undefined;
+    }
+
+    return urteil.schluessel;
+  }
+
+  return undefined;
+}
+
 
 /** Der früheste Änderungszeitpunkt unter fertigen Dateien. */
 function aeltester(dateien: readonly Stapeldatei[]): number | undefined {

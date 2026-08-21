@@ -4,6 +4,7 @@ import { api } from '../../api/client.js';
 import { messageOf } from '../../api/useResource.js';
 import type { Dateiwahl, Platz, RemoteDirectoryResult, StageInput } from '../../api/types.js';
 import { CheckField, Field, Klappkarte, Notice } from '../../components/Pieces.js';
+import type { Feldstand } from './feldstand.js';
 import { Verzeichnisfeld } from '../../components/Verzeichniswahl.js';
 
 /**
@@ -51,7 +52,7 @@ export function Stapelwahl({
     aendern({ stapel: { ...(stapel ?? { plaetze: [] }), plaetze } });
 
   return (
-    <Klappkarte titel="Welche Dateien" belegt={belegt(wahl)}>
+    <Klappkarte titel="Welche Dateien" stand={stand(wahl)}>
       <Field
         label="Namensmuster"
         explain={
@@ -61,9 +62,9 @@ export function Stapelwahl({
               andere wörtlich.
             </p>
             <p>
-              <strong>Ein Muster, kein Muster-Verzeichnis.</strong> Mehrere Namen durch Komma zu trennen
-              funktioniert nicht — das Komma wird wörtlich genommen, und es passt dann keine Datei. Mehrere
-              Lieferanten trägt man unten als Plätze ein.
+              <strong>Das Komma trennt.</strong> <code>Filiale_*.csv, Umsatz_*.csv</code> sind zwei Muster; es
+              genügt, wenn eines trifft. In einem Dateinamen, der maschinell verarbeitet wird, hat ein Komma
+              nichts verloren — deshalb ist es hier als Trenner frei.
             </p>
             <p>Leer heißt: alles Lesbare im Abholverzeichnis — CSV, TXT, TSV, JSON, XML, XLSX.</p>
           </>
@@ -152,40 +153,6 @@ export function Stapelwahl({
           </Field>
 
           <Field
-            label="Feld, das zusammengehörige Dateien zusammenhält"
-            explain={
-              <>
-                <p>
-                  Ein Feldname — <code>lieferdatum</code>, <code>periode</code>, <code>stapelnummer</code>. Alle
-                  Dateien mit demselben Wert bilden einen Stapel.
-                </p>
-                <p>
-                  Gebraucht, sobald <strong>zwei Stapel gleichzeitig</strong> im Abholverzeichnis liegen können — die
-                  verspätete Lieferung von gestern neben der heutigen. Ohne Schlüssel würden beide zu einem
-                  verrührt: Die Plätze wären besetzt, und das Ergebnis enthielte zwei Tage.
-                </p>
-                <p>
-                  Je Lauf wird <strong>ein</strong> Stapel verarbeitet, der älteste vollständige. Der nächste kommt
-                  beim nächsten Durchgang — zwei in einem Lauf zu nehmen hieße, sie doch zusammenzulegen.
-                </p>
-                <p>
-                  Zum Preis: Die Dateien werden dafür aufgemacht. Trägt das Feld in <em>einer</em> Datei mehrere
-                  Werte, gehört sie zu keinem Stapel und es steht im Protokoll — dann ist der Schlüssel keine
-                  Eigenschaft dieser Datei, und sie enthält womöglich zwei Stapel.
-                </p>
-              </>
-            }
-          >
-            <input
-              value={stapel.schluesselfeld ?? ''}
-              placeholder="lieferdatum"
-              onChange={(event) =>
-                aendern({ stapel: { ...stapel, schluesselfeld: event.target.value || undefined } })
-              }
-            />
-          </Field>
-
-          <Field
             label="Frist ab der ersten Datei (Sekunden)"
             explain={
               <>
@@ -269,18 +236,41 @@ export function Stapelwahl({
   );
 }
 
-/** Ob in dieser Fläche etwas Vollständiges steht — siehe `belegt.ts`. */
-function belegt(wahl: Dateiwahl | undefined): boolean {
+/**
+ * Der Zustand dieser Fläche — die vier Farben aus `belegt.ts`.
+ *
+ * Der interessante Fall ist **rot**: Tragen manche Plätze die Marke `{stapel}`
+ * und andere nicht, ist bei deren Lieferungen nicht zu sagen, zu welchem Stapel
+ * sie gehören. Der Lauf sagt das ins Protokoll — der Punkt sagt es beim
+ * Einrichten, und das ist die Stelle, an der man es noch ändern will.
+ */
+function stand(wahl: Dateiwahl | undefined): Feldstand {
   if (!wahl) {
-    return false;
+    return 'LEER';
   }
 
   if (wahl.stapel) {
+    const plaetze = wahl.stapel.plaetze;
+
     // Eine eingeschaltete Bedingung ohne Plätze ist keine Bedingung.
-    return wahl.stapel.plaetze.length > 0 && wahl.stapel.plaetze.every((platz) => platz.muster.trim() !== '');
+    if (plaetze.length === 0 || plaetze.some((platz) => platz.muster.trim() === '')) {
+      return 'UNVOLLSTAENDIG';
+    }
+
+    const mitMarke = plaetze.filter((platz) => platz.muster.includes('{stapel}')).length;
+
+    if (mitMarke > 0 && mitMarke < plaetze.length) {
+      return 'FEHLERHAFT';
+    }
+
+    return 'GUELTIG';
   }
 
-  return Boolean(wahl.muster?.trim()) || Boolean(wahl.abholung?.erledigt?.trim());
+  return steht(wahl.muster) || steht(wahl.abholung?.erledigt) ? 'GUELTIG' : 'LEER';
+}
+
+function steht(wert: string | undefined): boolean {
+  return Boolean(wert && wert.trim());
 }
 
 /**
@@ -291,6 +281,9 @@ function belegt(wahl: Dateiwahl | undefined): boolean {
  * Der Name daneben ist keine Zierde — er steht in jeder Meldung, und „es fehlt
  * ‚Filiale Süd'" ist die Auskunft, die man um sieben Uhr morgens braucht.
  */
+/** Die Marke als Text — in JSX wäre `{stapel}` ein Ausdruck und kein Wort. */
+const MARKE = '{stapel}';
+
 function Plaetze({ plaetze, onChange }: { plaetze: Platz[]; onChange(next: Platz[]): void }) {
   const setze = (stelle: number, teile: Partial<Platz>): void =>
     onChange(plaetze.map((platz, i) => (i === stelle ? { ...platz, ...teile } : platz)));
@@ -308,6 +301,24 @@ function Plaetze({ plaetze, onChange }: { plaetze: Platz[]; onChange(next: Platz
             Der Name entscheidet über die Brauchbarkeit der Meldung um sieben Uhr morgens. „Filiale Süd" sagt, wen
             man anrufen muss; „Platz 2" nicht.
           </p>
+          <p>
+            <strong>
+              Können zwei Stapel gleichzeitig im Abholverzeichnis liegen, schreiben Sie{' '}
+              <code>{MARKE}</code> an die Stelle des Merkmals:
+            </strong>{' '}
+            <code>Filiale_Nord_{MARKE}.csv</code> trifft dieselben Dateien wie{' '}
+            <code>Filiale_Nord_*.csv</code> — und sagt zusätzlich, dass{' '}
+            <code>Filiale_Nord_2026-08-21.csv</code> zum Stapel <code>2026-08-21</code> gehört.
+          </p>
+          <p>
+            Dann wird je Lauf <strong>ein</strong> Stapel verarbeitet, der älteste vollständige. Die verspätete
+            Lieferung von gestern bleibt liegen, statt mit der heutigen verrührt zu werden. Ohne die Marke gilt
+            alles im Verzeichnis als ein Stapel.
+          </p>
+          <p>
+            Entweder alle Plätze tragen die Marke oder keiner. Bei gemischten Mustern ist bei den Lieferungen ohne
+            Marke nicht zu sagen, zu welchem Stapel sie gehören — der Punkt an der Überschrift steht dann auf rot.
+          </p>
         </>
       }
     >
@@ -321,7 +332,7 @@ function Plaetze({ plaetze, onChange }: { plaetze: Platz[]; onChange(next: Platz
             />
             <input
               value={platz.muster}
-              placeholder="Filiale_Nord_*.csv"
+              placeholder={`Filiale_Nord_${'{stapel}'}.csv`}
               onChange={(event) => setze(stelle, { muster: event.target.value })}
             />
             <button

@@ -226,25 +226,31 @@ test('die Meldung nennt den Namen des Beteiligten, nicht eine Zahl', () => {
   assert.match(stapelmeldung(stand), /Filiale Süd/);
   assert.match(stapelmeldung(stand), /Filiale West/);
 });
-/* ---------- Der Schlüssel: zwei Stapel im selben Verzeichnis ---------- */
+/* ---------- Die Marke im Namen: zwei Stapel im selben Verzeichnis ---------- */
 
 /*
- * Der Fall, für den es den Schlüssel gibt: Die verspätete Lieferung von gestern
- * liegt neben der heutigen. Ohne ihn wären die Plätze besetzt, die Anzahl
+ * Der Fall, für den es die Marke gibt: Die verspätete Lieferung von gestern
+ * liegt neben der heutigen. Ohne sie wären die Plätze besetzt, die Anzahl
  * stimmte womöglich auch — und das Ergebnis enthielte zwei Tage.
+ *
+ * Das Merkmal steht im **Dateinamen**, dort wo `{stapel}` im Muster steht. Ein
+ * Wert in einer Spalte verlangte, die Datei aufzumachen, bevor entschieden ist,
+ * ob sie verarbeitet wird.
  */
 
-const MIT_SCHLUESSEL: Stapelbedingung = { ...DREI, schluesselfeld: 'lieferdatum' };
+const MIT_MARKE: Stapelbedingung = {
+  plaetze: [
+    { name: 'Nord', muster: 'Filiale_Nord_{stapel}.csv' },
+    { name: 'Süd', muster: 'Filiale_Sued_{stapel}.csv' },
+    { name: 'West', muster: 'Filiale_West_{stapel}.csv' },
+  ],
+};
 
-function mit(name: string, schluessel: string, minute: number): Stapeldatei {
-  return {
-    name,
-    schluessel,
-    geaendert: new Date(`2026-08-21T05:${String(minute).padStart(2, '0')}:00.000Z`),
-  };
+function um(name: string, minute: number): Stapeldatei {
+  return { name, geaendert: new Date(`2026-08-21T05:${String(minute).padStart(2, '0')}:00.000Z`) };
 }
 
-test('ohne Schlüsselfeld gibt es genau eine Gruppe', () => {
+test('ohne Marke im Muster gibt es genau eine Gruppe', () => {
   const aufteilung = stapelgruppen([datei('Filiale_Nord_0821.csv')], DREI, JETZT);
 
   assert.equal(aufteilung.gruppen.length, 1);
@@ -252,16 +258,16 @@ test('ohne Schlüsselfeld gibt es genau eine Gruppe', () => {
   assert.deepEqual(aufteilung.ohneSchluessel, []);
 });
 
-test('zwei Lieferdaten ergeben zwei Stapel', () => {
+test('zwei Lieferdaten im Namen ergeben zwei Stapel', () => {
   const aufteilung = stapelgruppen(
     [
-      mit('Filiale_Nord_0820.csv', '2026-08-20', 10),
-      mit('Filiale_Sued_0820.csv', '2026-08-20', 11),
-      mit('Filiale_Nord_0821.csv', '2026-08-21', 30),
-      mit('Filiale_Sued_0821.csv', '2026-08-21', 31),
-      mit('Filiale_West_0821.csv', '2026-08-21', 32),
+      um('Filiale_Nord_2026-08-20.csv', 10),
+      um('Filiale_Sued_2026-08-20.csv', 11),
+      um('Filiale_Nord_2026-08-21.csv', 30),
+      um('Filiale_Sued_2026-08-21.csv', 31),
+      um('Filiale_West_2026-08-21.csv', 32),
     ],
-    MIT_SCHLUESSEL,
+    MIT_MARKE,
     JETZT
   );
 
@@ -277,31 +283,32 @@ test('zwei Lieferdaten ergeben zwei Stapel', () => {
   assert.equal(aufteilung.gruppen[1].stand.vollstaendig, true);
 });
 
-test('ohne Schlüssel gehört eine Datei zu keinem Stapel', () => {
+test('eine Datei ohne passenden Platz gehört zu keinem Stapel', () => {
+  const aufteilung = stapelgruppen([um('Filiale_Nord_2026-08-21.csv', 30), um('Notizen.csv', 31)], MIT_MARKE, JETZT);
+
+  assert.deepEqual(aufteilung.ohneSchluessel, ['Notizen.csv']);
+  assert.equal(aufteilung.gruppen.length, 1);
+});
+
+test('ein Platz ohne Marke wird als Mangel benannt', () => {
   /*
-   * Entweder fehlt das Feld, oder es trägt in einer Datei mehrere Werte. Der
-   * zweite Fall ist der ernstere: Dann ist der Schlüssel keine Eigenschaft
-   * dieser Datei — sie enthält womöglich zwei Stapel.
+   * Tragen die anderen eine Marke und dieser nicht, ist nicht zu sagen, zu
+   * welchem Stapel seine Lieferung gehört. Sie stillschweigend in den erstbesten
+   * zu legen wäre der Fehler, der ein Ergebnis um fremde Datensätze vergrößert.
    */
   const aufteilung = stapelgruppen(
-    [mit('Filiale_Nord_0821.csv', '2026-08-21', 30), { name: 'Filiale_Sued_0821.csv' }],
-    MIT_SCHLUESSEL,
+    [um('Filiale_Nord_2026-08-21.csv', 30), um('Filiale_Sued_0821.csv', 31)],
+    {
+      plaetze: [
+        { name: 'Nord', muster: 'Filiale_Nord_{stapel}.csv' },
+        { name: 'Süd', muster: 'Filiale_Sued_*.csv' },
+      ],
+    },
     JETZT
   );
 
+  assert.ok(aufteilung.maengel.some((mangel) => mangel.includes('Süd')));
   assert.deepEqual(aufteilung.ohneSchluessel, ['Filiale_Sued_0821.csv']);
-  assert.equal(aufteilung.gruppen.length, 1);
-  // Sie zählt für keinen Platz — der Stapel bleibt unvollständig.
-  assert.equal(aufteilung.gruppen[0].stand.vollstaendig, false);
-});
-
-test('ein leerer Schlüssel ist kein Schlüssel', () => {
-  // Sonst bildeten alle Dateien ohne Wert gemeinsam einen Stapel, den niemand
-  // erwartet hat.
-  const aufteilung = stapelgruppen([mit('Filiale_Nord_0821.csv', '   ', 30)], MIT_SCHLUESSEL, JETZT);
-
-  assert.deepEqual(aufteilung.ohneSchluessel, ['Filiale_Nord_0821.csv']);
-  assert.equal(aufteilung.gruppen.length, 0);
 });
 
 test('jede Gruppe hat ihre eigene Frist', () => {
@@ -312,16 +319,42 @@ test('jede Gruppe hat ihre eigene Frist', () => {
    */
   const aufteilung = stapelgruppen(
     [
-      { name: 'Filiale_Nord_0820.csv', schluessel: 'alt', geaendert: new Date('2026-08-21T04:00:00.000Z') },
-      { name: 'Filiale_Nord_0821.csv', schluessel: 'neu', geaendert: new Date('2026-08-21T05:59:00.000Z') },
+      { name: 'Filiale_Nord_alt.csv', geaendert: new Date('2026-08-21T04:00:00.000Z') },
+      { name: 'Filiale_Nord_neu.csv', geaendert: new Date('2026-08-21T05:59:00.000Z') },
     ],
-    { ...MIT_SCHLUESSEL, fristSekunden: 1800 },
+    { ...MIT_MARKE, fristSekunden: 1800 },
     JETZT
   );
 
-  const alt = aufteilung.gruppen.find((gruppe) => gruppe.schluessel === 'alt');
-  const neu = aufteilung.gruppen.find((gruppe) => gruppe.schluessel === 'neu');
+  assert.equal(aufteilung.gruppen.find((gruppe) => gruppe.schluessel === 'alt')?.stand.abgelaufen, true);
+  assert.equal(aufteilung.gruppen.find((gruppe) => gruppe.schluessel === 'neu')?.stand.abgelaufen, false);
+});
 
-  assert.equal(alt?.stand.abgelaufen, true);
-  assert.equal(neu?.stand.abgelaufen, false);
+/* ---------- Das Komma trennt ---------- */
+
+test('ein Komma im Muster trennt zwei Muster', () => {
+  /*
+   * Vorher wurde es wörtlich genommen: Gesucht wurde eine Datei, deren Name ein
+   * Komma enthält, es passte nichts, und der Lauf endete jede Nacht mit
+   * „nichts zu tun". In einem Dateinamen, der maschinell verarbeitet wird, hat
+   * ein Komma nichts verloren.
+   */
+  const stand = pruefeStapel(
+    [datei('Filiale_Nord_0821.csv'), datei('Umsatz_2026.csv')],
+    {
+      plaetze: [{ name: 'Beides', muster: 'Filiale_*.csv, Umsatz_*.csv' }],
+      anzahl: 2,
+    },
+    JETZT
+  );
+
+  assert.equal(stand.vollstaendig, true);
+  assert.equal(stand.stapel.length, 2);
+});
+
+test('ein Komma am Ende macht kein Muster, das auf alles passt', () => {
+  const stand = pruefeStapel([datei('Notizen.csv')], { plaetze: [{ name: 'Nur CSV', muster: 'Filiale_*.csv,' }] }, JETZT);
+
+  assert.equal(stand.vollstaendig, false);
+  assert.deepEqual(stand.fremd, ['Notizen.csv']);
 });

@@ -5,7 +5,6 @@ import {
   type WirksameEinstellungen,
 } from '../../domain/consolidation/Einstellungen.js';
 import { beurteileMenge, datensaetzeIn } from '../../domain/consolidation/Menge.js';
-import type { Region } from '../../domain/tenants/Region.js';
 import type { Quelle } from '../../domain/consolidation/Quellen.js';
 import type { FeatureSet } from '../../domain/licensing/Feature.js';
 import type { Logger } from '../../domain/logging/LogEntry.js';
@@ -658,7 +657,7 @@ export class WorkflowExecutionService implements JobExecutor {
      */
     const pruefer = schritt.schema ? new Schemapruefer(this.umgebung.ablage, schritt.schema) : undefined;
 
-    const eingang = await this.dateien(job, schritt, vorlage, uebertragen, hinweise, laufId, jetzt, wunsch.region);
+    const eingang = await this.dateien(job, schritt, vorlage, uebertragen, hinweise, laufId, jetzt);
 
     for (const datei of eingang.dateien) {
       try {
@@ -718,38 +717,36 @@ export class WorkflowExecutionService implements JobExecutor {
     genommen: Verzeichniseintrag[],
     hinweise: string[],
     laufId: string,
-    jetzt: Date,
-    region: Region
+    jetzt: Date
   ): Promise<Eingang> {
     const bedingung = schritt.dateien!.stapel!;
     const reife = (schritt.dateien?.reifeSekunden ?? 0) * 1000;
 
-    const beschrieben: Stapeldatei[] = [];
-
-    for (const eintrag of genommen) {
-      beschrieben.push({
-        name: eintrag.name,
-        geaendert: eintrag.geaendert ? new Date(eintrag.geaendert) : undefined,
-        // Ohne Änderungszeitpunkt lässt sich die Reife nicht beurteilen; dann
-        // gilt die Datei als fertig, so wie ohne Wartezeit.
-        fertig: reife <= 0 || !eintrag.geaendert ? true : jetzt.getTime() - new Date(eintrag.geaendert).getTime() >= reife,
-        schluessel: bedingung.schluesselfeld
-          ? await this.schluesselVon(
-              this.umgebung.ablage.pfad(verzeichnis, eintrag.name),
-              eintrag.name,
-              bedingung.schluesselfeld,
-              region,
-              hinweise
-            )
-          : undefined,
-      });
-    }
+    /*
+     * Das Stapelmerkmal steht im Dateinamen — dort, wo `{stapel}` im Muster
+     * steht. Es wird nichts aufgemacht: Ob eine Datei zu diesem Stapel gehört,
+     * steht an ihr dran, und wer Tageslieferungen bekommt, hat das Datum
+     * ohnehin im Namen.
+     */
+    const beschrieben: Stapeldatei[] = genommen.map((eintrag) => ({
+      name: eintrag.name,
+      geaendert: eintrag.geaendert ? new Date(eintrag.geaendert) : undefined,
+      // Ohne Änderungszeitpunkt lässt sich die Reife nicht beurteilen; dann
+      // gilt die Datei als fertig, so wie ohne Wartezeit.
+      fertig: reife <= 0 || !eintrag.geaendert ? true : jetzt.getTime() - new Date(eintrag.geaendert).getTime() >= reife,
+    }));
 
     const aufteilung = stapelgruppen(beschrieben, bedingung, jetzt);
 
+    for (const mangel of aufteilung.maengel) {
+      // Ein Einrichtungsfehler und keine ausgebliebene Lieferung: Er wird nicht
+      // dadurch besser, dass jemand wartet.
+      this.protokoll(job, laufId, 'WARNING', mangel);
+    }
+
     if (aufteilung.ohneSchluessel.length > 0) {
       hinweise.push(
-        `Ohne lesbaren Wert in „${bedingung.schluesselfeld}" und deshalb keinem Stapel zugeordnet: ` +
+        'Keinem Stapel zugeordnet, weil aus dem Namen kein Merkmal zu lesen war: ' +
           aufteilung.ohneSchluessel.join(', ')
       );
     }
@@ -869,84 +866,6 @@ export class WorkflowExecutionService implements JobExecutor {
     };
   }
 
-  /**
-   * Der Wert, der diese Datei einem Stapel zuordnet.
-   *
-   * ## Warum die Datei dafür aufgemacht wird
-   *
-   * Weil der Schlüssel im Inhalt steht und nicht im Namen. Das kostet einen
-   * Lesevorgang mehr — die Datei wird später noch einmal gelesen. Der Preis ist
-   * bewusst gezahlt: Die Alternative wäre, den Wert aus dem Dateinamen zu
-   * raten, und dann wäre der Schlüssel wieder eine Namenskonvention und keine
-   * Tatsache.
-   *
-   * ## Warum mehrere Werte kein Schlüssel sind
-   *
-   * Trägt das Feld in **einer** Datei zwei verschiedene Werte, ist der
-   * Schlüssel keine Eigenschaft dieser Datei — sie enthält womöglich zwei
-   * Stapel. Sie gehört dann in keinen, und das wird gesagt. Sie stillschweigend
-   * dem ersten Wert zuzuschlagen wäre der Fehler, der ein Ergebnis um fremde
-   * Datensätze vergrößert.
-   */
-  private async schluesselVon(
-    pfad: string,
-    name: string,
-    feld: string,
-    region: Region,
-    hinweise: string[]
-  ): Promise<string | undefined> {
-    try {
-      const gelesen = liesDatei({ name, bytes: await this.umgebung.ablage.lies(pfad) }, { region });
-
-      if (gelesen.quellen.length === 0) {
-        hinweise.push(`„${name}": Der Stapelschlüssel ließ sich nicht lesen — die Datei gab keine Tabelle her.`);
-
-        return undefined;
-      }
-
-      const werte = new Set<string>();
-
-      for (const quelle of gelesen.quellen) {
-        const stelle = quelle.felder.findIndex((kopf) => kopf.trim().toLowerCase() === feld.trim().toLowerCase());
-
-        if (stelle === -1) {
-          hinweise.push(`„${name}": Das Feld „${feld}" gibt es dort nicht.`);
-
-          return undefined;
-        }
-
-        for (const zeile of quelle.zeilen) {
-          const wert = (zeile[stelle] ?? '').trim();
-
-          if (wert !== '') {
-            werte.add(wert);
-          }
-        }
-      }
-
-      if (werte.size === 0) {
-        hinweise.push(`„${name}": Das Feld „${feld}" ist leer.`);
-
-        return undefined;
-      }
-
-      if (werte.size > 1) {
-        hinweise.push(
-          `„${name}": Das Feld „${feld}" trägt mehrere Werte (${[...werte].slice(0, 4).join(', ')}` +
-            `${werte.size > 4 ? ' …' : ''}). Die Datei gehört damit zu keinem einzelnen Stapel.`
-        );
-
-        return undefined;
-      }
-
-      return [...werte][0];
-    } catch (fehler) {
-      hinweise.push(`„${name}": Der Stapelschlüssel ließ sich nicht lesen — ${(fehler as Error).message}`);
-
-      return undefined;
-    }
-  }
-
   /** Aus Namen werden Pfade — der Änderungszeitpunkt bleibt der der Quelle. */
   private alsQuellen(
     verzeichnis: string,
@@ -1012,8 +931,7 @@ export class WorkflowExecutionService implements JobExecutor {
     uebertragen: TransferRunResult,
     hinweise: string[],
     laufId: string,
-    jetzt: Date,
-    region: Region
+    jetzt: Date
   ): Promise<Eingang> {
     const muster = schritt.dateien?.muster;
 
@@ -1045,7 +963,7 @@ export class WorkflowExecutionService implements JobExecutor {
        * wird genommen.
        */
       if (schritt.dateien?.stapel) {
-        return this.stapelDateien(job, schritt, verzeichnis, genommen, hinweise, laufId, jetzt, region);
+        return this.stapelDateien(job, schritt, verzeichnis, genommen, hinweise, laufId, jetzt);
       }
 
       return {

@@ -608,23 +608,31 @@ export function ChevronIcon() {
  */
 export function Klappkarte({
   titel,
-  belegt = false,
+  stand = 'LEER',
   anfangsOffen = true,
   children,
 }: {
   titel: string;
   /**
-   * Ob in dieser Fläche schon etwas Vollständiges steht.
+   * Der Zustand dieser Fläche — er färbt den Punkt neben der Überschrift.
    *
-   * Trägt den hellen Streifen am linken Rand. Er beantwortet die Frage, die man
-   * beim Vorbeiscrollen an einem Dutzend zugeklappter Flächen hat: Wo habe ich
-   * schon etwas eingetragen?
+   * ```text
+   * LEER            grau    nichts eingetragen
+   * UNVOLLSTAENDIG  gelb    angefangen, etwas Nötiges fehlt
+   * FEHLERHAFT      rot     eingetragen und in sich falsch
+   * GUELTIG         grün    vollständig und brauchbar
+   * ```
    *
-   * Was das je Fläche heißt, entscheidet der Aufrufer — die Karte weiß nichts
-   * von Workflows. Für den Editor steht es in `screens/job/belegt.ts`, samt der
-   * Begründung, warum eine brauchbare Voreinstellung noch keine Eingabe ist.
+   * Am Punkt und nicht als Streifen am Rand: Der Punkt gehört zur Pille, und
+   * die Pille ist das, was von einer zugeklappten Fläche zu sehen ist. Vier
+   * Zustände an einem Rand unterzubringen hieße außerdem, vier Farben als
+   * Linien zu unterscheiden — als Punkt sind sie eine Farbe an einer Stelle.
+   *
+   * Was die Zustände je Fläche bedeuten, entscheidet der Aufrufer; die Karte
+   * weiß nichts von Workflows. Für den Editor steht es in
+   * `screens/job/feldstand.ts`.
    */
-  belegt?: boolean;
+  stand?: 'LEER' | 'UNVOLLSTAENDIG' | 'FEHLERHAFT' | 'GUELTIG';
   /** Ob sie beim ersten Erscheinen offen steht. */
   anfangsOffen?: boolean;
   children: ReactNode;
@@ -633,9 +641,7 @@ export function Klappkarte({
 
   return (
     <section
-      className={['card', 'card--klapp', offen ? '' : 'card--zu', belegt ? 'card--belegt' : '']
-        .filter(Boolean)
-        .join(' ')}
+      className={['card', 'card--klapp', offen ? '' : 'card--zu', `card--${stand.toLowerCase()}`].join(' ')}
     >
       {/*
         * Die Überschrift steht **vor** dem Knopf, obwohl der Knopf oben links

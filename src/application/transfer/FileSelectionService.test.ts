@@ -211,3 +211,15 @@ test('a pattern that is only an extension asks for every file of that kind', () 
   assert.equal(service.matchesFilename('.csv', '.csv'), true);
   assert.equal(service.matchesFilename('bericht.csv', '.csv'), false);
 });
+
+test('das Komma trennt zwei Dateinamen', () => {
+  /*
+   * Das Feld heißt „Dateiname/n" und nahm bisher genau einen: Wer zwei schrieb,
+   * suchte eine Datei mit Komma im Namen und fand nichts — still, jede Nacht.
+   */
+  const dienst = new FileSelectionService();
+
+  assert.equal(dienst.matchesFilename('Filiale_Nord.csv', 'Filiale_*, Umsatz_*'), true);
+  assert.equal(dienst.matchesFilename('Umsatz_2026.csv', 'Filiale_*, Umsatz_*'), true);
+  assert.equal(dienst.matchesFilename('Notizen.csv', 'Filiale_*, Umsatz_*'), false);
+});

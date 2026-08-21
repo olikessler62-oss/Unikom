@@ -1033,46 +1033,47 @@ code {
 }
 
 /*
- * Der helle Streifen am linken Rand: Hier steht schon etwas.
+ * Der Punkt an der Pille zeigt den Zustand einer Fläche.
  *
- * ## Warum am Rand und nicht als Zeichen in der Pille
+ * ## Warum am Punkt
  *
- * Ein Dutzend zugeklappter Flächen untereinander liest man nicht, man
- * überfliegt sie. Ein Streifen an der immer gleichen Stelle wird dabei zu einer
- * Spalte, die man auf einen Blick abliest — ein Häkchen in der Pille müsste
- * jedes Mal gesucht werden, weil die Pillen verschieden breit sind.
+ * Von einer zugeklappten Fläche ist die Pille zu sehen, und der Punkt gehört zu
+ * ihr. Ein Dutzend Pillen untereinander ergibt damit eine Spalte von Punkten,
+ * die man in einem Blick abliest — und die Farbe steht dort, wo der Name steht,
+ * nicht am anderen Ende der Zeile.
  *
- * ## Warum die halbe Höhe
+ * ## Warum nicht als Streifen am Rand
  *
- * Über die volle Höhe wäre er ein zweiter Rahmen und die Fläche sähe
- * ausgewählt aus. Auf halber Höhe und mittig liest er sich als Merkzeichen an
- * einer Fläche, nicht als Zustand der Fläche selbst. Er wächst mit: Eine
- * aufgeklappte Fläche bekommt einen längeren Streifen, und das ist richtig —
- * er zeigt an ihr entlang, wie viel dort steht.
+ * Ein Streifen kann „hier steht etwas" sagen, aber nicht vier Zustände: Vier
+ * Farben als schmale Linien zu unterscheiden verlangt Vergleichen. Als Punkt
+ * sind sie eine Farbe an einer Stelle.
  *
- * ## Warum das tiefe Orange und warum nur ein Pixel
+ * ## Die Farben
  *
- * Der Akzent gehört der einen Hauptaktion je Ansicht. Leuchteten zehn Flächen
- * in derselben Farbe wie der Speichern-Knopf, hätte die Farbe ihre Bedeutung
- * verloren. `--accent-deep` ist erkennbar derselben Familie, aber dunkler —
- * und ein Merkzeichen soll nicht leuchten, sondern dastehen.
- *
- * Ein Pixel, weil er auf dem Rahmen liegt und nicht neben ihm: Er ersetzt ihn
- * auf dieser Strecke, statt eine zweite Kante danebenzustellen. Breiter wäre
- * er eine Leiste, und die Fläche sähe angewählt aus. Ohne Leuchten aus
- * demselben Grund.
+ * Aus den Marken der Palette und nicht als eigene Werte — sie bedeuten in
+ * Unikom überall dasselbe: `--live` gelungen, `--caution` Aufmerksamkeit,
+ * `--alarm` Fehler. Grau ist die ruhende Schrift: Ein leeres Feld ist kein
+ * Zustand, den man melden müsste.
  */
-.card--belegt::after {
-  content: '';
-  position: absolute;
-  /* Auf dem Rahmen, nicht daneben: Er ersetzt ihn auf dieser Strecke. */
-  left: -1px;
-  top: 25%;
-  width: 1px;
-  height: 50%;
-  background: rgb(var(--accent-deep));
+.card--leer > h2:first-child::before {
+  background: var(--text-faint);
+  box-shadow: none;
 }
 
+.card--unvollstaendig > h2:first-child::before {
+  background: rgb(var(--caution));
+  box-shadow: 0 0 9px rgb(var(--caution));
+}
+
+.card--fehlerhaft > h2:first-child::before {
+  background: rgb(var(--alarm));
+  box-shadow: 0 0 9px rgb(var(--alarm));
+}
+
+.card--gueltig > h2:first-child::before {
+  background: rgb(var(--live));
+  box-shadow: 0 0 9px rgb(var(--live));
+}
 /* Derselbe Grund wie bei `.card > *:last-child` — nur eine Ebene tiefer. */
 .klapp__body > div > *:last-child {
   margin-bottom: 0;

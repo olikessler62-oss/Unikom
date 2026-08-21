@@ -53,7 +53,28 @@ export class FileSelectionService {
    * it; against `Rechnung_2026.2026_final.csv` it does not, and the whole
    * pattern is compared as written.
    */
+  /**
+   * Ob der Name zu dem passt, was im Feld steht.
+   *
+   * **Das Komma trennt.** Das Feld heisst „Dateiname/n" und nahm bisher genau
+   * einen: Wer zwei schrieb, suchte eine Datei mit Komma im Namen und fand
+   * nichts. In einem Dateinamen, der maschinell verarbeitet wird, hat ein
+   * Komma nichts verloren — also ist es hier als Trenner frei.
+   */
   matchesFilename(filename: string, pattern?: string, caseSensitive = false): boolean {
+    const einzeln = (pattern ?? '')
+      .split(',')
+      .map((stueck) => stueck.trim())
+      .filter((stueck) => stueck !== '');
+
+    if (einzeln.length > 1) {
+      return einzeln.some((eines) => this.matchesOneFilename(filename, eines, caseSensitive));
+    }
+
+    return this.matchesOneFilename(filename, pattern, caseSensitive);
+  }
+
+  private matchesOneFilename(filename: string, pattern?: string, caseSensitive = false): boolean {
     const wanted = pattern?.trim() ?? '';
 
     // Nichts, oder nur Sterne: schränkt nichts ein, wie ein leeres Feld.

@@ -199,13 +199,13 @@ import {
 import { zugangFuerFreigabe } from './freigaben.js';
 import { Stapelwahl } from './Stapelwahl.js';
 import {
-  ausgangBelegt,
-  eingangBelegt,
-  dateiwahlBelegt,
-  nachlaufBelegt,
-  quelleBelegt,
-  zielBelegt,
-} from './belegt.js';
+  ausgangStand,
+  eingangStand,
+  dateiwahlStand,
+  nachlaufStand,
+  quelleStand,
+  zielStand,
+} from './feldstand.js';
 
 /**
  * Ein Workflow ist eine Kette: Daten kommen herein, es geschieht etwas mit
@@ -911,7 +911,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               * nichts ab — dann hat dieses Glied nichts zu sagen und verschwindet,
               * statt als auszufüllendes Formular stehenzubleiben.
               */}
-            <Klappkarte titel={STAGE_LABELS.TRANSFER} belegt={transfers(job)}>
+            <Klappkarte titel={STAGE_LABELS.TRANSFER} stand={transfers(job) ? 'GUELTIG' : 'LEER'}>
 
               <div className="prose">
                 <p>{STAGE_DESCRIPTIONS.TRANSFER}</p>
@@ -928,7 +928,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
 
         {step === 'TRANSFER' && transfers(job) && (
           <>
-            <Klappkarte titel="Quelle" belegt={quelleBelegt(job)}>
+            <Klappkarte titel="Quelle" stand={quelleStand(job)}>
 
               <Field label="Art">
                 <select
@@ -1341,7 +1341,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               )}
             </Klappkarte>
 
-            <Klappkarte titel="Welche Dateien" belegt={dateiwahlBelegt(job)}>
+            <Klappkarte titel="Welche Dateien" stand={dateiwahlStand(job)}>
 
               {/*
                 * Der Erklärknopf steht hier von Hand in der Zeile und nicht als
@@ -1459,7 +1459,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               />
             </Klappkarte>
 
-            <Klappkarte titel="Ziel" belegt={zielBelegt(job)}>
+            <Klappkarte titel="Ziel" stand={zielStand(job)}>
 
               <Field label="Art">
                 <select
@@ -1814,7 +1814,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               )}
             </Klappkarte>
 
-            <Klappkarte titel="Nach erfolgreicher Übernahme" belegt={nachlaufBelegt(job)}>
+            <Klappkarte titel="Nach erfolgreicher Übernahme" stand={nachlaufStand(job)}>
 
               <Field
                 label="Was soll mit der Quelldatei geschehen?"
@@ -2075,7 +2075,7 @@ function StageModule({
         * Als eigene Fläche und nicht als Kopf einer großen — so steht es beim
         * Übertragen, und was gleich aussieht, soll gleich gebaut sein.
         */}
-      <Klappkarte titel={STAGE_LABELS[stage]} belegt={config?.enabled === true}>
+      <Klappkarte titel={STAGE_LABELS[stage]} stand={config?.enabled === true ? 'GUELTIG' : 'LEER'}>
 
         <div className="prose">
           <p>{STAGE_DESCRIPTIONS[stage]}</p>
@@ -2128,7 +2128,7 @@ function StageModule({
       )}
 
       {config?.enabled && (
-        <Klappkarte titel={stage === 'CONSOLIDATE' ? 'Verarbeitung' : 'Einstellungen'} belegt={ausgangBelegt(config.output)}>
+        <Klappkarte titel={stage === 'CONSOLIDATE' ? 'Verarbeitung' : 'Einstellungen'} stand={ausgangStand(config.output)}>
 
           {stage === 'CONSOLIDATE' && (
             <Konsolidierungsregeln
@@ -2298,7 +2298,7 @@ function Konsolidierungsquelle({
     });
 
   return (
-    <Klappkarte titel="Quelle" belegt={eingangBelegt(value)}>
+    <Klappkarte titel="Quelle" stand={eingangStand(value)}>
       {verwaist && (
         <Notice kind="warn">
           Dieser Schritt soll übernehmen, was der Schritt davor ablegt — aber davor liegt keiner mehr. Bitte ein

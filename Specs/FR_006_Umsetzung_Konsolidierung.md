@@ -1881,15 +1881,31 @@ geräumt — mit eigenem Meldeanlass `STAPEL_VERWORFEN` und nicht als
 „Lauf fehlgeschlagen": Unikom hat sich richtig verhalten. Zu melden ist eine
 ausgebliebene Lieferung, und darum kümmert sich ein anderer Mensch.
 
-## Der Schlüssel im Inhalt
+## Die Marke im Dateinamen
 
 Gebraucht, sobald **zwei Stapel gleichzeitig** im Abholverzeichnis liegen
-können — die verspätete Lieferung von gestern neben der heutigen. Ohne ihn
-würden beide zu einem verrührt: Die Plätze wären besetzt, und das Ergebnis
-enthielte zwei Tage.
+können — die verspätete Lieferung von gestern neben der heutigen. Ohne
+Merkmal würden beide zu einem verrührt: Die Plätze wären besetzt, und das
+Ergebnis enthielte zwei Tage.
 
-Ein Feldname (`lieferdatum`), und alle Dateien mit demselben Wert bilden
-einen Stapel. Drei Entscheidungen darin:
+**Erst gebaut, dann verworfen:** Die erste Fassung las den Wert aus einer
+*Spalte*. Der Betreiber hat widersprochen, und zu Recht — sie verlangte, jede
+Datei aufzumachen, **bevor** entschieden ist, ob sie überhaupt verarbeitet
+wird, und dass jede Zeile denselben Wert trägt.
+
+Jetzt steht das Merkmal im Namen, an der Stelle, die das Muster bezeichnet:
+
+```text
+Filiale_Nord_{stapel}.csv   →  Filiale_Nord_2026-08-21.csv gehört zu „2026-08-21"
+```
+
+Ein eigener Schalter daneben wäre eine zweite Angabe gewesen, die dem Muster
+widersprechen kann. So sagt das Muster selbst, **ob** gruppiert wird und
+**welcher Teil** des Namens das Merkmal ist. Der Name trägt die Zugehörigkeit
+ohnehin: Wer Tageslieferungen bekommt, hat das Datum darin, weil er die
+Dateien sonst gar nicht auseinanderhalten könnte.
+
+Drei Entscheidungen darin:
 
 * **Je Lauf ein Stapel**, der älteste vollständige. Zwei in einem Lauf zu
   nehmen hieße, sie doch zusammenzulegen. Älteste zuerst, weil sich sonst ein
@@ -1897,15 +1913,23 @@ einen Stapel. Drei Entscheidungen darin:
 * **Jede Gruppe hat ihre eigene Frist.** Sonst risse der alte Stapel den
   neuen mit: Seine Uhr läuft länger.
 * **Verworfen wird dieser Stapel, nicht das Verzeichnis.** Sonst nähme ein
-  alter, nie fertig gewordener Stapel jede Nacht einen frischen mit, und
-  niemand käme je zu einem Ergebnis.
+  alter, nie fertig gewordener Stapel jede Nacht einen frischen mit.
 
-**Der Preis:** Die Dateien werden zum Gruppieren aufgemacht und später noch
-einmal gelesen. Bewusst gezahlt — die Alternative wäre, den Wert aus dem
-Dateinamen zu raten, und dann wäre der Schlüssel wieder eine
-Namenskonvention und keine Tatsache. Trägt das Feld in *einer* Datei mehrere
-Werte, gehört sie zu keinem Stapel: Dann ist der Schlüssel keine Eigenschaft
-dieser Datei, und sie enthält womöglich zwei Stapel.
+Tragen manche Plätze die Marke und andere nicht, ist bei deren Lieferungen
+nicht zu sagen, wohin sie gehören. Das ist ein Einrichtungsfehler: eine
+Warnung im Protokoll, und der Punkt an der Überschrift steht auf rot.
+
+## Das Komma trennt
+
+`Filiale_*.csv, Umsatz_*.csv` sind **zwei Muster**; es genügt, wenn eines
+trifft. Vorher wurde das Komma wörtlich genommen — gesucht wurde eine Datei,
+deren Name ein Komma enthält.
+
+Die Begründung ist die des Betreibers: „Ein Komma hat in einem Dateinamen
+nichts verloren, zumindest sicher nicht in Dateien, die derart verarbeitet
+werden." Damit ist es als Trenner frei — und zwar in **jedem** Feld, das
+Dateinamen aufnimmt. Auch „Dateiname/n" beim Übertragen trug das Plural-n im
+Namen und nahm trotzdem genau einen.
 
 ## Die Oberfläche
 
@@ -1916,11 +1940,12 @@ trifft das gerade?"** — sie liest das Abholverzeichnis und zeigt in zwei
 Spalten, was mitkommt und was draußen bleibt. Das ist die einzige Antwort auf
 „wie schließe ich anderes aus", die man vor dem Speichern glauben kann.
 
-Dass ein Komma nicht trennt, steht jetzt im Erklärtext des Musterfeldes.
+Der Erklärtext des Musterfeldes sagt, dass das Komma trennt; der der Plätze
+erklärt die Marke `{stapel}`.
 
 ## Belegt
 
-31 Tests (18 auf der Regel, 13 auf dem Lauf), **27 von 27 Mutationen
+33 Tests (20 auf der Regel, 13 auf dem Lauf), **27 von 27 Mutationen
 gebissen**. Die scharfen darunter prüfen die Reihenfolge und nicht das
 Ergebnis: dass aus dem Arbeitsverzeichnis gelesen wird und nicht aus dem
 Abholverzeichnis, dass fremde Dateien liegen bleiben, und dass beim Verwerfen
@@ -1935,3 +1960,36 @@ nur der betroffene Stapel geht.
 * **Ausschlussmuster** (`~$*` für die Sperrdateien von Excel) sind nicht
   gebaut. Mit benannten Plätzen fällt der Bedarf meist fort — eine Datei ohne
   Platz kommt ohnehin nicht mit.
+* Die **Ausnahme, die der Betreiber gelten lässt** — ein Merkmal in einer
+  eindeutigen Überschrift, die nicht zu einer Tabelle oder Liste gehört — ist
+  nicht gebaut. Unikom hat keinen Begriff von einem Vorspann: `Feststellungen`
+  beschreibt Formatfakten wie Trennzeichen und Kodierung, sonst nichts. Das
+  auf die Schnelle danebenzubauen wäre geraten.
+
+## Nachtrag: der Punkt an der Pille zeigt den Zustand
+
+Zuerst stand ein orangefarbener Streifen am linken Rand einer Fläche, in der
+etwas Vollständiges steht. Er ist wieder fort; den Zustand trägt jetzt der
+Punkt neben der Überschrift:
+
+```text
+grau   nichts eingetragen
+gelb   angefangen, etwas Nötiges fehlt
+rot    eingetragen und in sich falsch
+grün   vollständig
+```
+
+**Warum am Punkt.** Von einer zugeklappten Fläche ist die Pille zu sehen, und
+der Punkt gehört zu ihr. Ein Dutzend Pillen untereinander ergibt eine Spalte
+von Punkten, die man in einem Blick abliest. Ein Streifen kann außerdem „hier
+steht etwas" sagen, aber nicht vier Zustände: Vier Farben als schmale Linien
+zu unterscheiden verlangt Vergleichen — als Punkt sind sie eine Farbe an einer
+Stelle.
+
+**Rot wird sparsam vergeben.** Eine Freigabe ohne Zugang ist *unvollständig*,
+nicht falsch; rot bleibt dem vorbehalten, was so nicht laufen kann — ein
+Laufwerkspfad als Freigabe, gemischte Stapelmarken. Wer rot für Fehlendes
+vergibt, dem fällt der echte Fehler nicht mehr auf.
+
+Die Regel je Fläche steht in `web/src/screens/job/feldstand.ts` — vorher
+`belegt.ts`, was ein Ja/Nein war und nicht mehr beschrieb, was darin steht.

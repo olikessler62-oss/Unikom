@@ -1849,6 +1849,13 @@ test('eine Freigabe ohne hinterlegten Zugang wird benannt', async () => {
  * dass es gar nicht entsteht.
  */
 
+/** Dieselben drei, aber mit der Marke im Namen — fuer die Gruppierung. */
+const MARKEN_PLAETZE = [
+  { name: 'Nord', muster: 'Filiale_Nord_{stapel}.csv' },
+  { name: 'Süd', muster: 'Filiale_Sued_{stapel}.csv' },
+  { name: 'West', muster: 'Filiale_West_{stapel}.csv' },
+];
+
 const DREI_PLAETZE = {
   plaetze: [
     { name: 'Nord', muster: 'Filiale_Nord_*.csv' },
@@ -1974,7 +1981,7 @@ function schluesseljob(): TransferJob {
       input: { from: 'DIRECTORY', directory: '/abholung' },
       regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
       dateien: {
-        stapel: { ...DREI_PLAETZE, schluesselfeld: 'lieferdatum' },
+        stapel: { plaetze: MARKEN_PLAETZE },
         abholung: { arbeit: '/arbeit', erledigt: '/erledigt', gescheitert: '/gescheitert' },
       },
     },
@@ -2014,41 +2021,66 @@ test('zwei Stapel im Verzeichnis werden nicht verrührt', async () => {
   assert.ok(bank.ablage.dateien.has('/abholung/Filiale_Sued_20260820.csv'));
 });
 
-test('eine Datei mit zwei Schlüsselwerten gehört zu keinem Stapel', async () => {
+test('eine Lieferung mit fremdem Merkmal hält den eigenen Stapel nicht auf', () => {
   /*
-   * Dann ist der Schlüssel keine Eigenschaft dieser Datei — sie enthält
-   * womöglich zwei Stapel. Sie dem ersten Wert zuzuschlagen wäre der Fehler,
-   * der ein Ergebnis um fremde Datensätze vergrößert.
+   * Der Schlüssel steht im Namen. Eine Datei mit einem anderen Merkmal gehört
+   * zu einem anderen Stapel — sie ist kein Grund zu warten, und sie darf den
+   * eigenen nicht vollständig machen.
    */
   const bank = werkbank();
 
   liefere(bank, 'Nord', '2026-08-21');
   liefere(bank, 'Sued', '2026-08-21');
-  bank.ablage.lege('/abholung/Filiale_West_20260821.csv', ['lieferdatum', 'kdnr'], [
-    ['2026-08-21', '1'],
-    ['2026-08-20', '2'],
-  ]);
+  // West liefert für einen anderen Tag.
+  liefere(bank, 'West', '2026-08-22');
 
-  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schluesseljob());
-
-  // Kein Lauf: Der Stapel vom 21. ist ohne West unvollständig.
-  assert.equal(ergebnis.status, TransferRunStatus.SUCCESS_NO_FILES);
-  assert.deepEqual(bank.ablage.verschoben, []);
+  return new WorkflowExecutionService(uebertragung(), bank.umgebung)
+    .execute(schluesseljob())
+    .then((ergebnis) => {
+      assert.equal(ergebnis.status, TransferRunStatus.SUCCESS_NO_FILES);
+      assert.deepEqual(bank.ablage.verschoben, []);
+    });
 });
 
-test('ein fehlendes Schlüsselfeld hält den Stapel auf und wird gesagt', async () => {
+test('ein Platz ohne Marke wird im Protokoll benannt', async () => {
+  /*
+   * Tragen die anderen eine Marke und dieser nicht, ist nicht zu sagen, zu
+   * welchem Stapel seine Lieferung gehört. Das ist ein Einrichtungsfehler und
+   * wird nicht besser, wenn jemand wartet — also eine Warnung und kein Hinweis.
+   */
+  const eintraege: LogEntry[] = [];
   const bank = werkbank();
 
+  bank.umgebung.logger = { log: (eintrag) => eintraege.push(eintrag) };
+
   liefere(bank, 'Nord', '2026-08-21');
-  liefere(bank, 'Sued', '2026-08-21');
-  // Ohne die Spalte: Der Schlüssel lässt sich nicht bestimmen.
-  bank.ablage.lege('/abholung/Filiale_West_20260821.csv', ['kdnr'], [['3']]);
+  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['2']]);
 
-  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schluesseljob());
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/abholung' },
+        regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+        dateien: {
+          stapel: {
+            plaetze: [
+              { name: 'Nord', muster: 'Filiale_Nord_{stapel}.csv' },
+              { name: 'Süd', muster: 'Filiale_Sued_*.csv' },
+            ],
+          },
+          abholung: { arbeit: '/arbeit', erledigt: '/erledigt', gescheitert: '/gescheitert' },
+        },
+      },
+    })
+  );
 
-  assert.equal(ergebnis.status, TransferRunStatus.SUCCESS_NO_FILES);
-  assert.deepEqual(bank.ablage.verschoben, []);
+  assert.ok(
+    eintraege.some((eintrag) => eintrag.level === 'WARNING' && eintrag.message.includes('Süd')),
+    'der Mangel steht als Warnung im Protokoll'
+  );
 });
+
 test('verworfen wird dieser Stapel, nicht das Verzeichnis', async () => {
   /*
    * Zwei Stapel liegen da: Der alte ist über der Frist, der neue gerade
@@ -2073,7 +2105,7 @@ test('verworfen wird dieser Stapel, nicht das Verzeichnis', async () => {
         input: { from: 'DIRECTORY', directory: '/abholung' },
         regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
         dateien: {
-          stapel: { ...DREI_PLAETZE, schluesselfeld: 'lieferdatum', fristSekunden: 60 },
+          stapel: { plaetze: MARKEN_PLAETZE, fristSekunden: 60 },
           abholung: { arbeit: '/arbeit', erledigt: '/erledigt', gescheitert: '/gescheitert' },
         },
       },
