@@ -18,7 +18,6 @@
       "Edit(README.md)"
     ],
     "deny": [
-      "Bash(git push:*)",
       "Bash(git reset:*)",
       "Bash(git checkout:*)",
       "Bash(git rebase:*)"
