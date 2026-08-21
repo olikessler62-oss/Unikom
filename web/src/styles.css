@@ -1078,6 +1078,19 @@ code {
   margin-bottom: 0;
 }
 
+/*
+ * Mehrere Zeilen untereinander, mit demselben Abstand wie eine Zeile daneben.
+ *
+ * Gebraucht dort, wo eine Liste in einem Feld steht — etwa die erwarteten
+ * Lieferungen eines Stapels. `.row` legt nebeneinander; hierfür fehlte das
+ * Gegenstück.
+ */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));

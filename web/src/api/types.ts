@@ -506,8 +506,43 @@ export interface Konsolidierungsdurchgang {
   input: StageInput;
   output?: StageOutput;
   regeln?: Konsolidierungsregeln;
-  dateien?: { muster?: string; blatt?: { name: string } | { position: number } };
+  dateien?: Dateiwahl;
   umformung?: Umformungsplan;
+}
+
+/**
+ * Ein erwarteter Beteiligter eines Stapels (SPEC-06 §2).
+ *
+ * Der Name steht in jeder Meldung: „es fehlt ‚Filiale Süd'" beantwortet die
+ * Frage, die um sieben Uhr morgens gestellt wird — „2 von 3" nicht.
+ */
+export interface Platz {
+  name: string;
+  muster: string;
+}
+
+export interface Stapelbedingung {
+  plaetze: Platz[];
+  /** Wie viele Dateien insgesamt; ohne Angabe die Zahl der Plätze. */
+  anzahl?: number;
+  /** Wartezeit ab der **ersten** Datei; ohne Angabe wird unbegrenzt gewartet. */
+  fristSekunden?: number;
+}
+
+/** Wohin die Eingangsdateien nach dem Durchgang wandern. */
+export interface Abholung {
+  arbeit?: string;
+  erledigt?: string;
+  gescheitert?: string;
+}
+
+export interface Dateiwahl {
+  muster?: string;
+  blatt?: { name: string } | { position: number };
+  stapel?: Stapelbedingung;
+  /** Wie lange eine Datei unverändert liegen muss, bevor sie als fertig gilt. */
+  reifeSekunden?: number;
+  abholung?: Abholung;
 }
 
 export type Ergebnisformat = 'CSV' | 'FESTBREITEN';
@@ -538,7 +573,7 @@ export interface KonsolidierungConfig extends StageConfig {
   format?: Ergebnisformat;
   festbreiten?: { felder: Festbreitenfeld[]; kopfzeile?: boolean };
   regeln?: Konsolidierungsregeln;
-  dateien?: { muster?: string; blatt?: { name: string } | { position: number } };
+  dateien?: Dateiwahl;
   /** Was nach diesem Durchgang noch läuft (SPEC-06 §7). */
   weitere?: Konsolidierungsdurchgang[];
   /** Was vor dem Konsolidieren mit den Feldern geschieht (SPEC-09 §8, §9). */

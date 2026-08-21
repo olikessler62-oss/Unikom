@@ -197,6 +197,7 @@ import {
   type ConfigurableStage,
 } from './stages.js';
 import { zugangFuerFreigabe } from './freigaben.js';
+import { Stapelwahl } from './Stapelwahl.js';
 import {
   ausgangBelegt,
   eingangBelegt,
@@ -2117,6 +2118,15 @@ function StageModule({
         />
       )}
 
+      {config?.enabled && stage === 'CONSOLIDATE' && (
+        <Stapelwahl
+          wahl={(config as KonsolidierungConfig).dateien}
+          eingang={config.input}
+          tenantId={job.tenantId}
+          onChange={(dateien) => patch({ dateien } as Partial<StageConfig>)}
+        />
+      )}
+
       {config?.enabled && (
         <Klappkarte titel={stage === 'CONSOLIDATE' ? 'Verarbeitung' : 'Einstellungen'} belegt={ausgangBelegt(config.output)}>
 
@@ -2645,19 +2655,13 @@ function Konsolidierungsregeln({
 
   return (
     <>
-      <Field
-        label="Dateien"
-        explain="Ein Namensmuster wie Filiale_*.csv. Leer heißt: alles, was der Schritt davor abgelegt hat, oder alles Lesbare im Verzeichnis."
-      >
-        <input
-          value={config.dateien?.muster ?? ''}
-          placeholder="Filiale_*.csv"
-          onChange={(event) =>
-            onChange({ dateien: { ...config.dateien, muster: event.target.value || undefined } })
-          }
-        />
-      </Field>
-
+      {/*
+        * Das Namensmuster stand hier als einzelnes Feld und steht jetzt in der
+        * Fläche „Welche Dateien" — zusammen mit dem, was dazugehört: den
+        * erwarteten Lieferungen, der Frist und den Verzeichnissen. Ein Muster
+        * allein beantwortete die Frage nicht, die daran hängt: Ist der Bestand
+        * vollständig?
+        */}
       <Ergebnisformat tenantId={tenantId} config={config} onChange={onChange} />
 
       <Zuordnung tenantId={tenantId} config={config} />

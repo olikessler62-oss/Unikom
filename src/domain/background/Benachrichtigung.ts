@@ -64,7 +64,17 @@ export type Meldeanlass =
    * der gar nicht erst anfängt, meldet gar nichts, und niemand vermisst um
    * drei Uhr nachts eine Nachricht, die nie kam.
    */
-  | 'VERARBEITUNG_AUSGEBLIEBEN';
+  | 'VERARBEITUNG_AUSGEBLIEBEN'
+  /**
+   * Ein Stapel war nach Ablauf der Frist unvollständig und wurde verworfen.
+   *
+   * Eigener Anlass und nicht „Lauf fehlgeschlagen": Der Lauf hat richtig
+   * gehandelt — er hat sich geweigert, ein Ergebnis zu erzeugen, dem eine
+   * Lieferung fehlt. Zu melden ist nicht ein Fehler in Unikom, sondern eine
+   * ausgebliebene Lieferung, und darum kümmert sich ein anderer Mensch als um
+   * einen Programmfehler.
+   */
+  | 'STAPEL_VERWORFEN';
 
 /**
  * Welche Stufe ein Anlass hat (SPEC-02, Abschnitt 51).
@@ -80,6 +90,10 @@ export const ANLASS_STUFE: Record<Meldeanlass, Meldestufe> = {
   KONFLIKTE_ENTSTANDEN: 'AKTION_ERFORDERLICH',
   FREIGABE_ERFORDERLICH: 'AKTION_ERFORDERLICH',
   VERARBEITUNG_AUSGEBLIEBEN: 'KRITISCH',
+  // Aktion und nicht kritisch: Unikom hat sich richtig verhalten — es hat sich
+  // geweigert, ein Ergebnis zu erzeugen, dem eine Lieferung fehlt. Zu tun ist
+  // etwas, aber nicht an Unikom. Beide Stufen erreichen ohnehin dieselben Wege.
+  STAPEL_VERWORFEN: 'AKTION_ERFORDERLICH',
 };
 
 export interface Benachrichtigung {

@@ -10,6 +10,7 @@ import { Referenzquellendienst, ReferenzquellenFehler } from './Referenzquellend
 
 class Ablage implements Dateiablage {
   readonly dateien = new Map<string, { inhalt: Uint8Array; geaendert?: string }>();
+  readonly verschoben: string[] = [];
 
   lege(pfad: string, felder: string[], zeilen: string[][], geaendert?: string): void {
     this.dateien.set(pfad, { inhalt: alsBytes(schreibeCsv(felder, zeilen)), geaendert });
@@ -37,6 +38,18 @@ class Ablage implements Dateiablage {
 
   async entferne(): Promise<void> {
     throw new Error('Referenzdaten werden nur gelesen');
+  }
+
+  async verschiebe(von: string, nach: string): Promise<void> {
+    const inhalt = this.dateien.get(von);
+
+    if (!inhalt) {
+      throw new Error(`Es gibt keine Datei ${von}`);
+    }
+
+    this.dateien.set(nach, inhalt);
+    this.dateien.delete(von);
+    this.verschoben.push(`${von} -> ${nach}`);
   }
 
   pfad(verzeichnis: string, name: string): string {

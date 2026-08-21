@@ -28,6 +28,20 @@ export interface Dateiablage {
    * Verzeichnis, das sich nicht anfassen lässt, sehr wohl.
    */
   entferne(pfad: string): Promise<void>;
+  /**
+   * Schiebt eine Datei an einen anderen Ort.
+   *
+   * **Das Verschieben ist der Zugriff.** Ein vollständiger Stapel wird aus dem
+   * Abholverzeichnis herausgenommen, bevor gelesen wird; was danach ankommt,
+   * gehört zum nächsten Stapel und kann nicht halb mitkommen. Kopieren und
+   * Löschen wären zwei Schritte, und zwischen ihnen liegt der Moment, in dem
+   * eine Datei doppelt existiert.
+   *
+   * Fehlende Verzeichnisse werden angelegt. Liegt am Ziel schon eine Datei
+   * dieses Namens, entscheidet die Ablage — der Lauf darf daran nicht scheitern
+   * und auch nichts überschreiben, was er nicht selbst geschrieben hat.
+   */
+  verschiebe(von: string, nach: string): Promise<void>;
   /** Verbindet Verzeichnis und Namen nach den Regeln des Wirtssystems. */
   pfad(verzeichnis: string, name: string): string;
 }

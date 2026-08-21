@@ -51,7 +51,50 @@ export class NodeDateiablage implements Dateiablage {
     await fs.rm(pfad, { force: true });
   }
 
+  async verschiebe(von: string, nach: string): Promise<void> {
+    await fs.mkdir(path.dirname(nach), { recursive: true });
+
+    /*
+     * Ein belegter Name wird nicht überschrieben, sondern ergänzt: `_2`, `_3`.
+     * Im Verzeichnis „Gescheitert" landet über Wochen dieselbe Datei aus
+     * derselben Quelle, und die Fassung von gestern ist genau die, die man
+     * ansehen will, wenn heute wieder etwas schiefgeht.
+     */
+    let ziel = nach;
+
+    for (let zaehler = 2; await liegtDa(ziel); zaehler += 1) {
+      const endung = path.extname(nach);
+      ziel = path.join(path.dirname(nach), path.basename(nach, endung) + '_' + zaehler + endung);
+    }
+
+    try {
+      await fs.rename(von, ziel);
+    } catch (fehler) {
+      /*
+       * Über Laufwerksgrenzen kann Windows nicht umbenennen (EXDEV). Dann
+       * kopieren und löschen — in dieser Reihenfolge: Bricht es dazwischen ab,
+       * liegt die Datei zweimal da und nicht keinmal.
+       */
+      if ((fehler as { code?: string }).code !== 'EXDEV') {
+        throw fehler;
+      }
+
+      await fs.copyFile(von, ziel);
+      await fs.rm(von, { force: true });
+    }
+  }
+
   pfad(verzeichnis: string, name: string): string {
     return path.join(verzeichnis, name);
+  }
+}
+
+/** Ob dort schon etwas liegt. */
+async function liegtDa(pfad: string): Promise<boolean> {
+  try {
+    await fs.stat(pfad);
+    return true;
+  } catch {
+    return false;
   }
 }

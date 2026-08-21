@@ -37,32 +37,12 @@ export function istLesbar(name: string): boolean {
   return LESBARE_ENDUNGEN.some((endung) => kleingeschrieben.endsWith(endung));
 }
 
-/**
- * Ob ein Dateiname zum Muster passt.
- *
- * `*` und `?` gelten wie im Explorer, alles andere ist wörtlich zu nehmen — und
- * das ist der Grund für das Maskieren: In `Umsatz.2026.csv` ist der Punkt ein
- * Punkt. Unmaskiert stünde er für „ein beliebiges Zeichen", und `Umsatz_2026x`
- * gälte als Treffer.
- *
- * Groß- und Kleinschreibung sind gleich: Unter Windows sind sie es im
- * Dateisystem auch, und ein Muster, das dort passt und auf einem Linux-Server
- * nicht, wäre ein Fehler, den niemand beim Einrichten bemerkt.
+/*
+ * Die Musterregel steht in der Domäne: Auch der Stapel prüft damit, ob eine
+ * Datei zu einem erwarteten Platz gehört. Zwei Auslegungen desselben
+ * Sternchens wären ein Fehler, den man nur im Ergebnis sieht.
  */
-export function passt(name: string, muster?: string): boolean {
-  if (!muster || muster.trim() === '') {
-    return true;
-  }
-
-  return musterAlsRegex(muster).test(name);
-}
-
-export function musterAlsRegex(muster: string): RegExp {
-  const maskiert = muster.replace(/[.+^${}()|[\]\\]/g, (zeichen) => '\\' + zeichen);
-  const mitPlatzhaltern = maskiert.split('*').join('.*').split('?').join('.');
-
-  return new RegExp('^' + mitPlatzhaltern + '$', 'i');
-}
+export { passt, musterAlsRegex } from '../../domain/consolidation/Namensmuster.js';
 
 export interface Eingangsdatei {
   /** Der Name, unter dem die Quelle später in jeder Meldung erscheint. */

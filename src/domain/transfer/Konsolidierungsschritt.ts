@@ -1,3 +1,4 @@
+import type { Stapelbedingung } from './Stapel.js';
 import type { Referenzverweis } from '../consolidation/Referenzquelle.js';
 import type { Aehnlichkeitsregeln } from '../consolidation/Aehnlichkeit.js';
 import type { Aufteilung, Schritt, Zusammenfuehrung } from '../mapping/Umformung.js';
@@ -84,6 +85,52 @@ export interface Dateiwahl {
   muster?: string;
   /** Bei Arbeitsmappen: welches Blatt. Ohne Angabe gilt die Regel aus SPEC-06 §8. */
   blatt?: Blattwahl;
+  /**
+   * Der Stapel: welche Beteiligten erwartet werden (SPEC-06 §2).
+   *
+   * Ohne Angabe läuft es wie bisher — was da ist, wird genommen. Mit Angabe
+   * beginnt der Durchgang erst, wenn jeder Platz besetzt ist und die Anzahl
+   * stimmt. Das ist der Schalter, den es zu setzen gilt: Ein Zusammenführen,
+   * das ohne ihn läuft, kann nicht wissen, ob es vollständig ist.
+   */
+  stapel?: Stapelbedingung;
+  /**
+   * Wie lange eine Datei unverändert liegen muss, bevor sie als fertig gilt.
+   *
+   * Wer 400 MB in das Abholverzeichnis kopiert, legt den endgültigen Namen
+   * sofort an. Ohne diese Wartezeit gälte sie augenblicklich als da — und der
+   * Lauf konsolidierte ein abgeschnittenes Stück.
+   */
+  reifeSekunden?: number;
+  /**
+   * Wohin die Dateien nach dem Durchgang wandern.
+   *
+   * Das Abholverzeichnis bleibt damit ein reines Abholverzeichnis: Was darin
+   * liegt, wartet auf Verarbeitung, und nichts sonst. Wer etwas erneut
+   * verarbeiten will, legt es wieder hinein.
+   */
+  abholung?: Abholung;
+}
+
+export interface Abholung {
+  /**
+   * Wohin der vollständige Stapel **vor** dem Lesen geschoben wird.
+   *
+   * Das Verschieben ist der Zugriff — siehe `Dateiablage.verschiebe`. Ohne
+   * Angabe wird aus dem Abholverzeichnis gelesen, und eine Datei, die während
+   * des Laufs ankommt, ist ein offenes Risiko.
+   */
+  arbeit?: string;
+  /** Wohin ein gelungener Durchgang seine Eingangsdateien legt. */
+  erledigt?: string;
+  /**
+   * Wohin die Dateien eines gescheiterten oder verworfenen Stapels wandern.
+   *
+   * Getrennt von „Erledigt", weil nur so ein Stapel gezielt noch einmal
+   * eingespielt werden kann: Aus einem gemeinsamen Verzeichnis nähme man die
+   * gelungenen wieder mit.
+   */
+  gescheitert?: string;
 }
 
 /**

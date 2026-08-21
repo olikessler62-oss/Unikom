@@ -15,6 +15,7 @@ import type {
   ShareConnections,
   ShareCredentials,
 } from '../../infrastructure/filesystem/ShareConnectionService.js';
+import { pruefeStapel, stapelmeldung } from '../../domain/transfer/Stapel.js';
 import type { TransferJob } from '../../domain/transfer/TransferJob.js';
 import { FileTransferStatus, TransferRunStatus } from '../../domain/transfer/TransferRun.js';
 import { durchgaenge, stageIsActive, type Konsolidierungsdurchgang } from '../../domain/transfer/WorkflowStages.js';
@@ -38,7 +39,7 @@ import type {
 import type { ResultService } from '../result/ResultService.js';
 import type { TransferExecutionOptions, TransferRunResult } from '../transfer/TransferExecutionService.js';
 import type { JobExecutor } from '../transfer/TransferOrchestratorService.js';
-import type { Dateiablage } from './Dateiablage.js';
+import type { Dateiablage, Verzeichniseintrag } from './Dateiablage.js';
 import { istLesbar, liesDatei, passt, type Lesewunsch } from './Eingang.js';
 
 /**
@@ -133,6 +134,26 @@ export interface Konsolidierungsumgebung {
    * Arbeitsspeicher.
    */
   hoechstmenge?: number;
+}
+
+/**
+ * Was die Quellensuche zurückgibt.
+ *
+ * `uebernommen` steht nur dort, wo ein Stapel aus dem Abholverzeichnis
+ * herausgenommen wurde. Es ist die Anweisung an den Durchgang, hinterher
+ * aufzuräumen — und der Grund, warum das Aufräumen nicht raten muss, welche
+ * Dateien gemeint waren.
+ */
+/** Die Eingangsdateien eines Durchgangs, und ob ein Stapel übernommen wurde. */
+interface Eingang {
+  dateien: { name: string; pfad: string; geaendert?: string }[];
+  uebernommen?: { verzeichnis: string; namen: string[] };
+}
+
+interface Quellenfund {
+  quellen: Quelle[];
+  hinweise: string[];
+  uebernommen?: { verzeichnis: string; namen: string[] };
 }
 
 export class WorkflowExecutionService implements JobExecutor {
@@ -328,7 +349,66 @@ export class WorkflowExecutionService implements JobExecutor {
   ): Promise<{ lauf: TransferRunResult; weiter: boolean; uebergabe?: Uebergabe }> {
     const { uebertragen, laufId, jetzt, wirksam } = lage;
     const benennung = durchgangsname(durchgang, lage.stelle, lage.von);
-    const gefunden = await this.quellen(job, durchgang, lage.vorlage, uebertragen, wirksam, jetzt);
+    const gefunden = await this.quellen(job, durchgang, lage.vorlage, uebertragen, wirksam, jetzt, laufId);
+
+    /*
+     * Was übernommen wurde, wird hinterher weggeräumt — wie der Durchgang auch
+     * ausgeht. Sonst bliebe der Stapel im Arbeitsverzeichnis liegen, und beim
+     * nächsten Mal stünde dort ein zweiter daneben.
+     *
+     * Deshalb um den ganzen Durchgang und nicht an jedem Ausgang einzeln: Ein
+     * Ausgang, den jemand später hinzufügt, ist genau der, an dem das
+     * Wegräumen vergessen wird.
+     */
+    if (!gefunden.uebernommen) {
+      return this.rechne(job, durchgang, lage, gefunden, benennung);
+    }
+
+    const uebernommen = gefunden.uebernommen;
+
+    try {
+      const ergebnis = await this.rechne(job, durchgang, lage, gefunden, benennung);
+
+      await this.raeumeAus(
+        job,
+        laufId,
+        uebernommen.verzeichnis,
+        uebernommen.namen,
+        gelungen(ergebnis.lauf) ? durchgang.dateien?.abholung?.erledigt : durchgang.dateien?.abholung?.gescheitert
+      );
+
+      return ergebnis;
+    } catch (fehler) {
+      // Ein Wurf ist der klarste Fehlschlag, den es gibt.
+      await this.raeumeAus(
+        job,
+        laufId,
+        uebernommen.verzeichnis,
+        uebernommen.namen,
+        durchgang.dateien?.abholung?.gescheitert
+      );
+
+      throw fehler;
+    }
+  }
+
+  /** Der Durchgang selbst, ohne das Aufräumen darum. */
+  private async rechne(
+    job: TransferJob,
+    durchgang: Konsolidierungsdurchgang,
+    lage: {
+      uebertragen: TransferRunResult;
+      vorlage?: Uebergabe;
+      laufId: string;
+      jetzt: Date;
+      wirksam: WirksameEinstellungen;
+      stelle: number;
+      von: number;
+    },
+    gefunden: Quellenfund,
+    benennung: string
+  ): Promise<{ lauf: TransferRunResult; weiter: boolean; uebergabe?: Uebergabe }> {
+    const { uebertragen, laufId, jetzt, wirksam } = lage;
 
     for (const hinweis of gefunden.hinweise) {
       this.protokoll(job, laufId, 'INFO', hinweis);
@@ -551,8 +631,9 @@ export class WorkflowExecutionService implements JobExecutor {
     vorlage: Uebergabe | undefined,
     uebertragen: TransferRunResult,
     wirksam: WirksameEinstellungen,
-    jetzt: Date
-  ): Promise<{ quellen: Quelle[]; hinweise: string[] }> {
+    jetzt: Date,
+    laufId: string
+  ): Promise<Quellenfund> {
     const hinweise: string[] = [];
     const quellen: Quelle[] = [];
 
@@ -570,7 +651,9 @@ export class WorkflowExecutionService implements JobExecutor {
      */
     const pruefer = schritt.schema ? new Schemapruefer(this.umgebung.ablage, schritt.schema) : undefined;
 
-    for (const datei of await this.dateien(job, schritt, vorlage, uebertragen, hinweise)) {
+    const eingang = await this.dateien(job, schritt, vorlage, uebertragen, hinweise, laufId, jetzt);
+
+    for (const datei of eingang.dateien) {
       try {
         const bytes = await this.umgebung.ablage.lies(datei.pfad);
 
@@ -600,7 +683,194 @@ export class WorkflowExecutionService implements JobExecutor {
       }
     }
 
-    return { quellen, hinweise };
+    return { quellen, hinweise, uebernommen: eingang.uebernommen };
+  }
+
+  /**
+   * Der Stapel: prüfen, zugreifen, oder gar nichts.
+   *
+   * ## Das Verschieben ist der Zugriff
+   *
+   * Ist der Stapel vollständig, wandern **genau diese** Dateien in ein
+   * Arbeitsverzeichnis, bevor eine davon gelesen wird. Was danach im
+   * Abholverzeichnis ankommt, gehört zum nächsten Stapel und kann nicht halb
+   * mitkommen. Ohne Arbeitsverzeichnis wird aus dem Abholverzeichnis gelesen —
+   * das geht, ist aber ein offenes Risiko, und der Lauf sagt es.
+   *
+   * ## Alles oder nichts
+   *
+   * Scheitert das Verschieben einer Datei, wird nichts konsolidiert. Die schon
+   * verschobenen bleiben im Arbeitsverzeichnis liegen; sie von Hand
+   * zurückzulegen ist eine Minute Arbeit, ein Ergebnis aus zwei Dritteln eines
+   * Stapels kostet einen Monatsabschluss.
+   */
+  private async stapelDateien(
+    job: TransferJob,
+    schritt: Konsolidierungsdurchgang,
+    verzeichnis: string,
+    genommen: Verzeichniseintrag[],
+    hinweise: string[],
+    laufId: string,
+    jetzt: Date
+  ): Promise<Eingang> {
+    const bedingung = schritt.dateien!.stapel!;
+    const reife = (schritt.dateien?.reifeSekunden ?? 0) * 1000;
+
+    const stand = pruefeStapel(
+      genommen.map((eintrag) => ({
+        name: eintrag.name,
+        geaendert: eintrag.geaendert ? new Date(eintrag.geaendert) : undefined,
+        // Ohne Änderungszeitpunkt lässt sich die Reife nicht beurteilen; dann
+        // gilt die Datei als fertig, so wie ohne Wartezeit.
+        fertig: reife <= 0 || !eintrag.geaendert ? true : jetzt.getTime() - new Date(eintrag.geaendert).getTime() >= reife,
+      })),
+      bedingung,
+      jetzt
+    );
+
+    if (!stand.vollstaendig) {
+      const meldung = stapelmeldung(stand);
+
+      if (!stand.abgelaufen) {
+        // Kein Fehler: Der Stapel ist noch im Entstehen. Beim nächsten Blick
+        // des Workers sieht es anders aus.
+        hinweise.push(`Der Stapel ist noch nicht vollständig — ${meldung}. Es wird gewartet.`);
+
+        return { dateien: [] };
+      }
+
+      /*
+       * Die Frist ist verstrichen. Der Stapel wird verworfen und nach
+       * „Gescheitert" geräumt, damit das Abholverzeichnis für den nächsten frei
+       * ist — eine liegengebliebene Datei würde sonst jeden folgenden Stapel
+       * verunreinigen.
+       */
+      this.protokoll(
+        job,
+        laufId,
+        'ERROR',
+        `Der Stapel in „${verzeichnis}" ist nach Ablauf der Frist unvollständig — ${meldung}. ` +
+          'Er wird verworfen und nicht verarbeitet.'
+      );
+
+      await this.raeumeAus(
+        job,
+        laufId,
+        verzeichnis,
+        genommen.map((eintrag) => eintrag.name),
+        schritt.dateien?.abholung?.gescheitert
+      );
+
+      await this.melde(job, 'STAPEL_VERWORFEN', {
+        titel: `Unvollständiger Stapel verworfen (${job.name})`,
+        text:
+          `Im Abholverzeichnis „${verzeichnis}" war der Stapel nach Ablauf der Frist unvollständig: ` +
+          `${meldung}. Er wurde nicht verarbeitet und liegt jetzt bei den gescheiterten Stapeln.`,
+      });
+      hinweise.push(`Stapel verworfen: ${meldung}`);
+
+      return { dateien: [] };
+    }
+
+    for (const hinweis of [
+      stand.fremd.length > 0 ? `Ohne Platz im Stapel und deshalb nicht dabei: ${stand.fremd.join(', ')}` : undefined,
+      stand.unfertig.length > 0 ? `Noch im Schreiben und deshalb nicht dabei: ${stand.unfertig.join(', ')}` : undefined,
+    ]) {
+      if (hinweis) {
+        hinweise.push(hinweis);
+      }
+    }
+
+    const arbeit = schritt.dateien?.abholung?.arbeit;
+
+    if (!arbeit) {
+      hinweise.push(
+        'Der Stapel wird aus dem Abholverzeichnis gelesen: Es ist kein Arbeitsverzeichnis eingetragen. ' +
+          'Eine Datei, die während des Laufs ankommt, kann dann nicht sicher ausgeschlossen werden.'
+      );
+
+      /*
+       * Ohne Arbeitsverzeichnis wird nicht übernommen — und deshalb hinterher
+       * auch nichts weggeräumt. Dateien aus dem Abholverzeichnis zu räumen, die
+       * man nie herausgenommen hat, wäre der Griff nach einem Stapel, der
+       * inzwischen ein anderer sein kann.
+       */
+      return { dateien: this.alsQuellen(verzeichnis, stand.stapel, genommen) };
+    }
+
+    const ziel = this.umgebung.ablage.pfad(arbeit, laufId);
+
+    for (const name of stand.stapel) {
+      await this.umgebung.ablage.verschiebe(
+        this.umgebung.ablage.pfad(verzeichnis, name),
+        this.umgebung.ablage.pfad(ziel, name)
+      );
+    }
+
+    hinweise.push(`Stapel vollständig (${stand.stapel.length} Datei(en)), zur Verarbeitung übernommen`);
+
+    return {
+      dateien: this.alsQuellen(ziel, stand.stapel, genommen),
+      uebernommen: { verzeichnis: ziel, namen: [...stand.stapel] },
+    };
+  }
+
+  /** Aus Namen werden Pfade — der Änderungszeitpunkt bleibt der der Quelle. */
+  private alsQuellen(
+    verzeichnis: string,
+    namen: readonly string[],
+    eintraege: readonly Verzeichniseintrag[]
+  ): { name: string; pfad: string; geaendert?: string }[] {
+    return namen.map((name) => ({
+      name,
+      pfad: this.umgebung.ablage.pfad(verzeichnis, name),
+      geaendert: eintraege.find((eintrag) => eintrag.name === name)?.geaendert,
+    }));
+  }
+
+  /**
+   * Räumt Eingangsdateien fort.
+   *
+   * Ohne Zielverzeichnis bleiben sie liegen — und das wird gesagt. Still
+   * liegenzulassen wäre der Fall, in dem derselbe Stapel morgen wieder
+   * verworfen wird, und übermorgen auch.
+   */
+  private async raeumeAus(
+    job: TransferJob,
+    laufId: string,
+    verzeichnis: string,
+    namen: readonly string[],
+    nach: string | undefined
+  ): Promise<void> {
+    if (!nach) {
+      this.protokoll(
+        job,
+        laufId,
+        'WARNING',
+        `Die Dateien bleiben in „${verzeichnis}" liegen: Es ist kein Zielverzeichnis eingetragen. ` +
+          'Beim nächsten Lauf stehen sie wieder da.'
+      );
+
+      return;
+    }
+
+    for (const name of namen) {
+      try {
+        await this.umgebung.ablage.verschiebe(
+          this.umgebung.ablage.pfad(verzeichnis, name),
+          this.umgebung.ablage.pfad(nach, name)
+        );
+      } catch (fehler) {
+        // Eine Datei, die sich nicht wegräumen lässt, darf das Ergebnis nicht
+        // mitreißen — es ist schon geschrieben.
+        this.protokoll(
+          job,
+          laufId,
+          'WARNING',
+          `„${name}" ließ sich nicht nach „${nach}" verschieben: ${(fehler as Error).message}`
+        );
+      }
+    }
   }
 
   private async dateien(
@@ -608,8 +878,10 @@ export class WorkflowExecutionService implements JobExecutor {
     schritt: Konsolidierungsdurchgang,
     vorlage: Uebergabe | undefined,
     uebertragen: TransferRunResult,
-    hinweise: string[]
-  ): Promise<{ name: string; pfad: string; geaendert?: string }[]> {
+    hinweise: string[],
+    laufId: string,
+    jetzt: Date
+  ): Promise<Eingang> {
     const muster = schritt.dateien?.muster;
 
     /*
@@ -619,7 +891,7 @@ export class WorkflowExecutionService implements JobExecutor {
      * Folge wäre keine.
      */
     if (schritt.input.from === 'PRECEDING' && vorlage) {
-      return [vorlage];
+      return { dateien: [vorlage] };
     }
 
     if (schritt.input.from === 'DIRECTORY') {
@@ -634,11 +906,22 @@ export class WorkflowExecutionService implements JobExecutor {
         );
       }
 
-      return genommen.map((eintrag) => ({
-        name: eintrag.name,
-        pfad: this.umgebung.ablage.pfad(verzeichnis, eintrag.name),
-        geaendert: eintrag.geaendert,
-      }));
+      /*
+       * Ein Zusammenführen mit Stapelbedingung beginnt erst, wenn der Stapel
+       * vollständig ist. Ohne Bedingung bleibt es beim Bisherigen: Was da ist,
+       * wird genommen.
+       */
+      if (schritt.dateien?.stapel) {
+        return this.stapelDateien(job, schritt, verzeichnis, genommen, hinweise, laufId, jetzt);
+      }
+
+      return {
+        dateien: genommen.map((eintrag) => ({
+          name: eintrag.name,
+          pfad: this.umgebung.ablage.pfad(verzeichnis, eintrag.name),
+          geaendert: eintrag.geaendert,
+        })),
+      };
     }
 
     /*
@@ -653,13 +936,15 @@ export class WorkflowExecutionService implements JobExecutor {
           'Die Konsolidierung liest örtlich — trage ihr ein Verzeichnis ein, statt sie an den Schritt davor zu hängen'
       );
 
-      return [];
+      return { dateien: [] };
     }
 
-    return uebertragen.outcomes
-      .filter((ergebnis) => ergebnis.status === FileTransferStatus.SUCCESS && ergebnis.destinationPath)
-      .filter((ergebnis) => istLesbar(ergebnis.filename) && passt(ergebnis.filename, muster))
-      .map((ergebnis) => ({ name: ergebnis.filename, pfad: ergebnis.destinationPath as string }));
+    return {
+      dateien: uebertragen.outcomes
+        .filter((ergebnis) => ergebnis.status === FileTransferStatus.SUCCESS && ergebnis.destinationPath)
+        .filter((ergebnis) => istLesbar(ergebnis.filename) && passt(ergebnis.filename, muster))
+        .map((ergebnis) => ({ name: ergebnis.filename, pfad: ergebnis.destinationPath as string })),
+    };
   }
 
   /* ---------- Das Ergebnis ---------- */
@@ -1068,6 +1353,17 @@ interface Uebergabe {
  * Bei einem einzigen bleibt es bei „Konsolidierung" — eine Nummer, wo es nichts
  * zu nummerieren gibt, sieht nach einem Fehler aus.
  */
+/**
+ * Ob ein Durchgang gelungen ist.
+ *
+ * Ein Teilerfolg zählt **nicht** als gelungen: Wenn ein Teil der Daten nicht
+ * durchkam, gehören die Eingangsdateien dorthin, wo man sie wiederfindet und
+ * erneut einspielen kann.
+ */
+function gelungen(lauf: TransferRunResult): boolean {
+  return lauf.status === TransferRunStatus.SUCCESS || lauf.status === TransferRunStatus.SUCCESS_NO_FILES;
+}
+
 function durchgangsname(durchgang: Konsolidierungsdurchgang, stelle: number, von: number): string {
   if (von <= 1) {
     return 'Konsolidierung';

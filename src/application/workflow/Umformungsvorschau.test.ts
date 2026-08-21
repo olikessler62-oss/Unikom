@@ -8,6 +8,7 @@ import { Umformungsvorschaudienst, VorschauFehler } from './Umformungsvorschau.j
 
 class Ablage implements Dateiablage {
   readonly dateien = new Map<string, Uint8Array>();
+  readonly verschoben: string[] = [];
 
   lege(pfad: string, felder: string[], zeilen: string[][]): void {
     this.dateien.set(pfad, alsBytes(schreibeCsv(felder, zeilen)));
@@ -35,6 +36,18 @@ class Ablage implements Dateiablage {
 
   async entferne(pfad: string): Promise<void> {
     this.dateien.delete(pfad);
+  }
+
+  async verschiebe(von: string, nach: string): Promise<void> {
+    const inhalt = this.dateien.get(von);
+
+    if (!inhalt) {
+      throw new Error(`Es gibt keine Datei ${von}`);
+    }
+
+    this.dateien.set(nach, inhalt);
+    this.dateien.delete(von);
+    this.verschoben.push(`${von} -> ${nach}`);
   }
 
   pfad(verzeichnis: string, name: string): string {

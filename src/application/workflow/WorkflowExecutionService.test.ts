@@ -43,6 +43,7 @@ import {
 /** Ein Dateisystem im Arbeitsspeicher — kein Test legt Verzeichnisse an. */
 class Ablage implements Dateiablage {
   readonly dateien = new Map<string, Uint8Array>();
+  readonly verschoben: string[] = [];
   readonly geschrieben: string[] = [];
 
   lege(pfad: string, felder: string[], zeilen: string[][]): void {
@@ -72,6 +73,18 @@ class Ablage implements Dateiablage {
 
   async entferne(pfad: string): Promise<void> {
     this.dateien.delete(pfad);
+  }
+
+  async verschiebe(von: string, nach: string): Promise<void> {
+    const inhalt = this.dateien.get(von);
+
+    if (!inhalt) {
+      throw new Error(`Es gibt keine Datei ${von}`);
+    }
+
+    this.dateien.set(nach, inhalt);
+    this.dateien.delete(von);
+    this.verschoben.push(`${von} -> ${nach}`);
   }
 
   pfad(verzeichnis: string, name: string): string {
@@ -1816,4 +1829,129 @@ test('eine Freigabe ohne hinterlegten Zugang wird benannt', async () => {
 
   // Verbunden wird trotzdem: Manche Freigaben stehen dem Dienstkonto offen.
   assert.ok(spur.includes('verbunden'));
+});
+/* ---------- Der Stapel: erst vollständig, dann verarbeiten ---------- */
+
+/*
+ * Der Kern: Ein Ergebnis, dem eine Lieferung fehlt, sieht vollständig aus. Es
+ * wandert in die Warenwirtschaft, und der Fehler fällt beim Monatsabschluss
+ * auf, wenn niemand mehr weiß, welche Nacht es war. Diese Tests halten fest,
+ * dass es gar nicht entsteht.
+ */
+
+const DREI_PLAETZE = {
+  plaetze: [
+    { name: 'Nord', muster: 'Filiale_Nord_*.csv' },
+    { name: 'Süd', muster: 'Filiale_Sued_*.csv' },
+    { name: 'West', muster: 'Filiale_West_*.csv' },
+  ],
+};
+
+function stapeljob(teile: Record<string, unknown> = {}): TransferJob {
+  return job({
+    consolidation: {
+      enabled: true,
+      input: { from: 'DIRECTORY', directory: '/abholung' },
+      regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+      dateien: {
+        stapel: DREI_PLAETZE,
+        abholung: { arbeit: '/arbeit', erledigt: '/erledigt', gescheitert: '/gescheitert' },
+        ...teile,
+      },
+    },
+  });
+}
+
+test('ein unvollständiger Stapel wird nicht angefasst', async () => {
+  const bank = werkbank();
+
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
+  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
+
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(stapeljob());
+
+  assert.equal(ergebnis.status, TransferRunStatus.SUCCESS_NO_FILES);
+  // Nichts verschoben: Der Stapel bleibt liegen, wie er ist.
+  assert.deepEqual(bank.ablage.verschoben, []);
+  assert.ok(bank.ablage.dateien.has('/abholung/Filiale_Nord_0821.csv'));
+});
+
+test('erst verschieben, dann lesen', async () => {
+  /*
+   * Das Verschieben **ist** der Zugriff. Würde aus dem Abholverzeichnis
+   * gelesen, könnte eine Datei mitten im Lauf ankommen und halb mitkommen.
+   */
+  const bank = werkbank();
+
+  for (const teil of ['Nord', 'Sued', 'West']) {
+    bank.ablage.lege(`/abholung/Filiale_${teil}_0821.csv`, ['kdnr'], [['1']]);
+  }
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(stapeljob());
+
+  // Die drei sind aus dem Abholverzeichnis heraus …
+  for (const teil of ['Nord', 'Sued', 'West']) {
+    assert.equal(bank.ablage.dateien.has(`/abholung/Filiale_${teil}_0821.csv`), false);
+  }
+
+  // … über das Arbeitsverzeichnis gegangen …
+  assert.ok(bank.ablage.verschoben.some((zug) => zug.includes('/arbeit/')));
+
+  // … und liegen am Ende bei den erledigten.
+  assert.ok(bank.ablage.verschoben.some((zug) => zug.endsWith('/erledigt/Filiale_Nord_0821.csv')));
+});
+
+test('eine Datei ohne Platz bleibt im Abholverzeichnis liegen', async () => {
+  // Sie gehört nicht zu diesem Stapel — und darf deshalb auch nicht mit
+  // weggeräumt werden. Sonst verschwände sie, ohne verarbeitet worden zu sein.
+  const bank = werkbank();
+
+  for (const teil of ['Nord', 'Sued', 'West']) {
+    bank.ablage.lege(`/abholung/Filiale_${teil}_0821.csv`, ['kdnr'], [['1']]);
+  }
+
+  bank.ablage.lege('/abholung/Notizen.csv', ['text'], [['nichts']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(stapeljob());
+
+  assert.ok(bank.ablage.dateien.has('/abholung/Notizen.csv'));
+});
+
+test('nach Ablauf der Frist wird der Stapel verworfen und gemeldet', async () => {
+  /*
+   * Ohne Frist würde aus einer fehlenden Datei Stille: kein Ergebnis, kein
+   * Fehler, niemand merkt es. Verworfen heißt nach „Gescheitert" geräumt —
+   * nicht gelöscht, und das Abholverzeichnis ist für den nächsten Stapel frei.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    stapeljob({ stapel: { ...DREI_PLAETZE, fristSekunden: 1 } })
+  );
+
+  assert.ok(
+    bank.ablage.verschoben.some((zug) => zug.endsWith('/gescheitert/Filiale_Nord_0821.csv')),
+    'die Datei liegt bei den gescheiterten'
+  );
+
+  const meldungen = await offeneMeldungen(bank);
+
+  assert.ok(
+    meldungen.some((meldung) => meldung.anlass === 'STAPEL_VERWORFEN'),
+    'es wurde gemeldet'
+  );
+});
+
+test('ohne Stapelbedingung bleibt alles, wie es war', async () => {
+  // Ein Durchgang, der nie einen Stapel verlangt hat, soll nichts verschieben.
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/a.csv', ['kdnr'], [['1']]);
+
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(job());
+
+  assert.equal(ergebnis.status, TransferRunStatus.SUCCESS);
+  assert.deepEqual(bank.ablage.verschoben, []);
 });

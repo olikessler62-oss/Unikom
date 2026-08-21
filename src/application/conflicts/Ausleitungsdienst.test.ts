@@ -11,6 +11,7 @@ import { Ausleitungsdienst } from './Ausleitungsdienst.js';
 
 class Ablage implements Dateiablage {
   readonly dateien = new Map<string, Uint8Array>();
+  readonly verschoben: string[] = [];
   /** Pfade, an denen das Löschen scheitern soll. */
   readonly stur = new Set<string>();
 
@@ -40,6 +41,18 @@ class Ablage implements Dateiablage {
     }
 
     this.dateien.delete(pfad);
+  }
+
+  async verschiebe(von: string, nach: string): Promise<void> {
+    const inhalt = this.dateien.get(von);
+
+    if (!inhalt) {
+      throw new Error(`Es gibt keine Datei ${von}`);
+    }
+
+    this.dateien.set(nach, inhalt);
+    this.dateien.delete(von);
+    this.verschoben.push(`${von} -> ${nach}`);
   }
 
   pfad(verzeichnis: string, name: string): string {
