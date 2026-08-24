@@ -36,3 +36,9 @@ id_ed25519*
 
 # Aus dem Fallkatalog erzeugt (npm run testdaten)
 testdaten/
+
+# Proben zum Ausprobieren von Hand (npm run teilnehmer, npm run bestellungen).
+# Erzeugt und nicht gepflegt: Die Quelle steht in src/tools, und wer sie
+# ändert, bekommt den Ordner neu. Versioniert wäre er ein zweiter Stand,
+# der irgendwann vom ersten abweicht.
+Testdateien/
