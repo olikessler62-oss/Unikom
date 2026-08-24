@@ -1993,3 +1993,122 @@ vergibt, dem fällt der echte Fehler nicht mehr auf.
 
 Die Regel je Fläche steht in `web/src/screens/job/feldstand.ts` — vorher
 `belegt.ts`, was ein Ja/Nein war und nicht mehr beschrieb, was darin steht.
+
+# Etappe 20 — Der Dateityp neben dem Namensmuster ✔ gebaut
+
+Im Abholverzeichnis liegt nicht nur, was der Durchgang lesen soll. Bisher gab
+es dafür genau eine Regel: das Namensmuster. Wer nach Format trennen wollte,
+schrieb `*.csv` — und sobald es drei Formate waren oder zusätzlich der Name
+zählte, stand jede Endung hinter jedem Namen.
+
+**Welche Namen und welche Formate sind zwei Fragen.** Deshalb ein eigenes
+Feld: `Dateiwahl.endungen`. Ohne Angabe bleibt alles wie bisher — was ein
+Leser öffnen kann, kommt mit.
+
+## Die Regel steht in der Domäne
+
+`passtEndung` in `domain/consolidation/Namensmuster.ts`, neben `passt`. Sie
+vergleicht so, wie ein Anwender es meint: `csv`, `.csv` und `.CSV` sind
+dieselbe Endung. Ein Filter, der am vergessenen Punkt scheitert, nähme jede
+Nacht nichts mit — und im Protokoll stünde nur, dass nichts zu tun war.
+
+Die Endung wird **am Ende** verlangt, mit ihrem Punkt: `csv_Archiv.zip` ist
+keine CSV, und `Umsatz.csv.gz` auch nicht.
+
+## Der Grund steht im Protokoll
+
+Übergangene Dateien wurden bisher mit „kein lesbares Format" gemeldet, auch
+wenn das Muster der Grund war. Der Satz nennt jetzt die Gründe, die
+eingetragen sind:
+
+```text
+7 Datei(en) in „C:\Eingang" wurden übergangen: Sie sind nicht csv, xlsx
+  oder passen nicht zu „Filiale_*.csv" oder haben kein lesbares Format
+```
+
+Ohne diesen Unterschied schickt eine Ferndiagnose in die falsche Ecke: Eine
+CSV, die nur nicht zur Auswahl gehört, hat sehr wohl ein lesbares Format.
+
+## Nur beim eigenen Abholverzeichnis
+
+Das Feld erscheint, wenn die Quelle ein eigenes Verzeichnis ist. Wer
+übernimmt, was der Schritt davor abgelegt hat, bekommt eine Liste dieses Laufs
+und keine Momentaufnahme eines Verzeichnisses — dort ist längst entschieden,
+was mitkommt.
+
+Eine getroffene Auswahl bleibt beim Umschalten stehen. Sie ist dann nicht tot,
+sondern ruht: Wer zurückschaltet, findet sie wieder, und der Lauf liest sie in
+diesem Zweig gar nicht erst.
+
+## Ein Bedienelement für drei Stellen
+
+Die Endungsliste zum Anhaken stand im Bildschirm des Übertragungsschritts und
+kannte genau dessen zwei Felder. Sie ist jetzt `components/Endungsfeld.tsx`
+und trägt alle drei: übernommene Dateitypen, Endungen unfertiger Uploads, und
+die Dateitypen des Konsolidierens. Dreimal dasselbe Fenster nachzubauen hieße,
+jede spätere Änderung dreimal zu machen — und die dritte Stelle zu vergessen.
+
+## Nebenbei repariert: die Vorschau log beim Komma
+
+„Was trifft das gerade?" nahm das ganze Feld als **ein** Muster. Bei
+`Filiale_*.csv, Umsatz_*.csv` traf damit nichts, und die Vorschau zeigte alles
+unter „bleibt draußen" — während der Lauf beide Muster mitnahm. Sie zerlegt
+jetzt am Komma wie der Lauf und prüft dieselben drei Stufen: lesbares Format,
+gewählter Dateityp, Namensmuster.
+
+Eine Vorschau, die weniger prüft als der Lauf, sagt genau an der Stelle etwas
+Falsches, an der man sie fragt.
+
+## Angegriffen
+
+Acht Mutationen, acht Bisse: die leere Auswahl, die leeren Einträge, die
+Endung mitten im Namen, der fehlende Punkt, der getippte Punkt, die
+Schreibweise — und zweimal die Verdrahtung im Lauf.
+
+# Etappe 21 — Zwei Betriebsarten, zwei Flächen ✔ gebaut
+
+„Welche Dateien" trug beides: das Namensmuster für die einzelne Lieferung und
+die erwarteten Plätze eines Stapels. Beides nebeneinander sind zwei Antworten
+auf dieselbe Frage — welche Dateien mitkommen —, und offen bleibt, welche gilt.
+
+Der Schalter steht jetzt unten in der Fläche **Quelle**, nach dem
+Quellverzeichnis: **Mehrere Dateien zusammenführen**. Erst steht fest, woher
+gelesen wird; dann, ob eine einzelne Lieferung genügt.
+
+```text
+aus →  Welche Dateien    Dateityp/en, Namensmuster, Wartezeit,
+                         Arbeitsverzeichnis, Erledigt, Gescheitert, Vorschau
+
+an  →  Mehrere Dateien   Primär-Datei, Erwartete Dateien insgesamt, Frist,
+                         Arbeitsverzeichnis, Erledigt, Gescheitert
+```
+
+## Der Schalter ist die Bedingung selbst
+
+Kein zweites Merkmal am Auftrag. `Dateiwahl.stapel` entscheidet, welche Fläche
+steht — einschalten legt eine leere Bedingung an, ausschalten nimmt sie fort.
+Zwei Schalter für eine Sache stünden früher oder später gegeneinander, und
+dann wäre eine Einstellung in Kraft, die niemand sieht.
+
+Aus demselben Grund ist die Checkbox *„Erst beginnen, wenn ein vollständiger
+Stapel vorliegt"* im Panel wieder fort: Sie konnte gar nicht ausgeschaltet
+sein — die Fläche gibt es nur, solange die Bedingung steht. Ein Kästchen, das
+immer angehakt ist, fragt bloß ein zweites Mal, was oben schon entschieden
+wurde. Was es erklärte, steht beim Schalter in der Quelle.
+
+## Was im Stapelbetrieb nicht mehr zu sehen ist
+
+Dateityp/en, Namensmuster und Wartezeit stehen nur in „Welche Dateien". Ihre
+gespeicherten Werte **wirken weiter**: Der Lauf filtert damit vor, bevor er die
+Plätze prüft. Das ist so entschieden und kein Versehen — wer von einer
+Betriebsart in die andere wechselt, verliert seine Eingaben nicht.
+
+Sichtbar bleibt es im Protokoll: Übergangene Dateien werden mit ihrem Grund
+gemeldet („Sie passen nicht zu …"), also auch dann, wenn das Muster aus der
+anderen Fläche stammt.
+
+## Die Vorschau nur ohne Stapel
+
+„Was trifft das gerade?" beantwortet, was da liegt und mitkäme. Im
+Stapelbetrieb ist die Frage eine andere — welcher Platz besetzt ist —, und die
+beantwortet der Lauf mit Namen.

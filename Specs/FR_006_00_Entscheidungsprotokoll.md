@@ -8,6 +8,208 @@
 >
 > Bei der nächsten Prüfrunde wird angehängt, nicht überschrieben.
 
+## Runde 8 — Was um zwei Uhr nachts mit einem Konflikt geschieht (24.08.2026)
+
+### Die Frage
+
+Ein Konflikt entsteht in der Nachtverarbeitung. Niemand sitzt davor. Was dann?
+
+Drei Antworten sind vertretbar, und sie widersprechen einander:
+
+* Der Fall hängt dem Benutzer am Morgen vor der Nase, bis er entschieden ist.
+* Er meldet sich einmal und wartet danach in der Glocke.
+* Er meldet sich nach einer Frist erneut.
+
+Welche richtig ist, hängt am Betrieb des Kunden — nicht an Unikom.
+
+### Entschieden: am Mandanten, wie Meldewege und Aufbewahrungsfrist
+
+`Tenant.konflikte` mit drei Angaben: **Vorlageart**, **Frist der Wiedervorlage**
+und **ob ein Fall hingenommen werden darf**. Derselbe Ort und dieselbe
+Begründung wie bei `benachrichtigung` und `ausleitungenTage`: Ein Dienstleister
+betreut mehrere Kunden auf einer Maschine, und eine Einstellung für alle wäre
+für niemanden die richtige.
+
+**Voreingestellt ist die Wiedervorlage nach 24 Stunden** und nicht das lauteste.
+Ein Fenster, das bei jedem Klick wiederkommt, wird nach der dritten Woche
+weggeklickt, ohne gelesen zu werden — und dann ist auch das eine weg, auf das es
+ankam. Wer es trotzdem so will, stellt es ein; das ist eine bewusste
+Entscheidung und keine, in die jemand hineinrutscht.
+
+### Der Mülleimer war schon da und hieß anders
+
+Gesucht war ein Weg, einen Konflikt wegzulegen. Der Lebenszyklus aus SPEC-07
+kennt ihn seit jeher: **`AKZEPTIEREN`** — „den Konflikt sehenden Auges
+hinnehmen", mit Name, Zeitpunkt und Bemerkung in der Historie.
+
+**Entschieden:** Kein neuer Zustand, sondern eine **Erlaubnis**. Der Mandant
+sagt, ob weggelegt werden darf. Ist es verboten, bleibt jeder Fall offen, bis
+ihn jemand bereinigt — genau das ist der Zweck.
+
+Wer gar keine Konflikte sammeln will, braucht dafür ebenfalls keinen Schalter:
+Er stellt seine Regeln auf **Fehler** statt Konflikt, dann geht die Zeile nach
+Gescheitert. Dieselbe Entscheidung, an der richtigen Stelle getroffen.
+
+### Durchgesetzt wird auf dem Server, nicht im Browser
+
+Der Knopf verschwindet in der Oberfläche, wo das Hinnehmen verboten ist. Das
+allein wäre eine Bitte und keine Einstellung: Die Prüfung sitzt in `wendeAn` —
+also in der **einen** Rechnung, an der Vorschau, Entscheidung, Massenvorschau
+und Massenentscheidung gleichermaßen hängen. Eine Prüfung an nur einer der vier
+Türen wäre an den anderen dreien nicht vorhanden.
+
+Ebenso die Vorlage: Welche Meldung sich von selbst zeigt, entscheidet der
+Server. Der Browser vergisst beim Wechsel der Ansicht nur, was er schon gezeigt
+hat — **ob** etwas kommt, sagt ihm die Antwort auf `pending`.
+
+### Die Einstellung gilt Konflikten und sonst nichts
+
+Wer einstellt, dass ein offener Konflikt ihm vor der Nase hängt, hat über
+Konflikte entschieden — nicht darüber, wie oft ein gescheiterter Lauf sich
+meldet. Zwei Dinge, zwei Adressaten. `LAUF_FEHLER` und
+`VERARBEITUNG_AUSGEBLIEBEN` verhalten sich unverändert.
+
+### Was **nicht** gebaut wurde, und warum
+
+Gefragt war auch: „Ob nur als eine Datei ausgeliefert werden darf oder in
+Teilen." Diese Einstellung wirkt erst, wenn der Lauf die Zeilen aufteilt — und
+diese Naht ist noch nicht gelegt.
+
+`Einstellungen.ts` hält dafür eine Hausregel bereit:
+
+> Bewusst nur das, was heute auch wirkt. Ein Feld für „Verhalten bei Dubletten"
+> ließe sich in fünf Minuten hinzufügen und wäre bis Etappe 6 eine Einstellung
+> ohne Wirkung — also eine Behauptung auf dem Bildschirm, die niemand einlöst.
+
+**Entschieden:** Der Schalter kommt zusammen mit der Zeilenaufteilung im Lauf.
+Ein Schalter „nur vollständig ausliefern", der nichts tut, ist schlimmer als
+keiner — er sieht aus wie eine Zusage.
+
+### Nebenbefund: ein Knopf, der immer scheiterte
+
+`moeglich()` bot einem **akzeptierten** Fall „Zurückstellen" und „Akzeptieren"
+an. Der Lebenszyklus lässt von `AKZEPTIERT` nur nach `OFFEN`, `BEREINIGT` oder
+`ERNEUT_VERARBEITET` — beide Knöpfe endeten in einer Absage des Servers.
+Korrigiert, weil in derselben Funktion steht, warum: „Ein Knopf, der beim
+Drücken einen Fehler bringt, ist schlechter als kein Knopf."
+
+Ebenso: Die Massenentscheidung war auf **Akzeptieren** vorbelegt. Wer hundert
+Fälle markiert und einmal zu schnell klickt, hätte hundert Entscheidungen
+getroffen, die er nicht getroffen hat. Sie steht jetzt auf Zurückstellen.
+
+---
+
+## Runde 6 — Wo Unikom läuft, worin es geschrieben ist, und wer die Schemata macht (24.08.2026)
+
+### Unikom läuft beim Kunden. Punkt.
+
+FR_010 beschreibt einen zweiten Betriebsweg: zentrale Anwendung beim Hersteller,
+ein Local Connector beim Kunden. Er ist **zurückgestellt** — nicht verworfen,
+aber nicht gebaut.
+
+**Warum:** Er bricht den Satz, der in FR_009, Abschnitt 1, verbindlich steht:
+„Unikom sendet von sich aus nichts nach außen." Aus diesem Satz folgt heute,
+dass es beim Hersteller nichts zu verarbeiten gibt — kein AV-Vertrag, kein
+Verzeichnis von Verarbeitungstätigkeiten, keine Unterauftragnehmer, keine
+Standortfrage. Mit einer zentralen Anwendung wird der Hersteller
+Auftragsverarbeiter, und die Entscheidung aus FR_009, Abschnitt 10 („die
+Datenbank bleibt unverschlüsselt, die Platte ist Sache des Kunden") ist nicht
+mehr haltbar.
+
+Das ist eine Produktentscheidung mit laufenden Kosten und kein Bauteil. Sie
+wird getroffen, wenn ein Kunde sie verlangt — nicht vorher, und nicht nebenbei.
+
+**Bleibt gültig für den Fall, dass sie kommt:** Zugänge und Schlüssel liegen
+immer dort, wo ausgeführt wird. Eine Regel, keine Ausnahme, in jedem Betriebsweg
+dieselbe.
+
+### TypeScript bleibt
+
+**Erwogen:** ein Neubau in Python, weil pandas Zusammenführen, Dubletten,
+Typerkennung und Formatleser mitbringt.
+
+**Entschieden: nein.** Ersetzbar wäre rund ein Fünftel von 78.000 Zeilen. Die
+übrigen vier Fünftel — Übertragung, Stapel, Mandanten, Rechte, Lizenz,
+Datenschutz, Verschlüsselung, Konflikte, Protokoll, Zeitplan, Oberfläche — kennt
+pandas nicht. Und im ersetzbaren Fünftel liegt der Wert nicht in der Rechnung,
+sondern in der Regel: `drop_duplicates` gibt es geschenkt, „Müller GmbH und
+Mueller GmbH sind derselbe Kunde, aber die gefaltete Form verlässt dieses Modul
+nicht" nicht.
+
+Dazu der Maßstab, den FR_009, Abschnitt 10, schon einmal angelegt hat: Eine
+SQLite-Erweiterung wurde abgelehnt, weil sie „Fremdcode in das Haus des Kunden"
+gebracht hätte. numpy und pandas sind ein Vielfaches davon, kompiliert,
+plattformabhängig, mit eigenem Schwachstellenstrom — in einer Installation mit
+heute **drei** Abhängigkeiten.
+
+**Die Bedingung, unter der neu entschieden wird:** ein echter Kundendatensatz,
+bei dem die heutige Maschine messbar zu langsam ist. Dann wird gemessen und über
+einen Beiprozess für genau diese Rechnung geredet — nicht über einen Neubau.
+
+### Schemata entstehen aus einer Datei, nicht aus einem Formular
+
+**Verworfen:** das JSON Schema als Eingangsprüfung. Niemand schreibt es von
+Hand, und wer es täte, bekäme für `$ref`, `allOf` und `if/then` ohnehin nur die
+Meldung, dass Unikom sie nicht prüft.
+
+**Entschieden:** Was es ersetzt, gibt es schon — das **Eingangsprofil** am
+Mandanten, benannt, versioniert, unveränderlich. Es bekommt eine Oberfläche mit
+fünf Reitern (Allgemein, Aufbau, Spalten, Werte, Schlüssel) und wird im
+Konsolidierungsschritt ausgewählt, wo heute nach einer Datei gefragt wird.
+
+Der Reiter „Spalten" trägt, was das JSON Schema trug — Pflicht, Typ, Wertebereich,
+Länge, Muster, erlaubte Werte —, aber als Tabelle und **vorbefüllt aus der
+Erkennung einer Beispieldatei**. Das ist der Punkt: Ein Profil entsteht daraus,
+dass ein Mensch eine erkannte Struktur bestätigt, und nicht daraus, dass er sie
+tippt.
+
+Die alte JSON-Prüfung bleibt stehen, bis der Reiter dasselbe leistet. Ein
+Ersatz, der erst hinterher gebaut wird, ist kein Ersatz.
+
+### Ohne Schema wird gerechnet, aber nicht geraten
+
+Wird kein Schema gewählt, kommen **alle** Spalten mit. Bei mehreren Dateien wird
+ein verbindendes Merkmal gesucht: eine Spalte, die in allen Dateien vorkommt, in
+jeder eindeutig ist und deren Werte sich tatsächlich überschneiden. **Genau ein
+Kandidat** heißt eindeutig; keiner oder mehrere heißt: alle Dateien nach
+Gescheitert, mit Nennung der Kandidaten im Protokoll.
+
+Das steht nicht gegen SPEC-04, Abschnitt 7 („Unikom darf fachliche
+Dublettenschlüssel nicht eigenmächtig als verbindliche Wahrheit bestimmen"),
+sondern erfüllt es: Unikom entscheidet nichts, es findet entweder genau eine
+Antwort oder weigert sich.
+
+### Das Archiv trägt kein Passwort
+
+**Verworfen:** das passwortgeschützte ZIP. ZIP legt nicht fest, in welchen Bytes
+ein Passwort verarbeitet wird — ein Umlaut ergibt beim einen Werkzeug einen
+anderen Schlüssel als beim anderen —, und die Dateinamen bleiben darin lesbar,
+weil das zentrale Verzeichnis nie mitverschlüsselt wird.
+
+**Entschieden:** ein schlichtes ZIP, als Ganzes mit AES-256-GCM eingeschlagen,
+mit dem Umschlag, den Unikom überall benutzt. Damit liegen auch die Namen innen.
+Der Preis: Das Archiv öffnet kein Fremdwerkzeug mehr.
+
+Das Archiv ist zugleich die Rechtfertigung dafür, dass das Arbeitsverzeichnis
+hinterher geräumt werden darf. **Was nicht archiviert ist, wird nicht gelöscht** —
+und geräumt wird nur, was der Lauf selbst hineingelegt hat, nie das Verzeichnis.
+Ein Tippfehler im Pfad soll keine fremden Daten kosten.
+
+### Offen: drei Bestände ohne Frist
+
+FR_009, Abschnitt 2, sagt: „ein Bestand, der hier fehlt, darf nicht entstehen."
+Abschnitt 4: „Eine Frist ohne Voreinstellung ist keine."
+
+**Es fehlen: Archiv, Erledigt und Gescheitert.** Gescheitert liegt schon heute
+unbefristet da — Eingangsdateien mit vollem Personenbezug, auf die die
+Voreinstellung „nach Verarbeitung entfernen" nicht greift, weil sie nie
+verarbeitet wurden. Erledigt bekommt ab jetzt zusätzlich abgeleitete
+Zeilendateien, Archiv die vollständigen Originale.
+
+Das ist vor dem Archiv-Bau zu schließen, nicht danach.
+
+---
+
 ## Runde 5 — Beide Prozesse schreiben (20.08.2026)
 
 **Entschieden:** Server und Worker schreiben beide in Unikoms eigene SQLite.
