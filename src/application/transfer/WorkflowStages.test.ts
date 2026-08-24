@@ -11,6 +11,7 @@ import {
   followingStage,
   numberedStages,
   precedingStage,
+  STAGE_LABELS,
   type DeliverConfig,
   type StageConfig,
 } from '../../domain/transfer/WorkflowStages.js';
@@ -376,7 +377,12 @@ test('a workflow whose module is not built yet refuses to run instead of doing h
 
   assert.equal(result.status, TransferRunStatus.FAILED);
   assert.match(result.message, /noch nicht gebaut/);
-  assert.match(result.message, /Daten exportieren\/importieren/, 'the message names the link, not a number');
+  // Gegen die Marke und nicht gegen den Wortlaut: Die Aussage des Tests ist,
+  // dass die Meldung das Glied **benennt** — nicht, wie es gerade heißt.
+  assert.ok(
+    result.message.includes(STAGE_LABELS.DELIVER),
+    'the message names the link, not a number'
+  );
   assert.deepEqual(await fs.readdir(destination), [], 'nothing may have been delivered');
   assert.deepEqual(await fs.readdir(source), ['ORDER_001.csv'], 'and the source is untouched');
 });

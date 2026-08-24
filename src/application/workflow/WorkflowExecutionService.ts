@@ -655,7 +655,17 @@ export class WorkflowExecutionService implements JobExecutor {
      * Geprüft wird vor der Verarbeitung (SPEC-08, Abschnitt 2) und je Lauf mit
      * demselben Prüfer: Das Schema wird einmal gelesen und nicht je Datei.
      */
-    const pruefer = schritt.schema ? new Schemapruefer(this.umgebung.ablage, schritt.schema) : undefined;
+    /*
+     * Nur bei einer Schemadatei. Ein Schritt, der ein **Eingangsprofil** nennt,
+     * bekommt hier noch keinen Prüfer: Die Regeln des Profils wertet der Lauf
+     * noch nicht aus. Einen Prüfer ohne Datei zu bauen hieße, ihn bei jeder
+     * Datei melden zu lassen, dass sich das Schema „undefined" nicht lesen
+     * lässt — eine Warnung je Datei und je Nacht, für eine Einstellung, die in
+     * Ordnung ist.
+     */
+    const pruefer = schritt.schema?.datei
+      ? new Schemapruefer(this.umgebung.ablage, { datei: schritt.schema.datei, bei: schritt.schema.bei })
+      : undefined;
 
     const eingang = await this.dateien(job, schritt, vorlage, uebertragen, hinweise, laufId, jetzt);
 

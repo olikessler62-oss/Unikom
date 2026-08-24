@@ -710,3 +710,86 @@ export function listentasten(event: Tastenereignis<HTMLElement>): void {
 
   knoepfe[ziel]?.focus();
 }
+
+/**
+ * Eine Reihe von Reitern über einem Inhalt.
+ *
+ * ## Warum Reiter und keine Klappflächen
+ *
+ * Ein Eingangsprofil hat fünf Gruppen von Angaben, und man arbeitet immer an
+ * genau einer davon. Untereinander als Klappflächen wären es fünf Überschriften
+ * mit vier zugeklappten Flächen dazwischen — der Reiter „Spalten" läge dann
+ * unter dreißig Zeilen anderer Einstellungen. Reiter beantworten „wo bin ich"
+ * und „was gibt es noch" in einer einzigen Zeile.
+ *
+ * ## Alles bleibt im Speicher
+ *
+ * Ausgeblendet wird nur gezeichnet, nicht verworfen: Wer im Reiter „Spalten"
+ * etwas ändert, im Reiter „Werte" nachsieht und zurückkommt, findet seine
+ * Änderung vor. Der Zustand hängt deshalb nicht an den Reitern, sondern über
+ * ihnen.
+ *
+ * ## Die Pfeiltasten
+ *
+ * Links und rechts wechseln, `Pos1` und `Ende` springen an den Rand — so, wie
+ * Reiter überall sonst zu bedienen sind. Ohne das erreicht man den fünften
+ * Reiter nur mit der Maus oder mit vier Tabulatorsprüngen.
+ */
+export function Reiter<T extends string>({
+  reiter,
+  offen,
+  onOeffnen,
+}: {
+  reiter: readonly { id: T; text: string }[];
+  offen: T;
+  onOeffnen(id: T): void;
+}) {
+  function tasten(event: Tastenereignis<HTMLDivElement>): void {
+    const richtung = { ArrowRight: 1, ArrowLeft: -1, Home: 0, End: 0 }[event.key];
+
+    if (richtung === undefined) {
+      return;
+    }
+
+    // Sonst scrollte die Seite zusätzlich — der Fokus wandert, die Zeile bleibt.
+    event.preventDefault();
+
+    const jetzt = reiter.findIndex((einer) => einer.id === offen);
+    const ziel =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? reiter.length - 1
+          : Math.min(reiter.length - 1, Math.max(0, jetzt + richtung));
+
+    const naechster = reiter[ziel];
+
+    if (naechster) {
+      onOeffnen(naechster.id);
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('button')[ziel]?.focus();
+    }
+  }
+
+  return (
+    <div className="reiter" role="tablist" onKeyDown={tasten}>
+      {reiter.map((einer) => (
+        <button
+          key={einer.id}
+          type="button"
+          role="tab"
+          aria-selected={einer.id === offen}
+          /*
+           * Nur der offene Reiter ist mit der Tabulatortaste erreichbar; die
+           * übrigen über die Pfeiltasten. So sind es aus dem Formular heraus
+           * ein Sprung zurück zur Reiterzeile und nicht fünf.
+           */
+          tabIndex={einer.id === offen ? 0 : -1}
+          className={einer.id === offen ? 'reiter__blatt reiter__blatt--offen' : 'reiter__blatt'}
+          onClick={() => onOeffnen(einer.id)}
+        >
+          {einer.text}
+        </button>
+      ))}
+    </div>
+  );
+}

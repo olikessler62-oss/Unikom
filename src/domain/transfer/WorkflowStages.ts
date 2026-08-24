@@ -135,16 +135,31 @@ export interface Festbreitenausgabe {
 }
 
 /**
- * Die optionale Prüfung der Eingangsdateien gegen ein JSON Schema
- * (SPEC-03 §7; SPEC-08 §2).
+ * Die optionale Prüfung der Eingangsdateien (SPEC-03 §7; SPEC-08 §2).
  *
  * Geprüft wird **vor** der Verarbeitung: Eine Prüfung hinterher sagt, dass ein
  * Ergebnis auf schlechten Daten beruht — da liegt es aber schon im
  * Zielverzeichnis.
+ *
+ * ## Zwei Wege, und der zweite ist der alte
+ *
+ * `profil` verweist auf ein **Schema des Mandanten**: benannt, versioniert,
+ * mit Spalten, Typen und Regeln, und in einer Fläche bearbeitbar. Das ist der
+ * Weg.
+ *
+ * `datei` ist eine JSON-Schema-Datei, die jemand von Hand geschrieben hat. Sie
+ * steht noch hier, weil sie verdrahtet und getestet ist — ein Ersatz, der erst
+ * hinterher gebaut wird, ist kein Ersatz. Sie fällt fort, sobald der Lauf die
+ * Regeln des Schemas auswertet.
+ *
+ * Beides zugleich ist keine Einstellung, sondern eine Unklarheit: Es steht
+ * genau eines da.
  */
 export interface Schemapruefungsregel {
-  /** Der Pfad der Schemadatei. */
-  datei: string;
+  /** Die Kennung des Eingangsprofils, gegen das geprüft wird. */
+  profil?: string;
+  /** Der Pfad einer JSON-Schema-Datei — der alte Weg. */
+  datei?: string;
   /**
    * Was mit einer Datei geschieht, die dem Schema nicht genügt. Ohne Angabe
    * wird sie nicht verarbeitet: Wer ein Schema hinterlegt, will nicht, dass
@@ -157,7 +172,7 @@ export interface Konsolidierungsdurchgang {
   /** Wie die Ergebnisdatei geschrieben wird; ohne Angabe als CSV. */
   format?: Ergebnisformat;
   festbreiten?: Festbreitenausgabe;
-  /** Prüfung der Eingangsdateien gegen ein JSON Schema (SPEC-03 §7). */
+  /** Prüfung der Eingangsdateien vor der Verarbeitung (SPEC-03 §7). */
   schema?: Schemapruefungsregel;
   /** Wie er einem Menschen gegenüber heißt; er steht so in jeder Meldung. */
   name?: string;
@@ -287,7 +302,7 @@ export const STAGE_ORDER: StageId[] = ['TRANSFER', 'CONSOLIDATE', 'DELIVER'];
 export const STAGE_LABELS: Record<StageId, string> = {
   TRANSFER: 'Daten übertragen',
   CONSOLIDATE: 'Daten konsolidieren',
-  DELIVER: 'Daten exportieren/importieren',
+  DELIVER: 'Daten exportieren',
 };
 
 /**

@@ -559,9 +559,16 @@ export interface Festbreitenfeld {
   kuerzen?: boolean;
 }
 
-/** Prüfung der Eingangsdateien gegen ein JSON Schema (SPEC-03 §7, SPEC-08 §2). */
+/**
+ * Prüfung der Eingangsdateien vor der Verarbeitung (SPEC-03 §7, SPEC-08 §2).
+ *
+ * `profil` verweist auf ein Schema des Mandanten; `datei` ist die alte
+ * JSON-Schema-Datei. Es steht genau eines da.
+ */
 export interface Schemapruefungsregel {
-  datei: string;
+  /** Die Kennung des Eingangsprofils, gegen das geprüft wird. */
+  profil?: string;
+  datei?: string;
   /** Ohne Angabe wird eine verletzende Datei nicht verarbeitet. */
   bei?: 'WARNEN' | 'ABBRECHEN';
 }
