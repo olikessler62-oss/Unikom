@@ -41,6 +41,39 @@ function fall(teile: Partial<Konfliktfall> = {}): Konfliktfall {
 
 const OPTIONEN = { region: DEFAULT_REGION };
 
+/* ---------- Was der Mandant erlaubt ---------- */
+
+test('wo der Mandant es verbietet, wird ein Konflikt nicht hingenommen', () => {
+  /*
+   * Geprüft in `wendeAn` und nicht erst beim Bestätigen: Sonst zeigte die
+   * Vorschau eine Vorschau auf etwas, das der Benutzer nicht tun darf.
+   */
+  const anwendung = wendeAn(fall(), { art: 'AKZEPTIEREN' }, { ...OPTIONEN, akzeptierenErlaubt: false });
+
+  assert.equal(anwendung.zulaessig, false);
+  assert.match(anwendung.befunde[0].ursache, /nicht zu/);
+  assert.equal(anwendung.befunde[0].schwere, 'FEHLER');
+});
+
+test('das Verbot gilt dem Hinnehmen und nicht dem Bereinigen', () => {
+  const anwendung = wendeAn(
+    fall(),
+    { art: 'BEREINIGEN', felder: [{ feld: 'ort', wahl: { art: 'QUELLE', quelle: 'CRM.csv' } }] },
+    { ...OPTIONEN, akzeptierenErlaubt: false }
+  );
+
+  assert.equal(anwendung.zulaessig, true);
+});
+
+test('ohne Angabe bleibt das Hinnehmen erlaubt', () => {
+  /*
+   * Eine fehlende Angabe zum Verbot zu lesen hieße, jeden Aufrufer, der sie
+   * noch nicht mitgibt, stillschweigend zu verriegeln.
+   */
+  assert.equal(wendeAn(fall(), { art: 'AKZEPTIEREN' }, OPTIONEN).zulaessig, true);
+  assert.equal(wendeAn(fall(), { art: 'AKZEPTIEREN' }, { ...OPTIONEN, akzeptierenErlaubt: true }).zulaessig, true);
+});
+
 /* ---------- Lebenszyklus (SPEC-07, Abschnitt 13) ---------- */
 
 test('der Lebenszyklus lässt nur die vorgesehenen Schritte zu', () => {

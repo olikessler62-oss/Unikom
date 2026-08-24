@@ -1,5 +1,12 @@
 import type { UnikomApplication } from '../../../application/runtime/UnikomApplication.js';
 import type { Meldeeinstellungen, Postausgang } from '../../../domain/background/Postausgang.js';
+import {
+  KUERZESTE_WIEDERVORLAGE,
+  VERHALTEN_ALLGEMEIN,
+  VORLAGEARTEN,
+  type Konfliktverhalten,
+  type Vorlageart,
+} from '../../../domain/conflicts/Konfliktverhalten.js';
 import { ALLGEMEIN, type Mandanteneinstellungen } from '../../../domain/consolidation/Einstellungen.js';
 import { dateOrderOf, regionOf, sampleDate, type Region } from '../../../domain/tenants/Region.js';
 import type { Tenant } from '../../../domain/tenants/Tenant.js';
@@ -35,6 +42,12 @@ function toView(tenant: Tenant) {
      * Vorschlag etwas anderes, als der Lauf verwendet.
      */
     voreinstellungen: ALLGEMEIN,
+    /*
+     * Und dasselbe für die Konflikte: Was gilt, solange der Mandant nichts
+     * eingestellt hat. Aus demselben Grund mitgeschickt — eine zweite
+     * Abschrift im Browser wäre irgendwann die veraltete.
+     */
+    konflikteVoreinstellung: VERHALTEN_ALLGEMEIN,
   };
 }
 
@@ -145,6 +158,7 @@ export function tenantRoutes(application: UnikomApplication): Route[] {
                  * „abgeschaltet", und niemand sähe den Unterschied.
                  */
                 ausleitungenTage: zahlOderFort(input, 'ausleitungenTage'),
+                konflikte: konfliktverhaltenAus(input.konflikte),
               })
             )
           );
@@ -230,6 +244,48 @@ function postausgangAus(wert: unknown): Postausgang | undefined {
     verschluesselung,
     absender,
     zugangId: typeof eintrag.zugangId === 'string' && eintrag.zugangId !== '' ? eintrag.zugangId : undefined,
+  };
+}
+
+/**
+ * Das Konfliktverhalten aus der Anfrage.
+ *
+ * `null` löscht es, ein fehlendes Feld lässt es stehen. Geprüft wird hier,
+ * weil eine unbekannte Vorlageart nicht stillschweigend zur Voreinstellung
+ * werden darf: Wer sich vertippt, soll es erfahren und nicht drei Wochen
+ * später merken, dass die Wiedervorlage nie kam.
+ */
+function konfliktverhaltenAus(wert: unknown): Konfliktverhalten | null | undefined {
+  if (wert === undefined) {
+    return undefined;
+  }
+
+  if (wert === null) {
+    return null;
+  }
+
+  const eintrag = requireObject(wert, 'Das Konfliktverhalten') as Record<string, unknown>;
+  const vorlage = eintrag.vorlage;
+
+  if (vorlage !== undefined && !VORLAGEARTEN.includes(vorlage as Vorlageart)) {
+    throw new ApiError(400, `Die Vorlage muss ${VORLAGEARTEN.join(', ')} sein — nicht „${String(vorlage)}"`);
+  }
+
+  const stunden = zahl(eintrag.wiedervorlageStunden);
+
+  /*
+   * Eine Frist von null Stünden ist keine Frist, sondern `BEI_JEDEM_OEFFNEN`
+   * unter anderem Namen — und die gibt es schon. Zwei Wege zu demselben
+   * Verhalten sind einer zu viel.
+   */
+  if (stunden !== undefined && (!Number.isFinite(stunden) || stunden < KUERZESTE_WIEDERVORLAGE)) {
+    throw new ApiError(400, `Die Wiedervorlage braucht mindestens ${KUERZESTE_WIEDERVORLAGE} Stunde`);
+  }
+
+  return {
+    vorlage: vorlage as Vorlageart | undefined,
+    wiedervorlageStunden: stunden,
+    akzeptierenErlaubt: typeof eintrag.akzeptierenErlaubt === 'boolean' ? eintrag.akzeptierenErlaubt : undefined,
   };
 }
 

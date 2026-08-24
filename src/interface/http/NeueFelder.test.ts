@@ -302,6 +302,98 @@ test('die drängenden Meldungen lassen sich abfragen, so wie das Popup es tut', 
   assert.equal(antwort.body[0].titel, '17 Fälle');
 });
 
+test('das Konfliktverhalten übersteht das Speichern und Lesen', async (t) => {
+  const client = await werkbank(t);
+
+  const gespeichert = await client.anfrage('PUT', '/api/tenants/default', {
+    name: 'Standard',
+    enabled: true,
+    konflikte: { vorlage: 'BEI_JEDEM_OEFFNEN', wiedervorlageStunden: 6, akzeptierenErlaubt: false },
+  });
+
+  assert.equal(gespeichert.status, 200, JSON.stringify(gespeichert.body));
+
+  const gelesen = await client.anfrage('GET', '/api/tenants');
+  const mandant = gelesen.body.find((eintrag: { id: string }) => eintrag.id === 'default');
+
+  assert.equal(mandant.konflikte.vorlage, 'BEI_JEDEM_OEFFNEN');
+  assert.equal(mandant.konflikte.wiedervorlageStunden, 6);
+  assert.equal(mandant.konflikte.akzeptierenErlaubt, false);
+  // Was gilt, solange nichts eingestellt ist — damit das Formular es als
+  // Vorschlag zeigen kann, ohne es selbst zu wissen.
+  assert.equal(typeof mandant.konflikteVoreinstellung.wiedervorlageStunden, 'number');
+});
+
+test('eine unbekannte Vorlageart wird abgelehnt und nicht stillschweigend zur Voreinstellung', async (t) => {
+  /*
+   * Wer sich vertippt, soll es erfahren — und nicht drei Wochen später merken,
+   * dass die Wiedervorlage nie kam.
+   */
+  const client = await werkbank(t);
+
+  const antwort = await client.anfrage('PUT', '/api/tenants/default', {
+    name: 'Standard',
+    enabled: true,
+    konflikte: { vorlage: 'IRGENDWAS' },
+  });
+
+  assert.equal(antwort.status, 400);
+  assert.match(String(antwort.body.error ?? antwort.body.message ?? ''), /Vorlage/);
+});
+
+test('eine Wiedervorlage von null Stunden wird abgelehnt', async (t) => {
+  // Das wäre `BEI_JEDEM_OEFFNEN` unter anderem Namen, und die gibt es schon.
+  const client = await werkbank(t);
+
+  const antwort = await client.anfrage('PUT', '/api/tenants/default', {
+    name: 'Standard',
+    enabled: true,
+    konflikte: { vorlage: 'WIEDERVORLAGE', wiedervorlageStunden: 0 },
+  });
+
+  assert.equal(antwort.status, 400);
+});
+
+test('wo der Mandant es verbietet, lehnt der Server das Hinnehmen ab', async (t) => {
+  /*
+   * Der Knopf verschwindet in der Oberfläche — aber eine Einstellung, die nur
+   * der Browser durchsetzt, ist keine Einstellung, sondern eine Bitte.
+   */
+  const client = await werkbank(t);
+
+  await client.anfrage('PUT', '/api/tenants/default', {
+    name: 'Standard',
+    enabled: true,
+    konflikte: { akzeptierenErlaubt: false },
+  });
+
+  await client.application.conflictRepository.save({
+    id: 'f1',
+    tenantId: 'default',
+    laufId: 'lauf1',
+    datensatz: '4711',
+    art: 'WERTEKONFLIKT',
+    kritikalitaet: 'KONFLIKT',
+    status: 'OFFEN',
+    ursache: 'Zwei Quellen nennen verschiedene Orte',
+    erwartet: 'Einen Wert',
+    vorgefunden: 'CRM: Bonn, ERP: Köln',
+    naechsteSchritte: 'Den richtigen Wert wählen',
+    quellen: ['CRM.csv', 'ERP.csv'],
+    felder: [],
+    entstanden: '2026-08-24T08:00:00.000Z',
+    geaendert: '2026-08-24T08:00:00.000Z',
+    fassung: 1,
+  });
+
+  const antwort = await client.anfrage('POST', '/api/conflicts/f1/decide', {
+    tenantId: 'default',
+    decision: { kind: 'AKZEPTIEREN' },
+  });
+
+  assert.equal(antwort.status, 422, JSON.stringify(antwort.body));
+});
+
 test('die Umformungen überstehen das Speichern und Lesen', async (t) => {
   /*
    * Sie laufen vor dem Konsolidieren und entscheiden damit, wie viele Kunden
@@ -849,6 +941,36 @@ test('die Schemaprüfung übersteht das Speichern und Lesen', async (t) => {
   const gelesen = await client.anfrage('GET', `/api/jobs/${angelegt.body.id}`);
 
   assert.deepEqual(gelesen.body.consolidation.schema, { datei: 'C:/schemas/kunden.json', bei: 'WARNEN' });
+});
+
+test('die Wahl eines Schemas übersteht das Speichern und Lesen', async (t) => {
+  /*
+   * Der Weg, der die JSON-Datei ablöst: Statt eines Pfades steht am Durchgang
+   * die Kennung eines Eingangsprofils des Mandanten. Ohne diese Naht stünde die
+   * Auswahl im Bildschirm und käme nie im Auftrag an.
+   */
+  const client = await werkbank(t);
+
+  const angelegt = await client.anfrage('POST', '/api/jobs', {
+    id: 'job-schemawahl',
+    ...WORKFLOW,
+    name: 'Mit Schemawahl',
+    consolidation: {
+      enabled: true,
+      input: { from: 'DIRECTORY', directory: 'C:/eingang' },
+      output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+      schema: { profil: 'p-bestellung-mueller', bei: 'ABBRECHEN' },
+    },
+  });
+
+  assert.equal(angelegt.status, 201, JSON.stringify(angelegt.body));
+
+  const gelesen = await client.anfrage('GET', `/api/jobs/${angelegt.body.id}`);
+
+  assert.deepEqual(gelesen.body.consolidation.schema, {
+    profil: 'p-bestellung-mueller',
+    bei: 'ABBRECHEN',
+  });
 });
 
 test('der Verzeichnisbrowser nennt auch die Dateien, nicht nur ihre Zahl', async (t) => {

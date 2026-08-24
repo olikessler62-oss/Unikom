@@ -96,6 +96,29 @@ export interface Tenant {
   voreinstellungen?: Required<Mandanteneinstellungen> & { locale: string; timeZone: string };
   /** Wie lange Ausleitungen liegen bleiben; leer heißt: Voreinstellung. */
   ausleitungenTage?: number;
+  /** Wie dieser Mandant mit offenen Konflikten umgeht. */
+  konflikte?: Konfliktverhalten;
+  /** Was gilt, solange dort nichts steht. Kommt vom Server. */
+  konflikteVoreinstellung?: Required<Konfliktverhalten>;
+}
+
+/**
+ * Wie sich ein offener Konflikt meldet, bis er entschieden ist.
+ *
+ * ```text
+ * EINMAL              zeigt sich einmal, danach nur noch in der Glocke
+ * WIEDERVORLAGE       zeigt sich nach Ablauf der Frist erneut
+ * BEI_JEDEM_OEFFNEN   zeigt sich bei jedem Wechsel der Ansicht
+ * ```
+ */
+export type Vorlageart = 'EINMAL' | 'WIEDERVORLAGE' | 'BEI_JEDEM_OEFFNEN';
+
+export interface Konfliktverhalten {
+  vorlage?: Vorlageart;
+  /** Nach wie vielen Stunden erneut — nur bei `WIEDERVORLAGE`. */
+  wiedervorlageStunden?: number;
+  /** Ob ein Fall hingenommen werden darf, statt entschieden zu werden. */
+  akzeptierenErlaubt?: boolean;
 }
 
 /**

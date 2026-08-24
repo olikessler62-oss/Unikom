@@ -1,6 +1,7 @@
 import type { UnikomApplication } from '../../../application/runtime/UnikomApplication.js';
 import type { AuthenticatedSession } from '../../../application/users/SessionService.js';
 import { KANAELE } from '../../../domain/background/Benachrichtigung.js';
+import { verhaltenVon } from '../../../domain/conflicts/Konfliktverhalten.js';
 import { ApiError, ok, type Route } from '../Http.js';
 
 /**
@@ -69,16 +70,23 @@ export function backgroundRoutes(application: UnikomApplication): Route[] {
     },
     {
       /**
-       * Was der Notification Agent beim Start nachholt.
+       * Was sich von selbst zeigen soll.
        *
        * Nur die drängenden: Eine Information von vorgestern noch einmal
-       * aufzuklappen, erzieht dazu, alles wegzuklicken.
+       * aufzuklappen, erzieht dazu, alles wegzuklicken. Wie oft ein offener
+       * Konflikt darunter ist, entscheidet der Mandant — und zwar hier und
+       * nicht im Browser: Eine Einstellung, die der Server nicht durchsetzt,
+       * ist keine Einstellung, sondern eine Bitte.
        */
       method: 'GET',
       pattern: '/api/notifications/pending',
       authorization: 'VIEW',
-      handle: async ({ query }) =>
-        ok(await application.backgroundService.nachzuholen(query.get('tenantId') ?? 'default')),
+      handle: async ({ query }) => {
+        const tenantId = query.get('tenantId') ?? 'default';
+        const mandant = await application.tenantService.getById(tenantId);
+
+        return ok(await application.backgroundService.nachzuholen(tenantId, verhaltenVon(mandant?.konflikte)));
+      },
     },
   ];
 }

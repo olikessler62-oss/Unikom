@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
-import type { Credential, Tenant } from '../api/types.js';
+import type { Credential, Tenant, Vorlageart } from '../api/types.js';
 import { CheckField, Empty, Field, InfoButton, Loading, Modal, Notice } from '../components/Pieces.js';
 import { LOCALES, previewOf, timeZones } from './regions.js';
 
@@ -22,6 +22,16 @@ interface Draft {
    * Angabe", null ist „gar nicht forträumen".
    */
   ausleitungenTage: string;
+  /**
+   * Wie sich ein offener Konflikt meldet, bis er entschieden ist.
+   *
+   * Die Frist als Text und nicht als Zahl — aus demselben Grund wie unten:
+   * Ein Feld, das während des Tippens schon eine Zahl sein muss, lässt sich
+   * nicht leeren, und leer heißt hier „es gilt die Voreinstellung".
+   */
+  konfliktVorlage: Vorlageart;
+  wiedervorlageStunden: string;
+  akzeptierenErlaubt: boolean;
   /** Wohin Meldungen gehen — leer heißt: nur ins Benachrichtigungscenter. */
   empfaenger: string;
   auchBeiErfolg: boolean;
@@ -52,6 +62,9 @@ const EMPTY: Draft = {
   timeZone: 'Europe/Berlin',
   enabled: true,
   ausleitungenTage: '',
+  konfliktVorlage: 'WIEDERVORLAGE',
+  wiedervorlageStunden: '',
+  akzeptierenErlaubt: true,
   empfaenger: '',
   auchBeiErfolg: false,
   mailHost: '',
@@ -101,6 +114,12 @@ export function TenantsScreen({ canManage }: Props) {
          * Unterschied.
          */
         ausleitungenTage: draft.ausleitungenTage.trim() === '' ? null : Number(draft.ausleitungenTage),
+        konflikte: {
+          vorlage: draft.konfliktVorlage,
+          wiedervorlageStunden:
+            draft.wiedervorlageStunden.trim() === '' ? undefined : Number(draft.wiedervorlageStunden),
+          akzeptierenErlaubt: draft.akzeptierenErlaubt,
+        },
         benachrichtigung: {
           empfaenger: draft.empfaenger
             .split(',')
@@ -268,6 +287,12 @@ export function TenantsScreen({ canManage }: Props) {
             />
           </Field>
 
+          <Konfliktumgang
+            draft={draft}
+            voreinstellung={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.konflikteVoreinstellung}
+            onChange={setDraft}
+          />
+
           <Meldewege draft={draft} credentials={credentials.data ?? []} onChange={setDraft} />
 
           <CheckField
@@ -344,6 +369,7 @@ export function TenantsScreen({ canManage }: Props) {
                               enabled: tenant.enabled,
                               ausleitungenTage:
                                 tenant.ausleitungenTage === undefined ? '' : String(tenant.ausleitungenTage),
+                              ...konflikteAus(tenant),
                               ...meldewegeAus(tenant),
                               ...einstellungenAus(tenant),
                             })
@@ -363,6 +389,97 @@ export function TenantsScreen({ canManage }: Props) {
           </table>
         </div>
       )}
+    </>
+  );
+}
+
+/**
+ * Wie dieser Mandant mit offenen Konflikten umgeht.
+ *
+ * Am Mandanten und nicht an der Installation, aus demselben Grund wie die
+ * Meldewege darunter: Der eine Kunde will am Morgen über jeden offenen Fall
+ * stolpern, bis er ihn entschieden hat; der nächste arbeitet eine Liste ab und
+ * will dabei nicht alle zehn Minuten ein Fenster wegklicken.
+ *
+ * Die Frist steht auch dann da, wenn sie gerade nicht gilt — abgeblendet und
+ * nicht fort. Ein Feld, das beim Umschalten verschwindet, verschiebt alles
+ * darunter, und wer die Wiedervorlage sucht, findet sie erst nach dem dritten
+ * Versuch.
+ */
+function Konfliktumgang({
+  draft,
+  voreinstellung,
+  onChange,
+}: {
+  draft: Draft;
+  voreinstellung?: { wiedervorlageStunden: number };
+  onChange(next: Draft): void;
+}) {
+  return (
+    <>
+      <h3>Offene Konflikte</h3>
+
+      <Field
+        label="Vorlage"
+        explain={
+          <>
+            <p>
+              Ein Konflikt entsteht um zwei Uhr nachts, und niemand sitzt davor. Was dann geschieht, steht hier.
+            </p>
+            <p>
+              <strong>Einmal</strong> zeigt ihn einmal; danach steht er nur noch in der Glocke.{' '}
+              <strong>Wiedervorlage</strong> zeigt ihn nach Ablauf der Frist erneut.{' '}
+              <strong>Bei jedem Öffnen</strong> zeigt ihn bei jedem Wechsel der Ansicht, bis er entschieden ist.
+            </p>
+            <p>
+              Ein Fenster, das immer kommt, wird nach der dritten Woche weggeklickt, ohne gelesen zu werden.
+              Deshalb ist die Wiedervorlage voreingestellt — und nicht das lauteste.
+            </p>
+          </>
+        }
+      >
+        <select
+          className="input--wahl"
+          value={draft.konfliktVorlage}
+          onChange={(event) => onChange({ ...draft, konfliktVorlage: event.target.value as Vorlageart })}
+        >
+          <option value="EINMAL">Einmal zeigen</option>
+          <option value="WIEDERVORLAGE">Wiedervorlage nach Frist</option>
+          <option value="BEI_JEDEM_OEFFNEN">Bei jedem Öffnen zeigen</option>
+        </select>
+      </Field>
+
+      <Field
+        label="Wiedervorlage nach (Stunden)"
+        explain="Wie lange Ruhe ist, nachdem ein Fall jemandem gezeigt wurde. Leer heißt: Voreinstellung. Gilt nur bei der Wiedervorlage."
+      >
+        <input
+          type="number"
+          min={1}
+          disabled={draft.konfliktVorlage !== 'WIEDERVORLAGE'}
+          value={draft.wiedervorlageStunden}
+          placeholder={String(voreinstellung?.wiedervorlageStunden ?? 24)}
+          onChange={(event) => onChange({ ...draft, wiedervorlageStunden: event.target.value })}
+        />
+      </Field>
+
+      <CheckField
+        label="Konflikte dürfen hingenommen werden"
+        explain={
+          <>
+            <p>
+              „Akzeptieren" heißt: den Konflikt sehenden Auges stehen lassen. Das verschwindet nicht
+              stillschweigend — es steht mit Name, Zeitpunkt und Bemerkung in der Historie des Falls.
+            </p>
+            <p>
+              Abgeschaltet bleibt jeder Fall offen, bis jemand ihn bereinigt. Genau das ist der Zweck: Wer keinen
+              Mülleimer haben will, bekommt keinen.
+            </p>
+          </>
+        }
+        checked={draft.akzeptierenErlaubt}
+        onChange={(akzeptierenErlaubt) => onChange({ ...draft, akzeptierenErlaubt })}
+      />
     </>
   );
 }
@@ -480,6 +597,25 @@ function Meldewege({
  * und wer „587" durch „465" ersetzen will, kommt an der ersten gelöschten
  * Ziffer nicht vorbei.
  */
+function konflikteAus(tenant: Tenant): Pick<
+  Draft,
+  'konfliktVorlage' | 'wiedervorlageStunden' | 'akzeptierenErlaubt'
+> {
+  const konflikte = tenant.konflikte;
+
+  return {
+    konfliktVorlage: konflikte?.vorlage ?? EMPTY.konfliktVorlage,
+    wiedervorlageStunden:
+      konflikte?.wiedervorlageStunden === undefined ? '' : String(konflikte.wiedervorlageStunden),
+    /*
+     * `?? true` und nicht `=== true`: Ein Mandant ohne Eintrag hat nichts
+     * verboten. Andersherum gälte für jeden bestehenden Kunden ab dem nächsten
+     * Start ein Verbot, das niemand ausgesprochen hat.
+     */
+    akzeptierenErlaubt: konflikte?.akzeptierenErlaubt ?? true,
+  };
+}
+
 function meldewegeAus(tenant: Tenant): Pick<
   Draft,
   'empfaenger' | 'auchBeiErfolg' | 'mailHost' | 'mailPort' | 'mailVerschluesselung' | 'mailAbsender' | 'mailZugangId'

@@ -65,6 +65,14 @@ export interface Anwendungsoptionen {
   jahrhundertGrenze?: number;
   /** Die fachlichen Regeln, die auch für eine Eingabe gelten. */
   qualitaet?: readonly Qualitaetsregel[];
+  /**
+   * Ob der Mandant erlaubt, einen Fall hinzunehmen statt ihn zu entscheiden.
+   *
+   * Fehlt die Angabe, ist es erlaubt — so war es, bevor es die Einstellung
+   * gab. Eine fehlende Angabe zum Verbot zu lesen, hieße, jeden Aufrufer, der
+   * sie noch nicht mitgibt, stillschweigend zu verriegeln.
+   */
+  akzeptierenErlaubt?: boolean;
   jetzt?: Date;
 }
 
@@ -217,6 +225,25 @@ export function wendeAn(fall: Konfliktfall, entscheidung: Entscheidung, optionen
         jetzt: optionen.jetzt,
       })
     );
+  }
+
+  /*
+   * Die Erlaubnis des Mandanten — hier und nicht im Dienst.
+   *
+   * `wendeAn` ist die eine Rechnung, an der die Vorschau und die Entscheidung
+   * gleichermaßen hängen. Wer das Verbot erst beim Bestätigen prüfte, zeigte
+   * dem Benutzer vorher eine Vorschau auf etwas, das er nicht tun darf — und
+   * ließe ihn eine Bemerkung tippen, die niemand liest.
+   */
+  if (entscheidung.art === 'AKZEPTIEREN' && optionen.akzeptierenErlaubt === false) {
+    befunde.push({
+      zeile: 0,
+      schwere: 'FEHLER',
+      ursache: 'Dieser Mandant lässt es nicht zu, einen Konflikt hinzunehmen',
+      auswirkung:
+        'Der Fall bleibt offen, bis jemand ihn bereinigt. ' +
+        'Geändert wird das unter „Mandanten" und nicht hier',
+    });
   }
 
   const schwer = befunde.some((befund) => befund.schwere === 'KONFLIKT' || befund.schwere === 'FEHLER');

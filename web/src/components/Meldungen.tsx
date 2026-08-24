@@ -28,7 +28,7 @@ import type { Benachrichtigung, Meldestand, Meldungsantwort } from '../api/types
  */
 const OFFEN_HOLEN_ALLE_MS = 30_000;
 
-export function Meldungen({ tenantId }: { tenantId: string }) {
+export function Meldungen({ tenantId, bereich }: { tenantId: string; bereich: string }) {
   const [antwort, setAntwort] = useState<Meldungsantwort>();
   const [offen, setOffen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -40,8 +40,14 @@ export function Meldungen({ tenantId }: { tenantId: string }) {
    * beim sechsten Klick ist auch die eine weg, auf die es ankam.
    */
   const [popup, setPopup] = useState<Benachrichtigung>();
-  /** Was sich schon einmal von selbst gezeigt hat; zweimal wäre Belästigung. */
-  const gezeigt = useRef(new Set<string>());
+  /**
+   * Was sich schon einmal von selbst gezeigt hat; zweimal wäre Belästigung.
+   *
+   * Der Anlass steht mit dabei, weil Konfliktmeldungen wieder vergessen werden
+   * dürfen — siehe unten. Ohne ihn müsste die Meldung dazu noch einmal geholt
+   * werden, und zwar genau dann, wenn sie nicht mehr in der Liste steht.
+   */
+  const gezeigt = useRef(new Map<string, string>());
   const strom = useRef<EventSource>(undefined);
 
   async function laden(): Promise<void> {
@@ -62,7 +68,7 @@ export function Meldungen({ tenantId }: { tenantId: string }) {
       const naechste = draengend.find((meldung) => !gezeigt.current.has(meldung.id));
 
       if (naechste) {
-        gezeigt.current.add(naechste.id);
+        gezeigt.current.set(naechste.id, naechste.anlass);
         setPopup(naechste);
       }
     } catch {
@@ -70,6 +76,28 @@ export function Meldungen({ tenantId }: { tenantId: string }) {
       // Blick ist sie entweder wieder da oder es fehlt Grundsätzlicheres.
     }
   }
+
+  /**
+   * Beim Wechsel der Ansicht dürfen sich Konflikte wieder melden.
+   *
+   * **Ob** sie es tun, entscheidet der Server: Er kennt das Konfliktverhalten
+   * des Mandanten und nennt in `pending` nur, was jetzt an der Reihe ist. Hier
+   * wird nur das Gedächtnis dieser Sitzung geleert — sonst käme eine
+   * Wiedervorlage nie an, weil der Browser sie für „schon gezeigt" hält.
+   *
+   * Nur Konfliktmeldungen. Ein gescheiterter Lauf meldet sich einmal je
+   * Sitzung, so wie bisher — wer eingestellt hat, dass Konflikte ihm vor der
+   * Nase hängen, hat über Konflikte entschieden und nicht über alles andere.
+   */
+  useEffect(() => {
+    for (const [id, anlass] of gezeigt.current) {
+      if (anlass === 'KONFLIKTE_ENTSTANDEN') {
+        gezeigt.current.delete(id);
+      }
+    }
+
+    void laden();
+  }, [bereich]);
 
   useEffect(() => {
     void laden();
@@ -130,13 +158,18 @@ export function Meldungen({ tenantId }: { tenantId: string }) {
    *
    * „Offene, noch nicht bearbeitete bzw. bestätigte Benachrichtigungen … dürfen
    * nicht verloren gehen, nur weil der Benutzer das Popup schließt."
+   *
+   * Gestempelt wird **jedes Mal** und nicht nur beim ersten Mal. Der Stempel
+   * ist es, woran der Server die Frist der Wiedervorlage misst: Würde er beim
+   * zweiten Zeigen nicht erneuert, käme der Fall danach im Takt der Frist
+   * wieder — gerechnet ab dem ersten Blick vor drei Wochen.
    */
   async function schliessePopup(): Promise<void> {
     const meldung = popup;
 
     setPopup(undefined);
 
-    if (meldung && !meldung.gesehen) {
+    if (meldung) {
       await api.post(`/api/notifications/${meldung.id}/seen`, {});
       await laden();
     }

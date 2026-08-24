@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS tenants (
   -- NULL heisst „keine eigene Angabe" und damit die Voreinstellung; 0 heisst
   -- abgeschaltet.
   exports_days   INTEGER,
+  -- Wie dieser Mandant mit offenen Konflikten umgeht: Vorlageart, Frist der
+  -- Wiedervorlage, ob ein Fall hingenommen werden darf. Als JSON und aus
+  -- demselben Grund wie oben.
+  conflicts      TEXT,
   enabled        INTEGER NOT NULL,
   created_at     TEXT NOT NULL,
   updated_at     TEXT NOT NULL
@@ -473,6 +477,10 @@ function migrate(database: DatabaseSync, notice: (message: string) => void): voi
 
   if (!hasColumn(database, 'tenants', 'exports_days')) {
     database.exec('ALTER TABLE tenants ADD COLUMN exports_days INTEGER');
+  }
+
+  if (!hasColumn(database, 'tenants', 'conflicts')) {
+    database.exec('ALTER TABLE tenants ADD COLUMN conflicts TEXT');
   }
 }
 

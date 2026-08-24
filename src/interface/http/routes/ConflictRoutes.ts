@@ -17,6 +17,7 @@ import {
   regionAus,
   wirksameEinstellungen,
 } from '../../../domain/consolidation/Einstellungen.js';
+import { verhaltenVon } from '../../../domain/conflicts/Konfliktverhalten.js';
 import { AUSGELIEFERTE_REGELN } from '../../../domain/quality/Regeln.js';
 import { ApiError, created, ok, requireObject, requireString, type ApiResponse, type Route } from '../Http.js';
 
@@ -73,6 +74,14 @@ export function conflictRoutes(application: UnikomApplication): Route[] {
       nullWerte: wirksam.nullWerte,
       jahrhundertGrenze: wirksam.jahrhundertGrenze,
       qualitaet: AUSGELIEFERTE_REGELN,
+      /*
+       * Ob ein Fall hingenommen werden darf. Sie geht denselben Weg wie die
+       * Regeln — durch `regelnFuer` und damit durch alle vier Türen:
+       * Vorschau, Entscheidung, Massenvorschau, Massenentscheidung. Eine
+       * Prüfung, die nur an einer davon hängt, ist an den anderen dreien nicht
+       * vorhanden.
+       */
+      akzeptierenErlaubt: verhaltenVon(mandant.konflikte).akzeptierenErlaubt,
     };
   };
 

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { erneutZeigen, istOffen, KANAELE, type Benachrichtigung } from '../../domain/background/Benachrichtigung.js';
 import { istVerstummt, seit } from '../../domain/background/Heartbeat.js';
+import { verhaltenVon } from '../../domain/conflicts/Konfliktverhalten.js';
 import { TransferRunStatus, type TransferRun } from '../../domain/transfer/TransferRun.js';
 import type { TransferRunRepository } from '../../domain/transfer/TransferRunRepository.js';
 import {
@@ -290,6 +291,82 @@ test('beim Neustart werden nur die dringenden erneut gezeigt', async () => {
   const nachzuholen = await service.nachzuholen('default');
 
   assert.deepEqual(nachzuholen.map((meldung) => meldung.titel).sort(), ['b', 'c']);
+});
+
+/* ---------- Was der Mandant über Konflikte einstellt ---------- */
+
+test('EINMAL zeigt einen Konflikt nach dem ersten Blick nicht mehr von selbst', async () => {
+  const { service, meldungen } = dienst();
+
+  await service.melde('default', 'KONFLIKTE_ENTSTANDEN', { titel: 'Konflikt', text: 'a' });
+  await service.gesehen((await service.alle('default'))[0].id, JETZT);
+
+  const nachzuholen = await service.nachzuholen(
+    'default',
+    verhaltenVon({ vorlage: 'EINMAL' }),
+    new Date(JETZT.getTime() + 1_000_000)
+  );
+
+  assert.deepEqual(nachzuholen, []);
+  // Fort ist die Meldung damit nicht — sie steht weiter in der Glocke.
+  assert.equal((await meldungen.list('default', true)).length, 1);
+});
+
+test('BEI_JEDEM_OEFFNEN zeigt den Konflikt auch nach dem Blick wieder', async () => {
+  const { service } = dienst();
+
+  await service.melde('default', 'KONFLIKTE_ENTSTANDEN', { titel: 'Konflikt', text: 'a' });
+  await service.gesehen((await service.alle('default'))[0].id, JETZT);
+
+  const nachzuholen = await service.nachzuholen(
+    'default',
+    verhaltenVon({ vorlage: 'BEI_JEDEM_OEFFNEN' }),
+    new Date(JETZT.getTime() + 1_000)
+  );
+
+  assert.deepEqual(nachzuholen.map((meldung) => meldung.titel), ['Konflikt']);
+});
+
+test('die Wiedervorlage wartet ihre Frist ab und kommt dann', async () => {
+  const { service } = dienst();
+
+  await service.melde('default', 'KONFLIKTE_ENTSTANDEN', { titel: 'Konflikt', text: 'a' });
+  await service.gesehen((await service.alle('default'))[0].id, JETZT);
+
+  const verhalten = verhaltenVon({ vorlage: 'WIEDERVORLAGE', wiedervorlageStunden: 4 });
+  const frueh = await service.nachzuholen('default', verhalten, new Date(JETZT.getTime() + 3 * 3_600_000));
+  const spaet = await service.nachzuholen('default', verhalten, new Date(JETZT.getTime() + 5 * 3_600_000));
+
+  assert.deepEqual(frueh, []);
+  assert.deepEqual(spaet.map((meldung) => meldung.titel), ['Konflikt']);
+});
+
+test('die Einstellung gilt Konflikten und nicht allem anderen', async () => {
+  /*
+   * Wer eingestellt hat, dass Konflikte ihm vor der Nase hängen, hat über
+   * Konflikte entschieden — nicht darüber, wie oft ein gescheiterter Lauf
+   * sich meldet. Das sind zwei Dinge und zwei Adressaten.
+   */
+  const { service } = dienst();
+
+  await service.melde('default', 'LAUF_FEHLER', { titel: 'Fehler', text: 'a' });
+  await service.gesehen((await service.alle('default'))[0].id, JETZT);
+
+  const nachzuholen = await service.nachzuholen(
+    'default',
+    verhaltenVon({ vorlage: 'EINMAL' }),
+    new Date(JETZT.getTime() + 1_000_000)
+  );
+
+  assert.deepEqual(nachzuholen.map((meldung) => meldung.titel), ['Fehler']);
+});
+
+test('ohne Angabe gilt die Voreinstellung und nichts ändert sich', async () => {
+  const { service } = dienst();
+
+  await service.melde('default', 'KONFLIKTE_ENTSTANDEN', { titel: 'Konflikt', text: 'a' });
+
+  assert.deepEqual((await service.nachzuholen('default')).map((meldung) => meldung.titel), ['Konflikt']);
 });
 
 test('eine bestätigte Meldung kommt nicht wieder', () => {

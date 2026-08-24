@@ -11,6 +11,11 @@ import {
   type Meldeanlass,
 } from '../../domain/background/Benachrichtigung.js';
 import {
+  VERHALTEN_ALLGEMEIN,
+  zeigtSichWieder,
+  type Konfliktverhalten,
+} from '../../domain/conflicts/Konfliktverhalten.js';
+import {
   ALS_ABGEBROCHEN_NACH_MS,
   HERZSCHLAG_ALLE_MS,
   istVerstummt,
@@ -357,13 +362,27 @@ export class BackgroundService {
   }
 
   /**
-   * Was der Notification Agent beim Start noch einmal zeigen soll.
+   * Was sich von selbst zeigen soll.
    *
    * Nur die dringenden: Eine Information von vorgestern noch einmal
    * aufzuklappen, erzieht dazu, alles wegzuklicken.
+   *
+   * Konfliktmeldungen gehorchen zusätzlich dem Mandanten. Nur sie — wer
+   * einstellt, dass ein offener Konflikt ihm bei jedem Wechsel der Ansicht vor
+   * die Nase gehalten wird, hat über Konflikte entschieden und nicht darüber,
+   * wie oft ein gescheiterter Lauf sich meldet. Das sind zwei Dinge und zwei
+   * Adressaten.
    */
-  async nachzuholen(tenantId: string): Promise<Benachrichtigung[]> {
-    return (await this.meldungen.list(tenantId, true)).filter(erneutZeigen);
+  async nachzuholen(
+    tenantId: string,
+    verhalten: Required<Konfliktverhalten> = VERHALTEN_ALLGEMEIN,
+    jetzt = new Date()
+  ): Promise<Benachrichtigung[]> {
+    return (await this.meldungen.list(tenantId, true)).filter(
+      (meldung) =>
+        erneutZeigen(meldung) &&
+        (meldung.anlass !== 'KONFLIKTE_ENTSTANDEN' || zeigtSichWieder(meldung.gesehen, verhalten, jetzt))
+    );
   }
 
   async gesehen(id: string, jetzt = new Date()): Promise<void> {

@@ -67,22 +67,34 @@ const ENTSCHEIDUNG_LABELS: Record<Entscheidungsart, string> = {
  * zulässigen Bearbeitungs- und Entscheidungsoptionen bereitstellen." Ein Knopf,
  * der beim Drücken einen Fehler bringt, ist schlechter als kein Knopf.
  */
-function moeglich(fall: Konfliktfall): Entscheidungsart[] {
+function moeglich(fall: Konfliktfall, akzeptierenErlaubt: boolean): Entscheidungsart[] {
   if (fall.status === 'ERFOLGREICH_VERARBEITET' || fall.status === 'ERNEUT_VERARBEITET') {
     return [];
   }
 
   const mitWerten = fall.felder.length > 0 ? (['BEREINIGEN'] as Entscheidungsart[]) : [];
+  /*
+   * Der Mandant kann das Hinnehmen abschalten. Dann steht der Knopf nicht da
+   * — der Server lehnt die Entscheidung ohnehin ab, und ein Knopf, der beim
+   * Drücken einen Fehler bringt, ist schlechter als kein Knopf.
+   */
+  const hinnehmen = akzeptierenErlaubt ? (['AKZEPTIEREN'] as Entscheidungsart[]) : [];
 
   if (fall.status === 'ZURUECKGESTELLT') {
-    return [...mitWerten, 'AKZEPTIEREN', 'WIEDERAUFNEHMEN'];
+    return [...mitWerten, ...hinnehmen, 'WIEDERAUFNEHMEN'];
   }
 
-  if (fall.status === 'BEREINIGT' || fall.status === 'AKZEPTIERT') {
-    return [...mitWerten, 'AKZEPTIEREN', 'ZURUECKSTELLEN'];
+  /*
+   * Ein hingenommener Fall lässt sich nicht zurückstellen und auch nicht noch
+   * einmal hinnehmen — der Lebenszyklus lässt von hier nur zurück ins Offene
+   * oder ins Bereinigte. Hier stand bisher dieselbe Zeile wie unten, und beide
+   * Knöpfe endeten in einer Absage des Servers.
+   */
+  if (fall.status === 'AKZEPTIERT') {
+    return [...mitWerten, 'WIEDERAUFNEHMEN'];
   }
 
-  return [...mitWerten, 'AKZEPTIEREN', 'ZURUECKSTELLEN'];
+  return [...mitWerten, ...hinnehmen, 'ZURUECKSTELLEN'];
 }
 
 type Wahl = { art: 'QUELLE'; quelle: string } | { art: 'EINGABE'; wert: string } | { art: 'LEER' };
@@ -99,13 +111,26 @@ export function ConflictScreen() {
   const [wahlen, setWahlen] = useState<Record<string, Wahl>>({});
   const [vorschau, setVorschau] = useState<Anwendung>();
   const [markiert, setMarkiert] = useState<string[]>([]);
-  const [massenart, setMassenart] = useState<Entscheidungsart>('AKZEPTIEREN');
+  /*
+   * Zurückstellen und nicht Akzeptieren: Die Voreinstellung einer
+   * Massenentscheidung darf nicht die sein, die Fälle vom Tisch nimmt. Wer
+   * hundert Fälle markiert und einmal zu schnell klickt, hat sonst hundert
+   * Entscheidungen getroffen, die er nicht getroffen hat.
+   */
+  const [massenart, setMassenart] = useState<Entscheidungsart>('ZURUECKSTELLEN');
   const [massenvorschau, setMassenvorschau] = useState<Massenvorschau>();
   const [meldung, setMeldung] = useState<string>();
   const [fehler, setFehler] = useState<string>();
   const [busy, setBusy] = useState(false);
 
   const mandant = tenantId ?? tenants.data?.[0]?.id;
+  /*
+   * Ohne Eintrag ist es erlaubt — so war es, bevor es die Einstellung gab.
+   * Andersherum verschwände der Knopf für jeden bestehenden Kunden, ohne dass
+   * jemand etwas eingestellt hätte.
+   */
+  const akzeptierenErlaubt =
+    tenants.data?.find((eintrag) => eintrag.id === mandant)?.konflikte?.akzeptierenErlaubt ?? true;
 
   async function laden(): Promise<void> {
     if (!mandant) {
@@ -441,7 +466,7 @@ export function ConflictScreen() {
           <div className="row">
             <Field label="Entscheidung">
               <select value={massenart} onChange={(event) => setMassenart(event.target.value as Entscheidungsart)}>
-                <option value="AKZEPTIEREN">{ENTSCHEIDUNG_LABELS.AKZEPTIEREN}</option>
+                {akzeptierenErlaubt && <option value="AKZEPTIEREN">{ENTSCHEIDUNG_LABELS.AKZEPTIEREN}</option>}
                 <option value="ZURUECKSTELLEN">{ENTSCHEIDUNG_LABELS.ZURUECKSTELLEN}</option>
                 <option value="NICHT_ZUSAMMENFUEHREN">{ENTSCHEIDUNG_LABELS.NICHT_ZUSAMMENFUEHREN}</option>
               </select>
@@ -482,6 +507,7 @@ export function ConflictScreen() {
       {ansicht && (
         <Fall
           ansicht={ansicht}
+          akzeptierenErlaubt={akzeptierenErlaubt}
           wahlen={wahlen}
           vorschau={vorschau}
           busy={busy}
@@ -674,6 +700,7 @@ function Freigabe({
 
 function Fall({
   ansicht,
+  akzeptierenErlaubt,
   wahlen,
   vorschau,
   busy,
@@ -683,6 +710,7 @@ function Fall({
   onSperre,
 }: {
   ansicht: Konfliktansicht;
+  akzeptierenErlaubt: boolean;
   wahlen: Record<string, Wahl>;
   vorschau?: Anwendung;
   busy: boolean;
@@ -692,7 +720,7 @@ function Fall({
   onSperre(los: boolean): void;
 }) {
   const { fall } = ansicht;
-  const arten = moeglich(fall);
+  const arten = moeglich(fall, akzeptierenErlaubt);
   const braucht = arten.includes('BEREINIGEN') ? 'BEREINIGEN' : arten[0];
 
   return (

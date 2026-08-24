@@ -1,4 +1,5 @@
 import type { Meldeeinstellungen } from '../../domain/background/Postausgang.js';
+import type { Konfliktverhalten } from '../../domain/conflicts/Konfliktverhalten.js';
 import type { Mandanteneinstellungen } from '../../domain/consolidation/Einstellungen.js';
 import { pruefeEinstellungen } from '../../domain/consolidation/Einstellungspruefung.js';
 import { randomUUID } from 'node:crypto';
@@ -91,6 +92,11 @@ export class TenantService {
        * Einstellung fort — dann gilt wieder die Voreinstellung.
        */
       ausleitungenTage?: number | null;
+      /**
+       * Wie dieser Mandant mit offenen Konflikten umgeht. `null` nimmt die
+       * Einstellung fort — dann gilt wieder die Voreinstellung.
+       */
+      konflikte?: Konfliktverhalten | null;
     }
   ): Promise<Tenant> {
     const tenant = await this.require(id);
@@ -153,6 +159,7 @@ export class TenantService {
       ausleitungenTage: changes.ausleitungenTage === undefined
         ? tenant.ausleitungenTage
         : (changes.ausleitungenTage ?? undefined),
+      konflikte: changes.konflikte === undefined ? tenant.konflikte : (changes.konflikte ?? undefined),
       updatedAt: new Date(),
     });
   }

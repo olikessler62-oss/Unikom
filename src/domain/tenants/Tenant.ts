@@ -1,5 +1,6 @@
 import type { Region } from './Region.js';
 import type { Meldeeinstellungen } from '../background/Postausgang.js';
+import type { Konfliktverhalten } from '../conflicts/Konfliktverhalten.js';
 import type { Mandanteneinstellungen } from '../consolidation/Einstellungen.js';
 
 /**
@@ -68,6 +69,16 @@ export interface Tenant {
    * sein.
    */
   ausleitungenTage?: number;
+  /**
+   * Wie dieser Mandant mit offenen Konflikten umgeht — siehe
+   * `Konfliktverhalten`.
+   *
+   * Am Mandanten und nicht an der Installation, aus demselben Grund wie die
+   * beiden Angaben darüber: Der eine Kunde will am Morgen über jeden offenen
+   * Fall stolpern, der nächste arbeitet eine Liste ab und will dabei nicht
+   * alle zehn Minuten ein Fenster wegklicken.
+   */
+  konflikte?: Konfliktverhalten;
   /** A disabled tenant keeps its history; its jobs no longer run. */
   enabled: boolean;
   createdAt: Date;

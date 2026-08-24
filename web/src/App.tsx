@@ -252,7 +252,7 @@ export function App() {
               * Meldung, die nur sieht, wer zufällig auf dem richtigen
               * Bildschirm ist, hat ihren Zweck verfehlt.
               */}
-            <Meldungen tenantId="default" />
+            <Meldungen tenantId="default" bereich={area} />
           </div>
         )}
 

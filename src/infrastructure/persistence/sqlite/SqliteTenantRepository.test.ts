@@ -65,6 +65,36 @@ test('die Konsolidierungseinstellungen überstehen einen Neustart', async () => 
   assert.deepEqual(gelesen?.consolidation?.nullWerte, ['k. A.']);
 });
 
+test('das Konfliktverhalten übersteht einen Neustart', async () => {
+  /*
+   * Die Meldewege standen einmal am Mandanten, wurden entgegengenommen und
+   * fielen beim Schreiben heraus — die Tabelle hatte keine Spalte dafür. Nach
+   * jedem Neustart galt wieder die Voreinstellung, und niemand sah es, weil
+   * eine Voreinstellung genauso aussieht wie eine vergessene Einstellung.
+   */
+  const { pfad, bestand } = await ablage();
+
+  await bestand.save(
+    mandant({ konflikte: { vorlage: 'BEI_JEDEM_OEFFNEN', wiedervorlageStunden: 6, akzeptierenErlaubt: false } })
+  );
+
+  const gelesen = await new SqliteTenantRepository(await openDatabase(pfad)).getById('default');
+
+  assert.equal(gelesen?.konflikte?.vorlage, 'BEI_JEDEM_OEFFNEN');
+  assert.equal(gelesen?.konflikte?.wiedervorlageStunden, 6);
+  // `false` ist der Wert, der am leichtesten verlorengeht — und der einzige,
+  // dessen Verlust ein Verbot stillschweigend aufhebt.
+  assert.equal(gelesen?.konflikte?.akzeptierenErlaubt, false);
+});
+
+test('ein Mandant ohne Konfliktverhalten bleibt ohne', async () => {
+  const { pfad, bestand } = await ablage();
+
+  await bestand.save(mandant());
+
+  assert.equal((await new SqliteTenantRepository(await openDatabase(pfad)).getById('default'))?.konflikte, undefined);
+});
+
 test('die Aufbewahrungsfrist der Ausleitungen übersteht einen Neustart', async () => {
   const { pfad, bestand } = await ablage();
 
