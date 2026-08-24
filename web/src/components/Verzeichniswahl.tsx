@@ -1,10 +1,19 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import type { RemoteDirectoryResult } from '../api/types.js';
 import { messageOf } from '../api/useResource.js';
 import { pathSegments } from '../screens/job/paths.js';
-import { mapNode, toNodes, type TreeNode } from '../screens/job/tree.js';
-import { Field, FieldButton, FolderIcon, FolderOpenIcon, listentasten, Loading, Modal } from './Pieces.js';
+import { mapNode, sichtbare, toNodes, type TreeNode } from '../screens/job/tree.js';
+import {
+  Field,
+  FieldButton,
+  FolderIcon,
+  FolderOpenIcon,
+  listentasten,
+  Loading,
+  Modal,
+  titelBeiUeberlauf,
+} from './Pieces.js';
 
 /**
  * Der Verzeichnisbaum im Auswahlfenster.
@@ -22,16 +31,29 @@ import { Field, FieldButton, FolderIcon, FolderOpenIcon, listentasten, Loading, 
 function Verzeichnisbaum({
   nodes,
   chosen,
+  fokus,
+  melde,
   onToggle,
   onChoose,
 }: {
   nodes: TreeNode[];
   chosen?: string;
+  /** Der Knoten, der die Tastatur hat — genau einer trägt `tabIndex={0}`. */
+  fokus?: string;
+  /**
+   * Meldet den Knopf einer Zeile an, damit die Tastatur ihn anspringen kann.
+   *
+   * Über eine Kartei und nicht über einen Selektor: Ein Pfad enthält
+   * Rückstriche, Doppelpunkte und Leerzeichen — daraus einen gültigen
+   * CSS-Selektor zu bauen ist eine Fehlerquelle, die genau bei den Pfaden
+   * zuschlägt, die ein Kunde tatsächlich hat.
+   */
+  melde(pfad: string, knopf: HTMLButtonElement | null): void;
   onToggle(node: TreeNode): void;
   onChoose(node: TreeNode): void;
 }) {
   return (
-    <ul className="tree">
+    <ul className="tree" role="group">
       {nodes.map((node) => (
         <li key={node.path}>
           <div className={`tree__row${chosen === node.path ? ' tree__row--chosen' : ''}`}>
@@ -49,7 +71,30 @@ function Verzeichnisbaum({
               * zum Ordner, nicht zum Aufklappen — und ein drittes anklickbares
               * Ding je Zeile wäre eine Trefferfläche mehr, die niemand sucht.
               */}
-            <button type="button" className="tree__name" onClick={() => onChoose(node)}>
+            {/*
+              * Ein Doppelklick klappt auf.
+              *
+              * Er ist das, was jeder aus dem Dateidialog kennt, und er
+              * widerspricht der Aufteilung nicht: Der erste Klick wählt, der
+              * zweite sieht hinein. Wer sich nur umsehen will, nimmt weiterhin
+              * das Dreieck und ändert die Wahl dabei nicht.
+              */}
+            <button
+              type="button"
+              className="tree__name"
+              ref={(knopf) => melde(node.path, knopf)}
+              /*
+               * Genau ein Knopf im Baum ist mit der Tabulatortaste erreichbar.
+               * Ohne das wanderte der Fokus durch dreißig Ordner, bevor er den
+               * Knopf unten erreicht — und ein Baum wäre mit der Tastatur nicht
+               * zu verlassen.
+               */
+              tabIndex={fokus === node.path ? 0 : -1}
+              aria-expanded={node.children || node.open ? node.open : undefined}
+              aria-selected={chosen === node.path}
+              onClick={() => onChoose(node)}
+              onDoubleClick={() => onToggle(node)}
+            >
               {node.open ? <FolderOpenIcon /> : <FolderIcon />}
               <span className="tree__label">{node.name}</span>
             </button>
@@ -58,7 +103,14 @@ function Verzeichnisbaum({
           {node.error && <p className="tree__error">✗ {node.error}</p>}
 
           {node.open && node.children && node.children.length > 0 && (
-            <Verzeichnisbaum nodes={node.children} chosen={chosen} onToggle={onToggle} onChoose={onChoose} />
+            <Verzeichnisbaum
+              nodes={node.children}
+              chosen={chosen}
+              fokus={fokus}
+              melde={melde}
+              onToggle={onToggle}
+              onChoose={onChoose}
+            />
           )}
           {node.open && node.children?.length === 0 && <p className="tree__empty">keine Unterverzeichnisse</p>}
         </li>
@@ -133,6 +185,104 @@ export function Verzeichnisfenster({
   const [newFolder, setNewFolder] = useState('');
   const [folderError, setFolderError] = useState<string>();
 
+  /*
+   * Der Pfad, den das Fenster gerade meint — abgeleitet und nicht mitgeführt.
+   *
+   * Ein zweiter Zustand daneben ginge früher oder später auseinander: Man
+   * klickt im Baum, klickt oben eine Abkürzung, blättert eine Ebene höher — und
+   * irgendeiner dieser Wege vergäße, das Feld nachzuziehen.
+   */
+  const gewaehlterPfad = chosen?.path ?? stand.at?.path ?? '';
+
+  /*
+   * Die Dateien des **gewählten** Ordners.
+   *
+   * Getrennt von `stand.at`: Das ist der Ort, an dem das Fenster aufgemacht
+   * wurde, und der ändert sich beim Klicken im Baum nicht — `oeffne` baut den
+   * Baum neu und läuft deshalb nur beim Öffnen und beim Springen über das
+   * Pfadfeld. Die Liste zeigte damit die Dateien des Startverzeichnisses,
+   * während oben im Feld längst ein anderer Ordner stand: „Keine Dateien in
+   * diesem Verzeichnis" bei einem Ordner voller Dateien.
+   *
+   * Nur im Dateimodus geholt. Wer ein Verzeichnis sucht, sieht die Liste nicht
+   * und soll für sie auch nicht warten.
+   */
+  const [dateien, setDateien] = useState<RemoteDirectoryResult['files']>();
+
+  /*
+   * Der Ordner, dessen Dateien im Kasten stehen — und nicht `chosen`.
+   *
+   * `chosen` trägt am Ende auch eine **Datei**: Wer eine anklickt, wählt sie
+   * aus. Würde die Liste daran hängen, versuchte sie beim ersten Klick, eine
+   * Datei als Verzeichnis zu lesen — und leerte sich selbst.
+   */
+  const [ordner, setOrdner] = useState<string>();
+
+  const gezeigterOrdner = ordner ?? stand.at?.path ?? '';
+
+  useEffect(() => {
+    if (waehle !== 'DATEI' || gezeigterOrdner === '') {
+      setDateien(undefined);
+      return;
+    }
+
+    /*
+     * Wer schnell durch den Baum klickt, hat mehrere Anfragen unterwegs. Ohne
+     * diese Marke gewänne die zuletzt **eingetroffene** und nicht die zuletzt
+     * gestellte — und im Kasten stünden die Dateien eines Ordners, den niemand
+     * mehr ansieht.
+     */
+    let gilt = true;
+
+    void lies(gezeigterOrdner)
+      .then((gelesen) => gilt && setDateien(gelesen.files ?? []))
+      .catch(() => gilt && setDateien([]));
+
+    return () => {
+      gilt = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gezeigterOrdner, waehle]);
+
+  /*
+   * Was jemand gerade hineinschreibt. `undefined` heißt: Das Feld folgt der
+   * Auswahl.
+   *
+   * Es war lange nur zum Lesen, mit der Begründung, ein Feld, in dem nichts
+   * geschieht, sei die schlechtere Antwort. Das stimmt — die Antwort darauf ist
+   * aber nicht, es lesbar zu lassen, sondern **etwas geschehen zu lassen**: Ein
+   * Pfad aus der Zwischenablage und Enter, und das Fenster steht dort. Das ist
+   * der häufigste Fall überhaupt, und bisher klickte man ihn zu Fuß nach.
+   */
+  const [pfadentwurf, setPfadentwurf] = useState<string>();
+
+  // Sobald sich die Auswahl bewegt, ist der Entwurf überholt.
+  useEffect(() => setPfadentwurf(undefined), [gewaehlterPfad]);
+
+  /** Der Knoten, der die Tastatur hat. */
+  const [fokus, setFokus] = useState<string>();
+
+  /*
+   * Die Knöpfe der Zeilen, nach Pfad. Über eine Kartei und nicht über einen
+   * Selektor: Ein Pfad enthält Rückstriche und Doppelpunkte, und daraus einen
+   * gültigen CSS-Selektor zu bauen ginge genau bei den Pfaden schief, die ein
+   * Kunde wirklich hat.
+   */
+  const knoepfe = useRef(new Map<string, HTMLButtonElement>());
+
+  const melde = (pfad: string, knopf: HTMLButtonElement | null): void => {
+    if (knopf) {
+      knoepfe.current.set(pfad, knopf);
+    } else {
+      knoepfe.current.delete(pfad);
+    }
+  };
+
+  const springe = (pfad: string): void => {
+    setFokus(pfad);
+    knoepfe.current.get(pfad)?.focus();
+  };
+
   async function oeffne(at: string): Promise<void> {
     setStand({ busy: true });
     setNewFolder('');
@@ -142,6 +292,9 @@ export function Verzeichnisfenster({
       const gelesen = await lies(at);
 
       setStand({ busy: false, at: gelesen });
+
+      // Der neue Ort ist auch der, dessen Dateien gezeigt werden.
+      setOrdner(undefined);
 
       /*
        * Das aktuelle Verzeichnis ist die Wurzel des Baums und zugleich die
@@ -193,6 +346,125 @@ export function Verzeichnisfenster({
     void oeffne(start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * Die Tastatur im Baum, nach dem Muster „Tree View" der WAI-ARIA-Praxis.
+   *
+   * ```text
+   * ↑ ↓        durch die sichtbaren Zeilen
+   * →          aufklappen, sonst ins erste Kind
+   * ←          zuklappen, sonst zum Elternknoten
+   * Pos1 Ende  erste und letzte Zeile
+   * Enter      übernehmen und schließen
+   * Buchstabe  zur nächsten Zeile, die so beginnt
+   * ```
+   *
+   * Bewegt wird durch die **sichtbaren** Zeilen: Was unter einem zugeklappten
+   * Zweig liegt, steht nirgends und darf nicht erreichbar sein — ein Fokus an
+   * einer Stelle, die man nicht sieht, ist schlimmer als keiner.
+   *
+   * `→` und `←` sind nicht symmetrisch, und das ist gewollt: Rechts geht es
+   * hinein, links hinaus. Wer rechts auf einem offenen Ordner drückt, will
+   * tiefer; wer links auf einem geschlossenen drückt, will heraus.
+   */
+  function baumtasten(event: KeyboardEvent<HTMLDivElement>): void {
+    const liste = sichtbare(tree);
+    const stelle = liste.findIndex((eintrag) => eintrag.node.path === fokus);
+    const jetzt = stelle === -1 ? undefined : liste[stelle];
+
+    const zu = (ziel: number): void => {
+      const eintrag = liste[Math.min(liste.length - 1, Math.max(0, ziel))];
+
+      if (eintrag) {
+        event.preventDefault();
+        springe(eintrag.node.path);
+      }
+    };
+
+    switch (event.key) {
+      case 'ArrowDown':
+        return zu(stelle === -1 ? 0 : stelle + 1);
+
+      case 'ArrowUp':
+        return zu(stelle === -1 ? 0 : stelle - 1);
+
+      case 'Home':
+        return zu(0);
+
+      case 'End':
+        return zu(liste.length - 1);
+
+      case 'ArrowRight': {
+        if (!jetzt) {
+          return zu(0);
+        }
+
+        event.preventDefault();
+
+        if (!jetzt.node.open) {
+          void toggleNode(jetzt.node);
+          return;
+        }
+
+        return zu(stelle + 1);
+      }
+
+      case 'ArrowLeft': {
+        if (!jetzt) {
+          return;
+        }
+
+        event.preventDefault();
+
+        if (jetzt.node.open) {
+          void toggleNode(jetzt.node);
+          return;
+        }
+
+        // Der Elternknoten ist der letzte davorstehende mit kleinerer Tiefe.
+        for (let i = stelle - 1; i >= 0; i -= 1) {
+          if (liste[i].tiefe < jetzt.tiefe) {
+            return zu(i);
+          }
+        }
+
+        return;
+      }
+
+      case 'Enter': {
+        if (!jetzt) {
+          return;
+        }
+
+        event.preventDefault();
+        setChosen({ path: jetzt.node.path, relativePath: jetzt.node.relativePath });
+        return;
+      }
+
+      default: {
+        /*
+         * Ein Buchstabe springt zur nächsten Zeile, die so beginnt — vom Fokus
+         * aus und wieder von vorn. Bei dreißig Ordnern ist das der Unterschied
+         * zwischen einem Tastendruck und dreißig.
+         */
+        if (event.key.length !== 1 || event.ctrlKey || event.altKey || event.metaKey) {
+          return;
+        }
+
+        const buchstabe = event.key.toLowerCase();
+
+        for (let i = 1; i <= liste.length; i += 1) {
+          const kandidat = liste[(Math.max(0, stelle) + i) % liste.length];
+
+          if (kandidat.node.name.toLowerCase().startsWith(buchstabe)) {
+            event.preventDefault();
+            springe(kandidat.node.path);
+            return;
+          }
+        }
+      }
+    }
+  }
 
   /**
    * Klappt einen Zweig auf oder zu und holt seine Kinder beim ersten Mal.
@@ -278,6 +550,8 @@ export function Verzeichnisfenster({
           // Das Fenster bringt „Abbrechen" und „OK" mit; ein „Schließen"
           // daneben wäre ein dritter Knopf für das, was der erste schon tut.
           ownActions
+          // Kopf und Knopfleiste stehen fest, nur die Mitte rollt.
+          geteilt
           onClose={onClose}
         >
           {stand.busy && !stand.at ? (
@@ -285,12 +559,6 @@ export function Verzeichnisfenster({
           ) : !stand.at?.ok ? (
             <p className="verdict verdict--bad">✗ {stand.at?.message}</p>
           ) : (
-            (() => {
-              // An der Laufwerksauswahl gibt es keine Wurzelzeile: Dort steht
-              // die Liste der Laufwerke für sich.
-              const wurzel = tree.length === 1 && tree[0].children ? tree[0] : undefined;
-
-              return (
             <>
               {/*
                 * Der Pfad als Kette von Knöpfen, nicht als Zeile Text: Aus
@@ -335,8 +603,39 @@ export function Verzeichnisfenster({
                 * kopieren bleibt möglich, und genau dafür steht es hier.
                 */}
               <div className="row browse__jump">
-                <input readOnly value={chosen?.path ?? stand.at.path ?? ''} />
+                <input
+                  value={pfadentwurf ?? gewaehlterPfad}
+                  spellCheck={false}
+                  aria-label="Pfad — Enter springt dorthin"
+                  title="Pfad eingeben oder einfügen, dann Enter"
+                  onChange={(event) => setPfadentwurf(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') {
+                      return;
+                    }
+
+                    event.preventDefault();
+
+                    const ziel = (pfadentwurf ?? '').trim();
+
+                    // Enter ohne Änderung ist kein Sprung ins Leere: Dann steht
+                    // das Fenster schon dort, wo es hin soll.
+                    if (ziel !== '' && ziel !== gewaehlterPfad) {
+                      void oeffne(ziel);
+                    }
+                  }}
+                />
               </div>
+
+              {/*
+                * Nur dieser Teil rollt.
+                *
+                * Kopf und Knopfleiste stehen — wer in einer langen Liste
+                * unten sucht, verlöre sonst den Pfad aus dem Blick, und
+                * „OK" wanderte aus dem Bild. Das Fenster trägt dafür
+                * `geteilt`; was die Mitte ist, sagt diese Umfassung.
+                */}
+              <div className="fenster__mitte">
 
               {/*
                 * Was schon benutzt wird, steht obenan — der häufigste Fall ist,
@@ -359,17 +658,26 @@ export function Verzeichnisfenster({
                 </>
               )}
 
-              <div className="browse">
+              {/*
+                * `role="tree"` und die Tasten am Kasten, nicht an der Zeile:
+                * Eine Zeile, die erst beim Aufklappen entsteht, hätte sonst
+                * keine Tastatur — und man merkte es genau dann nicht, wenn man
+                * es prüft, weil die oberste Ebene funktioniert.
+                */}
+              <div className="browse browse--baum" role="tree" onKeyDown={baumtasten}>
                 <Verzeichnisbaum
                   nodes={tree}
                   chosen={chosen?.path}
+                  fokus={fokus ?? sichtbare(tree)[0]?.node.path}
+                  melde={melde}
                   onToggle={(knoten) => void toggleNode(knoten)}
-                  onChoose={(knoten) => setChosen({ path: knoten.path, relativePath: knoten.relativePath })}
-
+                  onChoose={(knoten) => {
+                    setChosen({ path: knoten.path, relativePath: knoten.relativePath });
+                    setOrdner(knoten.path);
+                    setFokus(knoten.path);
+                  }}
                 />
-                {(wurzel ? wurzel.children?.length : tree.length) === 0 && (
-                  <p className="browse__empty">Keine Unterverzeichnisse</p>
-                )}
+                {tree.length === 0 && <p className="browse__empty">Keine Unterverzeichnisse</p>}
               </div>
 
 
@@ -379,12 +687,12 @@ export function Verzeichnisfenster({
                 * Verzeichnis sucht, durch tausend Dateien scrollt.
                 */}
               {waehle === 'DATEI' && (
-                <div className="browse">
-                  {(stand.at.files ?? []).length === 0 ? (
+                <div className="browse browse--dateien">
+                  {(dateien ?? []).length === 0 ? (
                     <p className="browse__empty">Keine Dateien in diesem Verzeichnis</p>
                   ) : (
-                    <ul className="browse" onKeyDown={listentasten}>
-                      {(stand.at.files ?? []).map((datei) => (
+                    <ul onKeyDown={listentasten}>
+                      {(dateien ?? []).map((datei) => (
                         <li key={datei.path}>
                           <button
                             type="button"
@@ -430,6 +738,7 @@ export function Verzeichnisfenster({
               )}
 
               {folderError && <p className="verdict verdict--bad">✗ {folderError}</p>}
+              </div>
 
               {/*
                 * OK und Abbrechen, rechtsbündig — siehe `.modal__actions`.
@@ -471,8 +780,6 @@ export function Verzeichnisfenster({
                 </button>
               </div>
             </>
-              );
-            })()
           )}
         </Modal>
   );
@@ -527,7 +834,12 @@ export function Dateifeld({
           </FieldButton>
         }
       >
-        <input value={wert} disabled={disabled} onChange={(event) => onChange(event.target.value)} />
+        <input
+          value={wert}
+          disabled={disabled}
+          {...titelBeiUeberlauf()}
+          onChange={(event) => onChange(event.target.value)}
+        />
       </Field>
 
       {offen && (
@@ -574,6 +886,7 @@ export function Verzeichnisfeld({
   titel,
   wert,
   disabled,
+  marke,
   lies,
   lege,
   onChange,
@@ -584,6 +897,15 @@ export function Verzeichnisfeld({
   titel: string;
   wert: string;
   disabled?: boolean;
+  /**
+   * Ein Zeichen über den Zustand des Feldes — etwa das Ergebnis einer Probe.
+   *
+   * Es steht **in** der Zeile und nicht darunter: Eine Zeile, die unter dem Feld
+   * erscheint, sobald eine Antwort eintrifft, schiebt alles darunter fort,
+   * während jemand noch tippt. Das Zeichen hält seinen Platz von Anfang an frei
+   * und wechselt nur sein Aussehen.
+   */
+  marke?: ReactNode;
   lies(pfad: string): Promise<RemoteDirectoryResult>;
   lege?(elternPfad: string, name: string): Promise<{ ok: boolean; path?: string; message: string }>;
   onChange(pfad: string): void;
@@ -596,12 +918,21 @@ export function Verzeichnisfeld({
         label={label}
         explain={explain}
         action={
-          <FieldButton title={`${label} aussuchen`} disabled={disabled} onClick={() => setOffen(true)}>
-            <FolderIcon />
-          </FieldButton>
+          <>
+            {marke}
+
+            <FieldButton title={`${label} aussuchen`} disabled={disabled} onClick={() => setOffen(true)}>
+              <FolderIcon />
+            </FieldButton>
+          </>
         }
       >
-        <input value={wert} disabled={disabled} onChange={(event) => onChange(event.target.value)} />
+        <input
+          value={wert}
+          disabled={disabled}
+          {...titelBeiUeberlauf()}
+          onChange={(event) => onChange(event.target.value)}
+        />
       </Field>
 
       {offen && (

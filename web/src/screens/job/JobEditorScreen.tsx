@@ -9,6 +9,7 @@ import type {
   DeliverConfig,
   DirectoryCheckResult,
   Dublettenauswahl,
+  Eingangsprofil,
   Feature,
   Job,
   Konsolidierungsart as Art,
@@ -43,6 +44,7 @@ import type {
   Tenant,
 } from '../../api/types.js';
 import { CredentialForm, PublicKeyPanel } from '../../components/CredentialForm.js';
+import { Endungsfeld } from '../../components/Endungsfeld.js';
 import { Dateifeld, Verzeichnisfeld, Verzeichnisfenster } from '../../components/Verzeichniswahl.js';
 import {
   CheckField,
@@ -52,12 +54,11 @@ import {
   FolderIcon,
   FolderOpenIcon,
   Klappkarte,
-  listentasten,
-  ListIcon,
   Hint,
   Loading,
   Modal,
   Notice,
+  TrashIcon,
 } from '../../components/Pieces.js';
 import { useLanguage } from '../../i18n/useText.js';
 import {
@@ -65,7 +66,6 @@ import {
   DEFAULT_JOB_LOG_LEVEL,
   emptyJob,
   notationOf,
-  parseList,
   withDestinationType,
   withSourceDirectory,
   withSourceType,
@@ -91,58 +91,26 @@ type Side = 'SOURCE' | 'ARCHIVE' | 'DESTINATION';
  *
  * Getippt werden darf weiterhin: Die Liste ist eine Abkürzung, keine Schranke.
  * Kein Kunde der Welt lässt sich seine Hausendung ausreden.
- */
-const EXTENSION_CHOICES: Record<ExtensionField, { label: string; options: { value: string; hint: string }[] }> = {
-  ALLOWED: {
-    label: 'Berücksichtigte Endungen',
-    options: [
-      { value: 'csv', hint: 'Tabelle als Text, der häufigste Fall' },
-      { value: 'xml', hint: 'strukturierte Daten' },
-      { value: 'json', hint: 'strukturierte Daten' },
-      { value: 'txt', hint: 'freies Textformat' },
-      { value: 'xlsx', hint: 'Excel' },
-      { value: 'xls', hint: 'Excel, ältere Fassung' },
-      { value: 'pdf', hint: 'Belege und Rechnungen' },
-      { value: 'edi', hint: 'EDIFACT und Verwandte' },
-      { value: 'dat', hint: 'Ausgaben älterer Systeme' },
-      { value: 'zip', hint: 'gepackte Lieferungen' },
-    ],
-  },
-  TEMPORARY: {
-    label: 'Endungen unfertiger Uploads',
-    options: [
-      { value: '.part', hint: 'FileZilla und viele andere' },
-      { value: '.tmp', hint: 'weit verbreitet' },
-      { value: '.temp', hint: 'weit verbreitet' },
-      { value: '.filepart', hint: 'FileZilla' },
-      { value: '.crdownload', hint: 'Chrome' },
-      { value: '.partial', hint: 'Edge und Internet Explorer' },
-      { value: '.opdownload', hint: 'Opera' },
-      { value: '.!ut', hint: 'µTorrent' },
-      { value: '.writing', hint: 'einige ERP-Ausgaben' },
-      { value: '.lock', hint: 'Sperrdatei neben der eigentlichen' },
-    ],
-  },
-};
-
-type ExtensionField = 'ALLOWED' | 'TEMPORARY';
-
-/** Welches Feld die Endung bekommt, wenn im Fenster etwas angehakt wird. */
-function extensionsOf(job: Job, field: ExtensionField): string[] {
-  return field === 'ALLOWED' ? job.allowedExtensions : job.ignoredTemporaryExtensions;
-}
-
-/**
- * Vergleicht Endungen so, wie ein Anwender sie meint.
  *
- * `csv`, `.csv` und `.CSV` sind dieselbe Endung. Ohne diesen Vergleich stünde
- * eine Endung zweimal im Feld, sobald jemand sie erst tippt und dann anhakt —
- * und das Häkchen wäre bei einer schon eingetragenen Endung nicht gesetzt.
+ * Eine Erklärung je Endung stand hier einmal daneben — „Excel", „gepackte
+ * Lieferungen". Sie ist fort: Wer dieses Fenster öffnet, sucht `csv` und liest
+ * daneben nichts. Die Sätze mitzuführen, ohne sie zu zeigen, wäre ein Vorrat
+ * an totem Text, den beim nächsten Blick niemand mehr einordnen kann.
  */
-function sameExtension(left: string, right: string): boolean {
-  const bare = (value: string): string => value.trim().replace(/^\.+/, '').toLowerCase();
-  return bare(left) === bare(right);
-}
+const UEBERNOMMENE_TYPEN = ['csv', 'xml', 'json', 'txt', 'xlsx', 'xls', 'pdf', 'edi', 'dat', 'zip'];
+
+const UNFERTIGE_ENDUNGEN = [
+  '.part',
+  '.tmp',
+  '.temp',
+  '.filepart',
+  '.crdownload',
+  '.partial',
+  '.opdownload',
+  '.!ut',
+  '.writing',
+  '.lock',
+];
 
 /**
  * Die Verzeichnisse, an denen dieser Mandant schon arbeitet.
@@ -301,8 +269,6 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
    * Workflows benutzen, ist dagegen immer aktuell und gilt für jeden.
    */
   const otherJobs = useResource<Job[]>('/api/jobs');
-  /** Welches der beiden Endungsfelder gerade seine Auswahl offen hat. */
-  const [picking, setPicking] = useState<ExtensionField | undefined>();
 
   const { language } = useLanguage();
   const [job, setJob] = useState<Job>();
@@ -371,6 +337,39 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
       setJob(existing.data);
     }
   }, [jobId, tenants.data, existing.data, job, language]);
+
+  /*
+   * Eine Prüfantwort gilt für die Angaben, mit denen sie erhoben wurde.
+   *
+   * Ändert jemand danach das Verzeichnis, steht ein „✓ gibt es" neben einem
+   * Pfad, für den nie geprüft wurde — die Antwort auf eine Frage, die niemand
+   * mehr gestellt hat. Sie verfällt deshalb, sobald sich ihre Eingaben ändern.
+   *
+   * Als Wirkung auf einen Fingerabdruck und nicht von Hand an jedem Feld: Ein
+   * Feld, das jemand später hinzufügt, ist genau das, an dem man es vergisst.
+   *
+   * Die Abdrücke werden auch dann gebildet, wenn noch kein Workflow geladen
+   * ist — **über** dem `return` weiter unten. Ein Effekt hinter einer
+   * Verzweigung ist keiner: React zählt die Haken je Durchlauf, und ein Haken,
+   * der beim zweiten Mal fehlt, reißt die Ansicht ab.
+   */
+  const zielabdruck = JSON.stringify([
+    job?.destinationType,
+    job?.destinationDirectory,
+    job?.destinationConfig,
+    job?.destinationCredentialId,
+    job?.createDestinationDirectory,
+  ]);
+
+  useEffect(() => setTarget({ busy: false }), [zielabdruck]);
+
+  const archivabdruck = JSON.stringify([job?.sourceSuccessAction, job?.sourceArchiveDirectory]);
+
+  useEffect(() => setArchive({ busy: false }), [archivabdruck]);
+
+  const verbindungsabdruck = JSON.stringify([job?.sourceType, job?.sourceConfig, job?.credentialId]);
+
+  useEffect(() => setTest({ busy: false }), [verbindungsabdruck]);
 
   if (!job) {
     return existing.error ? <Notice kind="error">{existing.error}</Notice> : <Loading />;
@@ -644,66 +643,6 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               void credentials.reload();
             }}
           />
-        </Modal>
-      )}
-
-      {/*
-        * Der Verzeichnisbrowser. Er zeigt nicht, was wir für wahrscheinlich
-        * halten, sondern was der Server auflistet — und übernimmt am Ende den
-        * Pfad, den der Server genannt hat, in der Schreibweise ohne
-        * Arbeitsverzeichnis, wie sie ins Feld gehört.
-        */}
-      {/*
-        * Endungen anklicken statt tippen.
-        *
-        * Das Häkchen wirkt sofort auf das Feld, ohne „Übernehmen": Es gibt
-        * nichts zu bestätigen — man sieht die Endung im Feld darunter
-        * erscheinen und verschwinden, und ein zweites Anklicken nimmt sie
-        * zurück. Ein Bestätigungsknopf wäre ein Schritt, der nichts entscheidet.
-        */}
-      {picking && (
-        <Modal title={`${EXTENSION_CHOICES[picking].label} wählen`} onClose={() => setPicking(undefined)}>
-          {/*
-            * Die Pfeiltasten bewegen den Fokus, nicht die Seite.
-            *
-            * Eine Liste, die dreißig Zeilen hat und nur mit der Maus zu bedienen
-            * ist, zwingt zum Wechseln der Hand — und wer die Tabulatortaste
-            * benutzt, springt sonst durch jede einzelne Zeile bis zum
-            * Schließen-Knopf. Gesucht werden die Geschwister im Baum und nicht
-            * eine gemerkte Nummer: Die Liste kann sich ändern, das DOM ist die
-            * Wahrheit.
-            */}
-          <ul className="browse pick" onKeyDown={listentasten}>
-            {EXTENSION_CHOICES[picking].options.map((option) => {
-              const chosen = extensionsOf(job, picking).some((entry) => sameExtension(entry, option.value));
-
-              return (
-                <li key={option.value}>
-                  <button
-                    type="button"
-                    className={chosen ? 'pick__row pick__row--an' : 'pick__row'}
-                    aria-pressed={chosen}
-                    onClick={() => {
-                      const current = extensionsOf(job, picking);
-                      const next = chosen
-                        ? current.filter((entry) => !sameExtension(entry, option.value))
-                        : [...current, option.value];
-
-                      change(
-                        picking === 'ALLOWED'
-                          ? { allowedExtensions: next }
-                          : { ignoredTemporaryExtensions: next }
-                      );
-                    }}
-                  >
-                    <span className="pick__mark">{chosen ? '✓' : ''}</span>
-                    <span className="pick__ext">{option.value}</span>
-                    <span className="pick__hint">{option.hint}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
         </Modal>
       )}
 
@@ -1322,14 +1261,11 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 </button>
               </div>
 
-              {test.error && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  <Notice kind="error">{test.error}</Notice>
-                </div>
-              )}
+              {test.error && <p className="verdict verdict--bad">✗ {test.error}</p>}
               {test.result && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  <Notice kind={test.result.ok ? 'info' : 'error'}>
+                <div className={verdikt(test.result.ok)}>
+                  <p style={{ margin: 0 }}>
+                    {zeichen(test.result.ok)}{' '}
                     {test.result.message}
                     {test.result.filesFound !== undefined && ` — ${test.result.filesFound} Datei(en) gefunden.`}
                     {/*
@@ -1345,7 +1281,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                         ))}
                       </ol>
                     )}
-                  </Notice>
+                  </p>
                 </div>
               )}
             </Klappkarte>
@@ -1368,7 +1304,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   <Hint title="Dateiname/n">
                     <p>Leer lassen, wenn der Name keine Rolle spielt.</p>
                     <p>
-                      Die Datei-Endung wird im Feld <strong>„Berücksichtigte Endungen"</strong> darunter festgelegt.
+                      Die Datei-Endung wird im Feld <strong>„Dateityp(en)"</strong> darunter festgelegt.
                     </p>
                     <p>
                       Der Name kann voll angegeben werden oder als Teil eines Dateinamens; ein Stern sagt, wo der
@@ -1418,37 +1354,23 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 * entfernen wagt.
                 */}
 
-              <Field
-                label="Berücksichtigte Endungen"
+              <Endungsfeld
+                label="Dateityp(en)"
                 explain="Durch Komma getrennt. Leer bedeutet: alle."
-                action={
-                  <FieldButton title="Endungen aussuchen" onClick={() => setPicking('ALLOWED')}>
-                    <ListIcon />
-                  </FieldButton>
-                }
-              >
-                <input
-                  value={job.allowedExtensions.join(', ')}
-                  placeholder="csv, xml"
-                  onChange={(event) => change({ allowedExtensions: parseList(event.target.value) })}
-                />
-              </Field>
+                platzhalter="csv, xml"
+                vorschlaege={UEBERNOMMENE_TYPEN}
+                werte={job.allowedExtensions}
+                onChange={(allowedExtensions) => change({ allowedExtensions })}
+              />
 
-              <Field
+              <Endungsfeld
                 label="Endungen unfertiger Uploads"
                 explain="Dateien mit diesen Endungen werden nie übernommen — sie werden gerade erst geschrieben."
-                action={
-                  <FieldButton title="Endungen aussuchen" onClick={() => setPicking('TEMPORARY')}>
-                    <ListIcon />
-                  </FieldButton>
-                }
-              >
-                <input
-                  value={job.ignoredTemporaryExtensions.join(', ')}
-                  placeholder=".part, .tmp"
-                  onChange={(event) => change({ ignoredTemporaryExtensions: parseList(event.target.value) })}
-                />
-              </Field>
+                platzhalter=".part, .tmp"
+                vorschlaege={UNFERTIGE_ENDUNGEN}
+                werte={job.ignoredTemporaryExtensions}
+                onChange={(ignoredTemporaryExtensions) => change({ ignoredTemporaryExtensions })}
+              />
 
               <Field
                 label="Mindestalter"
@@ -1647,17 +1569,22 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
 
               </div>
 
-              {target.error && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  <Notice kind="error">{target.error}</Notice>
-                </div>
-              )}
+              {/*
+                * Die Antwort steht neben ihrem Knopf und nicht in einem Fenster.
+                *
+                * Ein Fenster ist für ein **Ereignis** da — etwas ist geschehen,
+                * das man wissen muss, ob man gerade hinsieht oder nicht. Die
+                * Antwort auf „Ziel prüfen" ist kein Ereignis: Man hat eben
+                * gedrückt und sieht hin. Als Fenster kam sie außerdem wieder,
+                * sobald der Schritt neu gezeichnet wurde — beim Wechsel von
+                * „Daten konsolidieren" zurück zu „Daten übertragen" sprang eine
+                * Meldung von vorhin erneut auf.
+                */}
+              {target.error && <p className="verdict verdict--bad">✗ {target.error}</p>}
               {target.result && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  <Notice kind={target.result.ok ? (target.result.wouldBeCreated ? 'warn' : 'info') : 'error'}>
-                    {target.result.message}
-                  </Notice>
-                </div>
+                <p className={verdikt(target.result.ok, target.result.wouldBeCreated)}>
+                  {zeichen(target.result.ok, target.result.wouldBeCreated)} {target.result.message}
+                </p>
               )}
 
               <Field
@@ -1905,17 +1832,11 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     </button>
                   </div>
 
-                  {archive.error && (
-                    <div style={{ marginTop: '0.75rem' }}>
-                      <Notice kind="error">{archive.error}</Notice>
-                    </div>
-                  )}
+                  {archive.error && <p className="verdict verdict--bad">✗ {archive.error}</p>}
                   {archive.result && (
-                    <div style={{ marginTop: '0.75rem' }}>
-                      <Notice kind={archive.result.ok ? (archive.result.wouldBeCreated ? 'warn' : 'info') : 'error'}>
-                        {archive.result.message}
-                      </Notice>
-                    </div>
+                    <p className={verdikt(archive.result.ok, archive.result.wouldBeCreated)}>
+                      {zeichen(archive.result.ok, archive.result.wouldBeCreated)} {archive.result.message}
+                    </p>
                   )}
                 </>
               )}
@@ -2026,15 +1947,21 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
           </button>
         </div>
 
+        {/*
+          * Speichern vor Abbrechen — dieselbe Reihenfolge wie in jedem Fenster
+          * (siehe `.modal__actions`). Die Leiste ist keine Fensterleiste, aber
+          * sie stellt dieselbe Frage, und eine Anwendung, die dieselbe Frage an
+          * zwei Stellen verschieden anordnet, zwingt bei jeder zum Hinsehen.
+          */}
         <div className="row">
-          <button className="secondary" onClick={onDone}>
-            Abbrechen
-          </button>
           <button
             disabled={saving || !job.tenantId || !job.name || !job.destinationDirectory}
             onClick={() => void save()}
           >
             {saving ? 'Wird gespeichert …' : 'Speichern'}
+          </button>
+          <button className="secondary" onClick={onDone}>
+            Abbrechen
           </button>
         </div>
       </div>
@@ -2052,6 +1979,27 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
  * Alle drei einstellbaren Glieder benutzen dieselbe Vorlage: Sie unterscheiden
  * sich darin, was sie mit den Daten tun, nicht darin, wie sie eingehängt sind.
  */
+/**
+ * Die Farbe einer Prüfantwort.
+ *
+ * Drei Ausgänge und nicht zwei: „Es gibt das Verzeichnis noch nicht, ich lege
+ * es beim ersten Lauf an" ist weder ein Ja noch ein Nein. Als Ja gelesen
+ * verschwiege es, dass dort noch nichts ist; als Nein hielte es jemanden auf,
+ * der alles richtig gemacht hat.
+ */
+function verdikt(gut: boolean, entsteht?: boolean): string {
+  if (!gut) {
+    return 'verdict verdict--bad';
+  }
+
+  return entsteht ? 'verdict verdict--warn' : 'verdict verdict--good';
+}
+
+/** Dasselbe als Zeichen — für den, der die Farbe nicht unterscheidet. */
+function zeichen(gut: boolean, entsteht?: boolean): string {
+  return !gut ? '✗' : entsteht ? '!' : '✓';
+}
+
 function StageModule({
   job,
   stage,
@@ -2108,6 +2056,20 @@ function StageModule({
                   // der hier anfängt, bekommt ein eigenes Verzeichnis.
                   input: preceding ? { from: 'PRECEDING' } : { from: 'DIRECTORY', directory: '' },
                   output: writesFiles ? { to: 'DIRECTORY', directory: '' } : undefined,
+                  /*
+                   * CSV voreingestellt — aber nur, wo das Feld auch steht.
+                   *
+                   * Beim Abholverzeichnis entscheidet die Auswahl, was mitkommt.
+                   * Wer vom Schritt davor übernimmt, bekommt eine Liste dieses
+                   * Laufs; dort liest der Lauf die Auswahl gar nicht. Sie
+                   * trotzdem einzutragen hieße, einen Wert abzulegen, den
+                   * niemand jemals ansieht.
+                   *
+                   * `...config` steht danach: Ein Glied, das schon eingerichtet
+                   * ist, behält seine Angaben. Voreingestellt wird das Neue,
+                   * nicht das Vorhandene.
+                   */
+                  ...(stage === 'CONSOLIDATE' && !preceding ? { dateien: { endungen: ['csv'] } } : {}),
                   ...config,
                   enabled: on,
                 },
@@ -2129,7 +2091,23 @@ function StageModule({
           vorbelegung={vorbelegungAus(job)}
           tenantId={job.tenantId}
           credentials={credentials}
+          stapelbetrieb={Boolean((config as KonsolidierungConfig).dateien?.stapel)}
           onNeuerZugang={onNeuerZugang}
+          /*
+           * Einschalten legt eine leere Bedingung an, ausschalten nimmt sie
+           * fort. Das Übrige der Dateiwahl — Muster, Typen, Wartezeit,
+           * Verzeichnisse — bleibt stehen: Wer zweimal umschaltet, soll seine
+           * Eingaben wiederfinden.
+           */
+          onStapelbetrieb={(an) =>
+            patch({
+              dateien: {
+                ...(config as KonsolidierungConfig).dateien,
+                // Zwei ist die kleinste Zusammenführung — und damit die Voreinstellung.
+                stapel: an ? { plaetze: [], anzahl: 2 } : undefined,
+              },
+            } as Partial<StageConfig>)
+          }
           onChange={(input) => patch({ input })}
         />
       )}
@@ -2267,7 +2245,9 @@ function Konsolidierungsquelle({
   vorbelegung,
   tenantId,
   credentials,
+  stapelbetrieb,
   onNeuerZugang,
+  onStapelbetrieb,
   onChange,
 }: {
   value: StageInput;
@@ -2277,7 +2257,17 @@ function Konsolidierungsquelle({
   vorbelegung?: { art: 'LOCAL' | 'SHARE'; directory: string; credentialId?: string };
   tenantId?: string;
   credentials: Credential[];
+  /**
+   * Ob dieser Durchgang mit Stapeln arbeitet.
+   *
+   * Kein eigenes Merkmal am Auftrag, sondern die Stapelbedingung selbst: Der
+   * Schalter steht hier, weil hier entschieden wird, *woher* gelesen wird —
+   * gesetzt wird damit dieselbe Angabe, die auch die Fläche darunter setzt.
+   * Zwei Schalter für eine Sache stünden früher oder später gegeneinander.
+   */
+  stapelbetrieb: boolean;
   onNeuerZugang(): void;
+  onStapelbetrieb(an: boolean): void;
   onChange(next: StageInput): void;
 }) {
   const eigenes = value.from === 'DIRECTORY';
@@ -2464,6 +2454,42 @@ function Konsolidierungsquelle({
           />
         </>
       )}
+
+      {/*
+        * Ganz unten, nach der Quelle: Erst steht fest, woher gelesen wird —
+        * dann, ob eine einzelne Lieferung genügt oder ein Stapel erwartet wird.
+        *
+        * Der Schalter entscheidet, welche Fläche darunter steht: „Welche
+        * Dateien" mit Namensmuster und Wartezeit, oder „Mehrere Dateien zusammenführen"
+        * erwarteten Lieferungen. Beides nebeneinander wären zwei Antworten auf
+        * dieselbe Frage.
+        */}
+      <CheckField
+        label="Mehrere Dateien zusammenführen"
+        explain={
+          <>
+            <p>
+              Aus heißt: Der Durchgang nimmt, was im Abholverzeichnis liegt und zum Namensmuster passt. Bei einer
+              einzelnen Lieferung ist das richtig.
+            </p>
+            <p>
+              An heißt: Es werden <strong>mehrere benannte Lieferungen</strong> erwartet, und der Durchgang beginnt
+              erst, wenn sie vollständig sind. Fehlt eine, entstünde sonst ein Ergebnis, dem sie fehlt — und das
+              sieht vollständig aus.
+            </p>
+            <p>
+              Gewartet wird, bis <strong>jeder Platz besetzt</strong> ist und die <strong>Anzahl stimmt</strong>.
+              Die beiden Bedingungen fangen verschiedene Fehler: Plätze das Fehlen, die Anzahl das Zuviel.
+            </p>
+            <p>
+              Der Schalter tauscht die Fläche darunter aus: „Welche Dateien" gegen die gleichnamige. Was in der
+              jeweils anderen steht, bleibt gespeichert.
+            </p>
+          </>
+        }
+        checked={stapelbetrieb}
+        onChange={onStapelbetrieb}
+      />
     </Klappkarte>
   );
 }
@@ -3063,6 +3089,17 @@ function Ergebnisformat({
 }) {
   const felder = config.festbreiten?.felder ?? [];
 
+  /*
+   * Die Schemata dieses Mandanten — sie stehen dort, wo sie gepflegt werden.
+   *
+   * Geladen wird hier und nicht einmal weiter oben: Ein Workflow gehört zu
+   * genau einem Mandanten, und ein Vorrat, der ihn nicht kennt, böte früher
+   * oder später die Schemata eines fremden Kunden an.
+   */
+  const schemata = useResource<Eingangsprofil[]>(
+    tenantId ? `/api/profiles?tenantId=${encodeURIComponent(tenantId)}` : undefined
+  );
+
   const setzeFelder = (naechste: Festbreitenfeld[]): void =>
     onChange({ festbreiten: { ...config.festbreiten, felder: naechste } });
 
@@ -3072,36 +3109,82 @@ function Ergebnisformat({
       <h4>Eingangsprüfung</h4>
 
       <div className="field__row">
-        <span className="field__note">Gegen ein JSON Schema, vor der Verarbeitung.</span>
+        <span className="field__note">Vor der Verarbeitung und nicht danach.</span>
         <Hint title="Warum vorher">
           „Kritische Fehler … müssen vor Beginn der Verarbeitung erkannt … werden.“ Eine Prüfung hinterher sagt,
-          dass ein Ergebnis auf schlechten Daten beruht — da liegt es aber schon im Zielverzeichnis. Geprüft wird
-          das <strong>Dokument</strong> und nicht die zerlegten Zeilen: Ein Schema beschreibt die Struktur der
-          Datei, und die gibt es nach dem Zerlegen nicht mehr. Was Unikom am Schema nicht versteht — „$ref“,
-          „allOf“ —, steht im Protokoll, statt als grünes Häkchen durchzugehen.
+          dass ein Ergebnis auf schlechten Daten beruht — da liegt es aber schon im Zielverzeichnis.
         </Hint>
       </div>
 
-      <Dateifeld
-        label="Schemadatei"
-        explain="Die JSON-Schema-Datei. Leer heißt: keine Prüfung."
-        titel="Schemadatei wählen"
-        wert={config.schema?.datei ?? ''}
-        lies={(pfad) =>
-          api.post<RemoteDirectoryResult>('/api/jobs/browse-local', {
-            name: 'Schemaprüfung',
-            tenantId,
-            directory: pfad,
-            known: [],
-            sourceType: 'LOCAL',
-          })
+      {/*
+        * Ein Schema aussuchen statt eine Datei tippen.
+        *
+        * Hier stand ein Feld für eine **JSON-Schema-Datei**, die jemand von Hand
+        * schreiben sollte. Das macht niemand. Die Schemata des Mandanten stehen
+        * unter „Schemata": benannt, versioniert, mit Spalten, Typen und Regeln,
+        * und in einer Fläche bearbeitbar.
+        */}
+      <Field
+        label="Schema"
+        explain={
+          <>
+            <p>
+              Wogegen die Eingangsdateien geprüft werden: eines der Schemata dieses Mandanten. Gepflegt werden
+              sie unter <strong>Schemata</strong> — ein Schema beschreibt eine Quelle und gilt für alle
+              Workflows, die von dort lesen.
+            </p>
+            <p>Ohne Schema wird nicht geprüft, sondern nur gelesen.</p>
+          </>
         }
-        onChange={(pfad) =>
-          onChange({ schema: pfad ? { ...config.schema, datei: pfad } : undefined })
-        }
-      />
+      >
+        <select
+          className="input--wahl"
+          disabled={!schemata.data || schemata.data.length === 0}
+          value={config.schema?.profil ?? ''}
+          onChange={(event) =>
+            onChange({
+              schema: event.target.value
+                ? { profil: event.target.value, bei: config.schema?.bei }
+                : undefined,
+            })
+          }
+        >
+          <option value="">{schemata.data?.length === 0 ? 'noch kein Schema angelegt' : 'ohne Prüfung'}</option>
 
+          {schemata.data?.map((schema) => (
+            <option key={schema.id} value={schema.id}>
+              {schema.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      {/*
+        * Die alte JSON-Datei — nur noch sichtbar, wo eine eingetragen ist.
+        *
+        * Sie steht hier, weil sie verdrahtet und getestet ist: Ein Ersatz, der
+        * erst hinterher gebaut wird, ist kein Ersatz. Ein Workflow, der sie
+        * benutzt, läuft weiter und sieht, was er hat. Neu einrichten lässt sie
+        * sich nicht mehr — dafür gibt es das Schema darüber.
+        */}
       {config.schema?.datei && (
+        <Field
+          label="JSON-Schema-Datei (abgelöst)"
+          explain="Der frühere Weg. Er läuft weiter, solange hier ein Pfad steht; leeren nimmt ihn fort."
+          action={
+            <FieldButton
+              title="Die JSON-Schema-Datei nicht mehr benutzen"
+              onClick={() => onChange({ schema: config.schema?.profil ? { profil: config.schema.profil, bei: config.schema.bei } : undefined })}
+            >
+              <TrashIcon />
+            </FieldButton>
+          }
+        >
+          <input value={config.schema.datei} disabled />
+        </Field>
+      )}
+
+      {(config.schema?.datei || config.schema?.profil) && (
         <Field label="Wenn eine Datei nicht passt">
           <select
             value={config.schema.bei ?? 'ABBRECHEN'}

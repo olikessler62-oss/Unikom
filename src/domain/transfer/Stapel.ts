@@ -57,7 +57,52 @@ export interface Platz {
   muster: string;
 }
 
+/**
+ * Woran eine bestimmte Datei eines Stapels zu erkennen ist.
+ *
+ * Zwei Arten, dieselbe Frage zu beantworten:
+ *
+ * ```text
+ * NAME      der Dateiname, `*` steht für Beliebiges: `Bestellung_*.csv`
+ * MERKMAL   ein Teil des Namens, der irgendwo darin vorkommt: `_PRIMAER_`
+ * DATEI     eine bestimmte Datei, im Verzeichnis ausgesucht
+ * ```
+ *
+ * `DATEI` ist derselbe Wert wie `NAME`, nur ohne Sternchen und nicht getippt,
+ * sondern angeklickt. Als eigene Art und nicht als Knopf neben `NAME`: Wer eine
+ * Datei aussucht, meint **diese** Datei — ein Muster, das versehentlich noch
+ * ein Sternchen trägt, träfe daneben auch andere.
+ *
+ * Als ein Feld mit einer Art und nicht als zwei Felder, von denen eines leer
+ * bleibt: Zwei Felder ließen sich beide füllen, und dann wäre nicht gesagt,
+ * welches gilt.
+ *
+ * Ein Merkmal ist dabei nichts anderes als ein Muster mit Sternchen davor und
+ * dahinter — die Art entscheidet also nur, wie die Eingabe zu **lesen** ist,
+ * nicht, wie zwei verschiedene Regeln arbeiten.
+ */
+export interface Dateikennung {
+  art: 'NAME' | 'MERKMAL' | 'DATEI';
+  wert: string;
+}
+
 export interface Stapelbedingung {
+  /**
+   * Woran die Primär- und die Sekundär-Datei zu erkennen sind.
+   *
+   * Noch nicht ausgewertet: Der Lauf entscheidet weiterhin über `plaetze`. Die
+   * Angaben stehen hier, weil die Oberfläche sie setzt — was sie bewirken
+   * sollen, ist beim Betreiber noch offen.
+   */
+  primaer?: Dateikennung;
+  /**
+   * Die weiteren Dateien des Stapels — so viele, wie der Betreiber einträgt.
+   *
+   * Als Liste und nicht als eine zweite Angabe: Ein Stapel aus fünf Häusern hat
+   * vier davon, und ein Feld je Haus wäre eine Reihe gleichnamiger Angaben, die
+   * niemand mehr auseinanderhält.
+   */
+  sekundaer?: Dateikennung[];
   plaetze: Platz[];
   /**
    * Wie viele Dateien der Stapel insgesamt umfasst.

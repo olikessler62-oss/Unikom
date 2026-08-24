@@ -4,7 +4,7 @@ import test from 'node:test';
 import { DEFAULT_REGION } from '../../domain/tenants/Region.js';
 import { alsBytes, schreibeCsv } from '../../infrastructure/formats/CsvSchreiben.js';
 import { writeXlsx } from '../../testing/consolidation/Xlsx.js';
-import { istLesbar, liesDatei, passt } from './Eingang.js';
+import { istLesbar, liesDatei, passt, passtEndung } from './Eingang.js';
 
 const deutsch = { region: DEFAULT_REGION };
 
@@ -158,4 +158,40 @@ test('ein Blatt mit einem einzigen Datensatz wird gemeldet und nicht stillschwei
     hinweise.some((hinweis) => /kein zusammenhängender Datenblock/.test(hinweis)),
     hinweise.join(' | ')
   );
+});
+
+/* ---------- Welches Format mitkommt ---------- */
+
+test('ohne Auswahl kommt jedes lesbare Format mit', () => {
+  // Die bisherige Regel bleibt die Regel: Wer nichts auswählt, schränkt nichts ein.
+  assert.equal(passtEndung('a.csv'), true);
+  assert.equal(passtEndung('a.csv', []), true);
+  assert.equal(passtEndung('a.xlsx', ['  ', '']), true);
+});
+
+test('mit Auswahl kommt nur mit, was genannt ist', () => {
+  assert.equal(passtEndung('Umsatz.csv', ['csv']), true);
+  assert.equal(passtEndung('Umsatz.xml', ['csv']), false);
+  assert.equal(passtEndung('Umsatz.xml', ['csv', 'xml']), true);
+});
+
+test('der Punkt und die Schreibweise sind gleichgültig', () => {
+  /*
+   * Wer die Endung ohne Punkt tippt, hat nicht etwas anderes gemeint. Ein
+   * Filter, der daran scheitert, nähme jede Nacht nichts mit — und im
+   * Protokoll stünde nur, dass nichts zu tun war.
+   */
+  assert.equal(passtEndung('Umsatz.CSV', ['csv']), true);
+  assert.equal(passtEndung('Umsatz.csv', ['.CSV']), true);
+  assert.equal(passtEndung('Umsatz.csv', [' csv ']), true);
+});
+
+test('die Endung steht am Ende und nicht irgendwo', () => {
+  // Sonst käme `csv_Archiv.zip` mit, weil der Name die drei Buchstaben enthält.
+  assert.equal(passtEndung('csv_Archiv.zip', ['csv']), false);
+  assert.equal(passtEndung('Umsatz.csv.gz', ['csv']), false);
+});
+
+test('eine Datei ohne Punkt trägt keine Endung', () => {
+  assert.equal(passtEndung('csv', ['csv']), false);
 });

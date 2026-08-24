@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { findNode, mapNode, toNodes, type TreeNode } from './tree.js';
+import { findNode, mapNode, sichtbare, toNodes, type TreeNode } from './tree.js';
 
 /**
  * Der Baum wird umgebaut, nicht angefasst.
@@ -68,4 +68,37 @@ test('gesucht wird auch in der Tiefe', () => {
   assert.equal(findNode(baum(), '/kunde-a/2025')?.name, '2025');
   assert.equal(findNode(baum(), '/kunde-b')?.name, 'kunde-b');
   assert.equal(findNode(baum(), '/woanders'), undefined);
+});
+/* ---------- Was auf dem Bildschirm steht ---------- */
+
+function knoten(name: string, teile: Partial<TreeNode> = {}): TreeNode {
+  return { name, path: `/${name}`, relativePath: name, open: false, busy: false, ...teile };
+}
+
+test('sichtbar ist, was nicht unter einem zugeklappten Zweig liegt', () => {
+  /*
+   * Die Pfeiltasten wandern durch diese Liste. Stünde darin etwas, das man
+   * nicht sieht, landete der Fokus an einer Stelle, die es auf dem Bildschirm
+   * nicht gibt — die Seite scrollte irgendwohin, und niemand wüsste, warum.
+   */
+  const baum: TreeNode[] = [
+    knoten('offen', { open: true, children: [knoten('kind'), knoten('zweites')] }),
+    knoten('zu', { children: [knoten('verborgen')] }),
+  ];
+
+  assert.deepEqual(
+    sichtbare(baum).map((eintrag) => eintrag.node.name),
+    ['offen', 'kind', 'zweites', 'zu']
+  );
+});
+
+test('die Tiefe kommt mit, weil die linke Pfeiltaste sie braucht', () => {
+  // Sie führt zum Elternknoten — und der ist der letzte davorstehende Knoten
+  // mit kleinerer Tiefe.
+  const baum: TreeNode[] = [knoten('a', { open: true, children: [knoten('b', { open: true, children: [knoten('c')] })] })];
+
+  assert.deepEqual(
+    sichtbare(baum).map((eintrag) => eintrag.tiefe),
+    [0, 1, 2]
+  );
 });

@@ -72,3 +72,33 @@ export function findNode(nodes: TreeNode[], path: string): TreeNode | undefined 
 
   return undefined;
 }
+
+/**
+ * Die Knoten in der Reihenfolge, in der sie auf dem Bildschirm stehen.
+ *
+ * Nur die **sichtbaren**: Was unter einem zugeklappten Zweig liegt, steht
+ * nirgends und darf mit den Pfeiltasten nicht erreichbar sein. Ein Fokus, der
+ * an einer Stelle landet, die man nicht sieht, ist schlimmer als keiner — die
+ * Seite scrollt dann irgendwohin und niemand weiß, warum.
+ *
+ * Die Tiefe kommt mit, weil `←` sie braucht: Sie führt zum Elternknoten, und
+ * der ist der letzte davorstehende Knoten mit kleinerer Tiefe.
+ */
+export interface Sichtbar {
+  node: TreeNode;
+  tiefe: number;
+}
+
+export function sichtbare(nodes: readonly TreeNode[], tiefe = 0): Sichtbar[] {
+  const gesammelt: Sichtbar[] = [];
+
+  for (const node of nodes) {
+    gesammelt.push({ node, tiefe });
+
+    if (node.open && node.children) {
+      gesammelt.push(...sichtbare(node.children, tiefe + 1));
+    }
+  }
+
+  return gesammelt;
+}

@@ -23,7 +23,23 @@ test('ein frischer Workflow steht auf grau, wo eine Eingabe fehlt', () => {
 
   assert.equal(quelleStand(frisch), 'LEER');
   assert.equal(zielStand(frisch), 'LEER');
-  assert.equal(dateiwahlStand(frisch), 'LEER');
+});
+
+test('eine Voreinstellung ist eine Antwort — auch ungefragt', () => {
+  /*
+   * „Welche Dateien" steht von Anfang an auf grün: CSV ist voreingestellt, und
+   * damit ist die Frage beantwortet. Das ist derselbe Fall wie eine Fläche aus
+   * reinen Auswahlfeldern — dort steht die Antwort auch, ohne dass jemand sie
+   * angefasst hat.
+   *
+   * Der Test stand vorher andersherum, und das war richtig, solange die Liste
+   * leer begann. Grau bleibt dem vorbehalten, wo wirklich nichts steht: einem
+   * Pfad etwa, den nur der Betreiber kennt.
+   */
+  assert.equal(dateiwahlStand(job()), 'GUELTIG');
+
+  // Wer die Liste leert und keinen Namen einträgt, steht wieder auf grau.
+  assert.equal(dateiwahlStand(job({ allowedExtensions: [] })), 'LEER');
 });
 
 test('eine Fläche aus reinen Auswahlfeldern ist nie leer', () => {

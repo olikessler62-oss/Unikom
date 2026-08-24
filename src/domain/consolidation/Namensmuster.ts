@@ -52,6 +52,42 @@ export function mustergruppe(muster: string | undefined): string[] {
     .filter((stueck) => stueck !== '');
 }
 
+/**
+ * Ob ein Dateiname eine der ausgewählten Endungen trägt.
+ *
+ * Ohne Auswahl passt jeder Name. Das ist die bisherige Regel und bleibt sie:
+ * Was ein Leser öffnen kann, kommt mit. Wer eine Auswahl trifft, schränkt
+ * darüber hinaus ein — er kann damit nichts erreichen, was der Leser nicht
+ * ohnehin könnte.
+ *
+ * ## Warum neben dem Muster
+ *
+ * `*.csv` leistet dasselbe, solange es um **eine** Endung geht. Bei dreien
+ * stünden dort `*.csv, *.txt, *.xml` — und wer zusätzlich nach dem Namen
+ * filtern will, schreibt jede Endung noch einmal hinter jeden Namen. Die
+ * beiden Fragen sind verschieden: welche Namen, und welche Formate.
+ *
+ * Verglichen wird, wie ein Anwender es meint: `csv`, `.csv` und `.CSV` sind
+ * dieselbe Endung. Ein Filter, der am vergessenen Punkt scheitert, nähme jede
+ * Nacht nichts mit — und niemand sähe den Grund.
+ */
+export function passtEndung(name: string, endungen?: readonly string[]): boolean {
+  const gewaehlt = (endungen ?? []).map(bloss).filter((eine) => eine !== '');
+
+  if (gewaehlt.length === 0) {
+    return true;
+  }
+
+  const klein = name.toLowerCase();
+
+  return gewaehlt.some((eine) => klein.endsWith('.' + eine));
+}
+
+/** Eine Endung ohne führenden Punkt und ohne Schreibweise. */
+function bloss(endung: string): string {
+  return endung.trim().replace(/^\.+/, '').toLowerCase();
+}
+
 export function musterAlsRegex(muster: string): RegExp {
   const maskiert = muster.replace(/[.+^${}()|[\]\\]/g, (zeichen) => '\\' + zeichen);
   const mitPlatzhaltern = maskiert.split('*').join('.*').split('?').join('.');

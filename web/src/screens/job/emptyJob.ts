@@ -158,7 +158,14 @@ export function emptyJob(tenantId: string, language: Language, features: readonl
     sourceConfig: { type: 'LOCAL', directory: '' },
     sourceDirectory: '',
 
-    allowedExtensions: [],
+    /*
+     * CSV steht voreingestellt da, obwohl eine leere Liste „alle“ bedeutet.
+     *
+     * „Alle“ ist die weitere Einstellung, aber nicht die übliche: Was hier
+     * ankommt, sind Geschäftsdaten als Text. Wer mehr braucht, tippt es dazu
+     * — wer nichts ändert, holt sich nicht das Sperrfile von Excel mit.
+     */
+    allowedExtensions: ['csv'],
     ignoredTemporaryExtensions: ['.part', '.tmp', '.temp', '.filepart'],
     minimumFileAgeSeconds: 60,
     stabilityCheck: {
@@ -257,9 +264,3 @@ export function withDestinationType(job: Job, destinationType: Job['sourceType']
   };
 }
 
-export function parseList(value: string): string[] {
-  return value
-    .split(/[,\s]+/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-}

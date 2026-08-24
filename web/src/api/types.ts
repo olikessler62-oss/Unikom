@@ -521,7 +521,21 @@ export interface Platz {
   muster: string;
 }
 
+/** Woran eine bestimmte Datei eines Stapels zu erkennen ist (SPEC-06 §2). */
+export interface Dateikennung {
+  /**
+   * `NAME`: der Dateiname mit `*`. `MERKMAL`: ein Teil, der darin vorkommt.
+   * `DATEI`: eine im Verzeichnis ausgesuchte Datei.
+   */
+  art: 'NAME' | 'MERKMAL' | 'DATEI';
+  wert: string;
+}
+
 export interface Stapelbedingung {
+  /** Woran Primär- und Sekundär-Datei zu erkennen sind — am Namen oder an einem Teil davon. */
+  primaer?: Dateikennung;
+  /** Die weiteren Dateien des Stapels — so viele, wie eingetragen sind. */
+  sekundaer?: Dateikennung[];
   plaetze: Platz[];
   /** Wie viele Dateien insgesamt; ohne Angabe die Zahl der Plätze. */
   anzahl?: number;
@@ -531,12 +545,16 @@ export interface Stapelbedingung {
 
 /** Wohin die Eingangsdateien nach dem Durchgang wandern. */
 export interface Abholung {
+  /** Wohin die verschlüsselte Kopie der Eingangsdateien geht. */
+  archiv?: string;
   arbeit?: string;
   erledigt?: string;
   gescheitert?: string;
 }
 
 export interface Dateiwahl {
+  /** Welche Dateitypen mitkommen; ohne Angabe alle lesbaren. */
+  endungen?: string[];
   muster?: string;
   blatt?: { name: string } | { position: number };
   stapel?: Stapelbedingung;

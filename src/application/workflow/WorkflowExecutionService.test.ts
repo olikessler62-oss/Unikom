@@ -314,6 +314,32 @@ test('das Muster entscheidet, welche Datei mitkommt', async () => {
   assert.deepEqual(stand.zeilen, [['1'], ['2']]);
 });
 
+test('der Dateityp entscheidet mit, welche Datei mitkommt', async () => {
+  /*
+   * Beide Formate kann der Leser öffnen — `.txt` wird wie eine CSV gelesen. Die
+   * Auswahl schränkt darüber hinaus ein: Wer `csv` einträgt, will die
+   * Textfassung daneben nicht mitnehmen, auch wenn sie sich lesen ließe.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/Umsatz.csv', ['kdnr'], [['1'], ['2']]);
+  bank.ablage.lege('/eingang/Umsatz.txt', ['kdnr'], [['8'], ['9']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/eingang' },
+        dateien: { endungen: ['csv'] },
+      },
+    })
+  );
+
+  const [stand] = await bank.ergebnisse.list('default');
+
+  assert.deepEqual(stand.zeilen, [['1'], ['2']]);
+});
+
 test('kein Lauf ohne Quelle — aber auch kein Fehler daraus', async () => {
   /*
    * Ein Workflow, der jede Nacht in ein Verzeichnis sieht, findet dort oft

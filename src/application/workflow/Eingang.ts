@@ -42,7 +42,7 @@ export function istLesbar(name: string): boolean {
  * Datei zu einem erwarteten Platz gehört. Zwei Auslegungen desselben
  * Sternchens wären ein Fehler, den man nur im Ergebnis sieht.
  */
-export { passt, musterAlsRegex } from '../../domain/consolidation/Namensmuster.js';
+export { passt, passtEndung, musterAlsRegex } from '../../domain/consolidation/Namensmuster.js';
 
 export interface Eingangsdatei {
   /** Der Name, unter dem die Quelle später in jeder Meldung erscheint. */

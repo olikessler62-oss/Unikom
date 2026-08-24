@@ -776,6 +776,29 @@ code {
 /* ---------- Flächen ---------- */
 
 /*
+ * Die Innenluft einer Fläche als Marke — und nicht als Zahl an jeder Regel.
+ *
+ * Spring gibt einer Fläche mehr Luft als Autumn. Solange das als eigene
+ * `padding`-Regel im Spring-Block stand, schlug es alles, was weiter oben über
+ * Flächen entschieden wird: Eine zugeklappte Karte behielt im Spring die volle
+ * Höhe, obwohl die Regel dagegen längst dastand — sie kam nur früher in der
+ * Datei. Über eine Marke fällt die zweite Regel fort. Das Erscheinungsbild
+ * setzt das Maß, die Zustände rechnen damit.
+ */
+:root {
+  --karte-luft-y: 1.5rem;
+  --karte-luft-x: 1.6rem;
+  /* Der Abstand von der Pille zum ersten Feld darunter. */
+  --pille-nachlauf: 1.3rem;
+}
+
+[data-theme='spring'] {
+  --karte-luft-y: 2.4rem;
+  --karte-luft-x: 2.4rem;
+  --pille-nachlauf: 1rem;
+}
+
+/*
  * Der Abstand nach unten steht hier und nicht an jeder Fläche einzeln. Vorher
  * trugen ihn 31 Inline-Angaben in den Bildschirmen — und Inline schlägt jede
  * Regel, also konnte kein Erscheinungsbild ihn ändern.
@@ -784,7 +807,7 @@ code {
   position: relative;
   border: 1px solid var(--rule);
   border-radius: var(--radius);
-  padding: 1.5rem 1.6rem;
+  padding: var(--karte-luft-y) var(--karte-luft-x);
   margin-bottom: 1rem;
   background: linear-gradient(168deg, var(--g-3) 0%, var(--g-2) 55%, var(--g-1) 100%);
   box-shadow: 0 22px 55px -34px rgba(var(--shade), 0.95), inset 0 1px 0 rgba(var(--sheen), 0.05);
@@ -812,7 +835,13 @@ code {
   background: rgba(var(--sheen), 0.03);
   border-left: 3px solid rgba(var(--accent), 0.45);
   box-shadow: none;
-  padding: 1rem 1.1rem;
+  /*
+   * Ihre eigene Luft über dieselben Marken. Als eigenes `padding` stünde sie
+   * weiter oben als das Erscheinungsbild und verlöre gegen dessen Maß — eine
+   * eingebettete Fläche säße dann so weit auseinander wie die tragende.
+   */
+  --karte-luft-y: 1rem;
+  --karte-luft-x: 1.1rem;
   margin: 0.6rem 0;
 }
 
@@ -849,7 +878,7 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  margin: 0 0 1.3rem;
+  margin: 0 0 var(--pille-nachlauf);
   padding: 0.32rem 0.9rem 0.32rem 0.75rem;
   border: 1px solid var(--rule-strong);
   border-radius: 999px;
@@ -889,11 +918,6 @@ code {
 :root {
   --klapp-pfeil: 1.15rem;
   --klapp-rand: 10px;
-  /*
-   * Die Höhe einer Pille, aus ihren eigenen Marken gerechnet: Innenabstand oben
-   * und unten, die Zeile selbst, dazu die beiden Rahmenlinien.
-   */
-  --pille-hoehe: calc(0.32rem * 2 + 0.72rem * 1.2 + 2px);
 }
 
 /*
@@ -928,22 +952,37 @@ code {
   margin-bottom: 0;
   /*
    * Aus dem Weg des Pfeils, der auf seinem Platz bleibt — und nur so weit, wie
-   * nötig: Die Pille steht ohnehin schon beim Innenabstand der Fläche
-   * (`1.6rem`), also fehlt nur die Strecke bis hinter den Pfeil. Um seine volle
-   * Breite zu rücken wäre eine Lücke, die niemand erklärt.
+   * nötig: Die Pille steht ohnehin schon beim Innenabstand der Fläche, also
+   * fehlt nur die Strecke bis hinter den Pfeil. Um seine volle Breite zu rücken
+   * wäre eine Lücke, die niemand erklärt.
+   *
+   * Im Spring ist der Innenabstand größer als der Weg des Pfeils; die Strecke
+   * wird dann negativ und zieht die Zeile ein Stück nach links. Das ist keine
+   * Ausnahme, sondern dieselbe Rechnung — deshalb steht hier die Marke und
+   * keine Zahl.
    */
-  margin-left: calc(var(--klapp-rand) + var(--klapp-pfeil) + 0.5rem - 1.6rem);
+  margin-left: calc(var(--klapp-rand) + var(--klapp-pfeil) + 0.5rem - var(--karte-luft-x));
 }
 
 /*
- * Der Pfeil rückt in die Mitte der Pille, sobald sie neben ihm steht.
+ * Der Pfeil rückt in die Mitte der Überschrift, sobald sie neben ihm steht.
  *
- * Gerechnet und nicht abgemessen: halbe Pillenhöhe minus halber Pfeilhöhe. Eine
- * geschriebene Zahl wäre beim nächsten Eingriff an der Schriftgröße still
- * falsch.
+ * ## Warum die Hälfte der Fläche und nicht die Hälfte der Überschrift
+ *
+ * Hier stand einmal eine Rechnung: halbe Pillenhöhe minus halbe Pfeilhöhe, und
+ * die Pillenhöhe kam aus ihren eigenen Marken. Das galt für die Pille des
+ * Autumn — im Spring trägt die Überschrift keinen Kasten, sondern ist eine
+ * Textzeile, und dieselbe Rechnung hing an einer Höhe, die es dort nicht gibt.
+ * Der Pfeil saß über der Mitte des Wortes.
+ *
+ * Eine zugeklappte Fläche enthält nichts als ihre Überschrift, und ihre beiden
+ * Innenabstände sind gleich. Ihre Mitte *ist* deshalb die Mitte der Überschrift
+ * — gleich, wie hoch die gerade ist. `50 %` fragt den Browser danach, statt es
+ * ihm auszurechnen; der halbe Pfeil zurück setzt seine Mitte auf diese Linie.
  */
 .card--zu .klapp {
-  top: calc(var(--klapp-rand) + (var(--pille-hoehe) - var(--klapp-pfeil)) / 2);
+  top: 50%;
+  margin-top: calc(var(--klapp-pfeil) * -0.5);
 }
 
 /*
@@ -1100,10 +1139,23 @@ code {
  * Lieferungen eines Stapels. `.row` legt nebeneinander; hierfür fehlte das
  * Gegenstück.
  */
+/*
+ * Der Abstand zwischen einem Bedienelement und dem, was daneben steht — einem
+ * Auswahlknopf, einem Info-Knopf, dem nächsten Feld derselben Zeile.
+ *
+ * Als Marke, weil er an drei Stellen gebraucht wird und dort dreimal leicht
+ * verschieden dastand: 0,55 neben einem Feld, 0,6 in einer freien Zeile. Acht
+ * Zehntel eines Pixels sieht niemand einzeln — untereinander in einer Fläche
+ * sieht man, dass etwas nicht stimmt, ohne sagen zu können, was.
+ */
+:root {
+  --feld-luecke: 0.55rem;
+}
+
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: var(--feld-luecke);
 }
 
 .cards {
@@ -1673,6 +1725,124 @@ textarea {
 }
 
 /*
+ * Die beiden Maße für Zahlen — einmal gewählt, einmal getippt.
+ *
+ * Gewählt wird aus wenigen kurzen Werten: Stunden, Minuten, Sekunden. Getippt
+ * wird auch eine Portnummer oder eine Feldbreite, und die hat mehr Stellen.
+ */
+:root {
+  --zahl-breite: 5.5rem;
+  --zahl-frei: 7rem;
+  /* Mittellang: genug für rund zwanzig Zeichen, ohne die Spalte zu füllen. */
+  --feld-mittel: 16rem;
+}
+
+/*
+ * Ein Zahlenfeld ist so breit, wie eine Zahl lang ist.
+ *
+ * „Dateien insgesamt" nimmt eine Ziffer und zog sich über die ganze Spalte:
+ * 640 Pixel für ein Zeichen, mit dem Erklärknopf so weit rechts, dass man ihn
+ * suchen muss. Dieselbe Überlegung steht schon bei der Dauer — drei Zahlen mit
+ * zwei Stellen brauchen keine 640 Pixel —, sie galt nur für die drei.
+ *
+ * Rechtsbündig, weil Zahlen an der Einerstelle verglichen werden: Untereinander
+ * stehen dann Zehner über Zehnern.
+ *
+ * Die Dauer behält daneben ihr eigenes, engeres Maß — ihre Regel steht später
+ * und schlägt diese.
+ */
+input[type='number'] {
+  width: var(--zahl-frei);
+  text-align: right;
+}
+
+/* Ein Feld, dessen Inhalt kurz ist — ein Merkmal, ein Kürzel, ein Namensteil. */
+.input--mittel {
+  width: var(--feld-mittel);
+}
+
+/*
+ * Die Zeile einer Pille, wenn ein Knopf dazugehört.
+ *
+ * „Sekundär-Dateien" trägt ein Plus, das eine Zeile hinzufügt — es gehört zur
+ * Liste als Ganzem und nicht zu einer ihrer Zeilen. Deshalb neben der Pille und
+ * nicht neben einem Feld.
+ */
+.pille-zeile {
+  display: flex;
+  align-items: center;
+  gap: var(--feld-luecke);
+  /* Der Abstand nach unten steht hier, weil die Pille ihn abgibt — siehe unten. */
+  margin-bottom: 0.45rem;
+}
+
+/*
+ * Die Pille gibt ihren Abstand nach unten an die Zeile ab.
+ *
+ * Eine Beschriftung trägt `margin-bottom: 0.45rem`, damit unter ihr das Feld
+ * Luft hat. In einer Flex-Zeile zählt dieser Rand zu ihrem Kasten — mittig
+ * ausgerichtet wird dann der Kasten **mit** dem Rand, und die Schrift sitzt um
+ * dessen halbe Höhe zu hoch. Gemessen an einem 26 Pixel hohen Knopf sind das
+ * gut drei Pixel: genug, dass es aussieht wie ein Versehen, und es war eines.
+ */
+.pille-zeile > label {
+  margin-bottom: 0;
+}
+
+/*
+ * Der Knopf dazu trägt sein Maß selbst.
+ *
+ * `.field-button` nimmt die Höhe der Zeile, in der er steht — neben einer Pille
+ * wäre das die Höhe der Beschriftung, und daraus würde ein Knopf von zwölf
+ * Pixeln. Hier steht deshalb eine Kantenlänge.
+ */
+.pille-zeile > .field-button {
+  align-self: auto;
+  height: 26px;
+  width: 26px;
+}
+
+.pille-zeile > .field-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+/*
+ * Ein Auswahlfeld, das den längsten seiner Einträge trägt.
+ *
+ * `width: auto` genügte, solange das System das Bauteil zeichnete: Dann maß der
+ * Browser den breitesten Eintrag. Mit `appearance: base-select` — siehe den
+ * Block „Die aufgeklappte Liste einer Combobox" weiter unten — ist das
+ * geschlossene Feld eine Flex-Zeile, die nur den **gewählten** Eintrag zeigt,
+ * und misst sich an dem. „Dateiname" ergab ein schmales Feld, in das
+ * „Merkmal im Namen" nicht hineinpasste.
+ *
+ * Gezählt wird deshalb, statt zu messen — und zwar **am Bedienelement**: Es
+ * kennt seine Einträge und setzt seine Mindestbreite selbst. Damit ist es
+ * sprachunabhängig: Wer übersetzt, ändert die Texte, und das Feld wird von
+ * selbst breiter.
+ *
+ * Der erste Versuch reichte die Zahl über eine Marke hierher und rechnete an
+ * dieser Stelle. Das blieb wirkungslos, und der Grund war von außen nicht zu
+ * sehen — an einer Rechnung, die nirgends steht, sucht niemand. Jetzt steht die
+ * Breite dort, wo die Einträge stehen, und nur `width: auto` bleibt hier.
+ */
+select.input--wahl {
+  width: auto;
+}
+
+/*
+ * In einer Zeile mit einem Knopf wächst ein Feld sonst auf den ganzen Rest.
+ * `flex: 1` setzt eine Basis von null und schlägt damit jede Breite; ohne diese
+ * Zeile bliebe die Regel darüber genau dort wirkungslos, wo es auffällt.
+ */
+.field__row > input[type='number'],
+.field__row > select.input--wahl,
+.field__row > .input--mittel {
+  flex: none;
+}
+
+/*
  * Ein Memo trägt hier meist Schlüsselmaterial: lange Zeilen aus Base64, in
  * denen ein einzelnes Zeichen zählt. Feste Zeichenbreite macht sie vergleichbar,
  * und in der Höhe darf gezogen werden — in der Breite nicht, sonst steht das
@@ -2169,7 +2339,7 @@ option:checked {
 /* Eingabefeld und ein Knopf daneben, auf einer Linie. */
 .field__row {
   display: flex;
-  gap: 0.55rem;
+  gap: var(--feld-luecke);
   align-items: center;
 }
 
@@ -2223,6 +2393,25 @@ option:checked {
   fill: currentColor;
 }
 
+/*
+ * Zeichen aus Strichen werden gestrichen und nicht gefüllt.
+ *
+ * Sie tragen `icon--strich` — siehe `Pieces.tsx`. Ohne diese Regel macht
+ * `fill: currentColor` aus einem Papierkorb einen schwarzen Klecks: Der Pfad
+ * beschreibt Linien, und eine gefüllte Linie ist eine Fläche zwischen ihren
+ * Enden.
+ *
+ * Hier und nicht bei jedem Knopf: Es gibt inzwischen fünf Sorten von Knöpfen
+ * mit Zeichen, und die nächste käme ohne diese Zeile wieder mit einem Klecks.
+ */
+svg.icon--strich {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .field-button:hover:not(:disabled) {
   border-color: rgba(var(--sheen), 0.3);
   color: var(--text);
@@ -2264,6 +2453,36 @@ option:checked {
 }
 
 /*
+ * Das Ergebnis einer Probe — als Zeichen in der Zeile des Feldes.
+ *
+ * Hier stand einmal ein Satz unter dem Feld. Er erschien, sobald die Antwort
+ * eintraf, und schob alles darunter fort — mitten im Tippen, und bei drei
+ * Verzeichnissen dreimal untereinander.
+ *
+ * Die feste Breite ist der ganze Punkt: Der Platz wird von Anfang an
+ * freigehalten, auch solange keine Antwort da ist. Ohne sie rückte der
+ * Auswahlknopf beim ersten Ergebnis zur Seite — derselbe Sprung, nur waagerecht.
+ *
+ * Was das Zeichen bedeutet, hängt als Titel daran und kommt beim Überfahren.
+ */
+.probe {
+  flex: none;
+  width: 1.1rem;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: default;
+}
+
+.probe--gut {
+  color: rgb(var(--dot-gut));
+}
+
+.probe--schlecht {
+  color: rgb(var(--alarm));
+}
+
+/*
  * Das Urteil über eine Eingabe — gefunden oder nicht.
  *
  * Eine Zeile und kein Fenster: Sie gehört neben das Feld, dessen Inhalt sie
@@ -2288,6 +2507,15 @@ option:checked {
 }
 
 /*
+ * Weder Ja noch Nein: „Das Verzeichnis gibt es noch nicht, es entsteht beim
+ * ersten Lauf." Grün gelesen verschwiege es, dass dort noch nichts liegt; rot
+ * hielte jemanden auf, der alles richtig gemacht hat.
+ */
+.verdict--warn {
+  color: rgb(var(--caution));
+}
+
+/*
  * Die Schritte einer Verbindung, in der Reihenfolge, in der sie geschahen.
  * Nummeriert, weil die Reihenfolge die Aussage ist: Wo die Liste aufhört, ist
  * die Verbindung stehengeblieben.
@@ -2306,15 +2534,71 @@ option:checked {
  * Der Verzeichnisbaum des Servers. Jede Zeile ist ein Knopf, weil jede Zeile
  * eine Bewegung ist — hinein, oder eine Ebene höher.
  */
+/*
+ * Ein Auswahlkasten zeigt so viel, wie ohne Scrollen zu überblicken ist.
+ *
+ * 20 rem waren etwa acht Zeilen — ein Dateidialog zeigt fünfzehn bis zwanzig,
+ * und wer bei acht anfängt zu scrollen, verliert die Übersicht, bevor er sie
+ * hatte. Gedeckelt am Fenster (`45vh`), damit auf einem Notebook nicht der
+ * Knopf unten aus dem Bild rutscht.
+ */
 .browse {
   margin: 0 0 var(--step);
   padding: 0.35rem;
-  max-height: 20rem;
+  max-height: min(45vh, 34rem);
   overflow-y: auto;
   list-style: none;
   border: 1px solid var(--rule);
   border-radius: var(--radius-small);
   background: var(--g-1);
+}
+
+/*
+ * Eine Liste **in** einem Kasten trägt dessen Maße nicht noch einmal.
+ *
+ * Die Dateiliste stand als `.browse` in einem `.browse`: zwei Rahmen, zwei
+ * Hintergründe und zwei Rollbalken ineinander. Sichtbar wurde es daran, dass
+ * die Dateien nicht für sich rollten, sondern das ganze Fenster schoben.
+ */
+.browse ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * Der Verzeichniskasten zeigt zehn Zeilen, dann wird gerollt.
+ *
+ * Gerechnet aus den Maßen einer Zeile — Innenabstand oben und unten, die Zeile
+ * selbst, die Trennlinie — und nicht abgemessen: Eine geschriebene Höhe wäre
+ * beim nächsten Eingriff an der Schriftgröße still falsch, und dann stünden
+ * neun Zeilen da oder elf.
+ *
+ * Warum überhaupt eine Grenze: `45vh` sind auf einem großen Bildschirm zwanzig
+ * Zeilen und mehr. Das Fenster wuchs damit weit über die Dateiliste darunter
+ * hinaus, und die stand am Ende unter dem Rand.
+ */
+:root {
+  /* Eine Zeile im Baum: Innenabstand oben und unten, die Zeile, die Trennlinie. */
+  --baum-zeile: calc(0.58rem * 2 + 0.74rem * 1.55 + 1px);
+  /* Eine Zeile der Dateiliste — sie hat ihren eigenen Innenabstand. */
+  --liste-zeile: calc(0.5rem * 2 + 0.85rem * 1.55 + 1px);
+}
+
+.browse--baum {
+  max-height: calc(9 * var(--baum-zeile) + 0.7rem);
+}
+
+/*
+ * Die Dateien: vier Zeilen.
+ *
+ * Weniger als beim Baum, und das mit Absicht: Durch die Verzeichnisse wandert
+ * man, in den Dateien sucht man einen Namen. Vier Zeilen sind genug, um zu
+ * sehen, dass welche da sind — und wenig genug, dass der Baum darüber nicht
+ * aus dem Bild rutscht.
+ */
+.browse--dateien {
+  max-height: calc(4 * var(--liste-zeile) + 0.7rem);
 }
 
 .browse li + li {
@@ -2335,33 +2619,51 @@ option:checked {
 }
 
 /*
- * Eine Zeile der Endungsauswahl: Haken, Endung, Erklärung.
+ * Eine Zeile der Endungsliste: nur die Pille, in der Mitte.
  *
- * Der Platz für den Haken wird immer freigehalten. Ohne ihn rückte die ganze
- * Liste beim Anklicken um ein Zeichen, und das Auge verlöre die Zeile, die es
- * gerade ansieht.
- */
-/*
- * Eine Zeile der Endungsliste: Haken, Endung, Beschreibung.
+ * ## Warum mittig und nicht links
  *
- * ## Warum ein Raster und keine Zeile aus Wörtern
+ * Neben der Endung stand einmal eine Erklärung, und dafür brauchte es ein
+ * Raster aus drei Spalten. Ohne sie bliebe links eine Pille und rechts eine
+ * leere Hälfte — eine Liste, die an einer Kante klebt und daneben nichts hat.
+ * Eine einzige Spalte gehört in die Mitte.
  *
- * Nebeneinandergesetzt beginnt die Beschreibung dort, wo die Endung aufhört —
- * und `xlsx` ist breiter als `edi`. Dann steht jede Beschreibung an einer
- * anderen Stelle, und die Liste liest sich wie eine ausgefranste Kante. Die
- * mittlere Spalte hat deshalb eine feste Breite: Vier Zeichen sind das
- * Längste, was hier vorkommt.
+ * ## Warum der Haken herausgenommen ist
+ *
+ * Er liegt absolut am linken Rand, statt eine eigene Spalte zu bekommen. In
+ * der Zeile mitgerechnet verschöbe er die Pille um seine halbe Breite, und
+ * „mittig" wäre um ein Zeichen daneben — sichtbar, sobald zehn Pillen
+ * untereinanderstehen. So bleibt die Pille auf der Mitte der Zeile und die
+ * Haken bilden ihre eigene Flucht.
  */
 .browse li > button.pick__row {
-  display: grid;
-  grid-template-columns: 1.2rem 3.4rem 1fr;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 0.55rem;
+  justify-content: center;
 }
 
 .pick__mark {
+  position: absolute;
+  /* Auf dem Innenabstand der Zeile — der Haken beginnt, wo ihr Text begänne. */
+  left: 0.7rem;
   /* Die Marke ist ein RGB-Tripel, keine Farbe — ohne `rgb()` bliebe der Haken unsichtbar. */
   color: rgb(var(--accent));
+}
+
+/*
+ * Die Schrift der Pille steht als Marke und nicht als Zahl in der Regel.
+ *
+ * Das Autumn-Warmweiß auf dem hellen Grund des Spring wäre kaum zu lesen. Über
+ * eine Marke entscheidet das Erscheinungsbild, statt weiter unten eine zweite
+ * Regel nachzureichen, die dieselbe Eigenschaft noch einmal setzt.
+ */
+:root {
+  --endung-text: #e2d5c9;
+}
+
+[data-theme='spring'] {
+  --endung-text: #000000;
 }
 
 /*
@@ -2373,29 +2675,14 @@ option:checked {
  * zweite Betonung derselben Sache.
  */
 .pick__ext {
-  justify-self: start;
   padding: 0.1rem 0.4rem;
   border: 1px solid var(--rule);
   border-radius: 5px;
   background: var(--g-3);
-  color: #e2d5c9;
+  color: var(--endung-text);
   font-family: var(--mono);
   font-size: 0.82rem;
   font-weight: 400;
-}
-
-/*
- * Die Beschreibung in der Fließschrift und nicht in der Festbreitenschrift.
- *
- * Festbreite ist für Dinge da, deren Zeichen einzeln zählen — Pfade, Endungen,
- * Muster. Ein deutscher Satz gehört nicht dazu; in Festbreite wird er breiter
- * und liest sich langsamer.
- */
-.pick__hint {
-  color: var(--text-soft);
-  font-family: var(--sans);
-  font-size: 0.88rem;
-  letter-spacing: 0;
 }
 
 /*
@@ -2448,24 +2735,10 @@ option:checked {
   outline: none;
 }
 
-/*
- * Die gewählte Zeile — deutlicher als das Überfahren, aus der Akzentfarbe
- * gemischt statt in ihr. Deckend gefärbt verlöre die Schrift ihren Halt, und
- * ausgerechnet die Zeile, auf die es ankommt, wäre die am schlechtesten
- * lesbare.
- */
-.browse li > button.pick__row--an {
-  background: rgba(var(--accent), 0.18);
-}
-
-.browse li > button.pick__row--an .pick__hint {
+/* Das Kästchen der Endung hebt sich mit — eine Stufe heller als im Ruhezustand. */
+.browse li > button.pick__row--an .pick__ext {
+  border-color: rgba(var(--accent), 0.4);
   color: var(--text-loud);
-}
-
-/* Die Beschreibung tritt beim Überfahren vor — die Zeile bleibt sonst, wie sie ist. */
-.browse li > button:hover .pick__hint,
-.browse li > button:focus-visible .pick__hint {
-  color: var(--text);
 }
 
 .browse__up {
@@ -2638,13 +2911,49 @@ option:checked {
 }
 
 /*
- * Der gewählte Zweig. Deutlich und nicht nur eine Spur anders: Er entscheidet,
- * was der Knopf unten übernimmt, und wer das verwechselt, trägt ein Verzeichnis
- * ein, das er nicht gemeint hat.
+ * Der gewählte Zweig.
+ *
+ * Er muss deutlich sein — er entscheidet, was der Knopf unten übernimmt, und
+ * wer das verwechselt, trägt ein Verzeichnis ein, das er nicht gemeint hat.
+ *
+ * ## Warum kein durchgehender Balken
+ *
+ * Eine Zeile flächig einzufärben malt ein Rechteck quer durch die Liste. Es ist
+ * das größte Ding auf der Fläche, obwohl die Aussage die kleinste ist: *dieser
+ * Name*. Und ein gedämpftes Orange auf dunklem Grund wird dabei zu einem
+ * schlammigen Braun — die Farbe hat auf großer Fläche keine Leuchtkraft mehr,
+ * die sie auf kleiner hätte.
+ *
+ * ## Was stattdessen
+ *
+ * Drei Dinge, die zusammen deutlicher sind als der Balken und weniger Fläche
+ * brauchen:
+ *
+ * 1. **Eine Marke am linken Rand** — zwei Pixel in voller Akzentfarbe. Sie
+ *    steht an der Kante, an der das Auge die Zeilen ohnehin abzählt.
+ * 2. **Ein Verlauf, der nach rechts ausläuft.** Er zeigt an, wo die Zeile
+ *    anfängt, ohne sie zuzudecken; nach zwei Dritteln ist er fort.
+ * 3. **Der Name selbst trägt mit** — hellere Schrift, Ordnerzeichen im Akzent.
+ *    Die Auswahl gehört zum Namen und nicht zum Streifen daneben.
+ *
+ * ## Eine Regel für beide Listen
+ *
+ * Der Verzeichnisbaum und die Zeilen in Auswahlfenstern teilen sie sich. Zwei
+ * Kopien derselben Absicht laufen auseinander, sobald jemand an einer davon
+ * eine Zahl ändert — und dann sieht dieselbe Aussage an zwei Stellen
+ * verschieden aus.
  */
 .tree__row--chosen,
-.tree__row--chosen:hover {
-  background: rgba(var(--accent), 0.18);
+.tree__row--chosen:hover,
+.browse li > button.pick__row--an,
+.browse li > button.pick__row--an:hover {
+  background: linear-gradient(
+    90deg,
+    rgba(var(--accent), 0.16) 0%,
+    rgba(var(--accent), 0.05) 55%,
+    transparent 100%
+  );
+  box-shadow: inset 2px 0 0 rgb(var(--accent));
 }
 
 .tree__toggle {
@@ -2704,24 +3013,24 @@ option:checked {
 
 .tree__row--chosen .tree__name {
   color: var(--text-loud);
+  font-weight: 500;
 }
 
 /*
- * Beim Überfahren leuchtet das Zeichen auf — beim gewählten Ordner nicht.
+ * Das Zeichen der gewählten Zeile im Akzent.
  *
- * Die Hervorhebung der Zeile ist selbst aus der Akzentfarbe gemischt. Ein
- * Zeichen in derselben Farbe darauf verschwimmt mit dem Grund: Man sieht einen
- * Fleck statt eines Ordners, und ausgerechnet in der Zeile, auf die es
- * ankommt. Dort trägt das Zeichen deshalb die Schriftfarbe wie der Name
- * daneben.
+ * Vorher trug es die Schriftfarbe, weil die Zeile selbst aus dem Akzent
+ * gemischt war und ein Zeichen darauf verschwommen wäre. Jetzt liegt hinter
+ * ihm fast nichts mehr — also darf es die Farbe tragen, und die Auswahl steht
+ * dort, wo man hinsieht.
  */
-.tree__row:hover .tree__name svg {
+.tree__row--chosen .tree__name svg {
   fill: rgb(var(--accent));
 }
 
-.tree__row--chosen .tree__name svg,
-.tree__row--chosen:hover .tree__name svg {
-  fill: var(--text-loud);
+/* Beim Überfahren leuchtet das Zeichen auf — wie beim gewählten Ordner. */
+.tree__row:hover .tree__name svg {
+  fill: rgb(var(--accent));
 }
 
 .tree__empty,
@@ -2801,6 +3110,74 @@ option:checked {
   max-width: 44rem;
   max-height: 82vh;
   overflow-y: auto;
+}
+
+/*
+ * Ein Fenster mit festem Kopf und fester Knopfleiste.
+ *
+ * Nur die Mitte rollt. Wer in einer langen Liste unten sucht, verlöre sonst
+ * den Pfad aus dem Blick, und „OK" wanderte aus dem Bild — dann rollt man
+ * wieder hinauf, um zu übernehmen, was man gerade gefunden hat.
+ *
+ * Der Kasten rollt dafür selbst nicht mehr (`overflow: hidden`); das übernimmt
+ * `.fenster__mitte`. `min-height: 0` ist dabei keine Zierde, sondern die
+ * Bedingung: Ein Flex-Kind ist von Haus aus mindestens so hoch wie sein Inhalt,
+ * und dann wüchse die Mitte über den Kasten hinaus, statt zu rollen.
+ */
+.modal__box--geteilt {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal__box--geteilt > .prose {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/*
+ * Die Mitte rollt nicht selbst — ihre Listen tun es.
+ *
+ * Zuerst stand hier `overflow-y: auto`. Damit gab es am Verzeichniskasten zwei
+ * Rollbalken nebeneinander: seinen eigenen und den der Mitte. Der zweite
+ * entstand, weil sich die Höhen der Listen **addieren** — neun Zeilen Baum plus
+ * vier Zeilen Dateien plus Kopf und Knöpfe passen auf einem kleineren
+ * Bildschirm nicht in die 82 vh des Fensters.
+ *
+ * Als Flex-Spalte teilen sie sich stattdessen, was da ist: Jede Liste behält
+ * ihre neun beziehungsweise vier Zeilen als **Obergrenze**, darf aber
+ * schrumpfen, wenn es eng wird — und rollt dann in sich. `min-height: 0` ist
+ * dabei die Bedingung: Ein Flex-Kind ist von Haus aus mindestens so hoch wie
+ * sein Inhalt und schrumpfte sonst gar nicht.
+ */
+.fenster__mitte {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fenster__mitte > .browse {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+/*
+ * Die halbe Breite — für Fenster, deren Inhalt von Haus aus schmal ist.
+ *
+ * Die 44 rem sind an Text und Formularen gemessen. Eine Spalte aus Endungen
+ * („csv", „.crdownload") füllt davon keine Hälfte; was bliebe, wäre ein breiter
+ * Kasten mit einem schmalen Streifen Inhalt in der Mitte. Halbiert steht die
+ * Liste in einem Fenster, das ihr entspricht.
+ *
+ * Als eigene Marke am Fenster und nicht am Inhalt: Ob ein Fenster schmal steht,
+ * entscheidet der, der es öffnet — die Liste darin weiß nichts davon.
+ */
+.modal__box--schmal {
+  max-width: 22rem;
 }
 
 /*
@@ -3018,7 +3395,7 @@ button.secondary::after {
 }
 
 .duration input {
-  width: 5.5rem;
+  width: var(--zahl-breite);
   text-align: right;
 }
 
@@ -3205,7 +3582,7 @@ button.secondary::after {
 
 .row {
   display: flex;
-  gap: 0.6rem;
+  gap: var(--feld-luecke);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -3224,6 +3601,22 @@ button.secondary::after {
  */
 .card .row:not(:has(.field)) {
   margin-bottom: 1.2rem;
+}
+
+/*
+ * … aber nicht innerhalb eines Feldes.
+ *
+ * Dort trägt das Feld den Abstand schon, und die Regel darüber legte einen
+ * zweiten darauf: Unter „Erwartete Dateien" standen 2,4 rem gegen die 1,2, die
+ * zwischen allen anderen Feldern stehen — und zwischen zwei Plätzen derselben
+ * Liste ebenso, obwohl die 0,55 rem der Liste dort das Maß sind.
+ *
+ * Die Ausnahme darüber prüft, ob eine Zeile ein Feld **enthält**. Diese hier
+ * prüft, ob sie in einem **steht**; das ist der andere Fall und war nicht
+ * abgedeckt.
+ */
+.card .field .row {
+  margin-bottom: 0;
 }
 
 /* Wer Bewegung abgeschaltet hat, bekommt dieselbe Oberfläche im Stillstand. */
@@ -3534,15 +3927,27 @@ button.secondary::after {
   box-shadow: none;
 }
 
-/* Überschriften in Flächen: schwarz und fett, kein Typenschild. */
+/*
+ * Überschriften in Flächen: schwarz und fett, kein Typenschild.
+ *
+ * Der Nachlauf nach unten steht als Marke weiter oben. Hier wäre er eine
+ * Kurzschrift (`margin`), die auch den linken Abstand mitsetzt — und damit die
+ * zugeklappte Zeile wieder unter den Pfeil schöbe, statt neben ihn.
+ */
 :where([data-theme='spring']) .card h2:first-child {
-  margin: 0 0 1rem;
   padding: 0;
   border: none;
   background: none;
   box-shadow: none;
   font-family: var(--sans);
-  font-size: 1.4rem;
+  /*
+   * Eine Stufe unter der Seitenüberschrift, auf der Leiter, die dieses
+   * Erscheinungsbild ohnehin geht: 1.6 für den Namen der Seite, 1.35 hier,
+   * 1.13 für das Hauptmenü. Auf 1.6 stand der Name einer Fläche so groß wie
+   * der Name der ganzen Seite — zwei Ränge, eine Größe, und damit keine
+   * Rangfolge.
+   */
+  font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   text-transform: none;
@@ -3873,9 +4278,8 @@ button.secondary::after {
   max-width: 900px;
 }
 
-/* Innen großzügig, außen deutlich getrennt — beides am Vorbild gemessen. */
+/* Außen deutlich getrennt — am Vorbild gemessen. Innen über `--karte-luft-*`. */
 :where([data-theme='spring']) .card {
-  padding: 2.4rem;
   margin-bottom: 2.6rem;
 }
 
@@ -3884,9 +4288,6 @@ button.secondary::after {
   font-size: 16px;
 }
 
-:where([data-theme='spring']) .card h2:first-child {
-  font-size: 1.6rem;
-}
 
 /*
  * Der Kopf einer Tabelle war eine dunklere Stufe — in Spring wäre er ein
@@ -4391,9 +4792,47 @@ button.secondary::after {
   color: var(--text-soft);
 }
 
-/* Die beiden runden Knöpfe tragen ihr eigenes Maß und bleiben klein. */
+/* ===================================================================
+ * Spring — Zeichen in Farbe
+ *
+ * Schwarz auf hellgrau ist lesbar, aber ein Zeichen ist kein Text: Es hat
+ * keine Wortform, an der das Auge es wiedererkennt, sondern nur seinen Umriss.
+ * In Schwarz steht es da wie ein Stück Interpunktion; in einem ruhigen Blau
+ * liest es sich als „hier kann man etwas tun".
+ *
+ * Und beim Überfahren wird der Knopf dunkel — dann muss das Zeichen hell
+ * werden, sonst verschwindet es in seiner eigenen Fläche. Das ist derselbe
+ * Gedanke wie bei einer Schrift auf dunklem Grund, nur für einen Umriss.
+ *
+ * Die Pfeile im Verzeichnisbaum und an den Klappflächen bleiben außen vor: Sie
+ * sind keine Handlung, sondern zeigen eine Richtung.
+ * =================================================================== */
+
+[data-theme='spring'] {
+  --icon: #1f6fb2;
+  --icon-hell: #cfe6ff;
+}
+
+:where([data-theme='spring']) .field-button,
+:where([data-theme='spring']) .open-button,
+:where([data-theme='spring']) .row-button,
 :where([data-theme='spring']) .info-button,
 :where([data-theme='spring']) .hint-button {
+  color: var(--icon);
+}
+
+/*
+ * Diese Knöpfe tragen ihr eigenes Maß und bleiben klein.
+ *
+ * Der Klapp-Pfeil steht mit hier: Er ist als Quadrat aus `--klapp-pfeil`
+ * angelegt, und die 38 Pixel machten daraus im Spring ein Hochformat von 18
+ * auf 38. Sichtbar wurde es nicht als zu großer Knopf — er ist durchsichtig —,
+ * sondern daran, dass sein Zeichen in dieser Fläche mittig sitzt und damit
+ * neben der Überschrift stand statt auf ihrer Höhe.
+ */
+:where([data-theme='spring']) .info-button,
+:where([data-theme='spring']) .hint-button,
+:where([data-theme='spring']) .klapp {
   min-height: 0;
 }
 
@@ -4492,4 +4931,101 @@ button.secondary::after {
 
 .table--compact .badge {
   font-size: 0.58rem;
+}
+
+/* ===================================================================
+ * Spring — Zeichenknöpfe beim Überfahren
+ *
+ * Dunkler Grund, helles Zeichen — und beides zusammen, sonst geht eines von
+ * beiden verloren. Genau das war der Fall: Das Zeichen wurde hell, der Grund
+ * blieb es auch, und im Knopf stand ein leerer Kreis.
+ *
+ * Der Grund für die Panne liegt in der Reihenfolge: Vier dieser fünf Knöpfe
+ * bringen eine eigene Hover-Regel mit, die sie **hell** lässt — nur der
+ * Feldknopf fällt auf die gemeinsame Regel für Knöpfe zurück und wurde dunkel.
+ * Deshalb steht dieser Block ganz am Ende: `.row-button:hover` kommt sonst
+ * danach und setzt seinen hellen Grund wieder ein.
+ * =================================================================== */
+
+:where([data-theme='spring']) .field-button:hover:not(:disabled),
+:where([data-theme='spring']) .open-button:hover:not(:disabled),
+:where([data-theme='spring']) .row-button:hover:not(:disabled),
+:where([data-theme='spring']) .info-button:hover:not(:disabled),
+:where([data-theme='spring']) .hint-button:hover:not(:disabled) {
+  background: #23262b;
+  border-color: #23262b;
+  box-shadow: none;
+  color: var(--icon-hell);
+}
+
+/* ===================================================================
+ * Reiter
+ *
+ * Eine Zeile über einem Inhalt, die sagt, wo man ist und was es sonst noch
+ * gibt. Gebraucht vom Schemaeditor: fünf Gruppen von Angaben, an denen man
+ * immer nur an einer arbeitet.
+ *
+ * Der Knopf muss hier fast alles zurücknehmen, was ein Knopf in diesem Haus
+ * sonst ist — Verlauf, Rahmen, Schein, den wandernden Lichtstreifen. Ein Reiter
+ * ist keine Handlung, sondern ein Ort: Fünf leuchtende Knöpfe nebeneinander
+ * sähen aus, als gäbe es fünf Dinge zu tun.
+ *
+ * Was bleibt, ist die Schrift der Beschriftungen — schmal, in Versalien. So
+ * liest sich die Reiterzeile als Gliederung und nicht als zweite Knopfleiste.
+ * =================================================================== */
+
+.reiter {
+  display: flex;
+  gap: 0.2rem;
+  margin-bottom: 1.4rem;
+  border-bottom: 1px solid var(--rule);
+  /* Bei einem schmalen Fenster rollt die Zeile, statt umzubrechen: Zwei Reihen
+     Reiter übereinander lesen sich als zwei Gliederungen. */
+  overflow-x: auto;
+}
+
+.reiter__blatt {
+  flex: none;
+  overflow: visible;
+  padding: 0.6rem 1.05rem;
+  min-height: 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--text-soft);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: none;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+/* Der Lichtstreifen des gewöhnlichen Knopfes hat hier nichts zu suchen. */
+.reiter__blatt::after {
+  content: none;
+}
+
+.reiter__blatt:hover:not(:disabled) {
+  color: var(--text);
+  filter: none;
+  transform: none;
+  box-shadow: none;
+}
+
+/*
+ * Der offene Reiter trägt die Linie, die die Kante der Zeile durchbricht.
+ *
+ * Zwei Kennzeichen und nicht eines: Die Linie sagt „hier", die Farbe sagt
+ * „aktiv". Wer nur die Farbe nähme, verlöre die Auskunft bei jedem, der
+ * Farben schlecht unterscheidet — und die Linie allein wäre auf einem
+ * schmalen Bildschirm leicht zu übersehen.
+ */
+.reiter__blatt--offen {
+  margin-bottom: -1px;
+  border-bottom-color: rgb(var(--accent));
+  color: var(--text);
 }

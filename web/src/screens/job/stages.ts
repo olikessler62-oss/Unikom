@@ -16,7 +16,7 @@ export const STAGE_ORDER: StageId[] = ['TRANSFER', 'CONSOLIDATE', 'DELIVER'];
 export const STAGE_LABELS: Record<StageId, string> = {
   TRANSFER: 'Daten übertragen',
   CONSOLIDATE: 'Daten konsolidieren',
-  DELIVER: 'Daten exportieren/importieren',
+  DELIVER: 'Daten exportieren',
 };
 
 export const STAGE_DESCRIPTIONS: Record<StageId, string> = {

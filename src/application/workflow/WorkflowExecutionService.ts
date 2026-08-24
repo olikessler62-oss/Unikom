@@ -46,7 +46,7 @@ import type { ResultService } from '../result/ResultService.js';
 import type { TransferExecutionOptions, TransferRunResult } from '../transfer/TransferExecutionService.js';
 import type { JobExecutor } from '../transfer/TransferOrchestratorService.js';
 import type { Dateiablage, Verzeichniseintrag } from './Dateiablage.js';
-import { istLesbar, liesDatei, passt, type Lesewunsch } from './Eingang.js';
+import { istLesbar, liesDatei, passt, passtEndung, type Lesewunsch } from './Eingang.js';
 
 /**
  * Der Workflow als **ein** Lauf (SPEC-01, Abschnitt 13 und 32).
@@ -944,6 +944,7 @@ export class WorkflowExecutionService implements JobExecutor {
     jetzt: Date
   ): Promise<Eingang> {
     const muster = schritt.dateien?.muster;
+    const endungen = schritt.dateien?.endungen;
 
     /*
      * Der Vorgänger ist ab dem zweiten Durchgang die Datei, die der Durchgang
@@ -958,12 +959,26 @@ export class WorkflowExecutionService implements JobExecutor {
     if (schritt.input.from === 'DIRECTORY') {
       const verzeichnis = schritt.input.directory;
       const eintraege = await this.umgebung.ablage.liste(verzeichnis);
-      const genommen = eintraege.filter((eintrag) => istLesbar(eintrag.name) && passt(eintrag.name, muster));
+      const genommen = eintraege.filter(
+        (eintrag) =>
+          istLesbar(eintrag.name) && passtEndung(eintrag.name, endungen) && passt(eintrag.name, muster)
+      );
 
       if (genommen.length < eintraege.length) {
+        /*
+         * Der Grund steht im Protokoll, und zwar der, den der Einrichter
+         * eingetragen hat. „Kein lesbares Format" bei einer CSV, die nur nicht
+         * zur Auswahl gehört, schickte die Ferndiagnose in die falsche Ecke.
+         */
+        const gruende = [
+          endungen?.length ? `sind nicht ${endungen.join(', ')}` : undefined,
+          muster ? `passen nicht zu „${muster}"` : undefined,
+          'haben kein lesbares Format',
+        ].filter((grund): grund is string => grund !== undefined);
+
         hinweise.push(
           `${eintraege.length - genommen.length} Datei(en) in „${verzeichnis}" wurden übergangen: ` +
-            (muster ? `Sie passen nicht zu „${muster}" oder haben kein lesbares Format` : 'kein lesbares Format')
+            `Sie ${gruende.join(' oder ')}`
         );
       }
 

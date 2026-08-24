@@ -1,4 +1,10 @@
-import { useEffect, useState, type KeyboardEvent as Tastenereignis, type ReactNode } from 'react';
+import {
+  useEffect,
+  useState,
+  type KeyboardEvent as Tastenereignis,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 
 import type { RunStatus } from '../api/types.js';
@@ -134,6 +140,8 @@ export function Modal({
   title,
   tone,
   ownActions = false,
+  schmal = false,
+  geteilt = false,
   onClose,
   children,
 }: {
@@ -149,6 +157,24 @@ export function Modal({
    * wie der zweite. Escape und der Klick daneben bleiben in beiden Fällen.
    */
   ownActions?: boolean;
+  /**
+   * Ob das Fenster nur halb so breit steht.
+   *
+   * Für Inhalte, die von Haus aus schmal sind — eine Spalte aus Endungen etwa.
+   * Die volle Breite ist für Text und Formulare gemessen; eine Liste kurzer
+   * Wörter füllt davon keine Hälfte, und der Rest wäre leere Fläche um den
+   * eigentlichen Inhalt herum.
+   */
+  schmal?: boolean;
+  /**
+   * Ob Kopf und Knopfleiste stehen bleiben und nur die Mitte rollt.
+   *
+   * Für Fenster, die eine Liste zeigen: Wer unten sucht, verliert sonst den
+   * Pfad aus dem Blick, und der Knopf, mit dem er übernimmt, wandert aus dem
+   * Bild. Der Inhalt bestimmt dabei selbst, was die Mitte ist — er umfasst sie
+   * mit `.fenster__mitte`.
+   */
+  geteilt?: boolean;
   onClose(): void;
   children: ReactNode;
 }) {
@@ -168,7 +194,13 @@ export function Modal({
   return (
     <div className="modal" onClick={onClose}>
       <div
-        className={tone ? `card modal__box modal__box--${tone}` : 'card modal__box'}
+        className={[
+          'card',
+          'modal__box',
+          tone ? `modal__box--${tone}` : '',
+          schmal ? 'modal__box--schmal' : '',
+          geteilt ? 'modal__box--geteilt' : '',
+        ].join(' ')}
         role={tone === 'error' || tone === 'warn' ? 'alertdialog' : 'dialog'}
         aria-modal="true"
         aria-label={title}
@@ -403,7 +435,7 @@ export function RowButton({
 /** Stift — etwas ändern. */
 export function PencilIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="icon--strich">
       <path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />
     </svg>
   );
@@ -412,7 +444,7 @@ export function PencilIcon() {
 /** Schlüssel — ein Passwort vergeben. */
 export function KeyIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="icon--strich">
       <path d="M13 11a3 3 0 1 0 6 0 3 3 0 0 0-6 0M13 11H4M6 11v3M9 11v2" />
     </svg>
   );
@@ -421,7 +453,7 @@ export function KeyIcon() {
 /** Geschlossenes Schloss — sperren. */
 export function LockIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="icon--strich">
       <path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3" />
     </svg>
   );
@@ -430,16 +462,43 @@ export function LockIcon() {
 /** Offenes Schloss — wieder freigeben. Der Bügel steht auf, das ist der Unterschied. */
 export function UnlockIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="icon--strich">
       <path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 5.8-1.1" />
     </svg>
   );
 }
 
+/**
+ * Ein Plus — eine Zeile mehr.
+ *
+ * Als zwei Striche und nicht als Kreuz aus einer Schrift: Ein Zeichen aus der
+ * Schrift säße auf der Grundlinie und stünde damit in einem quadratischen Knopf
+ * ein wenig zu tief; ein gezeichnetes steht in der Mitte seines Feldes.
+ */
+export function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z" />
+    </svg>
+  );
+}
+
+/*
+ * `icon--strich` an den Zeichen, die aus Linien bestehen.
+ *
+ * Ein Pfad wie `M5 7h14M9 7V5h6v2…` beschreibt Striche und keine Flächen. Wird
+ * er gefüllt, entsteht daraus ein Klecks — genau das war im Spring zu sehen:
+ * ein schwarzer Fleck statt eines Papierkorbs. In Tabellenzeilen fiel es nie
+ * auf, weil `.row-button svg` dort längst auf Strich stellte; erst als dieselben
+ * Zeichen in einen Feldknopf kamen, kam der Klecks mit.
+ *
+ * Die Angabe steht am Zeichen und nicht am Knopf: Ob ein Zeichen aus Flächen
+ * oder aus Strichen besteht, weiß es selbst — der Knopf, in dem es sitzt, nicht.
+ */
 /** Papierkorb — löschen. */
 export function TrashIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="icon--strich">
       <path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13M10 10.5v6M14 10.5v6" />
     </svg>
   );
@@ -561,6 +620,41 @@ export function DurationField({
       ))}
     </div>
   );
+}
+
+/**
+ * Zeigt den ganzen Inhalt eines Feldes an, wenn er nicht hineinpasst.
+ *
+ * Ein Pfad wie `C:\Kunden\Nord\Eingang\2026\Lieferschein_*.csv` ist breiter als
+ * das Feld, in dem er steht. Sichtbar bleibt sein Anfang; wo er endet, muss man
+ * scrollen — und beim Vergleichen zweier Zeilen ist genau das Ende der
+ * Unterschied.
+ *
+ * ## Warum gemessen und nicht immer gesetzt
+ *
+ * Ein Merkzettel, der bei jedem Feld erscheint und nur wiederholt, was daneben
+ * steht, ist einer, den man wegsieht. Er soll etwas hinzufügen — und das tut er
+ * nur, wenn wirklich etwas fehlt.
+ *
+ * ## Warum beim Überfahren und nicht beim Tippen
+ *
+ * Gemessen wird `scrollWidth` gegen `clientWidth`, und das geht nur am
+ * gebauten Feld. Bei jeder Änderung zu messen hieße, nach jedem Tastendruck im
+ * Baum nachzusehen; beim Überfahren wird genau dann gemessen, wenn die Antwort
+ * gebraucht wird — der Browser lässt sich mit dem Anzeigen ohnehin Zeit.
+ */
+export function titelBeiUeberlauf(): { onMouseEnter(event: MouseEvent<HTMLInputElement>): void } {
+  return {
+    onMouseEnter: (event) => {
+      const feld = event.currentTarget;
+
+      if (feld.value !== '' && feld.scrollWidth > feld.clientWidth) {
+        feld.title = feld.value;
+      } else {
+        feld.removeAttribute('title');
+      }
+    },
+  };
 }
 
 /**

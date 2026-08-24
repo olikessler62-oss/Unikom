@@ -81,6 +81,15 @@ export interface Konsolidierungsregeln {
  * Momentaufnahme eines Verzeichnisses.
  */
 export interface Dateiwahl {
+  /**
+   * Die Dateitypen, die mitkommen — ohne Angabe alle lesbaren.
+   *
+   * Neben dem Muster und nicht darin: `*.csv` sagt dasselbe, solange es um
+   * **eine** Endung geht; bei dreien stünde das Muster dreimal da, und wer
+   * zusätzlich nach dem Namen filtert, schreibt jede Endung hinter jeden
+   * Namen. Welche Formate und welche Namen sind zwei Fragen.
+   */
+  endungen?: string[];
   /** Ein Namensmuster wie `Filiale_*.csv`; `*` und `?` gelten wie im Explorer. */
   muster?: string;
   /** Bei Arbeitsmappen: welches Blatt. Ohne Angabe gilt die Regel aus SPEC-06 §8. */
@@ -113,6 +122,20 @@ export interface Dateiwahl {
 }
 
 export interface Abholung {
+  /**
+   * Wohin eine verschlüsselte Kopie der Eingangsdateien geht, bevor sie
+   * überhaupt angefasst werden.
+   *
+   * Ein Durchgang legt dort **einen** Behälter ab: die Dateien als ZIP, das
+   * Ganze mit AES-256-GCM eingeschlagen. Einzeln abgelegt ließe sich später nur
+   * aus Zeitstempeln erraten, welche Datei zu welchem Durchgang gehörte — bei
+   * zwei Läufen derselben Nacht rät man falsch.
+   *
+   * Das Archiv ist mehr als eine Vorsichtsmaßnahme: Es ist der Grund, aus dem
+   * das Arbeitsverzeichnis hinterher überhaupt geräumt werden darf. Was nicht
+   * archiviert ist, wird nicht gelöscht.
+   */
+  archiv?: string;
   /**
    * Wohin der vollständige Stapel **vor** dem Lesen geschoben wird.
    *
