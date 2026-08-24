@@ -13,6 +13,8 @@ import {
   type ProfilRepository,
 } from '../../domain/consolidation/Profil.js';
 import type { Strukturvorgabe } from '../../domain/discovery/Expectation.js';
+import type { Qualitaetsregel } from '../../domain/quality/Regeln.js';
+import type { Schluessel } from '../../domain/consolidation/Schluessel.js';
 import {
   schnappschussVon,
   type Schnappschuss,
@@ -34,6 +36,8 @@ export interface Anlage {
   name: string;
   description?: string;
   vorgabe: Strukturvorgabe;
+  regeln?: readonly Qualitaetsregel[];
+  schluessel?: Schluessel;
   einstellungen?: Einstellungen;
   feststellungen?: Feststellungen;
   erstelltVon?: string;
@@ -44,6 +48,8 @@ export interface Fortschreibungswunsch {
   name?: string;
   description?: string;
   vorgabe?: Strukturvorgabe;
+  regeln?: readonly Qualitaetsregel[];
+  schluessel?: Schluessel;
   einstellungen?: Einstellungen;
   feststellungen?: Feststellungen;
   notiz?: string;
@@ -77,8 +83,9 @@ export class ProfileService {
    * Schreibt ein Profil fort.
    *
    * Name und Beschreibung sind Beschriftungen: Sie ändern sich, ohne dass eine
-   * Version entsteht. Was gelesen wird — Struktur, Einstellungen,
-   * Feststellungen — erzeugt eine, sofern es sich wirklich ändert.
+   * Version entsteht. Was gelesen wird — Struktur, Regeln, Schlüssel,
+   * Einstellungen, Feststellungen — erzeugt eine, sofern es sich wirklich
+   * ändert.
    */
   async fortschreiben(
     id: string,
@@ -95,6 +102,8 @@ export class ProfileService {
       vorhanden,
       {
         vorgabe: wunsch.vorgabe,
+        regeln: wunsch.regeln,
+        schluessel: wunsch.schluessel,
         einstellungen: wunsch.einstellungen,
         feststellungen: wunsch.feststellungen,
         notiz: wunsch.notiz,

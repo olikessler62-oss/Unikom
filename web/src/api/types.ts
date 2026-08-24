@@ -885,6 +885,78 @@ export interface Profilversion {
   spalten: number;
 }
 
+/** Wie verbindlich eine hinterlegte Angabe ist (FR_008, Abschnitt 4). */
+export type Verbindlichkeit = 'HINWEIS' | 'EINSCHRAENKUNG' | 'VORGABE';
+
+export type Feldtyp =
+  | 'STRING'
+  | 'INTEGER'
+  | 'DECIMAL'
+  | 'BOOLEAN'
+  | 'DATE'
+  | 'TIME'
+  | 'DATETIME'
+  | 'BINARY'
+  | 'NULL';
+
+export interface Spaltenvorgabe {
+  /** Die Stelle, ab 1 — so, wie ein Mensch sie zählt. */
+  position: number;
+  name?: string;
+  type?: Feldtyp;
+}
+
+export interface Strukturvorgabe {
+  verbindlichkeit: Verbindlichkeit;
+  columns?: number;
+  minColumns?: number;
+  spalten?: Spaltenvorgabe[];
+  /** Der Datenblock beginnt nach einer Zeile, die diesen Text enthält. */
+  beginntNach?: string;
+}
+
+/**
+ * Was ein Wert erfüllen muss.
+ *
+ * Das, was früher in einer JSON-Schema-Datei stand — `required`, `pattern`,
+ * `minimum`, `enum` —, nur benannt statt kodiert. `NICHT_ZUKUNFT` gibt es
+ * dazu; ein JSON Schema kann es nicht.
+ */
+export type Pruefung =
+  | { art: 'PFLICHT' }
+  | { art: 'FORMAT'; muster: string; beschreibung: string }
+  | { art: 'BEREICH'; min?: number; max?: number }
+  | { art: 'NICHT_ZUKUNFT' }
+  | { art: 'AUS_LISTE'; werte: string[] };
+
+export interface Qualitaetsregel {
+  id: string;
+  /** Wie sie einem Menschen gegenüber heißt. */
+  name: string;
+  feld: string;
+  pruefung: Pruefung;
+  schwere: Schwere;
+  /** `WENN Zahlungsart = Lastschrift DANN …` — ohne sie gilt die Regel immer. */
+  wenn?: { feld: string; ist: string };
+  erklaerung?: string;
+}
+
+/** Wie zwei Werte verglichen werden, bevor sie als gleich gelten. */
+export interface Vergleich {
+  grossKleinEgal?: boolean;
+  leerzeichenEgal?: boolean;
+  umlauteEgal?: boolean;
+  satzzeichenEgal?: boolean;
+}
+
+export interface Schluessel {
+  /** Die Felder, aus denen er gebildet wird — die Reihenfolge zählt. */
+  felder: string[];
+  /** Wo eine Quelle die Felder anders nennt: Quelle → Feldnamen, gleiche Reihenfolge. */
+  jeQuelle?: Record<string, string[]>;
+  vergleich?: Vergleich;
+}
+
 /** Ein Eingangsprofil (SPEC-02, Abschnitt 3) mit seiner Versionskette. */
 export interface Eingangsprofil {
   id: string;
@@ -894,6 +966,10 @@ export interface Eingangsprofil {
   version: number;
   columns?: { position: number; name?: string; type?: string }[];
   verbindlichkeit: string;
+  /** Die ganze Struktur — `columns` und `verbindlichkeit` darüber sind ihr Auszug. */
+  vorgabe: Strukturvorgabe;
+  regeln?: Qualitaetsregel[];
+  schluessel?: Schluessel;
   einstellungen: Record<string, unknown>;
   versionen: Profilversion[];
   confirmedByName?: string;

@@ -1,4 +1,6 @@
 import type { Strukturvorgabe } from '../discovery/Expectation.js';
+import type { Qualitaetsregel } from '../quality/Regeln.js';
+import type { Schluessel } from './Schluessel.js';
 import type { Einstellungen } from './Einstellungen.js';
 import type { Feststellungen } from './Feststellungen.js';
 
@@ -35,6 +37,36 @@ export interface Profilversion {
   notiz?: string;
   /** Die Struktur, die von dieser Quelle erwartet wird. */
   vorgabe: Strukturvorgabe;
+  /**
+   * Was ein Wert erfüllen muss — Pflicht, Format, Bereich, Auswahlliste.
+   *
+   * Hier stand einmal nichts, und die Antwort auf „welche Werte sind gültig"
+   * war eine **JSON-Schema-Datei**, die jemand von Hand schreiben sollte. Sie
+   * ist fort: Niemand schreibt so etwas, und wer es täte, bekäme für die Hälfte
+   * der Schlüsselwörter nur die Meldung, dass Unikom sie nicht prüft.
+   *
+   * An ihrer Stelle stehen die Qualitätsregeln, die es längst gibt — und die
+   * mehr können als ein JSON Schema: vier Schweregrade statt zwei, Ursache und
+   * Auswirkung in Worten, und Bedingungen über mehrere Felder (`WENN
+   * Zahlungsart = Lastschrift DANN IBAN`), an denen JSON Schema scheitert.
+   *
+   * Sie binden über den **Feldnamen** an die Spalten der Vorgabe. Struktur und
+   * Werte bleiben damit zwei Fragen: Welche Spalten kommen, und was darf
+   * darinstehen.
+   */
+  regeln?: readonly Qualitaetsregel[];
+  /**
+   * Woran ein Datensatz dieser Quelle zu erkennen ist.
+   *
+   * Am Profil und nicht nur am Workflow: Dass die Kundennummer den Datensatz
+   * identifiziert, ist eine Eigenschaft **der Quelle** und keine des einzelnen
+   * Auftrags. Wer sie an jedem Workflow neu einrichtet, richtet sie beim
+   * dritten anders ein.
+   *
+   * Der Workflow darf sie weiterhin selbst setzen — er kennt mehrere Quellen
+   * und muss sagen, welches Feld welcher davon gemeint ist.
+   */
+  schluessel?: Schluessel;
   /** Die Wahlmöglichkeiten dieser Ebene; leer heißt „was von oben kommt". */
   einstellungen: Einstellungen;
   /**
@@ -105,6 +137,8 @@ export interface Profilentwurf {
   name: string;
   description?: string;
   vorgabe: Strukturvorgabe;
+  regeln?: readonly Qualitaetsregel[];
+  schluessel?: Schluessel;
   einstellungen?: Einstellungen;
   feststellungen?: Feststellungen;
   notiz?: string;
@@ -129,6 +163,8 @@ export function neuesProfil(entwurf: Profilentwurf): Profil {
         erstelltVonName: entwurf.erstelltVonName,
         notiz: entwurf.notiz ?? 'Aus einem bestätigten Datenblock angelegt',
         vorgabe: entwurf.vorgabe,
+        regeln: entwurf.regeln,
+        schluessel: entwurf.schluessel,
         einstellungen: entwurf.einstellungen ?? {},
         feststellungen: entwurf.feststellungen,
       },
@@ -140,7 +176,9 @@ export function neuesProfil(entwurf: Profilentwurf): Profil {
 }
 
 /** Was sich an einer Version ändern lässt. Alles andere ist ein neues Profil. */
-export type Aenderung = Partial<Pick<Profilversion, 'vorgabe' | 'einstellungen' | 'feststellungen'>> & {
+export type Aenderung = Partial<
+  Pick<Profilversion, 'vorgabe' | 'regeln' | 'schluessel' | 'einstellungen' | 'feststellungen'>
+> & {
   notiz?: string;
 };
 
@@ -176,6 +214,8 @@ export function fortschreiben(
     erstelltVonName: wer?.name,
     notiz: aenderung.notiz,
     vorgabe: aenderung.vorgabe ?? bisher.vorgabe,
+    regeln: aenderung.regeln ?? bisher.regeln,
+    schluessel: aenderung.schluessel ?? bisher.schluessel,
     einstellungen: aenderung.einstellungen ?? bisher.einstellungen,
     feststellungen: aenderung.feststellungen ?? bisher.feststellungen,
   };
@@ -204,7 +244,13 @@ export function fortschreiben(
  */
 function veraendert(bisher: Profilversion, kandidat: Profilversion): boolean {
   const inhalt = (version: Profilversion): string =>
-    JSON.stringify([version.vorgabe, version.einstellungen, version.feststellungen ?? null]);
+    JSON.stringify([
+      version.vorgabe,
+      version.regeln ?? null,
+      version.schluessel ?? null,
+      version.einstellungen,
+      version.feststellungen ?? null,
+    ]);
 
   return inhalt(bisher) !== inhalt(kandidat);
 }

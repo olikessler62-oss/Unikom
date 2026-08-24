@@ -11,6 +11,7 @@ import {
 import { aktuelleVersion, type Profil } from '../../../domain/consolidation/Profil.js';
 import type { DataBlock } from '../../../domain/discovery/Discovery.js';
 import { vorgabeAusBlock } from '../../../domain/discovery/Profilabgleich.js';
+import { regelnAus, schluesselAus, vorgabeAus } from '../Profileingabe.js';
 import { ApiError, created, ok, optionalString, requireObject, requireString, type Route } from '../Http.js';
 
 /**
@@ -112,6 +113,8 @@ export function profileRoutes(application: UnikomApplication): Route[] {
           name: requireString(input, 'name'),
           description: optionalString(input, 'description'),
           vorgabe: vorgabeAusBlock(block),
+          regeln: regelnAus(input.regeln),
+          schluessel: schluesselAus(input.schluessel),
           einstellungen: einstellungenAus(input.einstellungen),
           erstelltVon: session?.user.id,
           erstelltVonName: session?.user.username,
@@ -145,6 +148,15 @@ export function profileRoutes(application: UnikomApplication): Route[] {
           {
             name: optionalString(input, 'name'),
             description: optionalString(input, 'description'),
+            /*
+             * Struktur, Regeln und Schlüssel kamen bisher nicht durch — die
+             * Domäne konnte sie fortschreiben, die Route reichte sie nicht
+             * weiter. Damit war der Reiter „Spalten" nicht speicherbar, und ein
+             * Profil blieb für immer das, was die Erkennung einmal gesehen hat.
+             */
+            vorgabe: vorgabeAus(input.vorgabe),
+            regeln: regelnAus(input.regeln),
+            schluessel: schluesselAus(input.schluessel),
             einstellungen: einstellungenAus(input.einstellungen),
             notiz: optionalString(input, 'notiz'),
           },
@@ -238,6 +250,17 @@ export function toView(profil: Profil): Record<string, unknown> {
       type: spalte.type,
     })),
     verbindlichkeit: aktuell.vorgabe.verbindlichkeit,
+    /*
+     * Die ganze Vorgabe daneben, nicht nur die Spaltenliste.
+     *
+     * `columns` und `verbindlichkeit` darüber bleiben stehen — die
+     * Erkennungsfläche liest sie. Der Schemaeditor braucht mehr: Mindestzahl
+     * und Blockbeginn gehören zum Reiter „Aufbau", und wer sie nicht zurück-
+     * bekommt, löscht sie beim ersten Speichern.
+     */
+    vorgabe: aktuell.vorgabe,
+    regeln: aktuell.regeln,
+    schluessel: aktuell.schluessel,
     einstellungen: aktuell.einstellungen,
     feststellungen: aktuell.feststellungen,
     /*

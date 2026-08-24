@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { Strukturvorgabe } from '../discovery/Expectation.js';
+import type { Qualitaetsregel } from '../quality/Regeln.js';
 import { aktuelleVersion, fortschreiben, neuesProfil, versionOf } from './Profil.js';
 
 const VORGABE: Strukturvorgabe = {
@@ -105,4 +106,75 @@ test('die Versionsnummern laufen fortlaufend weiter', () => {
     stand.versionen.map((version) => version.version),
     [1, 2, 3, 4]
   );
+});
+
+/* ---------- Was den JSON-Schema-Umweg ersetzt ---------- */
+
+const PFLICHT: Qualitaetsregel = {
+  id: 'artikelnummer-pflicht',
+  name: 'Artikelnummer darf nicht leer sein',
+  feld: 'Artikelnummer',
+  pruefung: { art: 'PFLICHT' },
+  schwere: 'KONFLIKT',
+};
+
+test('ein Profil trägt seine Regeln von Anfang an', () => {
+  /*
+   * Sie ersetzen die JSON-Schema-Datei, die niemand von Hand schreiben wollte.
+   * Am Profil und nicht am Workflow: Was ein gültiger Wert ist, hängt an der
+   * Quelle und nicht an dem, was man gerade mit ihr vorhat.
+   */
+  const angelegt = neuesProfil({
+    id: 'p2',
+    tenantId: 'default',
+    name: 'Bestellung mit Regeln',
+    vorgabe: VORGABE,
+    regeln: [PFLICHT],
+    schluessel: { felder: ['Artikelnummer'] },
+    jetzt: JETZT,
+  });
+
+  assert.deepEqual(aktuelleVersion(angelegt).regeln, [PFLICHT]);
+  assert.deepEqual(aktuelleVersion(angelegt).schluessel, { felder: ['Artikelnummer'] });
+});
+
+test('eine geänderte Regel ergibt eine neue Version', () => {
+  /*
+   * Sonst änderte sich still, was ein Lauf vom März für gültig hielt — und das
+   * Protokoll daneben behäuptete etwas anderes als das Ergebnis.
+   */
+  const geaendert = fortschreiben(profil(), { regeln: [PFLICHT] }, undefined, JETZT);
+
+  assert.equal(geaendert.neu, true);
+  assert.equal(versionOf(geaendert.profil, 1)?.regeln, undefined, 'Version 1 ist unberührt');
+  assert.deepEqual(versionOf(geaendert.profil, 2)?.regeln, [PFLICHT]);
+});
+
+test('ein geänderter Schlüssel ergibt eine neue Version', () => {
+  const geaendert = fortschreiben(profil(), { schluessel: { felder: ['Bezeichnung'] } }, undefined, JETZT);
+
+  assert.equal(geaendert.neu, true);
+  assert.deepEqual(aktuelleVersion(geaendert.profil).schluessel, { felder: ['Bezeichnung'] });
+});
+
+test('Regeln und Schlüssel erbt eine Version wie alles andere', () => {
+  const mitRegeln = fortschreiben(
+    profil(),
+    { regeln: [PFLICHT], schluessel: { felder: ['Artikelnummer'] } },
+    undefined,
+    JETZT
+  ).profil;
+
+  const danach = fortschreiben(mitRegeln, { einstellungen: { stichprobe: 250 } }, undefined, JETZT);
+
+  assert.deepEqual(aktuelleVersion(danach.profil).regeln, [PFLICHT]);
+  assert.deepEqual(aktuelleVersion(danach.profil).schluessel, { felder: ['Artikelnummer'] });
+});
+
+test('dieselben Regeln noch einmal ergeben keine Version', () => {
+  const mitRegeln = fortschreiben(profil(), { regeln: [PFLICHT] }, undefined, JETZT).profil;
+  const gleich = fortschreiben(mitRegeln, { regeln: [{ ...PFLICHT }] }, undefined, JETZT);
+
+  assert.equal(gleich.neu, false);
+  assert.equal(gleich.profil.versionen.length, 2);
 });
