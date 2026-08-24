@@ -149,6 +149,40 @@ export class Aes256GcmEncryptionProvider implements EncryptionProvider {
   }
 }
 
+/**
+ * Dasselbe Format, nur aus Bytes und nach Bytes.
+ *
+ * Gebraucht vom Archiv des Konsolidierens: Dort entsteht ein ZIP im Speicher
+ * und geht über die `Dateiablage` fort — es gibt keinen Pfad, auf den sich
+ * `encrypt` richten könnte, und einen anzulegen hieße, den Klartext erst auf
+ * die Platte zu schreiben, um ihn danach zu verschlüsseln.
+ *
+ * **Derselbe Umschlag**, Byte für Byte: `MAGIC | version | kdf | salt | iv |
+ * ciphertext | tag`. Ein zweites Format wäre ein zweites Format — was hiermit
+ * geschrieben wird, macht `decrypt` wieder auf, und dafür steht ein Test.
+ *
+ * Der ganze Inhalt liegt dabei im Speicher. Für ein Archiv aus ein paar
+ * Eingangsdateien ist das richtig; der Lauf liest dieselben Dateien ohnehin
+ * ganz ein. Für Gigabytes ist es das nicht — dafür gibt es `encryptStream`.
+ */
+export function encryptBytes(plaintext: Uint8Array, key: string): Buffer {
+  const salt = crypto.randomBytes(SALT_BYTES);
+  const iv = crypto.randomBytes(IV_BYTES);
+  const { keyMaterial, kdf } = deriveKey(key, salt);
+
+  const cipher = crypto.createCipheriv('aes-256-gcm', keyMaterial, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+
+  return Buffer.concat([
+    MAGIC,
+    Buffer.from([FORMAT_VERSION, kdf]),
+    salt,
+    iv,
+    ciphertext,
+    cipher.getAuthTag(),
+  ]);
+}
+
 function deriveKey(key: string, salt: Buffer, expectedKdf?: number): { keyMaterial: Buffer; kdf: number } {
   const decoded = Buffer.from(key, 'base64');
   const isRawKey = decoded.length === KEY_BYTES && decoded.toString('base64') === key;

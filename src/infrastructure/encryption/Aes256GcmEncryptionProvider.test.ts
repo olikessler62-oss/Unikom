@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Aes256GcmEncryptionProvider } from './Aes256GcmEncryptionProvider.js';
+import { Aes256GcmEncryptionProvider, encryptBytes } from './Aes256GcmEncryptionProvider.js';
 
 const provider = new Aes256GcmEncryptionProvider();
 const RAW_KEY = crypto.randomBytes(32).toString('base64');
@@ -126,4 +126,85 @@ test('a raw key file cannot be opened with a passphrase', async () => {
   await provider.encrypt(plain, encrypted, RAW_KEY);
 
   await assert.rejects(() => provider.decrypt(encrypted, decrypted, PASSPHRASE), /ist keiner|verändert, oder es wurde der falsche/);
+});
+
+/* ---------- Derselbe Umschlag, aus Bytes ---------- */
+
+test('was byteweise verschluesselt wurde, macht decrypt wieder auf', async () => {
+  /*
+   * Der eigentliche Vertrag: `encryptBytes` ist kein zweites Format, sondern
+   * derselbe Umschlag aus einer anderen Quelle. Liefen die beiden auseinander,
+   * läge im Archiv eine Datei, die nur ein Unikom von heute lesen kann.
+   */
+  const { root } = await workspace();
+  const archiv = path.join(root, 'stapel.zip.enc');
+  const heraus = path.join(root, 'stapel.zip');
+  const inhalt = Buffer.from('PK' + CONTENT, 'utf-8');
+
+  await fs.writeFile(archiv, encryptBytes(inhalt, RAW_KEY));
+  const ergebnis = await provider.decrypt(archiv, heraus, RAW_KEY);
+
+  assert.equal(ergebnis.ok, true);
+  assert.deepEqual(await fs.readFile(heraus), inhalt);
+});
+
+test('auch mit einem getippten Passwort', async () => {
+  const { root } = await workspace();
+  const archiv = path.join(root, 'stapel.zip.enc');
+  const heraus = path.join(root, 'stapel.zip');
+  const inhalt = Buffer.from(CONTENT, 'utf-8');
+
+  await fs.writeFile(archiv, encryptBytes(inhalt, PASSPHRASE));
+
+  assert.equal((await provider.decrypt(archiv, heraus, PASSPHRASE)).ok, true);
+  assert.deepEqual(await fs.readFile(heraus), inhalt);
+});
+
+test('mit dem falschen Schluessel bleibt nichts zurueck', async () => {
+  const { root } = await workspace();
+  const archiv = path.join(root, 'stapel.zip.enc');
+  const heraus = path.join(root, 'stapel.zip');
+
+  await fs.writeFile(archiv, encryptBytes(Buffer.from(CONTENT, 'utf-8'), RAW_KEY));
+
+  await assert.rejects(
+    () => provider.decrypt(archiv, heraus, crypto.randomBytes(32).toString('base64')),
+    /fehlgeschlagen/
+  );
+  assert.equal(await exists(heraus), false);
+});
+
+test('der Klartext steht nicht im Umschlag', () => {
+  const umschlag = encryptBytes(Buffer.from('Kundennummer;Betrag', 'utf-8'), RAW_KEY);
+
+  assert.equal(umschlag.includes(Buffer.from('Kundennummer', 'utf-8')), false);
+});
+
+test('zweimal dasselbe ergibt nicht zweimal dieselben Bytes', () => {
+  /*
+   * Salz und Startwert kommen frisch. Wären zwei Umschläge gleich, ließe sich
+   * von außen ablesen, dass zweimal dasselbe geliefert wurde.
+   */
+  const einmal = encryptBytes(Buffer.from(CONTENT, 'utf-8'), RAW_KEY);
+  const nochmal = encryptBytes(Buffer.from(CONTENT, 'utf-8'), RAW_KEY);
+
+  assert.equal(einmal.equals(nochmal), false);
+});
+
+test('eine veraenderte Stelle faellt auf', async () => {
+  /*
+   * Das ist der Grund für GCM statt CBC: Ein Archiv, an dem jemand gedreht hat,
+   * darf sich nicht entschlüsseln lassen, als wäre nichts gewesen.
+   */
+  const { root } = await workspace();
+  const archiv = path.join(root, 'stapel.zip.enc');
+  const umschlag = encryptBytes(Buffer.from(CONTENT, 'utf-8'), RAW_KEY);
+
+  umschlag[umschlag.length - 20] ^= 0xff;
+  await fs.writeFile(archiv, umschlag);
+
+  await assert.rejects(
+    () => provider.decrypt(archiv, path.join(root, 'stapel.zip'), RAW_KEY),
+    /fehlgeschlagen/
+  );
 });
