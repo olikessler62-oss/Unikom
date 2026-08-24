@@ -150,3 +150,69 @@ test('schon benutzte Orte eines anderen Mandanten werden nicht angeboten', async
     [path.join(path.resolve(b.kunde), 'archiv')]
   );
 });
+
+/* ---------- Die Schreibprobe ---------- */
+
+test('ein beschreibbares Verzeichnis wird als beschreibbar gemeldet', async () => {
+  /*
+   * Geprüft wird durch Schreiben und sofortiges Löschen — ein Rechteflag
+   * beantwortet die Frage nicht. Und was geschrieben wurde, muss danach fort
+   * sein: Ein Abholverzeichnis, in dem nach jeder Prüfung eine Probe liegt,
+   * wäre am Ende voller Dateien, die niemand einordnen kann.
+   */
+  const wurzel = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-probe-'));
+  const dienst = new LocalDirectoryService();
+
+  const antwort = await dienst.pruefeSchreibzugriff({ directory: wurzel });
+
+  assert.equal(antwort.ok, true);
+  assert.equal(antwort.writable, true);
+  assert.deepEqual(await fs.readdir(wurzel), [], 'die Probe ist wieder fort');
+});
+
+test('ein Verzeichnis, das es nicht gibt, wird nicht angelegt', async () => {
+  /*
+   * Der Lauf legt diese drei Verzeichnisse nicht an, er verschiebt nur. Ein
+   * fehlendes ist deshalb ein Mangel und keine Kleinigkeit — und die Prüfung
+   * ist nicht der Ort, an dem stillschweigend etwas entsteht.
+   */
+  const wurzel = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-probe-'));
+  const fehlt = path.join(wurzel, 'gibt-es-nicht');
+  const dienst = new LocalDirectoryService();
+
+  const antwort = await dienst.pruefeSchreibzugriff({ directory: fehlt });
+
+  assert.equal(antwort.ok, false);
+  assert.equal(antwort.exists, false);
+  assert.equal(await fs.readdir(wurzel).then((e) => e.length), 0, 'nichts angelegt');
+});
+
+test('ohne Eingabe gibt es nichts zu prüfen', async () => {
+  const antwort = await new LocalDirectoryService().pruefeSchreibzugriff({ directory: '   ' });
+
+  assert.equal(antwort.ok, false);
+  assert.match(antwort.message, /kein Verzeichnis eingetragen/);
+});
+
+test('die Grenze des Mandanten gilt auch für die Schreibprobe', async () => {
+  /*
+   * Wer dort nicht speichern darf, soll dort auch nicht schreiben — und sei es
+   * nur eine Probe von null Bytes. Sonst legte diese Prüfung Dateien in
+   * Verzeichnissen an, die dem Mandanten gar nicht gehören.
+   */
+  const wurzel = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-probe-'));
+  const meins = path.join(wurzel, 'kunde-a');
+  const fremd = path.join(wurzel, 'kunde-b');
+
+  await fs.mkdir(meins, { recursive: true });
+  await fs.mkdir(fremd, { recursive: true });
+
+  const tenants = new InMemoryTenantRepository();
+  await tenants.save(mandant(meins));
+
+  const dienst = new LocalDirectoryService(tenants);
+  const antwort = await dienst.pruefeSchreibzugriff({ tenantId: 'kunde-a', directory: fremd });
+
+  assert.equal(antwort.ok, false);
+  assert.deepEqual(await fs.readdir(fremd), [], 'im fremden Verzeichnis wurde nichts angelegt');
+});

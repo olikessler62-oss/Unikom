@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { assertWithinTenant, TenantBoundaryError } from '../../domain/tenants/TenantContainment.js';
 import type { Tenant, TenantRepository } from '../../domain/tenants/Tenant.js';
+import { checkDirectory, type DirectoryCheckResult } from '../../infrastructure/filesystem/DirectoryCheck.js';
 import type { RemoteDirectoryResult } from './RemoteDirectoryService.js';
 
 /**
@@ -50,16 +51,76 @@ export class LocalDirectoryService {
     const tenant = request.tenantId ? await this.tenants?.getById(request.tenantId) : undefined;
     const entered = request.directory.trim();
 
-    // Ohne Eingabe: beim Mandanten sein Verzeichnis, sonst die Laufwerke. Von
-    // irgendwo anzufangen wäre geraten, und geraten wird hier nicht.
+    /*
+     * Ohne Eingabe: beim Mandanten sein Verzeichnis, sonst das Verzeichnis, in
+     * dem Unikom läuft.
+     *
+     * Hier stand einmal die Auswahl der Laufwerke, mit der Begründung, von
+     * irgendwo anzufangen wäre geraten. Das stimmt für einen fremden Ort — nicht
+     * für den eigenen: Wer ein Verzeichnis sucht, sucht es fast immer in der
+     * Nähe der Anwendung, und von `C:\` aus sind das jedes Mal fünf Klicks.
+     *
+     * Der Mandant behält den Vorrang. Sein Verzeichnis ist zugleich seine
+     * Grenze — außerhalb davon anzufangen hieße, mit einer Fehlermeldung zu
+     * beginnen.
+     */
     const answer =
       entered === ''
-        ? tenant?.rootDirectory
-          ? await this.list(tenant.rootDirectory, tenant)
-          : await this.listRoots()
+        ? await this.list(tenant?.rootDirectory ?? process.cwd(), tenant)
         : await this.list(entered, tenant);
 
     return { ...answer, known: await this.knownDirectories(request.known ?? [], tenant) };
+  }
+
+  /**
+   * Ob in dieses Verzeichnis geschrieben werden kann.
+   *
+   * ## Warum geschrieben und nicht gefragt
+   *
+   * Ein Rechteflag beantwortet die Frage nicht: Auf einer Freigabe entscheidet
+   * der Server, unter Windows entscheiden Vererbung und Verweigerungen, und
+   * beides steht in keinem Bit, das sich hier ablesen ließe. `checkDirectory`
+   * legt deshalb eine winzige Datei an und nimmt sie sofort wieder fort — das
+   * ist dieselbe Handlung, die der Lauf später ausführt, und nur sie
+   * antwortet richtig.
+   *
+   * ## Warum jetzt und nicht um drei Uhr nachts
+   *
+   * Das Erledigt-Verzeichnis wird beim ersten gelungenen Durchgang gebraucht,
+   * das Gescheitert-Verzeichnis beim ersten misslungenen — beides Zeitpunkte,
+   * an denen niemand zusieht. Ein fehlendes Schreibrecht fiele dort als
+   * Warnung im Protokoll an, und die Dateien blieben liegen.
+   *
+   * ## Ohne Anlegen
+   *
+   * Ein fehlendes Verzeichnis ist hier ein Mangel und keine Kleinigkeit: Der
+   * Lauf legt diese drei **nicht** an, er verschiebt nur. Angelegt wird im
+   * Auswahlfenster, mit einem Knopf, den man drückt.
+   */
+  async pruefeSchreibzugriff(request: { tenantId?: string; directory: string }): Promise<DirectoryCheckResult> {
+    const ziel = request.directory.trim();
+
+    if (ziel === '') {
+      return { ok: false, exists: false, writable: false, message: 'Es ist kein Verzeichnis eingetragen' };
+    }
+
+    const tenant = request.tenantId ? await this.tenants?.getById(request.tenantId) : undefined;
+    const resolved = path.resolve(ziel);
+
+    if (tenant) {
+      try {
+        assertWithinTenant(tenant, resolved, 'Dieses Verzeichnis');
+      } catch (error) {
+        return {
+          ok: false,
+          exists: false,
+          writable: false,
+          message: error instanceof TenantBoundaryError ? error.message : String(error),
+        };
+      }
+    }
+
+    return checkDirectory(resolved);
   }
 
   /**
@@ -190,42 +251,5 @@ export class LocalDirectoryService {
     const parent = path.dirname(resolved);
 
     return parent === resolved ? '' : parent;
-  }
-
-  /**
-   * Was es überhaupt gibt, wenn noch nichts eingetragen ist.
-   *
-   * Unter Windows die Laufwerke — geprüft, indem sie gelesen werden. Ein
-   * Buchstabe, den es gibt, aber dessen Laufwerk leer oder getrennt ist, wäre
-   * sonst ein Eintrag, der beim Anklicken nur eine Fehlermeldung liefert.
-   */
-  private async listRoots(): Promise<RemoteDirectoryResult> {
-    if (process.platform !== 'win32') {
-      return this.list('/');
-    }
-
-    const letters = 'CDEFGHIJKLMNOPQRSTUVWXYZAB'.split('');
-    const reachable = await Promise.all(
-      letters.map(async (letter) => {
-        const root = `${letter}:\\`;
-        return (await fs.readdir(root).then(
-          () => true,
-          () => false
-        ))
-          ? root
-          : undefined;
-      })
-    );
-
-    const drives = reachable.filter((drive): drive is string => Boolean(drive));
-
-    return {
-      ok: true,
-      message: 'Laufwerk wählen',
-      path: '',
-      relativePath: '',
-      parentPath: '',
-      entries: drives.map((drive) => ({ name: drive, path: drive, relativePath: drive })),
-    };
   }
 }

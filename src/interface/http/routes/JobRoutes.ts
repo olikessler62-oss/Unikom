@@ -442,6 +442,33 @@ export function jobRoutes(application: UnikomApplication): Route[] {
     },
     {
       /*
+       * Ob in ein örtliches Verzeichnis geschrieben werden kann.
+       *
+       * Für die drei Verzeichnisse des Konsolidierens — Arbeit, Erledigt,
+       * Gescheitert. Sie werden erst gebraucht, wenn der Lauf schon läuft;
+       * ohne diese Probe fiele ein fehlendes Schreibrecht als Warnung im
+       * Protokoll an, mitten in der Nacht, und die Dateien blieben liegen.
+       *
+       * Geprüft wird durch Schreiben und sofortiges Löschen einer winzigen
+       * Datei. Etwas anderes beantwortet die Frage nicht — siehe
+       * `LocalDirectoryService.pruefeSchreibzugriff`.
+       */
+      method: 'POST',
+      pattern: '/api/jobs/check-local',
+      authorization: 'MANAGE_JOBS',
+      handle: async ({ body }) => {
+        const input = requireObject(body, 'The write check');
+
+        return ok(
+          await application.localDirectories.pruefeSchreibzugriff({
+            tenantId: typeof input.tenantId === 'string' ? input.tenantId : undefined,
+            directory: typeof input.directory === 'string' ? input.directory : '',
+          })
+        );
+      },
+    },
+    {
+      /*
        * Einen Ordner anlegen, während jemand einen aussucht.
        *
        * Der häufige Fall ist das Archiv: Es gibt es noch nicht, also lässt es

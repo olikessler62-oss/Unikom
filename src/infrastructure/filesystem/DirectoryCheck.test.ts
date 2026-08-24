@@ -75,3 +75,33 @@ test('an unreachable share is reported, not treated as missing', async () => {
   assert.equal(result.ok, false);
   assert.ok(result.message.length > 0);
 });
+
+/*
+ * Ein Verzeichnis ohne Schreibrecht wird als solches gemeldet.
+ *
+ * Nur dort, wo das Betriebssystem das überhaupt zulässt. Unter Windows
+ * entscheiden über das Schreiben in einem Ordner ACLs, und `chmod` ist dort
+ * wirkungslos — ein Test, der sich darauf verließe, liefe grün und hätte nichts
+ * geprüft. Er wird deshalb übersprungen statt vorgetäuscht.
+ *
+ * Ohne diesen Test überlebt die Mutation „gar nicht schreiben, einfach `true`
+ * zurückgeben": Alle anderen Fälle scheitern schon vorher am `stat`, und dann
+ * antwortet die Probe richtig, ohne je etwas geschrieben zu haben.
+ */
+test('a directory without write permission is reported as not writable', { skip: process.platform === 'win32' }, async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-check-'));
+  const locked = path.join(root, 'read-only');
+
+  await fs.mkdir(locked, { mode: 0o500 });
+
+  try {
+    const answer = await checkDirectory(locked);
+
+    assert.equal(answer.ok, false);
+    assert.equal(answer.exists, true);
+    assert.equal(answer.writable, false);
+  } finally {
+    // Sonst lässt sich das Verzeichnis hinterher nicht aufräumen.
+    await fs.chmod(locked, 0o700);
+  }
+});
