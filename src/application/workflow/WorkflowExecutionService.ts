@@ -56,6 +56,8 @@ import {
   type Quellenaufteilung,
 } from '../../domain/quality/Quellenaufteilung.js';
 import { verhaltenVon, type Auslieferungsart } from '../../domain/conflicts/Konfliktverhalten.js';
+import type { Regelverstoss } from '../../domain/conflicts/Regelverstoss.js';
+import type { Zeilenurteil } from '../../domain/quality/Zeilenaufteilung.js';
 import type { Qualitaetsregel } from '../../domain/quality/Regeln.js';
 
 /**
@@ -179,6 +181,16 @@ interface Quellenfund {
   quellen: Quelle[];
   hinweise: string[];
   uebernommen?: { verzeichnis: string; namen: string[] };
+  /**
+   * Zeilen, die ein Mensch ansehen muss — aus den Regeln des Schemas.
+   *
+   * Sie laufen **mit** ins Ergebnis: Ein Konflikt ist eine Frage und kein
+   * Fehlschlag. Aufgehalten wird nicht die Verarbeitung, sondern die
+   * **Freigabe** — ein offener Fall lässt das Ergebnis nicht von selbst
+   * hinaus, und darauf gibt es eine eingebaute Antwort: Ein Mensch kann
+   * darüber hinweggehen, aber nur mit Begründung.
+   */
+  pruefbedarf: Regelverstoss[];
 }
 
 export class WorkflowExecutionService implements JobExecutor {
@@ -507,12 +519,25 @@ export class WorkflowExecutionService implements JobExecutor {
       this.protokoll(job, laufId, 'INFO', hinweis);
     }
 
-    const faelle = await this.umgebung.conflicts.ausBericht(bericht, {
-      tenantId: job.tenantId,
-      laufId,
-      benutzer: SYSTEMBENUTZER,
-      jetzt,
-    });
+    const faelle = [
+      ...(await this.umgebung.conflicts.ausBericht(bericht, {
+        tenantId: job.tenantId,
+        laufId,
+        benutzer: SYSTEMBENUTZER,
+        jetzt,
+      })),
+      /*
+       * Und die aus dem Schema. Sie kommen aus einem anderen Weg — der
+       * Zeilenprüfung statt der Zusammenführung — und landen im selben
+       * Bestand: Der Mensch soll nicht zwei Listen abarbeiten.
+       */
+      ...(await this.umgebung.conflicts.ausRegelverstoessen(gefunden.pruefbedarf, {
+        tenantId: job.tenantId,
+        laufId,
+        benutzer: SYSTEMBENUTZER,
+        jetzt,
+      })),
+    ];
 
     const kritisch = faelle.filter((fall) => fall.kritikalitaet === 'KRITISCH').length;
 
@@ -778,6 +803,7 @@ export class WorkflowExecutionService implements JobExecutor {
   ): Promise<Quellenfund> {
     const hinweise: string[] = [];
     const quellen: Quelle[] = [];
+    const pruefbedarf: Regelverstoss[] = [];
 
     const wunsch = {
       region: regionAus(wirksam),
@@ -852,8 +878,20 @@ export class WorkflowExecutionService implements JobExecutor {
          * ein Problem ist, entscheidet der **Mandant**, was daraus folgt —
          * ganz stehen lassen oder teilen.
          */
+        /*
+         * Eingesammelt wird nur für Lieferungen, die auch verarbeitet werden.
+         * Für eine Datei, die ganz stehen bleibt, Fälle anzulegen hieße,
+         * jemanden über Zeilen entscheiden zu lassen, die niemand gelesen hat.
+         */
+        const merke = (): void => {
+          for (const [stelle, bericht] of berichte.entries()) {
+            pruefbedarf.push(...verstoesseAus(gelesen.quellen[stelle], bericht.pruefbedarf));
+          }
+        };
+
         if (berichte.every((bericht) => bericht.gescheitert.length === 0) || schritt.schema?.bei === 'WARNEN') {
           quellen.push(...gelesen.quellen);
+          merke();
           continue;
         }
 
@@ -865,6 +903,7 @@ export class WorkflowExecutionService implements JobExecutor {
             ...gelesen.quellen.map((quelle, stelle) => quelleOhne(quelle, berichte[stelle].gescheitert))
           );
 
+          merke();
           continue;
         }
 
@@ -884,7 +923,7 @@ export class WorkflowExecutionService implements JobExecutor {
       }
     }
 
-    return { quellen, hinweise, uebernommen: eingang.uebernommen };
+    return { quellen, hinweise, pruefbedarf, uebernommen: eingang.uebernommen };
   }
 
   /**
@@ -1549,6 +1588,23 @@ export function ergebnisdateiname(workflow: string, jetzt: Date, endung = '.csv'
     .trim();
 
   return `${sauber || 'Workflow'}_Ergebnis_${stempel}${endung}`;
+}
+
+/**
+ * Aus den Urteilen einer Quelle werden Verstöße mit Herkunft.
+ *
+ * Weitergegeben werden nur die Befunde, die einen Menschen verlangen. Eine
+ * Warnung, die in derselben Zeile stand, gehört nicht in den Fall: Sie hat ihn
+ * nicht ausgelöst, und wer sie dort liest, sucht nach einer Entscheidung, die
+ * niemand von ihm will.
+ */
+export function verstoesseAus(quelle: Quelle, urteile: readonly Zeilenurteil[]): Regelverstoss[] {
+  return urteile.map((urteil) => ({
+    quelle: quelle.name,
+    zeile: urteil.zeile,
+    satz: urteil.satz,
+    befunde: urteil.befunde.filter((befund) => befund.schwere === 'KONFLIKT'),
+  }));
 }
 
 /**

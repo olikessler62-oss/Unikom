@@ -1003,6 +1003,190 @@ test('eine saubere Lieferung erzeugt keine Ablehnungsdatei', async () => {
   assert.equal(ablehnungsdatei(bank), undefined);
 });
 
+/* ---------- Der Prüfbedarf geht an einen Menschen ---------- */
+
+test('eine Zeile mit Konflikt wird zum Fall im Konfliktbestand', async () => {
+  const bank = werkbank();
+
+  await legeSchemaAn(bank, 'KONFLIKT');
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  const faelle = await bank.konflikte.list('default');
+
+  assert.equal(faelle.length, 1);
+  assert.equal(faelle[0].art, 'REGELVERSTOSS');
+  assert.equal(faelle[0].kritikalitaet, 'KONFLIKT');
+  assert.equal(faelle[0].status, 'OFFEN');
+  assert.equal(faelle[0].datensatz, '„Kunden.csv", Zeile 2');
+});
+
+test('der Fall trägt das beanstandete Feld als Streitfeld', async () => {
+  // Damit der Mensch dort eintragen kann, was gelten soll.
+  const bank = werkbank();
+
+  await legeSchemaAn(bank, 'KONFLIKT');
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  const fall = (await bank.konflikte.list('default'))[0];
+
+  assert.deepEqual(fall.felder.map((feld) => feld.feld), ['kdnr']);
+  assert.equal(fall.felder[0].angebote[0].quelle, 'Kunden.csv');
+  assert.equal(fall.felder[0].angebote[0].metadaten?.Zeile, '2');
+});
+
+test('die Zeile läuft mit — aufgehalten wird die Freigabe, nicht die Verarbeitung', async () => {
+  /*
+   * Ein Konflikt ist eine Frage an einen Menschen und kein Fehlschlag. Das
+   * Ergebnis entsteht, geht aber nicht von selbst hinaus.
+   */
+  const bank = werkbank();
+
+  await legeSchemaAn(bank, 'KONFLIKT');
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  const stand = (await bank.ergebnisse.list('default'))[0];
+
+  assert.equal(stand.zeilen.length, 2, 'beide Zeilen stehen im Ergebnis');
+  assert.notEqual(stand.status, 'RELEASED');
+});
+
+test('eine saubere Lieferung legt keinen Fall an', async () => {
+  const bank = werkbank();
+
+  await legeSchemaAn(bank, 'KONFLIKT');
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['4712', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.equal((await bank.konflikte.list('default')).length, 0);
+});
+
+test('für eine Lieferung, die ganz stehen bleibt, entsteht kein Fall', async () => {
+  /*
+   * Jemanden über Zeilen entscheiden zu lassen, die niemand gelesen hat, wäre
+   * Arbeit ohne Wirkung: Die Datei wird ohnehin nicht verarbeitet.
+   */
+  const bank = werkbank();
+
+  await bank.profile.save(
+    neuesProfil({
+      id: 'p1',
+      tenantId: 'default',
+      name: 'Kundenliste',
+      vorgabe: {
+        verbindlichkeit: 'HINWEIS',
+        columns: 2,
+        spalten: [
+          { position: 1, name: 'kdnr', type: 'STRING' },
+          { position: 2, name: 'ort', type: 'STRING' },
+        ],
+      },
+      regeln: [
+        {
+          id: 'kdnr-pflicht',
+          name: 'Kundennummer darf nicht leer sein',
+          feld: 'kdnr',
+          pruefung: { art: 'PFLICHT' },
+          schwere: 'FEHLER',
+        },
+        {
+          id: 'ort-konflikt',
+          name: 'Ort muss bekannt sein',
+          feld: 'ort',
+          pruefung: { art: 'AUS_LISTE', werte: ['Bonn'] },
+          schwere: 'KONFLIKT',
+        },
+      ],
+    })
+  );
+
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Ulm'], ['', 'Bonn']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.equal((await bank.ergebnisse.list('default')).length, 0, 'die Datei bleibt ganz stehen');
+  assert.equal((await bank.konflikte.list('default')).length, 0);
+});
+
+/** Ein Schema mit zwei Regeln: eine als Warnung, eine als Konflikt. */
+function legeZweiRegelnAn(bank: Werkbank, ortSchwere: 'WARNUNG' | 'KONFLIKT' | 'FEHLER'): Promise<unknown> {
+  return bank.profile.save(
+    neuesProfil({
+      id: 'p1',
+      tenantId: 'default',
+      name: 'Kundenliste',
+      vorgabe: {
+        verbindlichkeit: 'HINWEIS',
+        columns: 2,
+        spalten: [
+          { position: 1, name: 'kdnr', type: 'STRING' },
+          { position: 2, name: 'ort', type: 'STRING' },
+        ],
+      },
+      regeln: [
+        {
+          id: 'kdnr-konflikt',
+          name: 'Kundennummer darf nicht leer sein',
+          feld: 'kdnr',
+          pruefung: { art: 'PFLICHT' },
+          schwere: 'KONFLIKT',
+        },
+        {
+          id: 'ort-regel',
+          name: 'Ort muss bekannt sein',
+          feld: 'ort',
+          pruefung: { art: 'AUS_LISTE', werte: ['Bonn'] },
+          schwere: ortSchwere,
+        },
+      ],
+    })
+  );
+}
+
+test('eine Warnung in derselben Zeile kommt nicht in den Fall', async () => {
+  /*
+   * Sie hat ihn nicht ausgelöst, und wer sie dort liest, sucht nach einer
+   * Entscheidung, die niemand von ihm will.
+   */
+  const bank = werkbank();
+
+  await legeZweiRegelnAn(bank, 'WARNUNG');
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Ulm']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  const fall = (await bank.konflikte.list('default'))[0];
+
+  assert.deepEqual(fall.felder.map((feld) => feld.feld), ['kdnr'], 'nur das strittige Feld');
+  assert.ok(!/Ort/.test(fall.ursache), fall.ursache);
+});
+
+test('aus einer stehengebliebenen Datei entsteht kein Fall, aus der anderen schon', async () => {
+  /*
+   * Jemanden über Zeilen entscheiden zu lassen, die niemand gelesen hat, wäre
+   * Arbeit ohne Wirkung. Die zweite Datei hält den Lauf am Leben — sonst
+   * bliebe die Frage unbeantwortet, weil ohne Quelle gar nicht gerechnet wird.
+   */
+  const bank = werkbank();
+
+  await legeZweiRegelnAn(bank, 'FEHLER');
+  // Zeile 2 mit leerer Kundennummer ist ein Konflikt, Zeile 1 mit „Ulm" ein
+  // Fehler — die Datei bleibt deshalb ganz stehen.
+  bank.ablage.lege('/eingang/A_kaputt.csv', ['kdnr', 'ort'], [['4711', 'Ulm'], ['', 'Bonn']]);
+  bank.ablage.lege('/eingang/B_gut.csv', ['kdnr', 'ort'], [['4712', 'Bonn']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 1, 'nur die gute Datei');
+  assert.equal((await bank.konflikte.list('default')).length, 0);
+});
+
 test('es gilt die letzte Fassung des Schemas, nicht die erste', async () => {
   /*
    * Eine Fassung festzuhalten wäre die vorsichtigere Wahl — und die falsche:

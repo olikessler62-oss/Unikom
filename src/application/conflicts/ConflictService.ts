@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { fallAus, type Regelverstoss } from '../../domain/conflicts/Regelverstoss.js';
+
 import type { Konsolidierungsbericht, Konsolidierungskonflikt } from '../consolidation/ConsolidationService.js';
 import {
   filtere,
@@ -181,6 +183,59 @@ export class ConflictService {
       username: kopf.benutzer.name,
       message: `Konfliktbearbeitung: ${angelegt.length} Fall/Fälle aus Lauf ${kopf.laufId} angelegt`,
     });
+
+    return angelegt;
+  }
+
+  /**
+   * Aus Regelverstößen werden Konfliktfälle.
+   *
+   * Derselbe Bestand wie für Wertekonflikte, und das ist keine Sparsamkeit:
+   * Für den Menschen ist es dieselbe Arbeit. Er sieht einen Datensatz, der so
+   * nicht durchgeht, und trägt ein, was gelten soll. Zwei Bildschirme für
+   * dieselbe Handlung wären zwei Orte, an denen etwas liegen bleibt.
+   */
+  async ausRegelverstoessen(
+    verstoesse: readonly Regelverstoss[],
+    kopf: { tenantId: string; laufId: string; benutzer: Benutzerangabe; jetzt?: Date }
+  ): Promise<Konfliktfall[]> {
+    const jetzt = (kopf.jetzt ?? new Date()).toISOString();
+    const angelegt: Konfliktfall[] = [];
+
+    for (const verstoss of verstoesse) {
+      const fall: Konfliktfall = {
+        ...fallAus(verstoss, { tenantId: kopf.tenantId, laufId: kopf.laufId }),
+        id: randomUUID(),
+        entstanden: jetzt,
+        geaendert: jetzt,
+        fassung: 1,
+      };
+
+      await this.bestand.save(fall);
+      await this.bestand.schrittAnfuegen({
+        nummer: 1,
+        fallId: fall.id,
+        art: 'ENTSTANDEN',
+        zeitpunkt: jetzt,
+        benutzer: kopf.benutzer.id,
+        benutzerName: kopf.benutzer.name,
+        nachStatus: 'OFFEN',
+        entscheidung: fall.ursache,
+        regel: fall.regel,
+      });
+
+      angelegt.push(fall);
+    }
+
+    if (angelegt.length > 0) {
+      this.logger?.log({
+        timestamp: kopf.jetzt ?? new Date(),
+        level: 'INFO',
+        userId: kopf.benutzer.id,
+        username: kopf.benutzer.name,
+        message: `Konfliktbearbeitung: ${angelegt.length} Regelverstoß/-verstöße aus Lauf ${kopf.laufId} angelegt`,
+      });
+    }
 
     return angelegt;
   }
