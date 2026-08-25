@@ -58,6 +58,8 @@ import {
 } from '../../domain/quality/Quellenaufteilung.js';
 import { verhaltenVon, type Auslieferungsart } from '../../domain/conflicts/Konfliktverhalten.js';
 import type { Regelverstoss } from '../../domain/conflicts/Regelverstoss.js';
+import { findeSchluessel } from '../../domain/consolidation/Schluesselfund.js';
+import type { Schluessel } from '../../domain/consolidation/Schluessel.js';
 import type { Zeilenurteil } from '../../domain/quality/Zeilenaufteilung.js';
 import type { Qualitaetsregel } from '../../domain/quality/Regeln.js';
 
@@ -516,6 +518,29 @@ export class WorkflowExecutionService implements JobExecutor {
     }
 
     const regeln = durchgang.regeln ?? STANDARDREGELN;
+    const schluesselstand = schluesselFuer(regeln, gefunden.quellen, wirksam);
+
+    for (const hinweis of schluesselstand.hinweise) {
+      this.protokoll(job, laufId, schluesselstand.schluessel ? 'INFO' : 'ERROR', hinweis);
+    }
+
+    /*
+     * „Ist das nicht der Fall, wandern alle Dateien in das
+     * Gescheitert-Verzeichnis." Ein Zusammenführen über einen geratenen
+     * Schlüssel ergäbe kein Fehlerbild, sondern ein plausibel aussehendes
+     * Ergebnis mit falsch verbundenen Zeilen — und das fällt Monate später
+     * auf, wenn überhaupt.
+     */
+    if (schluesselstand.abbrechen) {
+      return {
+        lauf: await this.abgebrochen(job, uebertragen, schluesselstand.hinweise.join(' ')),
+        weiter: false,
+      };
+    }
+
+    const wirksameRegeln: Konsolidierungsregeln = schluesselstand.schluessel
+      ? { ...regeln, schluessel: schluesselstand.schluessel }
+      : regeln;
 
     /*
      * Die Referenzquellen zum Lauf lesen (SPEC-04 §6, §8).
@@ -527,7 +552,7 @@ export class WorkflowExecutionService implements JobExecutor {
      * einziger Wert ergänzt wurde.
      */
     const referenzen = await this.referenzenFuer(job, durchgang, laufId, wirksam, jetzt);
-    const auftrag = { ...auftragAus(umgeformt.quellen, regeln, wirksam), referenzen };
+    const auftrag = { ...auftragAus(umgeformt.quellen, wirksameRegeln, wirksam), referenzen };
 
     /*
      * Blockweise, wo die Menge es verlangt — und in einem Zug, wo nicht. Die
@@ -583,7 +608,7 @@ export class WorkflowExecutionService implements JobExecutor {
       jobId: job.id,
       bericht,
       eingang: alsEingang(umgeformt.quellen),
-      schluessel: regeln.schluessel,
+      schluessel: wirksameRegeln.schluessel,
       region: regionAus(wirksam),
       nullWerte: wirksam.nullWerte,
       jahrhundertGrenze: wirksam.jahrhundertGrenze,
@@ -1846,6 +1871,65 @@ export function ergebnisdateiname(workflow: string, jetzt: Date, endung = '.csv'
     .trim();
 
   return `${sauber || 'Workflow'}_Ergebnis_${stempel}${endung}`;
+}
+
+/**
+ * Der Schlüssel für diesen Durchgang — eingerichtet oder erkannt.
+ *
+ * ## Warum überhaupt gesucht wird
+ *
+ * „Wird kein Schema ausgewählt, dann soll versucht werden, die Aufgabe dennoch
+ * mit Logik zu lösen." Ohne Schlüssel gibt es keinen Merge — und ohne Merge
+ * stünde der Benutzer vor einer Fläche, die nichts tut, obwohl die Dateien
+ * offensichtlich zusammengehören.
+ *
+ * ## Warum das kein Raten ist
+ *
+ * SPEC-04 §7: „UniCom darf fachliche Dublettenschlüssel nicht eigenmächtig als
+ * verbindliche Wahrheit bestimmen." Gesucht wird deshalb nur, wo **keiner**
+ * eingerichtet ist, und genommen wird nur, was nachweislich eindeutig ist —
+ * siehe `findeSchluessel`. Bleibt ein Zweifel, wird abgebrochen und nicht
+ * gewählt.
+ *
+ * ## Wann gar nicht gesucht wird
+ *
+ * Beim bloßen Sammeln (`APPEND`): Dort werden Zeilen aneinandergehängt, nicht
+ * verbunden. Ein Schlüssel wäre dort eine Angabe ohne Wirkung — und ein
+ * Abbruch, weil keiner zu finden war, wäre ein Abbruch ohne Anlass.
+ */
+export function schluesselFuer(
+  regeln: Konsolidierungsregeln,
+  quellen: readonly Quelle[],
+  wirksam: WirksameEinstellungen
+): { schluessel?: Schluessel; abbrechen: boolean; hinweise: string[] } {
+  if (regeln.schluessel || regeln.art !== 'MERGE' || quellen.length < 2) {
+    return { abbrechen: false, hinweise: [] };
+  }
+
+  const fund = findeSchluessel(quellen, { nullWerte: wirksam.nullWerte });
+
+  if (fund.art === 'GEFUNDEN') {
+    return {
+      schluessel: { felder: [fund.feld] },
+      abbrechen: false,
+      hinweise: [
+        `Kein Schlüssel eingerichtet. „${fund.feld}" ist in allen ${quellen.length} Quellen vollständig, ` +
+          'eindeutig und wiederzufinden und wird deshalb als Schlüssel genommen' +
+          (fund.gleichwertig.length > 0
+            ? ` (${fund.gleichwertig.join(', ')} ergäbe dieselbe Zuordnung)`
+            : ''),
+      ],
+    };
+  }
+
+  return {
+    abbrechen: true,
+    hinweise: [
+      `Die Dateien lassen sich nicht zusammenführen: ${fund.grund}. ` +
+        'Sie werden nicht verarbeitet. Abhilfe: einen Schlüssel am Durchgang einrichten — ' +
+        'oder ein Schema, das ihn nennt',
+    ],
+  };
 }
 
 /**

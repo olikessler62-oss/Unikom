@@ -2474,6 +2474,142 @@ function stapeljob(teile: Record<string, unknown> = {}): TransferJob {
   });
 }
 
+/* ---------- Der schemalose Fall: Schlüssel erkennen ---------- */
+
+/** Ein Durchgang, der zusammenführen soll — ohne eingerichteten Schlüssel. */
+function merkejob(gescheitert = '/gescheitert'): TransferJob {
+  return job({
+    consolidation: {
+      enabled: true,
+      input: { from: 'DIRECTORY', directory: '/eingang' },
+      regeln: { betriebsart: 'SAMMELN', art: 'MERGE' },
+      dateien: { abholung: { gescheitert } },
+    },
+  });
+}
+
+test('ohne eingerichteten Schlüssel wird einer erkannt — und benannt', async () => {
+  /*
+   * „Wird kein Schema ausgewählt, dann soll versucht werden, die Aufgabe
+   * dennoch mit Logik zu lösen." Genommen wird nur, was nachweislich eindeutig
+   * ist — und das Protokoll sagt, was genommen wurde.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'name'], [['4711', 'Meier'], ['4712', 'Schulz']]);
+  bank.ablage.lege('/eingang/Adressen.csv', ['kdnr', 'ort'], [['4712', 'Köln'], ['4711', 'Bonn']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(merkejob());
+
+  assert.ok(
+    bank.protokoll.some((zeile) => /„kdnr" ist in allen 2 Quellen/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 2, 'zwei Kunden, nicht vier');
+});
+
+test('ohne eindeutigen Schlüssel wird gar nicht verarbeitet', async () => {
+  /*
+   * Ein Zusammenführen über einen geratenen Schlüssel ergäbe kein Fehlerbild,
+   * sondern ein plausibel aussehendes Ergebnis mit falsch verbundenen Zeilen.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'name'], [['4711', 'Meier'], ['4712', 'Schulz']]);
+  bank.ablage.lege('/eingang/Adressen.csv', ['kdnr', 'ort'], [['9001', 'Köln'], ['9002', 'Bonn']]);
+
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(merkejob());
+
+  assert.equal((await bank.ergebnisse.list('default')).length, 0);
+  assert.notEqual(ergebnis.status, TransferRunStatus.SUCCESS);
+  assert.ok(
+    bank.protokoll.some((zeile) => /lassen sich nicht zusammenführen/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('die Dateien wandern dabei nach Gescheitert, nicht nach Erledigt', async () => {
+  /*
+   * „Ist das nicht der Fall, wandern alle Dateien in das
+   * Gescheitert-Verzeichnis." Geprüft wird die Wirkung und nicht der Name des
+   * Zustands: Wohin die Lieferung geht, ist das, was jemand am nächsten Morgen
+   * sieht.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['4711']]);
+  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['9001']]);
+  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['9002']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/abholung' },
+        regeln: { betriebsart: 'SAMMELN', art: 'MERGE' },
+        dateien: {
+          stapel: DREI_PLAETZE,
+          abholung: { arbeit: '/arbeit', erledigt: '/erledigt', gescheitert: '/gescheitert' },
+        },
+      },
+    })
+  );
+
+  assert.equal(bank.ablage.dateien.has('/gescheitert/Filiale_Nord_0821.csv'), true);
+  assert.equal(bank.ablage.dateien.has('/erledigt/Filiale_Nord_0821.csv'), false);
+});
+
+test('das Protokoll nennt den Ausweg, nicht nur das Problem', async () => {
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr'], [['4711'], ['4712']]);
+  bank.ablage.lege('/eingang/Adressen.csv', ['kdnr'], [['9001'], ['9002']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(merkejob());
+
+  assert.ok(
+    bank.protokoll.some((zeile) => /Schlüssel am Durchgang einrichten/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('beim bloßen Sammeln wird gar nicht gesucht', async () => {
+  /*
+   * Dort werden Zeilen aneinandergehängt, nicht verbunden. Ein Abbruch, weil
+   * kein Schlüssel zu finden war, wäre ein Abbruch ohne Anlass.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/Nord.csv', ['kdnr'], [['4711']]);
+  bank.ablage.lege('/eingang/Sued.csv', ['kdnr'], [['9001']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(job());
+
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 2);
+  assert.ok(!bank.protokoll.some((zeile) => /zusammenführen/.test(zeile)), bank.protokoll.join(' | '));
+});
+
+test('ein eingerichteter Schlüssel wird nicht überstimmt', async () => {
+  // Gesucht wird nur, wo keiner steht. Alles andere wäre eigenmächtig.
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'name'], [['4711', 'Meier']]);
+  bank.ablage.lege('/eingang/Adressen.csv', ['kdnr', 'ort'], [['4711', 'Bonn']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/eingang' },
+        regeln: { betriebsart: 'SAMMELN', art: 'MERGE', schluessel: { felder: ['kdnr'] } },
+      },
+    })
+  );
+
+  assert.ok(!bank.protokoll.some((zeile) => /wird deshalb als Schlüssel genommen/.test(zeile)));
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 1);
+});
+
 /* ---------- Das Arbeitsverzeichnis ---------- */
 
 test('nur das Verzeichnis des Laufs darf aufgeräumt werden', () => {

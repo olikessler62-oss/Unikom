@@ -8,6 +8,79 @@
 >
 > Bei der nächsten Prüfrunde wird angehängt, nicht überschrieben.
 
+## Runde 11 — Ein Schlüssel, den niemand eingerichtet hat (25.08.2026)
+
+### Der Widerspruch
+
+Die Vorgabe: „Wird kein Schema ausgewählt, dann soll versucht werden, die
+Aufgabe dennoch mit Logik zu lösen … muss geprüft werden, ob in allen Dateien
+eindeutig zusammengehörige Merkmale erkannt werden."
+
+Dagegen steht SPEC-04 §7, wörtlich in `Schluessel.ts` festgehalten: „UniCom darf
+fachliche Dublettenschlüssel nicht **eigenmächtig als verbindliche Wahrheit**
+bestimmen." Dort stand deshalb ausdrücklich: „Es gibt hier keine Funktion, die
+einen Schlüssel errät."
+
+### Warum das kein Widerspruch ist
+
+Die Vorgabe sagt **eindeutig**, und sie sagt, was bei Uneindeutigkeit geschieht:
+alles nach Gescheitert. Das ist nicht Raten, sondern Prüfen mit Abbruch.
+
+```text
+raten    nimm das erste Feld, das halbwegs passt, und mach weiter
+prüfen   nimm es nur, wenn die Wahl nachweislich keine ist
+```
+
+**Entschieden:** Die Suche steht in einer **eigenen Datei**, `Schluesselfund.ts`.
+`Schluessel.ts` behält seinen Satz und seine Unschuld; wer dort nachsieht,
+findet weiterhin keine ratende Funktion.
+
+### Wann ein Feld als Schlüssel gilt
+
+Drei Bedingungen, in **jeder** Quelle, und jede fängt einen anderen Irrtum:
+
+```text
+vollständig   ein leerer Wert paart sich mit jedem anderen leeren
+eindeutig     zwei gleiche Werte in einer Quelle: welche Zeile ist gemeint?
+treffend      Werte, die sich nirgends wiederfinden, verbinden nichts
+```
+
+Die dritte ist die, an die man zuletzt denkt: Eine laufende Nummer ist in jeder
+Datei vollständig und eindeutig — und paart „Zeile 1 mit Zeile 1", was zufällig
+aussieht wie ein Ergebnis.
+
+### Mehrere Kandidaten sind kein Problem — solange sie dasselbe tun
+
+Kommen `kdnr` **und** `email` infrage, wäre ein Zugriff auf einen davon genau
+das Eigenmächtige, das die Spec verbietet.
+
+**Entschieden:** Es wird geprüft, ob die Wahl überhaupt einen Unterschied macht.
+Paaren alle Kandidaten dieselben Zeilen, ist das Ergebnis dasselbe, gleich
+welchen man nimmt — dann ist es keine Entscheidung, sondern eine Feststellung,
+und die Gleichwertigen stehen im Protokoll. Paaren sie verschieden, wird
+abgebrochen.
+
+### Gesucht wird nur, wo nichts steht
+
+Nicht beim bloßen Sammeln (`APPEND`): Dort werden Zeilen aneinandergehängt,
+nicht verbunden. Ein Abbruch, weil kein Schlüssel zu finden war, wäre ein
+Abbruch ohne Anlass.
+
+Und nie über einen eingerichteten hinweg. Wer einen Schlüssel angelegt hat, hat
+entschieden.
+
+### Der Abbruch ist das Ergebnis, nicht der Fehler
+
+Bei Uneindeutigkeit wird die Lieferung **nicht verarbeitet**, und die Dateien
+wandern nach Gescheitert. Eine Zusammenführung über einen falschen Schlüssel
+ergäbe kein Fehlerbild, sondern ein plausibel aussehendes Ergebnis mit falsch
+verbundenen Zeilen — und das fällt Monate später auf, wenn überhaupt.
+
+Das Protokoll nennt den Ausweg und nicht nur das Problem: einen Schlüssel am
+Durchgang einrichten, oder ein Schema, das ihn nennt.
+
+---
+
 ## Runde 10 — Das Archiv, und was es deckt (25.08.2026)
 
 ### Erst das Archiv, dann der Zugriff
