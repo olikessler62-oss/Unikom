@@ -44,6 +44,12 @@ const PATHS: Record<string, string> = {
    * sondern eine Verwechslung.
    */
   enquiry: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM11.2 11.4a2.6 2.6 0 1 0 5.2 0 2.6 2.6 0 0 0-5.2 0zM10 15.2l2-2',
+  /*
+   * Eine Kiste mit Deckel und Griff — was fortgestellt und aufbewahrt wird.
+   * Kein Schloss davor: Verschlüsselt ist hier alles, das unterschiede das
+   * Archiv von nichts.
+   */
+  archiv: 'M3 7h18v4H3zM5 11v9h14v-9M10 15h4',
   // Blatt mit Zeilen.
   imprint: 'M6 3h9l3 3v15H6zM9 9h6M9 13h6M9 17h4',
 };

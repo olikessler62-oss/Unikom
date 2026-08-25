@@ -13,6 +13,7 @@ import { JobEditorScreen } from './screens/job/JobEditorScreen.js';
 import { LoginScreen } from './screens/LoginScreen.js';
 import { PrivacyScreen } from './screens/PrivacyScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
+import { ArchivScreen } from './screens/ArchivScreen.js';
 import { SchemataScreen } from './screens/SchemataScreen.js';
 import { TenantsScreen } from './screens/TenantsScreen.js';
 import { UsersScreen } from './screens/UsersScreen.js';
@@ -66,6 +67,12 @@ const BLOCKS: Area[][] = [
      * ändert sich im Takt seiner Lieferanten, nicht im Takt einzelner Aufträge.
      */
     { id: 'schemata', label: 'nav.schemata', permission: 'MANAGE_JOBS' },
+    /*
+     * Das Archiv steht beim Mandanten und nicht bei der laufenden Arbeit: Wer
+     * hier nachsieht, sucht eine Lieferung von vorletzter Woche — nicht das,
+     * was heute Nacht passiert ist.
+     */
+    { id: 'archiv', label: 'nav.archive', permission: 'MANAGE_JOBS' },
   ],
   [
     { id: 'users', label: 'nav.users', permission: 'MANAGE_USERS' },
@@ -310,6 +317,8 @@ export function App() {
             <HistoryScreen key={view.historyJob ?? 'all'} initialJobId={view.historyJob} />
           ) : current?.id === 'schemata' ? (
             <SchemataScreen />
+          ) : current?.id === 'archiv' ? (
+            <ArchivScreen />
           ) : current?.id === 'tenants' ? (
             <TenantsScreen canManage={canManageCredentials} />
           ) : current?.id === 'users' ? (

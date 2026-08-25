@@ -425,6 +425,168 @@ test('wo der Mandant es verbietet, lehnt der Server das Hinnehmen ab', async (t)
   assert.equal(antwort.status, 422, JSON.stringify(antwort.body));
 });
 
+/* ---------- Der Blick ins Archiv ---------- */
+
+/** Legt ein echtes Archivpaket an und gibt sein Verzeichnis zurück. */
+async function archivMit(client: Client, inhalte: Record<string, string>): Promise<string> {
+  const wurzel = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-archiv-'));
+  const abholung = path.join(wurzel, 'abholung');
+
+  await fs.mkdir(abholung, { recursive: true });
+
+  for (const [name, text] of Object.entries(inhalte)) {
+    await fs.writeFile(path.join(abholung, name), text, 'utf-8');
+  }
+
+  await client.application.tenantService.update('default', { rootDirectory: wurzel });
+  await client.application.archivdienst!.lege({
+    verzeichnis: abholung,
+    namen: Object.keys(inhalte),
+    archiv: path.join(wurzel, 'archiv'),
+    benennung: 'Nachtlauf_Archiv_20260825_143000_TR-1',
+    jetzt: new Date(),
+  });
+
+  return wurzel;
+}
+
+test('das Archiv lässt sich auflisten, öffnen und herausholen', async (t) => {
+  /*
+   * Der Rückweg ist die Zusage, die das Zerlegen einer Lieferung erlaubt. Ein
+   * Weg, den nur der Quelltext kennt, löst sie nicht ein.
+   */
+  const client = await werkbank(t);
+  const wurzel = await archivMit(client, { 'Nord.csv': 'kdnr;ort\n4711;Bonn\n', 'Süd.csv': 'kdnr\n4712\n' });
+  const archiv = path.join(wurzel, 'archiv');
+
+  const liste = await client.anfrage('GET', `/api/archive/packages?tenantId=default&directory=${encodeURIComponent(archiv)}`);
+
+  assert.equal(liste.status, 200, JSON.stringify(liste.body));
+  assert.equal(liste.body.length, 1);
+  assert.match(String(liste.body[0].name), /_Archiv_.*\.zip\.enc$/);
+
+  const offen = await client.anfrage('POST', '/api/archive/open', { tenantId: 'default', pfad: liste.body[0].pfad });
+
+  assert.equal(offen.status, 200, JSON.stringify(offen.body));
+  assert.deepEqual(
+    offen.body.dateien.map((datei: { name: string }) => datei.name).sort(),
+    ['Nord.csv', 'Süd.csv']
+  );
+
+  /*
+   * Namen und Größen — kein Inhalt. Wer wissen will, ob die Lieferung von
+   * Dienstag drei Dateien hatte, braucht dafür keine Kundendaten.
+   */
+  assert.equal(offen.body.dateien[0].inhalt, undefined);
+  assert.equal(typeof offen.body.dateien[0].groesse, 'number');
+  assert.ok(!JSON.stringify(offen.body).includes('Bonn'), JSON.stringify(offen.body).slice(0, 200));
+
+  const datei = await client.anfrage('POST', '/api/archive/file', {
+    tenantId: 'default',
+    pfad: liste.body[0].pfad,
+    name: 'Nord.csv',
+  });
+
+  assert.equal(datei.status, 200, JSON.stringify(datei.body));
+  assert.equal(Buffer.from(String(datei.body.inhalt), 'base64').toString('utf-8'), 'kdnr;ort\n4711;Bonn\n');
+
+  await fs.rm(wurzel, { recursive: true, force: true });
+});
+
+test('das Auflisten öffnet kein einziges Paket', async (t) => {
+  // Sonst entschlüsselte ein Verzeichnis mit dreihundert Paketen dreihundert
+  // Archive, nur um eine Liste zu zeigen.
+  const client = await werkbank(t);
+  const wurzel = await archivMit(client, { 'Nord.csv': 'geheim' });
+  const archiv = path.join(wurzel, 'archiv');
+
+  const liste = await client.anfrage('GET', `/api/archive/packages?tenantId=default&directory=${encodeURIComponent(archiv)}`);
+
+  assert.ok(!JSON.stringify(liste.body).includes('geheim'));
+  assert.equal(liste.body[0].dateien, undefined, 'der Inhalt steht nicht in der Liste');
+
+  await fs.rm(wurzel, { recursive: true, force: true });
+});
+
+test('ein Archiv außerhalb des Mandantenverzeichnisses bleibt zu', async (t) => {
+  /*
+   * Diese Tür entschlüsselt. Ein Pfad, der hinausführt, wäre ein Weg an jede
+   * Datei auf dieser Maschine, die zufällig unser Umschlag ist.
+   */
+  const client = await werkbank(t);
+  const wurzel = await archivMit(client, { 'Nord.csv': 'x' });
+  const daneben = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-fremd-'));
+
+  const liste = await client.anfrage('GET', `/api/archive/packages?tenantId=default&directory=${encodeURIComponent(daneben)}`);
+
+  assert.equal(liste.status, 403, JSON.stringify(liste.body));
+
+  const offen = await client.anfrage('POST', '/api/archive/open', {
+    tenantId: 'default',
+    pfad: path.join(daneben, 'irgendwas.zip.enc'),
+  });
+
+  assert.equal(offen.status, 403);
+
+  await fs.rm(wurzel, { recursive: true, force: true });
+  await fs.rm(daneben, { recursive: true, force: true });
+});
+
+test('ein Archivverzeichnis, das es noch nicht gibt, ist kein Fehler', async (t) => {
+  // Der Normalfall vor dem ersten Lauf. Eine leere Liste sagt dasselbe.
+  const client = await werkbank(t);
+  const wurzel = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-leer-'));
+
+  await client.application.tenantService.update('default', { rootDirectory: wurzel });
+
+  const liste = await client.anfrage(
+    'GET',
+    `/api/archive/packages?tenantId=default&directory=${encodeURIComponent(path.join(wurzel, 'archiv'))}`
+  );
+
+  assert.equal(liste.status, 200);
+  assert.deepEqual(liste.body, []);
+
+  await fs.rm(wurzel, { recursive: true, force: true });
+});
+
+test('eine Datei, die nicht im Paket steckt, wird benannt', async (t) => {
+  const client = await werkbank(t);
+  const wurzel = await archivMit(client, { 'Nord.csv': 'x' });
+  const archiv = path.join(wurzel, 'archiv');
+  const liste = await client.anfrage('GET', `/api/archive/packages?tenantId=default&directory=${encodeURIComponent(archiv)}`);
+
+  const antwort = await client.anfrage('POST', '/api/archive/file', {
+    tenantId: 'default',
+    pfad: liste.body[0].pfad,
+    name: 'GibtsNicht.csv',
+  });
+
+  assert.equal(antwort.status, 404);
+  assert.match(String(antwort.body.error ?? ''), /steckt nicht/);
+
+  await fs.rm(wurzel, { recursive: true, force: true });
+});
+
+test('ein verändertes Paket wird abgewiesen und nicht halb ausgeliefert', async (t) => {
+  const client = await werkbank(t);
+  const wurzel = await archivMit(client, { 'Nord.csv': 'x' });
+  const archiv = path.join(wurzel, 'archiv');
+  const liste = await client.anfrage('GET', `/api/archive/packages?tenantId=default&directory=${encodeURIComponent(archiv)}`);
+  const pfad = String(liste.body[0].pfad);
+
+  const bytes = await fs.readFile(pfad);
+
+  bytes[bytes.length - 20] ^= 0xff;
+  await fs.writeFile(pfad, bytes);
+
+  const offen = await client.anfrage('POST', '/api/archive/open', { tenantId: 'default', pfad });
+
+  assert.equal(offen.status, 422, JSON.stringify(offen.body));
+
+  await fs.rm(wurzel, { recursive: true, force: true });
+});
+
 test('die Umformungen überstehen das Speichern und Lesen', async (t) => {
   /*
    * Sie laufen vor dem Konsolidieren und entscheiden damit, wie viele Kunden

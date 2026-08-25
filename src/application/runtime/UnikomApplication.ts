@@ -159,6 +159,14 @@ export interface UnikomApplication {
   consolidationService: ConsolidationService;
   conflictRepository: Konfliktbestand;
   conflictService: ConflictService;
+  /**
+   * Das Archiv — zum Ablegen im Lauf und zum Nachsehen über die Schnittstelle.
+   *
+   * Derselbe Dienst für beides und ausdrücklich derselbe Schlüssel: Ein
+   * zweiter Weg hinein, der einen anderen Schlüssel benutzt, käme an nichts
+   * heran, was der erste abgelegt hat.
+   */
+  archivdienst?: Archivdienst;
   /** Schreibt Konflikt- und Konfliktzieldateien und raeumt sie nach Frist fort (SPEC-07 §5). */
   ausleitungsdienst: Ausleitungsdienst;
   /** Verwaltet die Referenzquellen und liest sie zum Lauf (SPEC-04 §6, §8). */
@@ -304,6 +312,15 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
 
   const credentialService = new CredentialService(wiring.credentialRepository, new SecretCipher(hauptschluessel));
 
+  /*
+   * Einmal gebaut und zweimal benutzt: Der Lauf legt damit ab, die
+   * Schnittstelle sieht damit nach. Zwei Dienste mit zwei Schlüsseln wären
+   * zwei Archive, von denen jedes das andere nicht öffnen kann.
+   */
+  const archiv = new Archivdienst(new NodeDateiablage(), () =>
+    hauptschluessel.getMasterKey().toString('base64')
+  );
+
   const logger = new LevelFilteredLogger(
     new CompositeLogger(...[wiring.logStore, options.logger].filter((target): target is Logger => Boolean(target))),
     options.logLevel ?? DEFAULT_LOG_LEVEL
@@ -430,6 +447,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     consolidationService,
     conflictRepository: wiring.conflictRepository,
     conflictService,
+    archivdienst: archiv,
     ausleitungsdienst,
     referenzquellen,
     resultRepository: wiring.resultRepository,
@@ -507,9 +525,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
          * gehalten. Ein Schlüssel in einem langlebigen Objekt steht in jedem
          * Speicherabbild.
          */
-        archiv: new Archivdienst(new NodeDateiablage(), () =>
-          hauptschluessel.getMasterKey().toString('base64')
-        ),
+        archiv,
         // Damit ein Durchgang, der von einer Windows-Freigabe liest, sie mit
         // dem hinterlegten Zugang verbindet und nicht mit dem Dienstkonto.
         freigaben: shares,

@@ -22,6 +22,7 @@ import { jobRoutes } from './routes/JobRoutes.js';
 import { licenceRoutes, toLicenceView } from './routes/LicenceRoutes.js';
 import { runControlRoutes } from './routes/RunControlRoutes.js';
 import { discoveryRoutes } from './routes/DiscoveryRoutes.js';
+import { archivRoutes } from './routes/ArchivRoutes.js';
 import { profileRoutes } from './routes/ProfileRoutes.js';
 import { mappingRoutes } from './routes/MappingRoutes.js';
 import {
@@ -84,6 +85,7 @@ export class ApiServer {
       ...runControlRoutes(application),
       ...discoveryRoutes(application),
       ...profileRoutes(application),
+      ...archivRoutes(application),
       ...mappingRoutes(application),
       ...qualityRoutes(application),
       ...consolidationRoutes(application),
