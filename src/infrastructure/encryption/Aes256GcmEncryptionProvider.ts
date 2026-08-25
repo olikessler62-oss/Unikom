@@ -183,6 +183,50 @@ export function encryptBytes(plaintext: Uint8Array, key: string): Buffer {
   ]);
 }
 
+/**
+ * Der Weg zurück aus `encryptBytes`.
+ *
+ * Ohne ihn wäre das Archiv eine Einbahnstraße: verschlüsselt abgelegt und nie
+ * wieder zu öffnen. Genau daran hängt aber die Zusage, die das Zerlegen einer
+ * Lieferung überhaupt erlaubt — „das Original liegt im Archiv" gilt nur,
+ * solange jemand es auch herausholen kann.
+ *
+ * Ein zu kurzer Umschlag wird abgewiesen, statt an einem Zufallswert
+ * weiterzurechnen: Was keine dreiundfünfzig Bytes hat, kann keiner unserer sein
+ * und ergibt beim Zerlegen Zahlen aus dem Nichts.
+ *
+ * Falscher Schlüssel und veränderte Datei sind hier nicht zu unterscheiden —
+ * beides bricht an derselben Prüfsumme, und die Meldung sagt beides.
+ */
+export function decryptBytes(umschlag: Uint8Array, key: string): Buffer {
+  const bytes = Buffer.from(umschlag.buffer, umschlag.byteOffset, umschlag.byteLength);
+
+  if (bytes.length < HEADER_BYTES + TAG_BYTES || !bytes.subarray(0, MAGIC.length).equals(MAGIC)) {
+    throw new Error('Das ist kein Unikom-Umschlag: Die Kennung am Anfang fehlt oder die Datei ist zu kurz');
+  }
+
+  const kdf = bytes[MAGIC.length + 1];
+  const salt = bytes.subarray(MAGIC.length + 2, MAGIC.length + 2 + SALT_BYTES);
+  const iv = bytes.subarray(MAGIC.length + 2 + SALT_BYTES, HEADER_BYTES);
+  const { keyMaterial } = deriveKey(key, salt, kdf);
+
+  const decipher = crypto.createDecipheriv('aes-256-gcm', keyMaterial, iv);
+
+  decipher.setAuthTag(bytes.subarray(bytes.length - TAG_BYTES));
+
+  try {
+    return Buffer.concat([
+      decipher.update(bytes.subarray(HEADER_BYTES, bytes.length - TAG_BYTES)),
+      decipher.final(),
+    ]);
+  } catch (fehler) {
+    throw new Error(
+      'Die Entschlüsselung ist fehlgeschlagen: Die Datei wurde verändert, oder es wurde der falsche ' +
+        `Schlüssel verwendet. (${fehler instanceof Error ? fehler.message : String(fehler)})`
+    );
+  }
+}
+
 function deriveKey(key: string, salt: Buffer, expectedKdf?: number): { keyMaterial: Buffer; kdf: number } {
   const decoded = Buffer.from(key, 'base64');
   const isRawKey = decoded.length === KEY_BYTES && decoded.toString('base64') === key;

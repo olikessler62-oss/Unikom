@@ -1,5 +1,6 @@
 import type { Dateiablage } from './Dateiablage.js';
-import { encryptBytes } from '../../infrastructure/encryption/Aes256GcmEncryptionProvider.js';
+import { decryptBytes, encryptBytes } from '../../infrastructure/encryption/Aes256GcmEncryptionProvider.js';
+import { readZip } from '../../infrastructure/formats/Zip.js';
 import { packe, type Archiveintrag } from '../../infrastructure/formats/ZipSchreiben.js';
 
 /**
@@ -89,6 +90,67 @@ export class Archivdienst {
 
     return pfad;
   }
+
+  /**
+   * Welche Pakete in einem Archivverzeichnis liegen.
+   *
+   * Jüngste zuerst: Wer ins Archiv sieht, sucht fast immer die Lieferung von
+   * heute Nacht und nicht die vom Frühjahr.
+   */
+  async liste(archiv: string): Promise<Archivstueck[]> {
+    const eintraege = await this.ablage.liste(archiv);
+
+    return eintraege
+      .filter((eintrag) => eintrag.name.endsWith(ARCHIVENDUNG))
+      .map((eintrag) => ({
+        name: eintrag.name,
+        pfad: this.ablage.pfad(archiv, eintrag.name),
+        geaendert: eintrag.geaendert,
+      }))
+      .sort((eine, andere) => (andere.geaendert ?? '').localeCompare(eine.geaendert ?? ''));
+  }
+
+  /**
+   * Macht ein Paket auf: entschlüsseln, entpacken, herausgeben.
+   *
+   * In dieser Reihenfolge und ohne Zwischenstand auf der Platte. Ein Archiv,
+   * das man zum Ansehen erst im Klartext hinlegen muss, ist genau so lange
+   * verschlüsselt, wie niemand hineinsieht.
+   */
+  async oeffne(pfad: string): Promise<Archivinhalt> {
+    const umschlag = await this.ablage.lies(pfad);
+    const paket = decryptBytes(umschlag, this.schluessel());
+
+    return {
+      pfad,
+      dateien: [...readZip(paket)].map(([name, inhalt]) => ({ name, inhalt })),
+    };
+  }
+}
+
+/**
+ * Ein Paket, wie es im Archivverzeichnis liegt.
+ *
+ * Der Inhalt steht **nicht** darin. Ein Verzeichnis mit dreihundert Paketen
+ * entschlüsselte sonst dreihundert Archive, nur um eine Liste zu zeigen.
+ */
+export interface Archivstueck {
+  name: string;
+  pfad: string;
+  geaendert?: string;
+}
+
+/**
+ * Der Weg zurück (FR_006, Runde 10).
+ *
+ * Ohne ihn wäre das Archiv eine Einbahnstraße — abgelegt und nie wieder zu
+ * öffnen. Genau daran hängt aber die Zusage, die das Zerlegen einer Lieferung
+ * erlaubt: „das Original liegt im Archiv" gilt nur, solange jemand es auch
+ * herausholen kann.
+ */
+export interface Archivinhalt {
+  pfad: string;
+  dateien: Archiveintrag[];
 }
 
 /**
