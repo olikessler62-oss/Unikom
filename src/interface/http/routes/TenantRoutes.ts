@@ -160,6 +160,7 @@ export function tenantRoutes(application: UnikomApplication): Route[] {
                  * „abgeschaltet", und niemand sähe den Unterschied.
                  */
                 ausleitungenTage: zahlOderFort(input, 'ausleitungenTage'),
+                archivTage: zahlOderFort(input, 'archivTage'),
                 konflikte: konfliktverhaltenAus(input.konflikte),
               })
             )

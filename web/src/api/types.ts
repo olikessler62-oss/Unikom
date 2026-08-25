@@ -96,6 +96,8 @@ export interface Tenant {
   voreinstellungen?: Required<Mandanteneinstellungen> & { locale: string; timeZone: string };
   /** Wie lange Ausleitungen liegen bleiben; leer heißt: Voreinstellung. */
   ausleitungenTage?: number;
+  /** Wie lange Archivpakete liegen bleiben; leer heißt: Voreinstellung. */
+  archivTage?: number;
   /** Wie dieser Mandant mit offenen Konflikten umgeht. */
   konflikte?: Konfliktverhalten;
   /** Was gilt, solange dort nichts steht. Kommt vom Server. */

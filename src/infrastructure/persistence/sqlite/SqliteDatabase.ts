@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS tenants (
   -- NULL heisst „keine eigene Angabe" und damit die Voreinstellung; 0 heisst
   -- abgeschaltet.
   exports_days   INTEGER,
+  -- Wie lange Archivpakete liegen bleiben. NULL heisst Voreinstellung,
+  -- 0 heisst abgeschaltet - dieselbe Bedeutung wie bei exports_days.
+  archive_days   INTEGER,
   -- Wie dieser Mandant mit offenen Konflikten umgeht: Vorlageart, Frist der
   -- Wiedervorlage, ob ein Fall hingenommen werden darf. Als JSON und aus
   -- demselben Grund wie oben.
@@ -493,6 +496,10 @@ function migrate(database: DatabaseSync, notice: (message: string) => void): voi
    */
   if (!hasColumn(database, 'conflicts', 'profile_id')) {
     database.exec('ALTER TABLE conflicts ADD COLUMN profile_id TEXT');
+  }
+
+  if (!hasColumn(database, 'tenants', 'archive_days')) {
+    database.exec('ALTER TABLE tenants ADD COLUMN archive_days INTEGER');
   }
 }
 

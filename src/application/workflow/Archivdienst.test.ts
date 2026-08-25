@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { Archivdienst, ARCHIVENDUNG, archivdateiname } from './Archivdienst.js';
+import { archivAbgelaufen, Archivdienst, ARCHIVENDUNG, archivdateiname, ARCHIV_TAGE } from './Archivdienst.js';
 import type { Dateiablage, Verzeichniseintrag } from './Dateiablage.js';
 
 /** Ein Rohschlüssel, wie ihn die Installation hält: 32 Bytes, Base64. */
@@ -198,4 +198,84 @@ test('der Name trägt Workflow, Zeitpunkt und Lauf', () => {
 test('unzulässige Zeichen werden ersetzt, nicht weggelassen', () => {
   // Sonst ergäben „A/B" und „AB" denselben Namen.
   assert.match(archivdateiname('A/B:C', 'TR-1', JETZT), /^A_B_C_Archiv_/);
+});
+
+/* ---------- Die Aufbewahrungsfrist ---------- */
+
+const HEUTE = new Date('2026-08-25T12:00:00.000Z');
+
+function vorTagen(tage: number): string {
+  return new Date(HEUTE.getTime() - tage * 24 * 60 * 60 * 1000).toISOString();
+}
+
+test('voreingestellt bleibt ein Paket neunzig Tage', () => {
+  /*
+   * Lang genug für „was kam im letzten Quartal herein" — kurz genug, dass
+   * daraus kein Lager wird.
+   */
+  assert.equal(ARCHIV_TAGE, 90);
+  assert.equal(archivAbgelaufen(vorTagen(89), { jetzt: HEUTE }), false);
+  assert.equal(archivAbgelaufen(vorTagen(91), { jetzt: HEUTE }), true);
+});
+
+test('genau auf den Tag zählt als abgelaufen', () => {
+  assert.equal(archivAbgelaufen(vorTagen(90), { jetzt: HEUTE }), true);
+});
+
+test('null heißt niemals — dieselbe Bedeutung wie bei den Ausleitungen', () => {
+  /*
+   * Zwei Aufbewahrungsangaben, bei denen die Null Verschiedenes hieße, wären
+   * die Falle, in die genau einmal jemand tritt.
+   */
+  assert.equal(archivAbgelaufen(vorTagen(3650), { tage: 0, jetzt: HEUTE }), false);
+  assert.equal(archivAbgelaufen(vorTagen(3650), { tage: -1, jetzt: HEUTE }), false);
+});
+
+test('ein unlesbarer Zeitpunkt gilt als nicht abgelaufen', () => {
+  /*
+   * Die Alternative wäre, ein Original wegen eines kaputten Zeitstempels
+   * fortzuräumen. Unter zwei Fehlern ist das der teurere.
+   */
+  assert.equal(archivAbgelaufen('kein Datum', { tage: 1, jetzt: HEUTE }), false);
+  assert.equal(archivAbgelaufen(undefined, { tage: 1, jetzt: HEUTE }), false);
+});
+
+test('die Bereinigung nimmt nur abgelaufene Pakete fort', async () => {
+  const { ablage, dienst } = await gepackt();
+
+  ablage.lege('/archiv/Alt_Archiv_20260101_000000_TR-0.zip.enc', 'x');
+  ablage.zeiten.set('/archiv/Alt_Archiv_20260101_000000_TR-0.zip.enc', vorTagen(200));
+  ablage.zeiten.set('/archiv/Nachtlauf_Archiv_20260825_143000_TR-1.zip.enc', vorTagen(2));
+
+  const ergebnis = await dienst.bereinige('/archiv', { jetzt: HEUTE });
+
+  assert.deepEqual(ergebnis.entfernt, ['/archiv/Alt_Archiv_20260101_000000_TR-0.zip.enc']);
+  assert.equal(ablage.dateien.has('/archiv/Nachtlauf_Archiv_20260825_143000_TR-1.zip.enc'), true);
+});
+
+test('die Bereinigung fasst nur Archivpakete an', async () => {
+  /*
+   * In einem Verzeichnis, das jemand mit dem falschen Pfad eingetragen hat,
+   * liegen fremde Dateien — und die Bereinigung wäre der stillste
+   * Datenverlust, den dieses Erzeugnis anrichten kann.
+   */
+  const { ablage, dienst } = await gepackt();
+
+  ablage.lege('/archiv/Steuerbescheid_2019.pdf', 'wichtig');
+  ablage.zeiten.set('/archiv/Steuerbescheid_2019.pdf', vorTagen(2000));
+
+  await dienst.bereinige('/archiv', { tage: 1, jetzt: HEUTE });
+
+  assert.equal(ablage.dateien.has('/archiv/Steuerbescheid_2019.pdf'), true);
+});
+
+test('mit null bleibt jedes Paket liegen', async () => {
+  const { ablage, dienst } = await gepackt();
+
+  ablage.zeiten.set('/archiv/Nachtlauf_Archiv_20260825_143000_TR-1.zip.enc', vorTagen(4000));
+
+  const ergebnis = await dienst.bereinige('/archiv', { tage: 0, jetzt: HEUTE });
+
+  assert.deepEqual(ergebnis.entfernt, []);
+  assert.equal(ablage.dateien.size > 0, true);
 });

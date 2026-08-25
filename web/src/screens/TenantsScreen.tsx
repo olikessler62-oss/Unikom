@@ -22,6 +22,7 @@ interface Draft {
    * Angabe", null ist „gar nicht forträumen".
    */
   ausleitungenTage: string;
+  archivTage: string;
   /**
    * Wie sich ein offener Konflikt meldet, bis er entschieden ist.
    *
@@ -63,6 +64,7 @@ const EMPTY: Draft = {
   timeZone: 'Europe/Berlin',
   enabled: true,
   ausleitungenTage: '',
+  archivTage: '',
   konfliktVorlage: 'WIEDERVORLAGE',
   wiedervorlageStunden: '',
   akzeptierenErlaubt: true,
@@ -133,6 +135,7 @@ export function TenantsScreen({ canManage }: Props) {
          * Unterschied.
          */
         ausleitungenTage: draft.ausleitungenTage.trim() === '' ? null : Number(draft.ausleitungenTage),
+        archivTage: draft.archivTage.trim() === '' ? null : Number(draft.archivTage),
         konflikte: {
           vorlage: draft.konfliktVorlage,
           wiedervorlageStunden:
@@ -331,18 +334,55 @@ export function TenantsScreen({ canManage }: Props) {
               onChange={setDraft}
             />
 
-            <Field
-              label="Ausleitungen aufbewahren (Tage)"
-              explain="Konflikt- und Konfliktzieldateien. Leer heißt 30 Tage; 0 heißt: nie forträumen. Fälle, Entscheidungen und Historie bleiben immer."
-            >
-              <input
-                type="number"
-                min={0}
-                value={draft.ausleitungenTage}
-                placeholder="30"
-                onChange={(event) => setDraft({ ...draft, ausleitungenTage: event.target.value })}
-              />
-            </Field>
+            {/*
+              * Zwei Fristen nebeneinander, weil sie zusammen gelesen werden: Wer
+              * die eine einstellt, will die andere daneben sehen. Und weil beide
+              * dieselbe Null bedeuten — abgeschaltet —, wäre es die schlechteste
+              * Stelle, sie auseinanderzuziehen.
+              */}
+            <div className="field-paar">
+              <Field
+                label="Ausleitungen aufbewahren (Tage)"
+                explain="Konflikt- und Konfliktzieldateien. Leer heißt 30 Tage; 0 heißt: nie forträumen. Fälle, Entscheidungen und Historie bleiben immer."
+              >
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.ausleitungenTage}
+                  placeholder="30"
+                  onChange={(event) => setDraft({ ...draft, ausleitungenTage: event.target.value })}
+                />
+              </Field>
+
+              <Field
+                label="Archiv aufbewahren (Tage)"
+                explain={
+                  <>
+                    <p>
+                      Die Eingangsdateien im Original, verschlüsselt — das, was der Lieferant geschickt hat. Leer
+                      heißt 90 Tage; <strong>0 heißt: nie forträumen</strong>, dieselbe Bedeutung wie nebenan.
+                    </p>
+                    <p>
+                      Länger voreingestellt als die Ausleitungen, weil es etwas anderes ist: Eine Ausleitung ist
+                      eine Abschrift zum Bearbeiten, das Archiv ist das Original.
+                    </p>
+                    <p className="muted">
+                      Beides bedenken: Ein Archiv hält Kundendaten, und je länger es das tut, desto größer ist
+                      der Schaden, wenn jemand hineinkommt. Zu kurz gesetzt fehlt die Antwort auf „was kam damals
+                      eigentlich herein".
+                    </p>
+                  </>
+                }
+              >
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.archivTage}
+                  placeholder="90"
+                  onChange={(event) => setDraft({ ...draft, archivTage: event.target.value })}
+                />
+              </Field>
+            </div>
 
             <Konfliktumgang
               draft={draft}
@@ -443,6 +483,7 @@ export function TenantsScreen({ canManage }: Props) {
                                   enabled: tenant.enabled,
                                   ausleitungenTage:
                                     tenant.ausleitungenTage === undefined ? '' : String(tenant.ausleitungenTage),
+                                  archivTage: tenant.archivTage === undefined ? '' : String(tenant.archivTage),
                                   ...konflikteAus(tenant),
                                   ...meldewegeAus(tenant),
                                   ...einstellungenAus(tenant),

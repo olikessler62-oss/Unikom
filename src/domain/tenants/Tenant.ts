@@ -70,6 +70,21 @@ export interface Tenant {
    */
   ausleitungenTage?: number;
   /**
+   * Wie lange Archivpakete liegen bleiben (FR_006, Runde 10).
+   *
+   * Dieselbe Form wie `ausleitungenTage` und mit Absicht dieselbe Bedeutung
+   * der Null: **abgeschaltet**, nicht „sofort fort". Zwei Aufbewahrungsangaben,
+   * bei denen die Null Verschiedenes hieße, wären die Falle, in die genau
+   * einmal jemand tritt.
+   *
+   * Am Mandanten und nicht an der Installation, aus demselben Grund wie dort:
+   * Der eine Kunde muss Lieferscheine sieben Jahre vorhalten, der nächste will
+   * personenbezogene Daten nach einem Quartal fort haben.
+   *
+   * Ohne Angabe gilt `ARCHIV_TAGE`.
+   */
+  archivTage?: number;
+  /**
    * Wie dieser Mandant mit offenen Konflikten umgeht — siehe
    * `Konfliktverhalten`.
    *

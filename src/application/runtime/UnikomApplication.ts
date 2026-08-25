@@ -99,6 +99,7 @@ import { LocalDirectoryService } from '../transfer/LocalDirectoryService.js';
 import { DestinationAdapterProvider } from '../transfer/DestinationAdapterProvider.js';
 import { NodeDateiablage } from '../../infrastructure/filesystem/NodeDateiablage.js';
 import { Archivdienst } from '../workflow/Archivdienst.js';
+import { Archivbereinigung } from '../workflow/Archivbereinigung.js';
 import { Umformungsvorschaudienst } from '../workflow/Umformungsvorschau.js';
 import { Zuordnungsvorschaudienst } from '../workflow/Zuordnungsvorschau.js';
 import { Ausleitungsdienst } from '../conflicts/Ausleitungsdienst.js';
@@ -506,6 +507,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
       processingStages,
       retentionService,
       ausleitungen: ausleitungsdienst,
+      archivbereinigung: new Archivbereinigung(wiring.tenantRepository, wiring.jobRepository, archiv, logger),
       runGate: licenceService,
       runControls,
       terminwache: (versaeumt) => backgroundService.meldeAusbleiben(versaeumt).then(() => undefined),

@@ -103,6 +103,27 @@ test('die Aufbewahrungsfrist der Ausleitungen übersteht einen Neustart', async 
   assert.equal((await new SqliteTenantRepository(await openDatabase(pfad)).getById('default'))?.ausleitungenTage, 3);
 });
 
+test('die Aufbewahrungsfrist des Archivs übersteht einen Neustart', async () => {
+  const { pfad, bestand } = await ablage();
+
+  await bestand.save(mandant({ archivTage: 400 }));
+
+  assert.equal((await new SqliteTenantRepository(await openDatabase(pfad)).getById('default'))?.archivTage, 400);
+});
+
+test('null Tage beim Archiv heißen abgeschaltet und nicht „nichts eingestellt"', async () => {
+  /*
+   * Würde die Null zu `undefined`, räumte die Bereinigung ab morgen nach der
+   * Voreinstellung fort — genau bei dem Kunden, der sie ausdrücklich
+   * abgeschaltet hat. Und fort ist hier das Original.
+   */
+  const { pfad, bestand } = await ablage();
+
+  await bestand.save(mandant({ archivTage: 0 }));
+
+  assert.equal((await new SqliteTenantRepository(await openDatabase(pfad)).getById('default'))?.archivTage, 0);
+});
+
 test('null Tage sind etwas anderes als keine Angabe', async () => {
   /*
    * Abgeschaltet gegen „nichts eingetragen". Würde die Null zu `undefined`,

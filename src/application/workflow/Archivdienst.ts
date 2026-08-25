@@ -54,6 +54,48 @@ export interface Archivauftrag {
   jetzt: Date;
 }
 
+/**
+ * Wie lange ein Archivpaket liegen bleibt, wenn niemand etwas einstellt.
+ *
+ * Neunzig Tage: lang genug für die Frage „was kam im letzten Quartal herein",
+ * die bei einem Abschluss noch Wochen später gestellt wird — und kurz genug,
+ * dass daraus kein Lager wird. Ein Archiv hält Originaldaten des Kunden; je
+ * länger es das tut, desto größer ist der Schaden, wenn jemand hineinkommt.
+ *
+ * Länger als die Ausleitungen (dreißig Tage), weil es etwas anderes ist: Eine
+ * Ausleitung ist eine Abschrift zum Bearbeiten, das Archiv ist das Original.
+ */
+export const ARCHIV_TAGE = 90;
+
+const MS_JE_TAG = 24 * 60 * 60 * 1000;
+
+/**
+ * Ob ein Paket seine Frist überschritten hat.
+ *
+ * **Null oder weniger heißt: niemals** — dieselbe Bedeutung wie bei den
+ * Ausleitungen. Zwei Aufbewahrungsangaben, bei denen die Null Verschiedenes
+ * heißt, wären die Falle, in die genau einmal jemand tritt.
+ *
+ * Ein unlesbarer Zeitpunkt bedeutet **nicht abgelaufen**. Die Alternative wäre,
+ * ein Original wegen eines kaputten Zeitstempels fortzuräumen; unter zwei
+ * Fehlern ist das der teurere.
+ */
+export function archivAbgelaufen(geaendert: string | undefined, optionen: { tage?: number; jetzt: Date }): boolean {
+  const tage = optionen.tage ?? ARCHIV_TAGE;
+
+  if (tage <= 0 || !geaendert) {
+    return false;
+  }
+
+  const abgelegt = Date.parse(geaendert);
+
+  if (Number.isNaN(abgelegt)) {
+    return false;
+  }
+
+  return optionen.jetzt.getTime() - abgelegt >= tage * MS_JE_TAG;
+}
+
 /** Die Endung: erst das Paket, dann der Umschlag — beides steht dran. */
 export const ARCHIVENDUNG = '.zip.enc';
 
@@ -108,6 +150,41 @@ export class Archivdienst {
         geaendert: eintrag.geaendert,
       }))
       .sort((eine, andere) => (andere.geaendert ?? '').localeCompare(eine.geaendert ?? ''));
+  }
+
+  /**
+   * Räumt abgelaufene Pakete fort (SPEC-07 §5, sinngemäß).
+   *
+   * Angefasst wird ausschließlich, was auf die Archivendung endet. In einem
+   * Verzeichnis, das jemand mit dem falschen Pfad eingetragen hat, liegen sonst
+   * fremde Dateien — und die Bereinigung wäre der stillste Datenverlust, den
+   * dieses Erzeugnis anrichten kann.
+   *
+   * Was sich nicht fortnehmen lässt, wird gezählt und nicht verschwiegen. Der
+   * nächste Durchgang versucht es erneut; ein Wurf mitten in der Liste ließe
+   * die übrigen Verzeichnisse ungeprüft.
+   */
+  async bereinige(
+    archiv: string,
+    optionen: { tage?: number; jetzt: Date }
+  ): Promise<{ entfernt: string[]; fehler: { pfad: string; grund: string }[] }> {
+    const entfernt: string[] = [];
+    const fehler: { pfad: string; grund: string }[] = [];
+
+    for (const stueck of await this.liste(archiv)) {
+      if (!archivAbgelaufen(stueck.geaendert, optionen)) {
+        continue;
+      }
+
+      try {
+        await this.ablage.entferne(stueck.pfad);
+        entfernt.push(stueck.pfad);
+      } catch (problem) {
+        fehler.push({ pfad: stueck.pfad, grund: problem instanceof Error ? problem.message : String(problem) });
+      }
+    }
+
+    return { entfernt, fehler };
   }
 
   /**

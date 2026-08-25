@@ -49,6 +49,11 @@ export interface RuntimeOptions {
    * fehlt sie, bleibt jede Ausleitung liegen.
    */
   ausleitungen?: { bereinige(optionen: { jetzt?: Date }): Promise<unknown> };
+  /**
+   * Räumt abgelaufene Archivpakete fort (FR_006, Runde 10); fehlt sie, bleibt
+   * jedes Paket liegen.
+   */
+  archivbereinigung?: { bereinige(jetzt?: Date): Promise<unknown> };
   /** Asked before any transfer starts; absent means the paid period is not checked. */
   runGate?: RunGate;
   /** Makes running transfers steerable; absent means they only run to the end. */
@@ -82,6 +87,7 @@ export class JobRuntimeService {
   private retentionAppliedOn?: string;
   private readonly retentionService?: RetentionService;
   private readonly ausleitungen?: { bereinige(optionen: { jetzt?: Date }): Promise<unknown> };
+  private readonly archivbereinigung?: { bereinige(jetzt?: Date): Promise<unknown> };
 
   readonly orchestrator: TransferOrchestratorService;
   readonly bootstrap: RuntimeBootstrapService;
@@ -131,6 +137,7 @@ export class JobRuntimeService {
     this.bootstrap = new RuntimeBootstrapService(jobRepository);
     this.retentionService = options.retentionService;
     this.ausleitungen = options.ausleitungen;
+    this.archivbereinigung = options.archivbereinigung;
   }
 
   /** Rebuilds the schedules and performs one scheduler tick. */
@@ -188,7 +195,10 @@ export class JobRuntimeService {
   private async applyRetentionOncePerDay(now: Date): Promise<void> {
     const today = now.toISOString().slice(0, 10);
 
-    if ((!this.retentionService && !this.ausleitungen) || this.retentionAppliedOn === today) {
+    if (
+      (!this.retentionService && !this.ausleitungen && !this.archivbereinigung) ||
+      this.retentionAppliedOn === today
+    ) {
       return;
     }
 
@@ -210,6 +220,17 @@ export class JobRuntimeService {
       await this.ausleitungen?.bereinige({ jetzt: now });
     } catch (error) {
       console.error('Bereinigung der Ausleitungen fehlgeschlagen:', error instanceof Error ? error.message : String(error));
+    }
+
+    /*
+     * Wieder ein eigener Versuch, aus demselben Grund: Das Archiv liegt oft auf
+     * einer anderen Freigabe als die Ausleitungen. Ist die eine nicht
+     * erreichbar, soll die andere trotzdem aufgeräumt werden.
+     */
+    try {
+      await this.archivbereinigung?.bereinige(now);
+    } catch (error) {
+      console.error('Bereinigung des Archivs fehlgeschlagen:', error instanceof Error ? error.message : String(error));
     }
   }
 

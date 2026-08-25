@@ -16,6 +16,7 @@ interface TenantRow {
   notification: string | null;
   consolidation: string | null;
   exports_days: number | null;
+  archive_days: number | null;
   conflicts: string | null;
   enabled: number;
   created_at: string;
@@ -24,7 +25,7 @@ interface TenantRow {
 
 const COLUMNS =
   'id, name, description, root_directory, region, notification, consolidation, exports_days, ' +
-  'conflicts, enabled, created_at, updated_at';
+  'archive_days, conflicts, enabled, created_at, updated_at';
 
 /**
  * Die Region steht als eine Spalte und nicht als zwei.
@@ -60,6 +61,7 @@ function toTenant(row: TenantRow): Tenant {
     benachrichtigung: ausJson<Meldeeinstellungen>(row.notification),
     consolidation: ausJson<Mandanteneinstellungen>(row.consolidation),
     ausleitungenTage: row.exports_days ?? undefined,
+    archivTage: row.archive_days ?? undefined,
     konflikte: ausJson<Konfliktverhalten>(row.conflicts),
     enabled: row.enabled === 1,
     createdAt: new Date(row.created_at),
@@ -98,8 +100,9 @@ export class SqliteTenantRepository implements TenantRepository {
     this.database
       .prepare(
         `INSERT INTO tenants (id, name, name_lower, description, root_directory, region, notification,
-                               consolidation, exports_days, conflicts, enabled, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               consolidation, exports_days, archive_days, conflicts, enabled,
+                               created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name           = excluded.name,
            name_lower     = excluded.name_lower,
@@ -109,6 +112,7 @@ export class SqliteTenantRepository implements TenantRepository {
            notification   = excluded.notification,
            consolidation  = excluded.consolidation,
            exports_days   = excluded.exports_days,
+           archive_days   = excluded.archive_days,
            conflicts      = excluded.conflicts,
            enabled        = excluded.enabled,
            updated_at     = excluded.updated_at`
@@ -123,6 +127,7 @@ export class SqliteTenantRepository implements TenantRepository {
         tenant.benachrichtigung ? JSON.stringify(tenant.benachrichtigung) : null,
         tenant.consolidation ? JSON.stringify(tenant.consolidation) : null,
         tenant.ausleitungenTage ?? null,
+        tenant.archivTage ?? null,
         tenant.konflikte ? JSON.stringify(tenant.konflikte) : null,
         tenant.enabled ? 1 : 0,
         tenant.createdAt.toISOString(),

@@ -92,6 +92,8 @@ export class TenantService {
        * Einstellung fort — dann gilt wieder die Voreinstellung.
        */
       ausleitungenTage?: number | null;
+      /** Wie lange Archivpakete liegen bleiben. `null` nimmt die Angabe fort. */
+      archivTage?: number | null;
       /**
        * Wie dieser Mandant mit offenen Konflikten umgeht. `null` nimmt die
        * Einstellung fort — dann gilt wieder die Voreinstellung.
@@ -159,6 +161,7 @@ export class TenantService {
       ausleitungenTage: changes.ausleitungenTage === undefined
         ? tenant.ausleitungenTage
         : (changes.ausleitungenTage ?? undefined),
+      archivTage: changes.archivTage === undefined ? tenant.archivTage : (changes.archivTage ?? undefined),
       konflikte: changes.konflikte === undefined ? tenant.konflikte : (changes.konflikte ?? undefined),
       updatedAt: new Date(),
     });
