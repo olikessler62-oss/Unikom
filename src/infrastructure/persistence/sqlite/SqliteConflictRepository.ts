@@ -41,6 +41,7 @@ interface KonfliktRow {
   status: string;
   cause: string;
   rule: string | null;
+  profile_id: string | null;
   expected: string;
   found: string;
   next_steps: string;
@@ -86,7 +87,7 @@ interface StandRow {
 }
 
 const SPALTEN =
-  'id, tenant_id, run_id, record, art, criticality, status, cause, rule, expected, found, next_steps, ' +
+  'id, tenant_id, run_id, record, art, criticality, status, cause, rule, profile_id, expected, found, next_steps, ' +
   'sources, fields, result, created_at, changed_at, derived_from, lock_user, lock_user_name, lock_since, version';
 
 /**
@@ -121,6 +122,7 @@ function toFall(row: KonfliktRow): Konfliktfall {
     status: row.status as Konfliktstatus,
     ursache: row.cause,
     regel: row.rule ?? undefined,
+    profil: row.profile_id ?? undefined,
     erwartet: row.expected,
     vorgefunden: row.found,
     naechsteSchritte: row.next_steps,
@@ -210,7 +212,7 @@ export class SqliteConflictRepository implements Konfliktbestand {
     this.database
       .prepare(
         `INSERT INTO conflicts (${SPALTEN})
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            status = excluded.status,
            criticality = excluded.criticality,
@@ -238,6 +240,7 @@ export class SqliteConflictRepository implements Konfliktbestand {
         fall.status,
         fall.ursache,
         nullable(fall.regel),
+        nullable(fall.profil),
         fall.erwartet,
         fall.vorgefunden,
         fall.naechsteSchritte,

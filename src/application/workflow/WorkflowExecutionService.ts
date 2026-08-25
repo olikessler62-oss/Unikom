@@ -534,6 +534,7 @@ export class WorkflowExecutionService implements JobExecutor {
       ...(await this.umgebung.conflicts.ausRegelverstoessen(gefunden.pruefbedarf, {
         tenantId: job.tenantId,
         laufId,
+        profil: durchgang.schema?.profil,
         benutzer: SYSTEMBENUTZER,
         jetzt,
       })),

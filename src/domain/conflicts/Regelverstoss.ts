@@ -51,7 +51,10 @@ export const REGELVERSTOSS = 'REGELVERSTOSS';
 /** Was in der Gegenüberstellung steht, wo gar nichts geliefert wurde. */
 export const LEER = '(leer)';
 
-export function fallAus(verstoss: Regelverstoss, kopf: { tenantId: string; laufId: string }): Fallentwurf {
+export function fallAus(
+  verstoss: Regelverstoss,
+  kopf: { tenantId: string; laufId: string; profil?: string }
+): Fallentwurf {
   const felder = streitfelder(verstoss);
 
   return {
@@ -64,6 +67,11 @@ export function fallAus(verstoss: Regelverstoss, kopf: { tenantId: string; laufI
      */
     datensatz: `„${verstoss.quelle}", Zeile ${verstoss.zeile}`,
     art: REGELVERSTOSS,
+    /*
+     * Damit die Korrektur gegen dieselben Regeln läuft, die den Fall erzeugt
+     * haben. Ohne das gälten beim Bereinigen nur die ausgelieferten vier.
+     */
+    profil: kopf.profil,
     /*
      * Immer „Konflikt" und nie „kritisch". Die Schwere der Regel hat den Fall
      * überhaupt erst hierher gebracht: Was „Fehler" heißt, ist gar nicht zur

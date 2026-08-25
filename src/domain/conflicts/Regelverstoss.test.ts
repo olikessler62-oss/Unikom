@@ -163,3 +163,17 @@ test('ohne benannte Regel bleibt die Erwartung trotzdem ein Satz', () => {
   assert.equal(fall.erwartet, 'Ein Wert, der die Regel erfüllt');
   assert.equal(fall.regel, undefined);
 });
+
+test('der Fall trägt das Schema mit, aus dem er stammt', () => {
+  /*
+   * Ohne diesen Verweis liefe die Korrektur nur gegen die vier ausgelieferten
+   * Regeln — ein leeres Pflichtfeld ließe sich durch ein leeres Pflichtfeld
+   * „bereinigen".
+   */
+  assert.equal(fallAus(verstoss(), { ...KOPF, profil: 'p1' }).profil, 'p1');
+});
+
+test('ohne Schema bleibt der Fall ohne', () => {
+  // Ein Wertekonflikt aus der Zusammenführung stammt aus keinem.
+  assert.equal(fallAus(verstoss(), KOPF).profil, undefined);
+});

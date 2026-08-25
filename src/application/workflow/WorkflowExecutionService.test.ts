@@ -1020,6 +1020,7 @@ test('eine Zeile mit Konflikt wird zum Fall im Konfliktbestand', async () => {
   assert.equal(faelle[0].kritikalitaet, 'KONFLIKT');
   assert.equal(faelle[0].status, 'OFFEN');
   assert.equal(faelle[0].datensatz, '„Kunden.csv", Zeile 2');
+  assert.equal(faelle[0].profil, 'p1', 'damit die Korrektur gegen dieselben Regeln läuft');
 });
 
 test('der Fall trägt das beanstandete Feld als Streitfeld', async () => {

@@ -230,6 +230,9 @@ CREATE TABLE IF NOT EXISTS conflicts (
   status            TEXT NOT NULL,
   cause             TEXT NOT NULL,
   rule              TEXT,
+  -- Das Schema, aus dessen Regeln der Fall entstand. NULL bei einem
+  -- Wertekonflikt aus der Zusammenfuehrung - der stammt aus keinem Schema.
+  profile_id        TEXT,
   expected          TEXT NOT NULL,
   found             TEXT NOT NULL,
   next_steps        TEXT NOT NULL,
@@ -481,6 +484,15 @@ function migrate(database: DatabaseSync, notice: (message: string) => void): voi
 
   if (!hasColumn(database, 'tenants', 'conflicts')) {
     database.exec('ALTER TABLE tenants ADD COLUMN conflicts TEXT');
+  }
+
+  /*
+   * Ohne diesen Verweis liefe die Korrektur eines Falls nur gegen die vier
+   * ausgelieferten Regeln — ein leeres Pflichtfeld ließe sich durch ein
+   * leeres Pflichtfeld „bereinigen".
+   */
+  if (!hasColumn(database, 'conflicts', 'profile_id')) {
+    database.exec('ALTER TABLE conflicts ADD COLUMN profile_id TEXT');
   }
 }
 

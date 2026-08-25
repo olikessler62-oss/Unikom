@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { fallAus, type Regelverstoss } from '../../domain/conflicts/Regelverstoss.js';
+import { aktuelleVersion, type ProfilRepository } from '../../domain/consolidation/Profil.js';
 
 import type { Konsolidierungsbericht, Konsolidierungskonflikt } from '../consolidation/ConsolidationService.js';
 import {
@@ -115,8 +116,58 @@ export class ConflictService {
   constructor(
     private readonly bestand: Konfliktbestand,
     private readonly logger?: Logger,
-    private readonly sperrfrist = SPERRE_VERFAELLT_NACH_MS
+    private readonly sperrfrist = SPERRE_VERFAELLT_NACH_MS,
+    /**
+     * Die Schemata — gebraucht für den Rückweg, nicht fürs Entstehen.
+     *
+     * Fehlt der Bestand, gilt beim Bereinigen nur, was der Aufrufer mitgibt.
+     * Das ist der Stand von vorher und kein Fehler; die Verdrahtung für Tests
+     * kommt ohne aus.
+     */
+    private readonly profile?: ProfilRepository
   ) {}
+
+  /**
+   * Die Regeln, gegen die eine Entscheidung geprüft wird.
+   *
+   * ## Warum die des Falls und nicht die des Mandanten
+   *
+   * Wer einen Fall bereinigt, tippt einen Wert ein. Er muss gegen dieselben
+   * Regeln laufen, die den Fall überhaupt erzeugt haben — sonst ließe sich ein
+   * leeres Pflichtfeld durch ein leeres Pflichtfeld „korrigieren", und der
+   * Fall gälte danach als bereinigt.
+   *
+   * Der Aufrufer kennt das Schema nicht: Er hat eine Kennung und will
+   * entscheiden. Bei einer Massenentscheidung sind es sogar mehrere, aus
+   * verschiedenen Schemata. Deshalb wird hier je Fall nachgeschlagen und nicht
+   * einmal vorne am Eingang.
+   *
+   * ## Zusammengelegt, nicht ersetzt
+   *
+   * Die mitgegebenen Regeln bleiben: Sie sind die ausgelieferten, und die
+   * gelten überall. Bei gleicher Kennung gewinnt die des Schemas — sie ist
+   * die genauere, und der Kunde hat sie ausdrücklich angelegt.
+   */
+  private async optionenFuer(fall: Konfliktfall, optionen: Anwendungsoptionen): Promise<Anwendungsoptionen> {
+    if (!fall.profil || !this.profile) {
+      return optionen;
+    }
+
+    const profil = await this.profile.getById(fall.profil);
+    const eigene = profil ? (aktuelleVersion(profil).regeln ?? []) : [];
+
+    if (eigene.length === 0) {
+      return optionen;
+    }
+
+    const nach = new Map((optionen.qualitaet ?? []).map((regel) => [regel.id, regel]));
+
+    for (const regel of eigene) {
+      nach.set(regel.id, regel);
+    }
+
+    return { ...optionen, qualitaet: [...nach.values()] };
+  }
 
   /* ---------- Entstehen ---------- */
 
@@ -197,14 +248,14 @@ export class ConflictService {
    */
   async ausRegelverstoessen(
     verstoesse: readonly Regelverstoss[],
-    kopf: { tenantId: string; laufId: string; benutzer: Benutzerangabe; jetzt?: Date }
+    kopf: { tenantId: string; laufId: string; profil?: string; benutzer: Benutzerangabe; jetzt?: Date }
   ): Promise<Konfliktfall[]> {
     const jetzt = (kopf.jetzt ?? new Date()).toISOString();
     const angelegt: Konfliktfall[] = [];
 
     for (const verstoss of verstoesse) {
       const fall: Konfliktfall = {
-        ...fallAus(verstoss, { tenantId: kopf.tenantId, laufId: kopf.laufId }),
+        ...fallAus(verstoss, { tenantId: kopf.tenantId, laufId: kopf.laufId, profil: kopf.profil }),
         id: randomUUID(),
         entstanden: jetzt,
         geaendert: jetzt,
@@ -354,7 +405,9 @@ export class ConflictService {
    * Entscheidung nachvollziehbar dargestellt werden."
    */
   async vorschau(id: string, entscheidung: Entscheidung, optionen: Anwendungsoptionen): Promise<Anwendung> {
-    return wendeAn(await this.holen(id), entscheidung, optionen);
+    const fall = await this.holen(id);
+
+    return wendeAn(fall, entscheidung, await this.optionenFuer(fall, optionen));
   }
 
   async entscheide(
@@ -388,7 +441,7 @@ export class ConflictService {
       );
     }
 
-    const anwendung = wendeAn(fall, entscheidung, optionen);
+    const anwendung = wendeAn(fall, entscheidung, await this.optionenFuer(fall, optionen));
 
     if (!anwendung.zulaessig) {
       throw new KonfliktFehler(
@@ -463,7 +516,7 @@ export class ConflictService {
         continue;
       }
 
-      const anwendung = wendeAn(fall, entscheidung, optionen);
+      const anwendung = wendeAn(fall, entscheidung, await this.optionenFuer(fall, optionen));
 
       betroffen.push({
         id,

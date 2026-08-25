@@ -355,7 +355,17 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
    * verschiedene Ergebnisse liefern.
    */
   const blockweise = new BlockweiseKonsolidierung(consolidationService, wiring.blockRepository, logger);
-  const conflictService = new ConflictService(wiring.conflictRepository, logger);
+  /*
+   * Der Profilbestand geht mit: Wer einen Fall bereinigt, tippt einen Wert
+   * ein, und der läuft gegen die Regeln des Schemas, das den Fall erzeugt
+   * hat. Ohne diese Zeile gälten beim Bereinigen nur die ausgelieferten vier.
+   */
+  const conflictService = new ConflictService(
+    wiring.conflictRepository,
+    logger,
+    undefined,
+    wiring.profilRepository
+  );
   const resultService = new ResultService(wiring.resultRepository, logger);
   const backgroundService = new BackgroundService(
     wiring.heartbeatRepository,

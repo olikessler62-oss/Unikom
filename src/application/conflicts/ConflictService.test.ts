@@ -5,6 +5,9 @@ import { DEFAULT_REGION } from '../../domain/tenants/Region.js';
 import { InMemoryConflictRepository } from '../../infrastructure/persistence/InMemoryConflictRepository.js';
 import type { Konsolidierungsbericht, Konsolidierungskonflikt } from '../consolidation/ConsolidationService.js';
 import { ConflictService, KonfliktFehler } from './ConflictService.js';
+import { neuesProfil } from '../../domain/consolidation/Profil.js';
+import { InMemoryProfilRepository } from '../../infrastructure/persistence/InMemoryProfilRepository.js';
+import type { Konfliktfall } from '../../domain/conflicts/Konfliktfall.js';
 
 const ANNA = { id: 'anna', name: 'Anna Meier' };
 const BERND = { id: 'bernd', name: 'Bernd Schmitt' };
@@ -439,4 +442,138 @@ test('jeder Benutzer hat seinen eigenen Stand', async () => {
   });
 
   assert.equal((await dienst.liste('default', 'bernd')).einstieg.gilt, false);
+});
+
+/* ---------- Der Rückweg läuft gegen die Regeln des Schemas ---------- */
+
+/** Ein Fall aus einem Schema, mit einem leeren Pflichtfeld. */
+function regelfall(profil?: string): Konfliktfall {
+  return {
+    id: 'f-regel',
+    tenantId: 'default',
+    laufId: 'lauf1',
+    profil,
+    datensatz: '„Kunden.csv", Zeile 2',
+    art: 'REGELVERSTOSS',
+    kritikalitaet: 'KONFLIKT',
+    status: 'OFFEN',
+    ursache: '„kdnr" ist leer',
+    erwartet: 'Kundennummer darf nicht leer sein',
+    vorgefunden: 'kdnr: (leer)',
+    naechsteSchritte: '„kdnr" prüfen',
+    quellen: ['Kunden.csv'],
+    felder: [{ feld: 'kdnr', angebote: [{ quelle: 'Kunden.csv', wert: '' }] }],
+    entstanden: '2026-08-25T10:00:00.000Z',
+    geaendert: '2026-08-25T10:00:00.000Z',
+    fassung: 1,
+  };
+}
+
+async function mitSchema(profilAmFall?: string) {
+  const bestand = new InMemoryConflictRepository();
+  const profile = new InMemoryProfilRepository();
+
+  await profile.save(
+    neuesProfil({
+      id: 'p1',
+      tenantId: 'default',
+      name: 'Kundenliste',
+      vorgabe: { verbindlichkeit: 'HINWEIS', columns: 1, spalten: [{ position: 1, name: 'kdnr', type: 'STRING' }] },
+      regeln: [
+        {
+          id: 'kdnr-pflicht',
+          name: 'Kundennummer darf nicht leer sein',
+          feld: 'kdnr',
+          pruefung: { art: 'PFLICHT' },
+          schwere: 'FEHLER',
+        },
+      ],
+    })
+  );
+
+  await bestand.save(regelfall(profilAmFall));
+
+  return { bestand, dienst: new ConflictService(bestand, undefined, undefined, profile) };
+}
+
+/** Den Fall mit einem leeren Wert „bereinigen" — das darf nicht durchgehen. */
+const LEER_BEREINIGEN = {
+  art: 'BEREINIGEN' as const,
+  felder: [{ feld: 'kdnr', wahl: { art: 'LEER' as const } }],
+};
+
+test('ein leeres Pflichtfeld lässt sich nicht durch ein leeres Pflichtfeld bereinigen', async () => {
+  /*
+   * Ohne die Regeln des Schemas gälten beim Bereinigen nur die vier
+   * ausgelieferten — und der Fall wäre danach „bereinigt", ohne dass sich
+   * etwas geändert hätte.
+   */
+  const { dienst } = await mitSchema('p1');
+  const anwendung = await dienst.vorschau('f-regel', LEER_BEREINIGEN, { region: DEFAULT_REGION });
+
+  assert.equal(anwendung.zulaessig, false);
+  assert.match(anwendung.befunde.map((befund) => befund.ursache).join(' '), /„kdnr" ist leer/);
+});
+
+test('ein richtiger Wert geht durch', async () => {
+  const { dienst } = await mitSchema('p1');
+  const anwendung = await dienst.vorschau(
+    'f-regel',
+    { art: 'BEREINIGEN', felder: [{ feld: 'kdnr', wahl: { art: 'EINGABE', wert: '4712' } }] },
+    { region: DEFAULT_REGION }
+  );
+
+  assert.equal(anwendung.zulaessig, true);
+});
+
+test('die Prüfung schlägt auch beim Bestätigen zu, nicht nur in der Vorschau', async () => {
+  // Sonst zeigte die Vorschau eine Absage und das Bestätigen nähme es trotzdem.
+  const { dienst } = await mitSchema('p1');
+
+  await assert.rejects(
+    () => dienst.entscheide('f-regel', LEER_BEREINIGEN, ANNA, { region: DEFAULT_REGION }),
+    (fehler: unknown) => fehler instanceof KonfliktFehler && fehler.status === 422
+  );
+});
+
+test('ein Fall ohne Schema wird geprüft wie zuvor', async () => {
+  /*
+   * Ein Wertekonflikt aus der Zusammenführung stammt aus keinem Schema. Er hat
+   * kein Profil, und das ist kein Mangel.
+   */
+  const { dienst } = await mitSchema(undefined);
+  const anwendung = await dienst.vorschau('f-regel', LEER_BEREINIGEN, { region: DEFAULT_REGION });
+
+  assert.equal(anwendung.zulaessig, true);
+});
+
+test('ohne Zugriff auf die Schemata bleibt es beim Stand von vorher', async () => {
+  const bestand = new InMemoryConflictRepository();
+
+  await bestand.save(regelfall('p1'));
+
+  const anwendung = await new ConflictService(bestand).vorschau('f-regel', LEER_BEREINIGEN, {
+    region: DEFAULT_REGION,
+  });
+
+  assert.equal(anwendung.zulaessig, true);
+});
+
+test('die Regel des Schemas schlägt die ausgelieferte gleichen Namens', async () => {
+  // Sie ist die genauere, und der Kunde hat sie ausdrücklich angelegt.
+  const { dienst } = await mitSchema('p1');
+  const anwendung = await dienst.vorschau('f-regel', LEER_BEREINIGEN, {
+    region: DEFAULT_REGION,
+    qualitaet: [
+      {
+        id: 'kdnr-pflicht',
+        name: 'Alles erlaubt',
+        feld: 'kdnr',
+        pruefung: { art: 'BEREICH' },
+        schwere: 'INFO',
+      },
+    ],
+  });
+
+  assert.equal(anwendung.zulaessig, false);
 });

@@ -123,6 +123,19 @@ export interface Konfliktfall {
   ursache: string;
   /** Welche Regel oder Bedingung den Prüffall ausgelöst hat. */
   regel?: string;
+  /**
+   * Das Schema, aus dessen Regeln dieser Fall entstand.
+   *
+   * Gebraucht für den **Rückweg**: Wer den Fall bereinigt, tippt einen Wert
+   * ein, und der muss gegen dieselben Regeln laufen, die den Fall erzeugt
+   * haben. Ohne diesen Verweis gälten nur die vier ausgelieferten Regeln —
+   * man könnte ein leeres Pflichtfeld durch ein leeres Pflichtfeld
+   * „korrigieren", und der Fall gälte als bereinigt.
+   *
+   * Optional: Ein Wertekonflikt aus der Zusammenführung stammt aus keinem
+   * Schema. Er hat kein Profil, und das ist kein Mangel.
+   */
+  profil?: string;
   erwartet: string;
   vorgefunden: string;
   naechsteSchritte: string;

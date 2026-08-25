@@ -62,6 +62,31 @@ test('ein Konfliktfall übersteht das Speichern und Lesen vollständig', async (
   assert.deepEqual(JSON.parse(JSON.stringify(await bestand.byId('f1'))), JSON.parse(JSON.stringify(original)));
 });
 
+test('das Schema, aus dem der Fall stammt, übersteht den Neustart', async () => {
+  /*
+   * Ohne diesen Verweis liefe die Korrektur nur gegen die vier ausgelieferten
+   * Regeln — ein leeres Pflichtfeld ließe sich durch ein leeres Pflichtfeld
+   * „bereinigen". Fiele er beim Schreiben heraus, wäre das nach jedem Neustart
+   * so, und niemand sähe es.
+   */
+  const { pfad, bestand } = await ablage();
+
+  await bestand.save(fall({ profil: 'p1' }));
+
+  const gelesen = await new SqliteConflictRepository(await openDatabase(pfad)).byId('f1');
+
+  assert.equal(gelesen?.profil, 'p1');
+});
+
+test('ein Fall ohne Schema bleibt ohne', async () => {
+  // Ein Wertekonflikt aus der Zusammenführung stammt aus keinem Schema.
+  const { pfad, bestand } = await ablage();
+
+  await bestand.save(fall());
+
+  assert.equal((await new SqliteConflictRepository(await openDatabase(pfad)).byId('f1'))?.profil, undefined);
+});
+
 test('eine Sperre übersteht den Neustart', async () => {
   // Nicht kosmetisch: Ein Neustart, der alle Sperren vergisst, lässt beim
   // nächsten Hochfahren zwei Leute in denselben Fall.
