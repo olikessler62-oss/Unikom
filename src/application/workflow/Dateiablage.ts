@@ -29,6 +29,17 @@ export interface Dateiablage {
    */
   entferne(pfad: string): Promise<void>;
   /**
+   * Nimmt ein **leeres** Verzeichnis fort.
+   *
+   * Nur ein leeres: Ein Verzeichnis mit Inhalt fortzunehmen wäre der eine
+   * Handgriff, der einen ganzen Bestand kostet, und er sieht im Code genauso
+   * aus wie der harmlose. Was noch darin liegt, bleibt liegen — samt Meldung.
+   *
+   * Optional, weil nicht jede Ablage Verzeichnisse kennt. Fehlt die Methode,
+   * bleiben leere Ordner stehen; das ist unschön und schadet nichts.
+   */
+  entferneVerzeichnis?(pfad: string): Promise<void>;
+  /**
    * Schiebt eine Datei an einen anderen Ort.
    *
    * **Das Verschieben ist der Zugriff.** Ein vollständiger Stapel wird aus dem

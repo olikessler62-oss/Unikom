@@ -51,6 +51,28 @@ export class NodeDateiablage implements Dateiablage {
     await fs.rm(pfad, { force: true });
   }
 
+  /**
+   * Nimmt ein leeres Verzeichnis fort.
+   *
+   * `rmdir` und nicht `rm -r`: Es scheitert von selbst, sobald noch etwas
+   * darin liegt. Das ist hier kein Nachteil, sondern die Sicherung — der
+   * Aufrufer will ein leeres Verzeichnis los und nichts anderes.
+   *
+   * Ein Verzeichnis, das schon fort ist, ist kein Fehler; eines, in dem noch
+   * etwas liegt, wird gemeldet.
+   */
+  async entferneVerzeichnis(pfad: string): Promise<void> {
+    try {
+      await fs.rmdir(pfad);
+    } catch (fehler) {
+      if ((fehler as { code?: string }).code === 'ENOENT') {
+        return;
+      }
+
+      throw fehler;
+    }
+  }
+
   async verschiebe(von: string, nach: string): Promise<void> {
     await fs.mkdir(path.dirname(nach), { recursive: true });
 

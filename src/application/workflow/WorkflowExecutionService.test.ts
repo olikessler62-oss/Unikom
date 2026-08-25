@@ -13,6 +13,7 @@ import {
   InMemoryNotificationRepository,
 } from '../../infrastructure/persistence/InMemoryBackgroundRepository.js';
 import { Archivdienst } from './Archivdienst.js';
+import { istLaufverzeichnis } from './WorkflowExecutionService.js';
 import { fortschreiben, neuesProfil } from '../../domain/consolidation/Profil.js';
 import { InMemoryProfilRepository } from '../../infrastructure/persistence/InMemoryProfilRepository.js';
 import { InMemoryConflictRepository } from '../../infrastructure/persistence/InMemoryConflictRepository.js';
@@ -86,6 +87,22 @@ class Ablage implements Dateiablage {
 
   async entferne(pfad: string): Promise<void> {
     this.dateien.delete(pfad);
+  }
+
+  /** Welche Verzeichnisse fortgenommen wurden — in der Reihenfolge. */
+  readonly fortgenommen: string[] = [];
+
+  async entferneVerzeichnis(pfad: string): Promise<void> {
+    /*
+     * Wie im Dateisystem: Ein Verzeichnis mit Inhalt lässt sich nicht
+     * fortnehmen. Ein Doppel, das das nicht nachbildet, würde jeden Test
+     * bestehen lassen, den es zu verhindern gilt.
+     */
+    if ([...this.dateien.keys()].some((eintrag) => eintrag.startsWith(pfad + '/'))) {
+      throw new Error(`„${pfad}" ist nicht leer`);
+    }
+
+    this.fortgenommen.push(pfad);
   }
 
   async verschiebe(von: string, nach: string): Promise<void> {
@@ -2456,6 +2473,81 @@ function stapeljob(teile: Record<string, unknown> = {}): TransferJob {
     },
   });
 }
+
+/* ---------- Das Arbeitsverzeichnis ---------- */
+
+test('nur das Verzeichnis des Laufs darf aufgeräumt werden', () => {
+  /*
+   * Über den Lauf ist immer das richtige Verzeichnis im Spiel — und genau
+   * deshalb fällt es niemandem auf, wenn die Schranke eines Tages fehlt, bis
+   * jemand einen zweiten Aufrufer schreibt und das Abholverzeichnis übergibt.
+   */
+  assert.equal(istLaufverzeichnis('/arbeit/TR-1', 'TR-1'), true);
+  assert.equal(istLaufverzeichnis('C:\\Arbeit\\TR-1', 'TR-1'), true, 'auch mit Windows-Trennzeichen');
+  assert.equal(istLaufverzeichnis('/arbeit/TR-1/', 'TR-1'), true, 'ein Schrägstrich am Ende ändert nichts');
+
+  assert.equal(istLaufverzeichnis('/abholung', 'TR-1'), false);
+  assert.equal(istLaufverzeichnis('/arbeit', 'TR-1'), false, 'der Elternordner gehört nicht dazu');
+  assert.equal(istLaufverzeichnis('/arbeit/TR-1/tiefer', 'TR-1'), false);
+});
+
+test('ein Verzeichnis, das nur zufällig so endet, gilt nicht', () => {
+  // Verglichen wird das letzte Glied und nicht das Ende der Zeichenkette.
+  assert.equal(istLaufverzeichnis('/abholung/kunde-TR-1', 'TR-1'), false);
+});
+
+test('das Verzeichnis des Laufs verschwindet, wenn nichts mehr darin liegt', async () => {
+  const bank = werkbank();
+
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
+  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['2']]);
+  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(stapeljob());
+
+  assert.deepEqual(bank.ablage.fortgenommen, ['/arbeit/TR-1']);
+  assert.ok(bank.protokoll.some((zeile) => /ist leer und wurde fortgenommen/.test(zeile)));
+});
+
+test('ohne Zielverzeichnis bleibt der Ordner stehen — und sagt, was darin liegt', async () => {
+  /*
+   * Gelöscht wird keine einzige Datei. Ein Lauf, der Eingangsdateien löscht,
+   * wäre erst zu verantworten, wenn sich das Archiv auch wieder öffnen lässt.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
+  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['2']]);
+  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    stapeljob({ abholung: { arbeit: '/arbeit' } })
+  );
+
+  assert.deepEqual(bank.ablage.fortgenommen, [], 'nichts fortgenommen');
+  assert.ok(bank.ablage.dateien.has('/arbeit/TR-1/Filiale_Nord_0821.csv'), 'die Datei liegt noch da');
+  assert.ok(
+    bank.protokoll.some((zeile) => /bleibt stehen: 3 Datei\(en\) liegen noch darin/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('das Abholverzeichnis wird niemals fortgenommen', async () => {
+  /*
+   * Beim verworfenen Stapel wird mit dem **Abholverzeichnis** aufgeräumt. Ein
+   * Leeren träfe dort das Verzeichnis, in das der Lieferant schreibt.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
+  bank.ablage.geaendertAm('/abholung/Filiale_Nord_0821.csv', '2020-01-01T00:00:00.000Z');
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    stapeljob({ stapel: { ...DREI_PLAETZE, fristSekunden: 1 } })
+  );
+
+  assert.deepEqual(bank.ablage.fortgenommen, []);
+});
 
 /* ---------- Das Archiv ---------- */
 

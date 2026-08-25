@@ -424,6 +424,13 @@ export class WorkflowExecutionService implements JobExecutor {
         gelungen(ergebnis.lauf) ? durchgang.dateien?.abholung?.erledigt : durchgang.dateien?.abholung?.gescheitert
       );
 
+      /*
+       * Erst wenn die Ergebnisse geschrieben und die Eingangsdateien nach
+       * „Erledigt" oder „Gescheitert" geräumt sind — vorher wäre es kein
+       * Aufräumen, sondern ein Griff in einen laufenden Vorgang.
+       */
+      await this.leereLaufverzeichnis(job, laufId, uebernommen.verzeichnis);
+
       return ergebnis;
     } catch (fehler) {
       // Ein Wurf ist der klarste Fehlschlag, den es gibt.
@@ -434,6 +441,10 @@ export class WorkflowExecutionService implements JobExecutor {
         uebernommen.namen,
         durchgang.dateien?.abholung?.gescheitert
       );
+
+      // Auch nach einem Fehlschlag: Der Ordner ist leer oder er sagt, was
+      // darin liegt. Ein Wurf ist kein Grund, Spuren zu hinterlassen.
+      await this.leereLaufverzeichnis(job, laufId, uebernommen.verzeichnis);
 
       throw fehler;
     }
@@ -1217,6 +1228,78 @@ export class WorkflowExecutionService implements JobExecutor {
     }
   }
 
+  /**
+   * Nimmt das Verzeichnis dieses Laufs fort, wenn nichts mehr darin liegt.
+   *
+   * ## Warum das nicht in `raeumeAus` steht
+   *
+   * `raeumeAus` wird auch mit dem **Abholverzeichnis** gerufen — beim
+   * verworfenen Stapel. Ein Leeren an dieser Stelle träfe irgendwann das
+   * Verzeichnis, in das der Lieferant schreibt. Deshalb steht es hier, wo der
+   * Aufrufer weiß, dass es um sein eigenes Verzeichnis geht.
+   *
+   * Und deshalb steht die Prüfung darunter trotzdem noch einmal da: Der
+   * Ordner muss auf die Laufkennung enden. Ein Vorsatz hält niemanden auf, der
+   * in zwei Jahren einen zweiten Aufrufer schreibt.
+   *
+   * ## Was nicht gelöscht wird
+   *
+   * Dateien. Keine einzige. Fortgenommen wird nur der leere Ordner; was noch
+   * darin liegt, bleibt und wird benannt. Ein Lauf, der Eingangsdateien
+   * löscht, wäre erst zu verantworten, wenn sich das Archiv auch wieder öffnen
+   * lässt — und dieser Weg ist noch nicht gebaut.
+   */
+  private async leereLaufverzeichnis(job: TransferJob, laufId: string, verzeichnis: string): Promise<void> {
+    if (!istLaufverzeichnis(verzeichnis, laufId)) {
+      this.protokoll(
+        job,
+        laufId,
+        'WARNING',
+        `„${verzeichnis}" wird nicht aufgeräumt: Es ist nicht das Verzeichnis dieses Laufs`
+      );
+
+      return;
+    }
+
+    let rest: Verzeichniseintrag[];
+
+    try {
+      rest = await this.umgebung.ablage.liste(verzeichnis);
+    } catch {
+      // Fort ist es dann wohl schon. Ein Aufräumen, das über ein fehlendes
+      // Verzeichnis stolpert, wäre ein Fehler aus dem Nichts.
+      return;
+    }
+
+    if (rest.length > 0) {
+      this.protokoll(
+        job,
+        laufId,
+        'WARNING',
+        `„${verzeichnis}" bleibt stehen: ${rest.length} Datei(en) liegen noch darin ` +
+          `(${rest.map((eintrag) => eintrag.name).join(', ')})`
+      );
+
+      return;
+    }
+
+    if (!this.umgebung.ablage.entferneVerzeichnis) {
+      return;
+    }
+
+    try {
+      await this.umgebung.ablage.entferneVerzeichnis(verzeichnis);
+      this.protokoll(job, laufId, 'INFO', `Arbeitsverzeichnis „${verzeichnis}" ist leer und wurde fortgenommen`);
+    } catch (fehler) {
+      this.protokoll(
+        job,
+        laufId,
+        'WARNING',
+        `„${verzeichnis}" ließ sich nicht fortnehmen: ${fehler instanceof Error ? fehler.message : String(fehler)}`
+      );
+    }
+  }
+
   private async raeumeAus(
     job: TransferJob,
     laufId: string,
@@ -1230,7 +1313,8 @@ export class WorkflowExecutionService implements JobExecutor {
         laufId,
         'WARNING',
         `Die Dateien bleiben in „${verzeichnis}" liegen: Es ist kein Zielverzeichnis eingetragen. ` +
-          'Beim nächsten Lauf stehen sie wieder da.'
+          'Der nächste Lauf legt sein eigenes Verzeichnis an und findet sie nicht wieder — ' +
+          'sie sammeln sich dort an, bis jemand sie holt.'
       );
 
       return;
@@ -1685,6 +1769,25 @@ export function ergebnisdateiname(workflow: string, jetzt: Date, endung = '.csv'
     .trim();
 
   return `${sauber || 'Workflow'}_Ergebnis_${stempel}${endung}`;
+}
+
+/**
+ * Ob dieses Verzeichnis dem genannten Lauf gehört.
+ *
+ * Die Schranke vor dem Aufräumen. Sie steht als eigene Funktion da, weil sie
+ * sonst nicht zu prüfen wäre: Über den Lauf ist immer das richtige Verzeichnis
+ * im Spiel, und genau deshalb fällt es niemandem auf, wenn die Schranke eines
+ * Tages fehlt — bis jemand einen zweiten Aufrufer schreibt und das
+ * Abholverzeichnis übergibt.
+ *
+ * Verglichen wird das **letzte Glied** und nicht das Ende der Zeichenkette:
+ * Ein Abholverzeichnis, das zufällig auf dieselben Zeichen endet, ist immer
+ * noch nicht das Verzeichnis dieses Laufs.
+ */
+export function istLaufverzeichnis(verzeichnis: string, laufId: string): boolean {
+  const glieder = verzeichnis.split(/[\\/]/).filter((glied) => glied !== '');
+
+  return glieder[glieder.length - 1] === laufId;
 }
 
 /**
