@@ -2090,6 +2090,23 @@ option:checked {
   flex: 1 1 0;
 }
 
+/*
+ * Ein Paar, dessen Hälften nur so breit sind, wie ihr Inhalt es verlangt.
+ *
+ * Für Comboboxen: Sie müssen ihren längsten Eintrag zeigen können, sonst steht
+ * dort abgeschnittener Text und niemand sieht, was gewählt ist. Wie breit das
+ * ist, weiß nur das Bauteil — es zählt seine Einträge und setzt die
+ * Mindestbreite selbst; hier wird nur nicht mehr gestreckt.
+ */
+.field-paar--eng {
+  flex-wrap: wrap;
+  max-width: none;
+}
+
+.field-paar--eng > .field {
+  flex: 0 0 auto;
+}
+
 /* Der Name fällt kürzer aus als die Beschreibung: dreißig Zeichen zu fünfzig. */
 .field-paar--namen > .field:first-child {
   flex-grow: 3;

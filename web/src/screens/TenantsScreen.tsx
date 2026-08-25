@@ -81,6 +81,23 @@ const EMPTY: Draft = {
   mindestKonfidenz: '',
 };
 
+/**
+ * So breit, dass auch der längste Eintrag hineinpasst.
+ *
+ * Gezählt statt gemessen, und zwar hier, wo die Einträge stehen: Ein
+ * geschlossenes Auswahlfeld misst sich am **gewählten** Eintrag, nicht am
+ * längsten. „Bonn" ergäbe ein schmales Feld, in das „Südgeorgien und die
+ * Südlichen Sandwichinseln" nicht hineinpasst — und dann steht dort
+ * abgeschnittener Text, ohne dass jemand die Ursache sieht.
+ *
+ * Die Zugabe deckt Innenabstand, Rahmen und den Pfeil rechts. Sie ist
+ * großzügig gerundet: `ch` ist die Breite der Ziffer Null, und ein Feld, das
+ * ein paar Pixel übersteht, fällt niemandem auf — eines, das ein Zeichen zu
+ * schmal ist, schon.
+ */
+const REGION_BREITE = `calc(${Math.max(...LOCALES.map((eintrag) => eintrag.label.length))}ch + 3.2rem)`;
+const ZONEN_BREITE = `calc(${Math.max(...timeZones().map((zone) => zone.length))}ch + 3.2rem)`;
+
 interface Props {
   canManage: boolean;
 }
@@ -253,12 +270,17 @@ export function TenantsScreen({ canManage }: Props) {
               * weiterbeantwortet: Beide zusammen sagen, wie ein Zeitpunkt aus
               * diesem Haus zu lesen ist.
               */}
-            <div className="field-paar field-paar--zeichen">
+            <div className="field-paar field-paar--eng">
               <Field
                 label="Region"
                 explain={`So schreibt dieser Mandant den 3. April 2026: ${previewOf(draft.locale, draft.timeZone).sample} — ${previewOf(draft.locale, draft.timeZone).order}.`}
               >
-                <select value={draft.locale} onChange={(event) => setDraft({ ...draft, locale: event.target.value })}>
+                <select
+                  className="input--wahl"
+                  style={{ minWidth: REGION_BREITE }}
+                  value={draft.locale}
+                  onChange={(event) => setDraft({ ...draft, locale: event.target.value })}
+                >
                   {/* Was am Mandanten steht, bleibt wählbar — auch wenn es nicht in der Liste steht. */}
                   {!LOCALES.some((eintrag) => eintrag.value === draft.locale) && (
                     <option value={draft.locale}>{draft.locale}</option>
@@ -272,7 +294,12 @@ export function TenantsScreen({ canManage }: Props) {
               </Field>
 
               <Field label="Zeitzone" explain="Für Zeitangaben ohne eigene Zeitzone. Sommer- und Winterzeit stecken darin.">
-                <select value={draft.timeZone} onChange={(event) => setDraft({ ...draft, timeZone: event.target.value })}>
+                <select
+                  className="input--wahl"
+                  style={{ minWidth: ZONEN_BREITE }}
+                  value={draft.timeZone}
+                  onChange={(event) => setDraft({ ...draft, timeZone: event.target.value })}
+                >
                   {!timeZones().includes(draft.timeZone) && <option value={draft.timeZone}>{draft.timeZone}</option>}
                   {timeZones().map((zone) => (
                     <option key={zone} value={zone}>
