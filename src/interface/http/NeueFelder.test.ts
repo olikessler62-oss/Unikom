@@ -324,6 +324,37 @@ test('das Konfliktverhalten übersteht das Speichern und Lesen', async (t) => {
   assert.equal(typeof mandant.konflikteVoreinstellung.wiedervorlageStunden, 'number');
 });
 
+test('die Auslieferungsart übersteht das Speichern und Lesen', async (t) => {
+  const client = await werkbank(t);
+
+  const gespeichert = await client.anfrage('PUT', '/api/tenants/default', {
+    name: 'Standard',
+    enabled: true,
+    konflikte: { auslieferung: 'IN_TEILEN' },
+  });
+
+  assert.equal(gespeichert.status, 200, JSON.stringify(gespeichert.body));
+
+  const gelesen = await client.anfrage('GET', '/api/tenants');
+  const mandant = gelesen.body.find((eintrag: { id: string }) => eintrag.id === 'default');
+
+  assert.equal(mandant.konflikte.auslieferung, 'IN_TEILEN');
+  assert.equal(mandant.konflikteVoreinstellung.auslieferung, 'NUR_VOLLSTAENDIG', 'voreingestellt bleibt es ganz');
+});
+
+test('eine unbekannte Auslieferungsart wird abgelehnt', async (t) => {
+  const client = await werkbank(t);
+
+  const antwort = await client.anfrage('PUT', '/api/tenants/default', {
+    name: 'Standard',
+    enabled: true,
+    konflikte: { auslieferung: 'HALB' },
+  });
+
+  assert.equal(antwort.status, 400);
+  assert.match(String(antwort.body.error ?? ''), /Auslieferung/);
+});
+
 test('eine unbekannte Vorlageart wird abgelehnt und nicht stillschweigend zur Voreinstellung', async (t) => {
   /*
    * Wer sich vertippt, soll es erfahren — und nicht drei Wochen später merken,

@@ -8,6 +8,86 @@
 >
 > Bei der nächsten Prüfrunde wird angehängt, nicht überschrieben.
 
+## Runde 9 — Zwei Schalter, und sie beantworten Verschiedenes (25.08.2026)
+
+### Der Lauf liest das Schema — und was daraus folgt
+
+Man konnte ein Schema anlegen, ihm Regeln geben und es im Workflow auswählen,
+und es passierte nichts: Der Lauf fragte nur nach der alten JSON-Datei. Auf dem
+Bildschirm stand eine Prüfung, die nicht stattfand.
+
+**Entschieden:** Es gilt die **letzte** Fassung des Profils und nicht die, die
+beim Einrichten galt. Eine Fassung festzuhalten wäre die vorsichtigere Wahl —
+und die falsche: Wer eine Regel korrigiert, will sie heute Nacht wirksam haben
+und nicht erst, wenn jemand den Workflow anfasst.
+
+### `bei` und `auslieferung` regeln nicht dasselbe
+
+Zwei Einstellungen berühren denselben Fall, und wer sie verwechselt, baut
+Widersprüche:
+
+```text
+bei (am Durchgang)         ist ein Verstoß überhaupt ein Problem?
+auslieferung (am Mandant)  wenn ja — ganz stehen lassen oder teilen?
+```
+
+**Entschieden:** `bei: WARNEN` gewinnt. Es sagt ausdrücklich, dass die Lieferung
+so laufen soll, wie sie ist; dann gibt es nichts zu teilen. Erst wenn ein
+Verstoß ein Problem **ist**, entscheidet der Mandant, was daraus folgt.
+
+Die Alternative wäre gewesen, den Mandanten immer gewinnen zu lassen (SPEC-02
+§40). Das gilt für Konsolidierungsängaben, die dieselbe Frage auf zwei Ebenen
+beantworten — hier sind es zwei verschiedene Fragen.
+
+### Voreingestellt bleibt die Lieferung ganz
+
+Nicht, weil es besser wäre, sondern weil es das ist, was bisher geschah. Eine
+Teillieferung ist eine fachliche Entscheidung: Wer aus dreitausend Zeilen 2.983
+bekommt und es nicht weiß, bucht einen Monatsabschluss auf unvollständigen
+Daten. Das darf nicht jemandem zustoßen, der nichts eingestellt hat.
+
+### Ohne Ablage kein Teilen
+
+Zum Teilen braucht der Durchgang ein Verzeichnis für Gescheitertes. Fehlt es —
+oder schlägt das Schreiben fehl —, bleibt die Lieferung **ganz stehen**.
+
+Zeilen herauszunehmen und nirgends abzulegen wäre Datenverlust, und zwar der
+leiseste: Das Ergebnis sähe vollständig aus.
+
+### Die Ablehnungsdatei ist zum Zurückgeben gemacht
+
+Sie trägt die Spalten der Ursprungsdatei unverändert, davor zwei eigene:
+`Unikom_Zeile` und `Unikom_Grund`. Beide weichen aus, falls es sie im
+Kundenbestand schon gibt — sonst überschriebe ausgerechnet die Datei, die
+jemand zum Fehlersuchen liest, einen echten Wert.
+
+Die Zeilennummer ist die der **Lieferung** und nicht die Stelle in der Liste.
+Bei blockweiser Verarbeitung trägt ein Block nur einen Teil der Zeilen; wer die
+Stelle zählt, schreibt „Zeile 3", während der Fehler in Zeile 2003 steht — und
+das sieht plausibel aus.
+
+### Nebenbefund: eine Regel über eine Spalte, die es nicht gibt
+
+Besteht eine Datei nur aus Text, lässt sich nicht erkennen, ob die erste Zeile
+eine Kopfzeile ist; die Spalten heißen dann „Spalte 1", „Spalte 2". Eine Regel
+für „kdnr" fände ihr Feld in keiner einzigen Zeile.
+
+**Entschieden:** Solche Regeln bleiben außen vor, und der Lauf sagt welche.
+Angewandt wäre jede Zeile gescheitert und die ganze Lieferung abgewiesen —
+wegen fehlender Überschriften, nicht wegen der Daten.
+
+Die saubere Lösung liegt beim Schema selbst: `Strukturvorgabe` kennt die
+Spaltennamen, der Lauf benutzt sie noch nicht zum Benennen der Felder. Offen.
+
+### Was weiter offen ist
+
+Der **Prüfbedarf** hat noch keinen Abnehmer. Zeilen mit einem Konflikt laufen
+vorerst mit — ein Konflikt ist eine Frage an einen Menschen und kein Fehlschlag,
+und der Weg in den Konfliktbestand ist nicht gebaut. Sie zu Gescheitertem zu
+erklären, wäre die bequeme Rechnung und der Verlust der Zusage.
+
+---
+
 ## Runde 8 — Was um zwei Uhr nachts mit einem Konflikt geschieht (24.08.2026)
 
 ### Die Frage

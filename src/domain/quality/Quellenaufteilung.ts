@@ -1,6 +1,6 @@
 import type { Quelle } from '../consolidation/Quellen.js';
 import type { Datensatz, Pruefoptionen, Qualitaetsregel } from './Regeln.js';
-import { teileAuf, type Zeilenurteil } from './Zeilenaufteilung.js';
+import { freierName, GRUNDSPALTE, teileAuf, ZEILENSPALTE, type Zeilenurteil } from './Zeilenaufteilung.js';
 
 /**
  * Die Zeilenaufteilung, angewandt auf eine gelesene Quelle.
@@ -158,4 +158,59 @@ export function befundzeilen(name: string, berichte: readonly Quellenaufteilung[
   return rest > 0
     ? [...struktur, kopf, ...zeilen, `  … und ${rest} weitere Zeilen mit Befund`]
     : [...struktur, kopf, ...zeilen];
+}
+
+/**
+ * Dieselbe Quelle ohne die genannten Zeilen.
+ *
+ * Gebraucht, wo eine Lieferung **geteilt** wird: Die herausgenommenen Zeilen
+ * wandern in die Ablehnungsdatei, der Rest läuft weiter. Ausgewählt wird über
+ * die Zeilennummer und nicht über die Stelle in der Liste — dieselbe
+ * Unterscheidung wie oben, und sie entscheidet hier darüber, ob die richtige
+ * Zeile entfernt wird.
+ */
+export function quelleOhne(quelle: Quelle, urteile: readonly Zeilenurteil[]): Quelle {
+  const fort = new Set(urteile.map((urteil) => urteil.zeile));
+  const behalten = quelle.zeilen
+    .map((_zeile, stelle) => stelle)
+    .filter((stelle) => !fort.has(nummerVon(quelle, stelle)));
+
+  return {
+    ...quelle,
+    zeilen: behalten.map((stelle) => quelle.zeilen[stelle]),
+    zeilenNummern: behalten.map((stelle) => nummerVon(quelle, stelle)),
+  };
+}
+
+/**
+ * Die Ablehnungsdatei: die herausgenommenen Zeilen, mit Nummer und Grund.
+ *
+ * Sie trägt die Spalten der Ursprungsdatei — wer sie korrigiert, soll sie
+ * zurückgeben können, ohne vorher etwas umzubauen. Davor stehen zwei eigene
+ * Spalten:
+ *
+ * ```text
+ * Unikom_Zeile  wo die Zeile in der Lieferung stand
+ * Unikom_Grund  warum sie herausgenommen wurde
+ * ```
+ *
+ * Beide weichen aus, falls es sie im Kundenbestand schon gibt. Und beide stehen
+ * **vorn**: Wer die Datei in Excel öffnet, sieht zuerst, worum es geht, und
+ * muss nicht an dreißig Fachspalten vorbeiscrollen.
+ */
+export function ablehnung(
+  quelle: Quelle,
+  urteile: readonly Zeilenurteil[]
+): { felder: string[]; zeilen: string[][] } {
+  const zeilenspalte = freierName(ZEILENSPALTE, quelle.felder);
+  const grund = freierName(GRUNDSPALTE, [...quelle.felder, zeilenspalte]);
+
+  return {
+    felder: [zeilenspalte, grund, ...quelle.felder],
+    zeilen: urteile.map((urteil) => [
+      String(urteil.zeile),
+      urteil.gruende.join(' '),
+      ...quelle.felder.map((feld) => urteil.satz.get(feld) ?? ''),
+    ]),
+  };
 }

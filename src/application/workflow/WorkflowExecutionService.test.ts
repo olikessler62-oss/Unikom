@@ -846,6 +846,163 @@ test('eine nicht erkannte Kopfzeile macht aus einem Schema keinen Datenausfall',
   assert.equal((await bank.ergebnisse.list('default')).length, 1, 'die Lieferung wird trotzdem verarbeitet');
 });
 
+/* ---------- Ganz oder in Teilen ---------- */
+
+/** Ein Durchgang mit Schema und einem Verzeichnis für Gescheitertes. */
+function teiljob(gescheitert: string | undefined): TransferJob {
+  return job({
+    consolidation: {
+      enabled: true,
+      input: { from: 'DIRECTORY', directory: '/eingang' },
+      regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+      schema: { profil: 'p1' },
+      dateien: { abholung: { gescheitert } },
+    },
+  });
+}
+
+async function erlaubeTeilen(bank: Werkbank): Promise<void> {
+  await bank.umgebung.tenants.save({
+    id: 'default',
+    name: 'Standard',
+    konflikte: { auslieferung: 'IN_TEILEN' },
+    enabled: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+}
+
+/** Die geschriebene Ablehnungsdatei, als Text. */
+function ablehnungsdatei(bank: Werkbank): { pfad: string; text: string } | undefined {
+  for (const [pfad, bytes] of bank.ablage.dateien) {
+    if (pfad.startsWith('/gescheitert')) {
+      return { pfad, text: new TextDecoder().decode(bytes) };
+    }
+  }
+
+  return undefined;
+}
+
+test('voreingestellt bleibt eine fehlerhafte Lieferung ganz stehen', async () => {
+  /*
+   * Und zwar nicht, weil es besser wäre, sondern weil es das ist, was bisher
+   * geschah. Eine Teillieferung darf niemandem zustoßen, der nichts
+   * eingestellt hat.
+   */
+  const bank = werkbank();
+
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(teiljob('/gescheitert'));
+
+  assert.equal((await bank.ergebnisse.list('default')).length, 0);
+  assert.equal(ablehnungsdatei(bank), undefined, 'ohne Teilen entsteht keine Ablehnungsdatei');
+});
+
+test('erlaubt der Mandant Teillieferungen, laufen die guten Zeilen weiter', async () => {
+  const bank = werkbank();
+
+  await erlaubeTeilen(bank);
+  await legeSchemaAn(bank);
+  bank.ablage.lege(
+    '/eingang/Kunden.csv',
+    ['kdnr', 'ort'],
+    [['4711', 'Bonn'], ['', 'Köln'], ['4713', 'Kiel']]
+  );
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(teiljob('/gescheitert'));
+
+  const staende = await bank.ergebnisse.list('default');
+
+  assert.equal(staende.length, 1);
+  assert.equal(staende[0].zeilen.length, 2, 'die beiden guten Zeilen');
+});
+
+test('die herausgenommene Zeile steht mit Nummer und Grund in einer eigenen Datei', async () => {
+  const bank = werkbank();
+
+  await erlaubeTeilen(bank);
+  await legeSchemaAn(bank);
+  bank.ablage.lege(
+    '/eingang/Kunden.csv',
+    ['kdnr', 'ort'],
+    [['4711', 'Bonn'], ['', 'Köln'], ['4713', 'Kiel']]
+  );
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(teiljob('/gescheitert'));
+
+  const datei = ablehnungsdatei(bank);
+
+  assert.ok(datei, 'es gibt eine Ablehnungsdatei');
+  assert.match(datei.pfad, /Kunden_gescheitert_/, 'der Ursprungsname steht vorn');
+  assert.match(datei.text, /Unikom_Zeile;Unikom_Grund;kdnr;ort/);
+  assert.match(datei.text, /^2;/m, 'die Zeilennummer aus der Lieferung');
+  assert.match(datei.text, /ist leer/);
+  assert.match(datei.text, /Köln/, 'die Fachspalten stehen unverändert darin');
+});
+
+test('ohne Verzeichnis für Gescheitertes wird nicht geteilt', async () => {
+  /*
+   * Zeilen herauszunehmen und nirgends abzulegen wäre Datenverlust — und zwar
+   * der leiseste: Das Ergebnis sähe vollständig aus.
+   */
+  const bank = werkbank();
+
+  await erlaubeTeilen(bank);
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(teiljob(undefined));
+
+  assert.equal((await bank.ergebnisse.list('default')).length, 0, 'die Lieferung bleibt ganz stehen');
+  assert.ok(
+    bank.protokoll.some((zeile) => /kein Verzeichnis für Gescheitertes/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('„Warnen" am Durchgang schlägt das Teilen — dann läuft alles durch', async () => {
+  /*
+   * Die beiden Schalter beantworten verschiedene Fragen: „Warnen" sagt, dass
+   * ein Verstoß überhaupt kein Problem ist. Erst wenn er eines ist,
+   * entscheidet der Mandant, was daraus folgt.
+   */
+  const bank = werkbank();
+
+  await erlaubeTeilen(bank);
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/eingang' },
+        regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+        schema: { profil: 'p1', bei: 'WARNEN' },
+        dateien: { abholung: { gescheitert: '/gescheitert' } },
+      },
+    })
+  );
+
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 2, 'auch die fehlerhafte Zeile');
+  assert.equal(ablehnungsdatei(bank), undefined);
+});
+
+test('eine saubere Lieferung erzeugt keine Ablehnungsdatei', async () => {
+  const bank = werkbank();
+
+  await erlaubeTeilen(bank);
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['4712', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(teiljob('/gescheitert'));
+
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 2);
+  assert.equal(ablehnungsdatei(bank), undefined);
+});
+
 test('es gilt die letzte Fassung des Schemas, nicht die erste', async () => {
   /*
    * Eine Fassung festzuhalten wäre die vorsichtigere Wahl — und die falsche:

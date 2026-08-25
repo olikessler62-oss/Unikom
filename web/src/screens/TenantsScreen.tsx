@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
-import type { Credential, Tenant, Vorlageart } from '../api/types.js';
+import type { Auslieferungsart, Credential, Tenant, Vorlageart } from '../api/types.js';
 import { CheckField, Empty, Field, InfoButton, Loading, Modal, Notice } from '../components/Pieces.js';
 import { LOCALES, previewOf, timeZones } from './regions.js';
 
@@ -32,6 +32,7 @@ interface Draft {
   konfliktVorlage: Vorlageart;
   wiedervorlageStunden: string;
   akzeptierenErlaubt: boolean;
+  auslieferung: Auslieferungsart;
   /** Wohin Meldungen gehen — leer heißt: nur ins Benachrichtigungscenter. */
   empfaenger: string;
   auchBeiErfolg: boolean;
@@ -65,6 +66,7 @@ const EMPTY: Draft = {
   konfliktVorlage: 'WIEDERVORLAGE',
   wiedervorlageStunden: '',
   akzeptierenErlaubt: true,
+  auslieferung: 'NUR_VOLLSTAENDIG',
   empfaenger: '',
   auchBeiErfolg: false,
   mailHost: '',
@@ -119,6 +121,7 @@ export function TenantsScreen({ canManage }: Props) {
           wiedervorlageStunden:
             draft.wiedervorlageStunden.trim() === '' ? undefined : Number(draft.wiedervorlageStunden),
           akzeptierenErlaubt: draft.akzeptierenErlaubt,
+          auslieferung: draft.auslieferung,
         },
         benachrichtigung: {
           empfaenger: draft.empfaenger
@@ -519,6 +522,42 @@ function Konfliktumgang({
         )}
       </div>
 
+      <Field
+        label="Lieferung mit fehlerhaften Zeilen"
+        explain={
+          <>
+            <p>
+              Was geschieht, wenn einzelne Zeilen dem Schema nicht genügen — eine fehlende Kundennummer, ein
+              Datum, das es nicht gibt.
+            </p>
+            <p>
+              <strong>Ganz stehen lassen</strong> verarbeitet die Datei gar nicht; sie wandert vollständig nach
+              „Gescheitert". <strong>In Teile zerlegen</strong> lässt die guten Zeilen weiterlaufen und legt die
+              schlechten als eigene Datei nach „Gescheitert" — mit Zeilennummer und Grund, damit sie sich
+              korrigieren und zurückgeben lässt.
+            </p>
+            <p>
+              Voreingestellt ist „ganz stehen lassen". Wer aus dreitausend Zeilen 2.983 bekommt und es nicht
+              weiß, bucht einen Monatsabschluss auf unvollständigen Daten — das darf niemandem zustoßen, der
+              nichts eingestellt hat.
+            </p>
+            <p className="muted">
+              Zum Zerlegen braucht der Durchgang ein Verzeichnis für Gescheitertes. Fehlt es, bleibt die Lieferung
+              ganz stehen, und der Lauf sagt es.
+            </p>
+          </>
+        }
+      >
+        <select
+          className="input--wahl"
+          value={draft.auslieferung}
+          onChange={(event) => onChange({ ...draft, auslieferung: event.target.value as Auslieferungsart })}
+        >
+          <option value="NUR_VOLLSTAENDIG">Ganz stehen lassen</option>
+          <option value="IN_TEILEN">In Teile zerlegen</option>
+        </select>
+      </Field>
+
       <CheckField
         label="Konflikte dürfen hingenommen werden"
         explain={
@@ -655,7 +694,7 @@ function Meldewege({
  */
 function konflikteAus(tenant: Tenant): Pick<
   Draft,
-  'konfliktVorlage' | 'wiedervorlageStunden' | 'akzeptierenErlaubt'
+  'konfliktVorlage' | 'wiedervorlageStunden' | 'akzeptierenErlaubt' | 'auslieferung'
 > {
   const konflikte = tenant.konflikte;
 
@@ -669,6 +708,7 @@ function konflikteAus(tenant: Tenant): Pick<
      * Start ein Verbot, das niemand ausgesprochen hat.
      */
     akzeptierenErlaubt: konflikte?.akzeptierenErlaubt ?? true,
+    auslieferung: konflikte?.auslieferung ?? EMPTY.auslieferung,
   };
 }
 

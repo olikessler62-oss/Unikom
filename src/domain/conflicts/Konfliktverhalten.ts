@@ -41,14 +41,31 @@
  * eingestellt wird, ist nicht ein neuer Weg, sondern die **Erlaubnis** — ob
  * ein Fall weggelegt werden darf oder ob jeder entschieden werden muss.
  *
- * Nicht darin: ob ein Ergebnis auch in Teilen ausgeliefert werden darf. Diese
- * Einstellung wirkt erst, wenn der Lauf die Zeilen aufteilt, und bis dahin
- * wäre sie eine Behauptung auf dem Bildschirm, die niemand einlöst.
+ * ## Ganz oder in Teilen
+ *
+ * `auslieferung` sagt, was mit einer Lieferung geschieht, in der einzelne
+ * Zeilen dem Schema nicht genügen.
+ *
+ * ```text
+ * NUR_VOLLSTAENDIG  eine Datei mit Fehlern wird gar nicht verarbeitet
+ * IN_TEILEN         die guten Zeilen laufen weiter, die schlechten
+ *                   wandern in eine eigene Datei nach „Gescheitert"
+ * ```
+ *
+ * Voreingestellt ist `NUR_VOLLSTAENDIG` — und zwar nicht, weil es besser wäre,
+ * sondern weil es das ist, was bisher geschah. Eine Teillieferung ist eine
+ * fachliche Entscheidung: Wer aus dreitausend Zeilen 2.983 bekommt und es nicht
+ * weiß, bucht einen Monatsabschluss auf unvollständigen Daten. Das darf nicht
+ * jemandem zustoßen, der nichts eingestellt hat.
  */
 export type Vorlageart = 'EINMAL' | 'WIEDERVORLAGE' | 'BEI_JEDEM_OEFFNEN';
 
 /** Die Arten in fester Reihenfolge — sie bestimmt die Anzeige. */
 export const VORLAGEARTEN: readonly Vorlageart[] = ['EINMAL', 'WIEDERVORLAGE', 'BEI_JEDEM_OEFFNEN'];
+
+export type Auslieferungsart = 'NUR_VOLLSTAENDIG' | 'IN_TEILEN';
+
+export const AUSLIEFERUNGSARTEN: readonly Auslieferungsart[] = ['NUR_VOLLSTAENDIG', 'IN_TEILEN'];
 
 export interface Konfliktverhalten {
   /** Wie sich ein offener Konflikt meldet, bis er entschieden ist. */
@@ -62,6 +79,8 @@ export interface Konfliktverhalten {
    * jemand ihn bereinigt. Genau das ist der Zweck.
    */
   akzeptierenErlaubt?: boolean;
+  /** Ob eine Lieferung mit fehlerhaften Zeilen geteilt werden darf. */
+  auslieferung?: Auslieferungsart;
 }
 
 /**
@@ -76,6 +95,7 @@ export const VERHALTEN_ALLGEMEIN: Required<Konfliktverhalten> = {
   vorlage: 'WIEDERVORLAGE',
   wiedervorlageStunden: 24,
   akzeptierenErlaubt: true,
+  auslieferung: 'NUR_VOLLSTAENDIG',
 };
 
 /** Die kürzeste Frist, die noch eine Frist ist. */
@@ -92,6 +112,7 @@ export function verhaltenVon(gesetzt?: Konfliktverhalten): Required<Konfliktverh
     vorlage: gesetzt?.vorlage ?? VERHALTEN_ALLGEMEIN.vorlage,
     wiedervorlageStunden: gesetzt?.wiedervorlageStunden ?? VERHALTEN_ALLGEMEIN.wiedervorlageStunden,
     akzeptierenErlaubt: gesetzt?.akzeptierenErlaubt ?? VERHALTEN_ALLGEMEIN.akzeptierenErlaubt,
+    auslieferung: gesetzt?.auslieferung ?? VERHALTEN_ALLGEMEIN.auslieferung,
   };
 }
 

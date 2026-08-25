@@ -92,3 +92,23 @@ test('ein Zeitstempel aus der Zukunft hält den Fall zurück, statt ihn zu wiede
 
   assert.equal(zeigtSichWieder(gleich, verhaltenVon({ vorlage: 'WIEDERVORLAGE' }), JETZT), false);
 });
+
+/* ---------- Ganz oder in Teilen ---------- */
+
+test('voreingestellt bleibt eine Lieferung ganz', () => {
+  /*
+   * Nicht, weil es besser wäre, sondern weil es das ist, was bisher geschah.
+   * Wer aus dreitausend Zeilen 2.983 bekommt und es nicht weiß, bucht einen
+   * Monatsabschluss auf unvollständigen Daten.
+   */
+  assert.equal(VERHALTEN_ALLGEMEIN.auslieferung, 'NUR_VOLLSTAENDIG');
+  assert.equal(verhaltenVon({}).auslieferung, 'NUR_VOLLSTAENDIG');
+});
+
+test('wer das Teilen erlaubt, verstellt nichts anderes mit', () => {
+  const verhalten = verhaltenVon({ auslieferung: 'IN_TEILEN' });
+
+  assert.equal(verhalten.auslieferung, 'IN_TEILEN');
+  assert.equal(verhalten.vorlage, VERHALTEN_ALLGEMEIN.vorlage);
+  assert.equal(verhalten.akzeptierenErlaubt, VERHALTEN_ALLGEMEIN.akzeptierenErlaubt);
+});

@@ -48,7 +48,14 @@ import type { JobExecutor } from '../transfer/TransferOrchestratorService.js';
 import type { Dateiablage, Verzeichniseintrag } from './Dateiablage.js';
 import { istLesbar, liesDatei, passt, passtEndung, type Lesewunsch } from './Eingang.js';
 import { aktuelleVersion, type ProfilRepository } from '../../domain/consolidation/Profil.js';
-import { befundzeilen, teileQuelleAuf } from '../../domain/quality/Quellenaufteilung.js';
+import {
+  ablehnung,
+  befundzeilen,
+  quelleOhne,
+  teileQuelleAuf,
+  type Quellenaufteilung,
+} from '../../domain/quality/Quellenaufteilung.js';
+import { verhaltenVon, type Auslieferungsart } from '../../domain/conflicts/Konfliktverhalten.js';
 import type { Qualitaetsregel } from '../../domain/quality/Regeln.js';
 
 /**
@@ -691,6 +698,75 @@ export class WorkflowExecutionService implements JobExecutor {
     return regeln;
   }
 
+  /**
+   * Ob dieser Mandant Teillieferungen zulässt.
+   *
+   * Am Mandanten und nicht am Workflow: Wer aus dreitausend Zeilen 2.983
+   * bekommt und es nicht weiß, bucht einen Monatsabschluss auf unvollständigen
+   * Daten. Das ist eine Entscheidung über den Betrieb des Kunden und keine, die
+   * beim Einrichten eines einzelnen Durchgangs nebenbei fällt.
+   */
+  private async auslieferungsart(job: TransferJob): Promise<Auslieferungsart> {
+    return verhaltenVon((await this.umgebung.tenants.getById(job.tenantId))?.konflikte).auslieferung;
+  }
+
+  /**
+   * Die herausgenommenen Zeilen als eigene Datei nach „Gescheitert".
+   *
+   * Gibt es kein solches Verzeichnis, wird **nicht** geteilt — der Aufrufer
+   * erfährt es am `false`. Zeilen herauszunehmen und nirgends abzulegen wäre
+   * Datenverlust, und zwar der leiseste: Das Ergebnis sähe vollständig aus.
+   */
+  private async schreibeAblehnung(
+    job: TransferJob,
+    schritt: Konsolidierungsdurchgang,
+    laufId: string,
+    quellen: readonly Quelle[],
+    berichte: readonly Quellenaufteilung[],
+    jetzt: Date,
+    hinweise: string[]
+  ): Promise<boolean> {
+    const verzeichnis = schritt.dateien?.abholung?.gescheitert;
+
+    if (!verzeichnis) {
+      hinweise.push(
+        'Geteilt wird nicht: Es ist kein Verzeichnis für Gescheitertes eingetragen, ' +
+          'und die herausgenommenen Zeilen hätten keinen Platz'
+      );
+
+      return false;
+    }
+
+    for (const [stelle, bericht] of berichte.entries()) {
+      if (bericht.gescheitert.length === 0) {
+        continue;
+      }
+
+      const inhalt = ablehnung(quellen[stelle], bericht.gescheitert);
+      const pfad = this.umgebung.ablage.pfad(verzeichnis, ablehnungsdateiname(quellen[stelle].name, jetzt));
+
+      try {
+        await this.umgebung.ablage.schreibe(pfad, alsBytes(schreibeCsv(inhalt.felder, inhalt.zeilen)));
+        hinweise.push(`${bericht.gescheitert.length} Zeile(n) stehen jetzt in „${pfad}"`);
+      } catch (fehler) {
+        /*
+         * Schlägt das Schreiben fehl, wird nicht geteilt. Der Aufrufer behält
+         * dann die ganze Lieferung — lieber eine Datei zu viel im
+         * Gescheitert-Verzeichnis als Zeilen, die nirgends stehen.
+         */
+        hinweise.push(
+          `Die Ablehnungsdatei ließ sich nicht schreiben: ` +
+            `${fehler instanceof Error ? fehler.message : String(fehler)}. Geteilt wird deshalb nicht`
+        );
+        this.protokoll(job, laufId, 'WARNING', `Ablehnungsdatei fehlgeschlagen: ${pfad}`);
+
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   private async quellen(
     job: TransferJob,
     schritt: Konsolidierungsdurchgang,
@@ -728,6 +804,7 @@ export class WorkflowExecutionService implements JobExecutor {
       : undefined;
 
     const regeln = await this.profilregeln(schritt, hinweise);
+    const auslieferung = await this.auslieferungsart(job);
     const pruefwunsch = { region: regionAus(wirksam), nullWerte: wirksam.nullWerte, jetzt };
     const eingang = await this.dateien(job, schritt, vorlage, uebertragen, hinweise, laufId, jetzt);
 
@@ -767,16 +844,34 @@ export class WorkflowExecutionService implements JobExecutor {
 
         hinweise.push(...befundzeilen(datei.name, berichte));
 
-        if (berichte.some((bericht) => bericht.gescheitert.length > 0) && schritt.schema?.bei !== 'WARNEN') {
-          hinweise.push(
-            `„${datei.name}" wird deshalb nicht verarbeitet. ` +
-              'Soll sie trotz Fehlern durchlaufen, steht das am Durchgang unter „Bei Verstoß"'
+        /*
+         * Zwei Schalter, und sie beantworten verschiedene Fragen.
+         *
+         * `bei` am Durchgang sagt, ob ein Verstoß überhaupt ein Problem ist:
+         * „Warnen" heißt, die Lieferung läuft so, wie sie ist. Erst wenn sie
+         * ein Problem ist, entscheidet der **Mandant**, was daraus folgt —
+         * ganz stehen lassen oder teilen.
+         */
+        if (berichte.every((bericht) => bericht.gescheitert.length === 0) || schritt.schema?.bei === 'WARNEN') {
+          quellen.push(...gelesen.quellen);
+          continue;
+        }
+
+        if (
+          auslieferung === 'IN_TEILEN' &&
+          (await this.schreibeAblehnung(job, schritt, laufId, gelesen.quellen, berichte, jetzt, hinweise))
+        ) {
+          quellen.push(
+            ...gelesen.quellen.map((quelle, stelle) => quelleOhne(quelle, berichte[stelle].gescheitert))
           );
 
           continue;
         }
 
-        quellen.push(...gelesen.quellen);
+        hinweise.push(
+          `„${datei.name}" wird deshalb nicht verarbeitet. ` +
+            'Soll die Lieferung geteilt werden statt ganz stehen zu bleiben, steht das am Mandanten'
+        );
       } catch (fehler) {
         /*
          * Eine unlesbare Datei macht die übrigen nicht wertlos — aber sie
@@ -1454,6 +1549,29 @@ export function ergebnisdateiname(workflow: string, jetzt: Date, endung = '.csv'
     .trim();
 
   return `${sauber || 'Workflow'}_Ergebnis_${stempel}${endung}`;
+}
+
+/**
+ * Der Name der Ablehnungsdatei.
+ *
+ * Der Ursprungsname bleibt vorn: Wer im Gescheitert-Verzeichnis steht, sucht
+ * nach der Lieferung, die er kennt, und nicht nach einem Lauf. Der Zeitstempel
+ * gehört dazu — dieselbe Lieferung kommt morgen wieder, und ohne ihn
+ * überschriebe die zweite Ablehnung die erste.
+ */
+export function ablehnungsdateiname(quelle: string, jetzt: Date): string {
+  const ohneEndung = quelle.replace(/\.[^.]+$/, '');
+  const zwei = (wert: number): string => String(wert).padStart(2, '0');
+  const stempel =
+    `${jetzt.getFullYear()}${zwei(jetzt.getMonth() + 1)}${zwei(jetzt.getDate())}_` +
+    `${zwei(jetzt.getHours())}${zwei(jetzt.getMinutes())}${zwei(jetzt.getSeconds())}`;
+
+  const sauber = [...ohneEndung]
+    .map((zeichen) => (VERBOTEN.has(zeichen) || zeichen.charCodeAt(0) < 32 ? '_' : zeichen))
+    .join('')
+    .trim();
+
+  return `${sauber || 'Lieferung'}_gescheitert_${stempel}.csv`;
 }
 
 /**

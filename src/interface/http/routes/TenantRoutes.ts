@@ -1,9 +1,11 @@
 import type { UnikomApplication } from '../../../application/runtime/UnikomApplication.js';
 import type { Meldeeinstellungen, Postausgang } from '../../../domain/background/Postausgang.js';
 import {
+  AUSLIEFERUNGSARTEN,
   KUERZESTE_WIEDERVORLAGE,
   VERHALTEN_ALLGEMEIN,
   VORLAGEARTEN,
+  type Auslieferungsart,
   type Konfliktverhalten,
   type Vorlageart,
 } from '../../../domain/conflicts/Konfliktverhalten.js';
@@ -282,10 +284,20 @@ function konfliktverhaltenAus(wert: unknown): Konfliktverhalten | null | undefin
     throw new ApiError(400, `Die Wiedervorlage braucht mindestens ${KUERZESTE_WIEDERVORLAGE} Stunde`);
   }
 
+  const auslieferung = eintrag.auslieferung;
+
+  if (auslieferung !== undefined && !AUSLIEFERUNGSARTEN.includes(auslieferung as Auslieferungsart)) {
+    throw new ApiError(
+      400,
+      `Die Auslieferung muss ${AUSLIEFERUNGSARTEN.join(' oder ')} sein — nicht „${String(auslieferung)}"`
+    );
+  }
+
   return {
     vorlage: vorlage as Vorlageart | undefined,
     wiedervorlageStunden: stunden,
     akzeptierenErlaubt: typeof eintrag.akzeptierenErlaubt === 'boolean' ? eintrag.akzeptierenErlaubt : undefined,
+    auslieferung: auslieferung as Auslieferungsart | undefined,
   };
 }
 

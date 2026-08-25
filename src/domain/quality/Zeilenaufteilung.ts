@@ -66,24 +66,39 @@ export interface Aufteilung {
 export const GRUNDSPALTE = 'Unikom_Grund';
 
 /**
- * Ein freier Name für die Grundspalte.
+ * Die Spalte mit der Zeilennummer aus der Ursprungsdatei.
  *
- * Gäbe es in der Lieferung schon eine Spalte dieses Namens, überschriebe die
- * Ablehnungsdatei sie stillschweigend — und ausgerechnet in der Datei, die
- * jemand liest, um einen Fehler zu suchen, stünde dann ein falscher Wert.
+ * Ohne sie ist die Ablehnungsdatei eine Liste ohne Adresse: Wer die drei
+ * fehlerhaften Zeilen in seiner Lieferung korrigieren will, sucht sie in
+ * dreitausend anderen — und die Reihenfolge hilft ihm nicht, weil die guten
+ * Zeilen fehlen.
  */
-export function grundspalte(felder: Iterable<string>): string {
-  const genommen = new Set(felder);
+export const ZEILENSPALTE = 'Unikom_Zeile';
 
-  if (!genommen.has(GRUNDSPALTE)) {
-    return GRUNDSPALTE;
+/**
+ * Ein Name, den es in dieser Lieferung noch nicht gibt.
+ *
+ * Gäbe es die Spalte schon, überschriebe die Ablehnungsdatei sie
+ * stillschweigend — und ausgerechnet in der Datei, die jemand liest, um einen
+ * Fehler zu suchen, stünde dann ein falscher Wert.
+ */
+export function freierName(basis: string, genommen: Iterable<string>): string {
+  const belegt = new Set(genommen);
+
+  if (!belegt.has(basis)) {
+    return basis;
   }
 
   for (let nummer = 2; ; nummer += 1) {
-    if (!genommen.has(`${GRUNDSPALTE}_${nummer}`)) {
-      return `${GRUNDSPALTE}_${nummer}`;
+    if (!belegt.has(`${basis}_${nummer}`)) {
+      return `${basis}_${nummer}`;
     }
   }
+}
+
+/** Ein freier Name für die Grundspalte. */
+export function grundspalte(felder: Iterable<string>): string {
+  return freierName(GRUNDSPALTE, felder);
 }
 
 /**

@@ -113,12 +113,25 @@ export interface Tenant {
  */
 export type Vorlageart = 'EINMAL' | 'WIEDERVORLAGE' | 'BEI_JEDEM_OEFFNEN';
 
+/**
+ * Was mit einer Lieferung geschieht, in der Zeilen dem Schema nicht genügen.
+ *
+ * ```text
+ * NUR_VOLLSTAENDIG  eine Datei mit Fehlern wird gar nicht verarbeitet
+ * IN_TEILEN         die guten Zeilen laufen weiter, die schlechten
+ *                   wandern in eine eigene Datei nach „Gescheitert"
+ * ```
+ */
+export type Auslieferungsart = 'NUR_VOLLSTAENDIG' | 'IN_TEILEN';
+
 export interface Konfliktverhalten {
   vorlage?: Vorlageart;
   /** Nach wie vielen Stunden erneut — nur bei `WIEDERVORLAGE`. */
   wiedervorlageStunden?: number;
   /** Ob ein Fall hingenommen werden darf, statt entschieden zu werden. */
   akzeptierenErlaubt?: boolean;
+  /** Ob eine Lieferung mit fehlerhaften Zeilen geteilt werden darf. */
+  auslieferung?: Auslieferungsart;
 }
 
 /**

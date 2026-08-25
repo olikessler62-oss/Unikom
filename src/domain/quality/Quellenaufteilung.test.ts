@@ -3,7 +3,15 @@ import test from 'node:test';
 
 import type { Quelle } from '../consolidation/Quellen.js';
 import type { Qualitaetsregel } from './Regeln.js';
-import { befundzeilen, GENANNTE_ZEILEN, nummerVon, saetzeAus, teileQuelleAuf } from './Quellenaufteilung.js';
+import {
+  ablehnung,
+  befundzeilen,
+  GENANNTE_ZEILEN,
+  nummerVon,
+  quelleOhne,
+  saetzeAus,
+  teileQuelleAuf,
+} from './Quellenaufteilung.js';
 
 const OPTIONEN = { region: { locale: 'de-DE', timeZone: 'Europe/Berlin' } };
 
@@ -275,4 +283,79 @@ test('auch eine leere Quelle meldet fehlende Spalten', () => {
 
   assert.equal(zeilen.length, 1);
   assert.match(zeilen[0], /„Gibtsnicht"/);
+});
+
+/* ---------- Teilen ---------- */
+
+test('quelleOhne nimmt genau die genannten Zeilen heraus', () => {
+  const aufteilung = teileQuelleAuf(quelle(), [PFLICHT], OPTIONEN);
+  const uebrig = quelleOhne(quelle(), aufteilung.gescheitert);
+
+  assert.deepEqual(uebrig.zeilen, [
+    ['4711', 'Bonn'],
+    ['4713', 'Kiel'],
+  ]);
+  assert.deepEqual(uebrig.zeilenNummern, [1, 3]);
+});
+
+test('quelleOhne wählt über die Zeilennummer, nicht über die Stelle', () => {
+  /*
+   * Bei einer geteilten Quelle stünde sonst die falsche Zeile in der
+   * Ablehnungsdatei — und die richtige liefe weiter.
+   */
+  const geteilt = quelle({ zeilenNummern: [2001, 2002, 2003] });
+  const aufteilung = teileQuelleAuf(geteilt, [PFLICHT], OPTIONEN);
+  const uebrig = quelleOhne(geteilt, aufteilung.gescheitert);
+
+  assert.deepEqual(uebrig.zeilen, [
+    ['4711', 'Bonn'],
+    ['4713', 'Kiel'],
+  ]);
+  assert.deepEqual(uebrig.zeilenNummern, [2001, 2003]);
+});
+
+test('ohne Urteile bleibt die Quelle vollständig', () => {
+  assert.equal(quelleOhne(quelle(), []).zeilen.length, 3);
+});
+
+/* ---------- Die Ablehnungsdatei ---------- */
+
+test('die Ablehnungsdatei trägt Nummer, Grund und die Spalten der Lieferung', () => {
+  const aufteilung = teileQuelleAuf(quelle(), [PFLICHT], OPTIONEN);
+  const datei = ablehnung(quelle(), aufteilung.gescheitert);
+
+  assert.deepEqual(datei.felder, ['Unikom_Zeile', 'Unikom_Grund', 'Kundennummer', 'Ort']);
+  assert.equal(datei.zeilen.length, 1);
+  assert.equal(datei.zeilen[0][0], '2');
+  assert.match(datei.zeilen[0][1], /„Kundennummer" ist leer/);
+  assert.deepEqual(datei.zeilen[0].slice(2), ['', 'Köln']);
+});
+
+test('wer die Datei korrigiert, kann sie zurückgeben', () => {
+  // Die Fachspalten stehen unverändert darin — kein Umbau nötig.
+  const geteilt = quelle({ zeilenNummern: [2001, 2002, 2003] });
+  const datei = ablehnung(geteilt, teileQuelleAuf(geteilt, [PFLICHT], OPTIONEN).gescheitert);
+
+  assert.equal(datei.zeilen[0][0], '2002', 'die Nummer ist die der Lieferung');
+});
+
+test('heißt eine Spalte schon so, weicht die eigene aus', () => {
+  /*
+   * Sonst überschriebe die Ablehnungsdatei eine echte Spalte — ausgerechnet in
+   * der Datei, die jemand liest, um einen Fehler zu suchen.
+   */
+  const eigen = quelle({ felder: ['Unikom_Zeile', 'Unikom_Grund'], zeilen: [['a', 'b']] });
+  const datei = ablehnung(eigen, [
+    { zeile: 1, satz: new Map([['Unikom_Zeile', 'a'], ['Unikom_Grund', 'b']]), ausgang: 'GESCHEITERT', gruende: ['x'], befunde: [] },
+  ]);
+
+  assert.deepEqual(datei.felder, ['Unikom_Zeile_2', 'Unikom_Grund_2', 'Unikom_Zeile', 'Unikom_Grund']);
+  assert.deepEqual(datei.zeilen[0], ['1', 'x', 'a', 'b']);
+});
+
+test('ohne herausgenommene Zeilen bleibt die Datei leer', () => {
+  const datei = ablehnung(quelle(), []);
+
+  assert.equal(datei.zeilen.length, 0);
+  assert.equal(datei.felder.length, 4, 'die Spalten stehen trotzdem fest');
 });
