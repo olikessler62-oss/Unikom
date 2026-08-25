@@ -207,100 +207,133 @@ export function TenantsScreen({ canManage }: Props) {
       {error && <Notice kind="error">{error}</Notice>}
 
       {draft ? (
-        <section className="card">
-          <h2>{draft.id ? 'Mandant bearbeiten' : 'Neuer Mandant'}</h2>
+        <>
+          {/*
+            * Zwei Flächen und nicht eine: oben, wer der Mandant ist — unten,
+            * wie er eingestellt ist.
+            *
+            * Name, Beschreibung und Region trägt jeder Mandant, und sie sind
+            * beim Anlegen in einer Minute ausgefüllt. Alles darunter ist
+            * Einstellung: Sie hat eine Voreinstellung, sie wird selten
+            * geändert, und wer einen Mandanten nur umbenennen will, soll
+            * nicht daran vorbeiscrollen müssen.
+            *
+            * Das Root-Verzeichnis steht unten an erster Stelle. Es beschreibt
+            * nicht den Kunden, sondern begrenzt ihn — und es ist die
+            * folgenreichste Angabe der ganzen Fläche.
+            */}
+          <section className="card">
+            <h2>{draft.id ? 'Mandant bearbeiten' : 'Neuer Mandant'}</h2>
 
-          <Field label="Mandanten-Name">
-            <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} autoFocus />
-          </Field>
+            <div className="field-paar field-paar--zeichen field-paar--namen">
+              <Field label="Mandanten-Name">
+                <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} autoFocus />
+              </Field>
 
-          <Field label="Mandanten-Beschreibung">
-            <input
-              value={draft.description}
-              onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-            />
-          </Field>
-
-          <Field label="Root-Verzeichnis">
-            <div className="field__row">
-              <input
-                value={draft.rootDirectory}
-                placeholder="D:\Daten\Kunde A"
-                onChange={(event) => setDraft({ ...draft, rootDirectory: event.target.value })}
-              />
-              <InfoButton label="Wozu dient das Root-Verzeichnis?" onClick={() => setExplaining(true)} />
+              <Field label="Mandanten-Beschreibung">
+                <input
+                  value={draft.description}
+                  onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                />
+              </Field>
             </div>
-          </Field>
+
+            {/*
+              * Die Region entscheidet, wie Datums- und Zeitangaben dieses
+              * Mandanten gelesen werden. Sie steht hier und nicht in den
+              * Einstellungen: Ein Dienstleister holt Daten für mehrere eigene
+              * Kunden, und `04/03/2026` ist beim einen der 4. März und beim
+              * anderen der 3. April — beide Lesarten gelingen, keine meldet einen
+              * Fehler.
+              *
+              * Die Zeitzone steht daneben, weil sie dieselbe Frage
+              * weiterbeantwortet: Beide zusammen sagen, wie ein Zeitpunkt aus
+              * diesem Haus zu lesen ist.
+              */}
+            <div className="field-paar field-paar--zeichen">
+              <Field
+                label="Region"
+                explain={`So schreibt dieser Mandant den 3. April 2026: ${previewOf(draft.locale, draft.timeZone).sample} — ${previewOf(draft.locale, draft.timeZone).order}.`}
+              >
+                <select value={draft.locale} onChange={(event) => setDraft({ ...draft, locale: event.target.value })}>
+                  {/* Was am Mandanten steht, bleibt wählbar — auch wenn es nicht in der Liste steht. */}
+                  {!LOCALES.some((eintrag) => eintrag.value === draft.locale) && (
+                    <option value={draft.locale}>{draft.locale}</option>
+                  )}
+                  {LOCALES.map((eintrag) => (
+                    <option key={eintrag.value} value={eintrag.value}>
+                      {eintrag.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Zeitzone" explain="Für Zeitangaben ohne eigene Zeitzone. Sommer- und Winterzeit stecken darin.">
+                <select value={draft.timeZone} onChange={(event) => setDraft({ ...draft, timeZone: event.target.value })}>
+                  {!timeZones().includes(draft.timeZone) && <option value={draft.timeZone}>{draft.timeZone}</option>}
+                  {timeZones().map((zone) => (
+                    <option key={zone} value={zone}>
+                      {zone}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          </section>
+
+          <section className="card">
+            <h2>Einstellungen</h2>
+
+            <Field label="Root-Verzeichnis">
+              <div className="field__row">
+                <input
+                  value={draft.rootDirectory}
+                  placeholder="D:\Daten\Kunde A"
+                  onChange={(event) => setDraft({ ...draft, rootDirectory: event.target.value })}
+                />
+                <InfoButton label="Wozu dient das Root-Verzeichnis?" onClick={() => setExplaining(true)} />
+              </div>
+            </Field>
+
+            <Konsolidierungseinstellungen
+              draft={draft}
+              voreinstellungen={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.voreinstellungen}
+              onChange={setDraft}
+            />
+
+            <Field
+              label="Ausleitungen aufbewahren (Tage)"
+              explain="Konflikt- und Konfliktzieldateien. Leer heißt 30 Tage; 0 heißt: nie forträumen. Fälle, Entscheidungen und Historie bleiben immer."
+            >
+              <input
+                type="number"
+                min={0}
+                value={draft.ausleitungenTage}
+                placeholder="30"
+                onChange={(event) => setDraft({ ...draft, ausleitungenTage: event.target.value })}
+              />
+            </Field>
+
+            <Konfliktumgang
+              draft={draft}
+              voreinstellung={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.konflikteVoreinstellung}
+              onChange={setDraft}
+            />
+
+            <Meldewege draft={draft} credentials={credentials.data ?? []} onChange={setDraft} />
+
+            <CheckField
+              label="Mandant ist aktiv"
+              checked={draft.enabled}
+              onChange={(enabled) => setDraft({ ...draft, enabled })}
+            />
+          </section>
 
           {/*
-            * Die Region entscheidet, wie Datums- und Zeitangaben dieses
-            * Mandanten gelesen werden. Sie steht hier und nicht in den
-            * Einstellungen: Ein Dienstleister holt Daten für mehrere eigene
-            * Kunden, und `04/03/2026` ist beim einen der 4. März und beim
-            * anderen der 3. April — beide Lesarten gelingen, keine meldet einen
-            * Fehler.
+            * Die Knöpfe stehen unter beiden Flächen und in keiner: Sie
+            * speichern den ganzen Mandanten. In einer der beiden Karten
+            * sähen sie aus, als träfen sie nur deren Angaben.
             */}
-          <Field
-            label="Region"
-            explain={`So schreibt dieser Mandant den 3. April 2026: ${previewOf(draft.locale, draft.timeZone).sample} — ${previewOf(draft.locale, draft.timeZone).order}.`}
-          >
-            <select value={draft.locale} onChange={(event) => setDraft({ ...draft, locale: event.target.value })}>
-              {/* Was am Mandanten steht, bleibt wählbar — auch wenn es nicht in der Liste steht. */}
-              {!LOCALES.some((eintrag) => eintrag.value === draft.locale) && (
-                <option value={draft.locale}>{draft.locale}</option>
-              )}
-              {LOCALES.map((eintrag) => (
-                <option key={eintrag.value} value={eintrag.value}>
-                  {eintrag.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Zeitzone" explain="Für Zeitangaben ohne eigene Zeitzone. Sommer- und Winterzeit stecken darin.">
-            <select value={draft.timeZone} onChange={(event) => setDraft({ ...draft, timeZone: event.target.value })}>
-              {!timeZones().includes(draft.timeZone) && <option value={draft.timeZone}>{draft.timeZone}</option>}
-              {timeZones().map((zone) => (
-                <option key={zone} value={zone}>
-                  {zone}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Konsolidierungseinstellungen
-            draft={draft}
-            voreinstellungen={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.voreinstellungen}
-            onChange={setDraft}
-          />
-
-          <Field
-            label="Ausleitungen aufbewahren (Tage)"
-            explain="Konflikt- und Konfliktzieldateien. Leer heißt 30 Tage; 0 heißt: nie forträumen. Fälle, Entscheidungen und Historie bleiben immer."
-          >
-            <input
-              type="number"
-              min={0}
-              value={draft.ausleitungenTage}
-              placeholder="30"
-              onChange={(event) => setDraft({ ...draft, ausleitungenTage: event.target.value })}
-            />
-          </Field>
-
-          <Konfliktumgang
-            draft={draft}
-            voreinstellung={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.konflikteVoreinstellung}
-            onChange={setDraft}
-          />
-
-          <Meldewege draft={draft} credentials={credentials.data ?? []} onChange={setDraft} />
-
-          <CheckField
-            label="Mandant ist aktiv"
-            checked={draft.enabled}
-            onChange={(enabled) => setDraft({ ...draft, enabled })}
-          />
-
           <div className="row">
             <button disabled={saving || !draft.name} onClick={() => void save()}>
               {saving ? 'Wird gespeichert …' : 'Speichern'}
@@ -309,85 +342,98 @@ export function TenantsScreen({ canManage }: Props) {
               Abbrechen
             </button>
           </div>
-        </section>
+        </>
       ) : (
-        canManage && (
-          <div className="row">
-            <button onClick={() => setDraft(EMPTY)}>Neuer Mandant</button>
-          </div>
-        )
-      )}
+        /*
+         * Entweder bearbeiten oder aussuchen — nicht beides.
+         *
+         * Die Liste stand vorher auch unter dem geöffneten Formular. Wer
+         * einen Mandanten bearbeitete, sah darunter denselben Mandanten noch
+         * einmal in einer Zeile, mit einem Knopf „Bearbeiten" daneben — und
+         * musste raten, ob das dasselbe ist, was er gerade tut.
+         *
+         * Geöffnet ist das Formular deshalb die ganze Fläche. Es endet mit
+         * Speichern oder Abbrechen, und danach ist die Liste wieder da.
+         */
+        <>
+          {canManage && (
+            <div className="row">
+              <button onClick={() => setDraft(EMPTY)}>Neuer Mandant</button>
+            </div>
+          )}
 
-      {tenants.data.length === 0 ? (
-        <Empty>Es ist kein Mandant angelegt.</Empty>
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Mandant</th>
-                <th>Root-Verzeichnis</th>
-                <th className="numeric">Jobs</th>
-                <th>Status</th>
-                {canManage && <th />}
-              </tr>
-            </thead>
-            <tbody>
-              {tenants.data.map((tenant) => (
-                <tr key={tenant.id}>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{tenant.name}</div>
-                    {tenant.description && <div className="muted">{tenant.description}</div>}
-                  </td>
-                  <td className="muted">
-                    {tenant.rootDirectory ?? <span className="badge badge--muted">nicht eingegrenzt</span>}
-                  </td>
-                  <td className="numeric">{tenant.jobCount ?? 0}</td>
-                  <td>
-                    {tenant.enabled ? (
-                      <span className="badge badge--good">Aktiv</span>
-                    ) : (
-                      <span className="badge badge--muted">Ruht</span>
-                    )}
-                  </td>
-                  {canManage && (
-                    <td>
-                      <div className="row" style={{ justifyContent: 'flex-end' }}>
-                        <button
-                          className="secondary"
-                          onClick={() =>
-                            setDraft({
-                              id: tenant.id,
-                              name: tenant.name,
-                              description: tenant.description ?? '',
-                              rootDirectory: tenant.rootDirectory ?? '',
-                              // Der Server schickt auch die Voreinstellung mit:
-                              // Was gilt, soll dastehen und nicht erschlossen
-                              // werden müssen.
-                              locale: tenant.region?.locale ?? EMPTY.locale,
-                              timeZone: tenant.region?.timeZone ?? EMPTY.timeZone,
-                              enabled: tenant.enabled,
-                              ausleitungenTage:
-                                tenant.ausleitungenTage === undefined ? '' : String(tenant.ausleitungenTage),
-                              ...konflikteAus(tenant),
-                              ...meldewegeAus(tenant),
-                              ...einstellungenAus(tenant),
-                            })
-                          }
-                        >
-                          Bearbeiten
-                        </button>
-                        <button className="secondary" onClick={() => void remove(tenant)}>
-                          Löschen
-                        </button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          {tenants.data.length === 0 ? (
+            <Empty>Es ist kein Mandant angelegt.</Empty>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mandant</th>
+                    <th>Root-Verzeichnis</th>
+                    <th className="numeric">Jobs</th>
+                    <th>Status</th>
+                    {canManage && <th />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenants.data.map((tenant) => (
+                    <tr key={tenant.id}>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{tenant.name}</div>
+                        {tenant.description && <div className="muted">{tenant.description}</div>}
+                      </td>
+                      <td className="muted">
+                        {tenant.rootDirectory ?? <span className="badge badge--muted">nicht eingegrenzt</span>}
+                      </td>
+                      <td className="numeric">{tenant.jobCount ?? 0}</td>
+                      <td>
+                        {tenant.enabled ? (
+                          <span className="badge badge--good">Aktiv</span>
+                        ) : (
+                          <span className="badge badge--muted">Ruht</span>
+                        )}
+                      </td>
+                      {canManage && (
+                        <td>
+                          <div className="row" style={{ justifyContent: 'flex-end' }}>
+                            <button
+                              className="secondary"
+                              onClick={() =>
+                                setDraft({
+                                  id: tenant.id,
+                                  name: tenant.name,
+                                  description: tenant.description ?? '',
+                                  rootDirectory: tenant.rootDirectory ?? '',
+                                  // Der Server schickt auch die Voreinstellung mit:
+                                  // Was gilt, soll dastehen und nicht erschlossen
+                                  // werden müssen.
+                                  locale: tenant.region?.locale ?? EMPTY.locale,
+                                  timeZone: tenant.region?.timeZone ?? EMPTY.timeZone,
+                                  enabled: tenant.enabled,
+                                  ausleitungenTage:
+                                    tenant.ausleitungenTage === undefined ? '' : String(tenant.ausleitungenTage),
+                                  ...konflikteAus(tenant),
+                                  ...meldewegeAus(tenant),
+                                  ...einstellungenAus(tenant),
+                                })
+                              }
+                            >
+                              Bearbeiten
+                            </button>
+                            <button className="secondary" onClick={() => void remove(tenant)}>
+                              Löschen
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </>
   );
@@ -401,10 +447,16 @@ export function TenantsScreen({ canManage }: Props) {
  * stolpern, bis er ihn entschieden hat; der nächste arbeitet eine Liste ab und
  * will dabei nicht alle zehn Minuten ein Fenster wegklicken.
  *
- * Die Frist steht auch dann da, wenn sie gerade nicht gilt — abgeblendet und
- * nicht fort. Ein Feld, das beim Umschalten verschwindet, verschiebt alles
- * darunter, und wer die Wiedervorlage sucht, findet sie erst nach dem dritten
- * Versuch.
+ * Die Frist steht **neben** der Vorlage und nur dort, wo sie gilt.
+ *
+ * Untereinander wäre das Verschwinden eine Zumutung: Alles darunter rückte bei
+ * jedem Umschalten eine Zeile hoch und wieder herunter. In derselben Zeile
+ * rückt nichts — die rechte Hälfte wird leer, mehr geschieht nicht.
+ *
+ * Und abgeblendet stehen zu bleiben war die schlechtere Wahl: Ein Feld, das
+ * bei zwei von drei Einstellungen nichts bewirkt, ist zwei von drei Malen eine
+ * Frage, die niemand beantworten soll. Der eingetippte Wert bleibt trotzdem
+ * erhalten — wer zurückschaltet, findet ihn wieder.
  */
 function Konfliktumgang({
   draft,
@@ -419,49 +471,53 @@ function Konfliktumgang({
     <>
       <h3>Offene Konflikte</h3>
 
-      <Field
-        label="Vorlage"
-        explain={
-          <>
-            <p>
-              Ein Konflikt entsteht um zwei Uhr nachts, und niemand sitzt davor. Was dann geschieht, steht hier.
-            </p>
-            <p>
-              <strong>Einmal</strong> zeigt ihn einmal; danach steht er nur noch in der Glocke.{' '}
-              <strong>Wiedervorlage</strong> zeigt ihn nach Ablauf der Frist erneut.{' '}
-              <strong>Bei jedem Öffnen</strong> zeigt ihn bei jedem Wechsel der Ansicht, bis er entschieden ist.
-            </p>
-            <p>
-              Ein Fenster, das immer kommt, wird nach der dritten Woche weggeklickt, ohne gelesen zu werden.
-              Deshalb ist die Wiedervorlage voreingestellt — und nicht das lauteste.
-            </p>
-          </>
-        }
-      >
-        <select
-          className="input--wahl"
-          value={draft.konfliktVorlage}
-          onChange={(event) => onChange({ ...draft, konfliktVorlage: event.target.value as Vorlageart })}
+      <div className="field-paar">
+        <Field
+          label="Vorlage"
+          explain={
+            <>
+              <p>
+                Ein Konflikt entsteht um zwei Uhr nachts, und niemand sitzt davor. Was dann geschieht, steht hier.
+              </p>
+              <p>
+                <strong>Einmal</strong> zeigt ihn einmal; danach steht er nur noch in der Glocke.{' '}
+                <strong>Wiedervorlage</strong> zeigt ihn nach Ablauf der Frist erneut.{' '}
+                <strong>Bei jedem Öffnen</strong> zeigt ihn bei jedem Wechsel der Ansicht, bis er entschieden ist.
+              </p>
+              <p>
+                Ein Fenster, das immer kommt, wird nach der dritten Woche weggeklickt, ohne gelesen zu werden.
+                Deshalb ist die Wiedervorlage voreingestellt — und nicht das lauteste.
+              </p>
+            </>
+          }
         >
-          <option value="EINMAL">Einmal zeigen</option>
-          <option value="WIEDERVORLAGE">Wiedervorlage nach Frist</option>
-          <option value="BEI_JEDEM_OEFFNEN">Bei jedem Öffnen zeigen</option>
-        </select>
-      </Field>
+          <select
+            className="input--wahl"
+            value={draft.konfliktVorlage}
+            onChange={(event) => onChange({ ...draft, konfliktVorlage: event.target.value as Vorlageart })}
+          >
+            <option value="EINMAL">Einmal zeigen</option>
+            <option value="WIEDERVORLAGE">Wiedervorlage nach Frist</option>
+            <option value="BEI_JEDEM_OEFFNEN">Bei jedem Öffnen zeigen</option>
+          </select>
+        </Field>
 
-      <Field
-        label="Wiedervorlage nach (Stunden)"
-        explain="Wie lange Ruhe ist, nachdem ein Fall jemandem gezeigt wurde. Leer heißt: Voreinstellung. Gilt nur bei der Wiedervorlage."
-      >
-        <input
-          type="number"
-          min={1}
-          disabled={draft.konfliktVorlage !== 'WIEDERVORLAGE'}
-          value={draft.wiedervorlageStunden}
-          placeholder={String(voreinstellung?.wiedervorlageStunden ?? 24)}
-          onChange={(event) => onChange({ ...draft, wiedervorlageStunden: event.target.value })}
-        />
-      </Field>
+        {/* Nur, wo sie etwas bewirkt — die Zeile bleibt, die Hälfte wird leer. */}
+        {draft.konfliktVorlage === 'WIEDERVORLAGE' && (
+          <Field
+            label="Wiedervorlage nach (Stunden)"
+            explain="Wie lange Ruhe ist, nachdem ein Fall jemandem gezeigt wurde. Leer heißt: Voreinstellung."
+          >
+            <input
+              type="number"
+              min={1}
+              value={draft.wiedervorlageStunden}
+              placeholder={String(voreinstellung?.wiedervorlageStunden ?? 24)}
+              onChange={(event) => onChange({ ...draft, wiedervorlageStunden: event.target.value })}
+            />
+          </Field>
+        )}
+      </div>
 
       <CheckField
         label="Konflikte dürfen hingenommen werden"
@@ -701,27 +757,35 @@ function Konsolidierungseinstellungen({
         />
       </Field>
 
-      <Field
-        label="Stichprobe je Feld"
-        explain="Wie viele Werte geprüft werden, um den Typ eines Feldes zu bestimmen."
-      >
-        <input
-          value={draft.stichprobe}
-          placeholder={String(voreinstellungen?.stichprobe ?? '')}
-          onChange={(event) => onChange({ ...draft, stichprobe: event.target.value })}
-        />
-      </Field>
+      {/*
+        * Beide Angaben in einer Zeile: Die eine sagt, wie viele Werte geprüft
+        * werden — die andere, worauf erweitert wird, wenn das nicht reicht. Erst
+        * zusammen ergeben sie eine Aussage, und untereinander lasen sie sich wie
+        * zwei unabhängige Zahlen.
+        */}
+      <div className="field-paar">
+        <Field
+          label="Stichprobe je Feld"
+          explain="Wie viele Werte geprüft werden, um den Typ eines Feldes zu bestimmen."
+        >
+          <input
+            value={draft.stichprobe}
+            placeholder={String(voreinstellungen?.stichprobe ?? '')}
+            onChange={(event) => onChange({ ...draft, stichprobe: event.target.value })}
+          />
+        </Field>
 
-      <Field
-        label="Obergrenze der Stichprobe"
-        explain="Worauf erweitert wird, wenn die Stichprobe für ein sicheres Urteil nicht reicht."
-      >
-        <input
-          value={draft.stichprobeGrenze}
-          placeholder={String(voreinstellungen?.stichprobeGrenze ?? '')}
-          onChange={(event) => onChange({ ...draft, stichprobeGrenze: event.target.value })}
-        />
-      </Field>
+        <Field
+          label="Obergrenze der Stichprobe"
+          explain="Worauf erweitert wird, wenn die Stichprobe für ein sicheres Urteil nicht reicht."
+        >
+          <input
+            value={draft.stichprobeGrenze}
+            placeholder={String(voreinstellungen?.stichprobeGrenze ?? '')}
+            onChange={(event) => onChange({ ...draft, stichprobeGrenze: event.target.value })}
+          />
+        </Field>
+      </div>
 
       <Field
         label="Mindestkonfidenz"

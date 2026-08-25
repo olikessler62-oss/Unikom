@@ -807,7 +807,7 @@ code {
   border: 1px solid var(--rule);
   border-radius: var(--radius);
   padding: var(--karte-luft-y) var(--karte-luft-x);
-  margin-bottom: 1rem;
+  margin-bottom: var(--flaechen-luecke);
   background: linear-gradient(168deg, var(--g-3) 0%, var(--g-2) 55%, var(--g-1) 100%);
   box-shadow: 0 22px 55px -34px rgba(var(--shade), 0.95), inset 0 1px 0 rgba(var(--sheen), 0.05);
   transition: border-color 220ms ease, box-shadow 220ms ease;
@@ -1147,8 +1147,29 @@ code {
  * Zehntel eines Pixels sieht niemand einzeln — untereinander in einer Fläche
  * sieht man, dass etwas nicht stimmt, ohne sagen zu können, was.
  */
+/*
+ * Wie breit ein Feld ist.
+ *
+ * Als Marke aus demselben Grund wie die Lücke darüber: Das Maß stand an zwei
+ * Stellen als Zahl — am Feld und an der Prüfantwort darunter, die genau so
+ * breit sein soll. Wer eine ändert und die andere vergisst, bekommt eine
+ * Antwort, die unter ihrem Feld umbricht, obwohl rechts Platz frei bleibt.
+ */
+/*
+ * Was ein Feld links und rechts an Luft und Rahmen verbraucht.
+ *
+ * Gebraucht, wo eine Breite nach **Zeichen** bemessen wird: Ein Feld für
+ * dreißig Zeichen ist dreißig Zeichen breit plus das hier. Ohne Marke stünde
+ * der Innenabstand an zwei Stellen — einmal als Polsterung, einmal in der
+ * Rechnung —, und wer die eine ändert, bekäme Felder, die ihre angekündigte
+ * Zeichenzahl nicht mehr fassen.
+ */
 :root {
   --feld-luecke: 0.55rem;
+  --feld-breite: 640px;
+  --flaechen-luecke: 1rem;
+  --feld-luft-x: 0.8rem;
+  --feld-innen: calc(2 * var(--feld-luft-x) + 2px);
 }
 
 .stack {
@@ -1713,7 +1734,7 @@ input,
 select,
 textarea {
   width: 100%;
-  padding: 0.6rem 0.8rem;
+  padding: 0.6rem var(--feld-luft-x);
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-small);
   font: inherit;
@@ -1977,7 +1998,105 @@ option:checked {
 
 .field {
   margin-bottom: 1.2rem;
-  max-width: 640px;
+  max-width: var(--feld-breite);
+}
+
+/*
+ * Zwei Felder in einer Zeile — zusammen so breit wie eines.
+ *
+ * Für Angaben, die zusammengehören und beide kurz sind: „Stichprobe je Feld"
+ * und „Obergrenze der Stichprobe" sagen erst gemeinsam etwas. Untereinander
+ * lasen sie sich wie zwei unabhängige Zahlen, und jede nahm die volle Breite
+ * für drei Ziffern.
+ *
+ * Die Breite wird nicht nachgerechnet, sondern geteilt: Die Zeile ist so breit
+ * wie ein Feld, beide Hälften wachsen gleich. Damit endet das rechte
+ * Eingabefeld genau dort, wo das eines einzelnen Feldes endet — und der
+ * Info-Knopf daneben ebenso. Ein ausgerechneter Wert wäre nach der ersten
+ * Änderung an der Lücke oder am Knopf um ein paar Pixel daneben.
+ *
+ * `flex-basis` und nicht `0`: Wird die Fläche schmal, bricht die Zeile um,
+ * statt zwei Felder auf Daumenbreite zu quetschen.
+ */
+.field-paar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--feld-luecke);
+  max-width: var(--feld-breite);
+}
+
+.field-paar > .field {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+/*
+ * Im Paar füllt auch ein Zahlenfeld seine Hälfte.
+ *
+ * Sonst gilt für Zahlenfelder das Gegenteil: Sie sind so breit, wie eine Zahl
+ * lang ist, damit nicht 640 Pixel auf ein Zeichen kommen und der Erklärknopf
+ * am anderen Ende der Zeile steht. In einem Paar trägt das nicht — dort ist
+ * die halbe Zeile ohnehin kurz, und die Kante der rechten Hälfte ist genau
+ * das, was das Paar mit der Spalte darüber verbindet. Bliebe das Feld schmal,
+ * stünde es mitten in seiner Hälfte und der Knopf irgendwo dahinter.
+ *
+ * Comboboxen bleiben ausgenommen: Sie messen sich an ihrem längsten Eintrag,
+ * und eine gedehnte Combobox sagt über ihren Inhalt etwas Falsches.
+ *
+ * Mit der Breite fällt auch die rechtsbündige Zahl. Sonst stehen Zahlen rechts,
+ * weil sie an der Einerstelle verglichen werden — Zehner über Zehnern. In einem
+ * Paar steht darunter aber nichts, womit sich vergleichen ließe: Die Zahl wäre
+ * nur eine halbe Zeile von ihrer Beschriftung weggerückt, und wer tippt, sucht
+ * die Schreibmarke am anderen Ende des Feldes.
+ */
+.field-paar .field__row > input[type='number'] {
+  flex: 1;
+  text-align: left;
+}
+
+/*
+ * Ein Paar, das nach Zeichen bemessen ist — nicht nach der Spaltenbreite.
+ *
+ * Ein Name ist kein Aufsatz. Ihm 640 Pixel zu geben, weil das Feld darunter sie
+ * braucht, heißt dem Benutzer etwas über die erwartete Länge zu sagen, das
+ * nicht stimmt. Die Breite kommt deshalb aus der Zeichenzahl: dreißig links,
+ * fünfzig rechts, zusammen achtzig.
+ *
+ * `ch` ist die Breite der Ziffer Null — gemessen in der Schrift dieser Zeile,
+ * und die ist dieselbe, die auch im Feld steht. In einer proportionalen Schrift
+ * ist die Null breiter als der Durchschnittsbuchstabe, achtzig `ch` fassen also
+ * eher mehr als achtzig Zeichen. Großzügig ist hier die richtige Richtung: Ein
+ * Feld, in das die angekündigten dreißig Zeichen knapp nicht passen, wäre eine
+ * gebrochene Zusage; eines, das ein wenig übersteht, fällt niemandem auf.
+ *
+ * Beide Zeilen tragen dieselbe Breite und enden damit bündig — auch die, deren
+ * Hälften gleich groß sind.
+ */
+.field-paar--zeichen {
+  flex-wrap: nowrap;
+  max-width: calc(80ch + 2 * var(--feld-innen) + var(--feld-luecke));
+}
+
+/*
+ * `flex-basis: 0`, damit das Verhältnis das Verhältnis bleibt.
+ *
+ * Mit einer Basis größer als null teilt sich nur der **Rest** im Verhältnis,
+ * und aus 3 zu 5 würde bei enger Fläche 45 zu 55. Aus demselben Grund bricht
+ * diese Zeile nicht um: Zwei Felder, die zusammen schmaler werden, bleiben
+ * lesbar — eines, das allein auf voller Breite darunter rutscht, sieht aus wie
+ * ein Versehen.
+ */
+.field-paar--zeichen > .field {
+  flex: 1 1 0;
+}
+
+/* Der Name fällt kürzer aus als die Beschreibung: dreißig Zeichen zu fünfzig. */
+.field-paar--namen > .field:first-child {
+  flex-grow: 3;
+}
+
+.field-paar--namen > .field:last-child {
+  flex-grow: 5;
 }
 
 /*
@@ -2490,7 +2609,7 @@ svg.icon--strich {
  */
 .verdict {
   margin: 0.75rem 0 1.2rem;
-  max-width: 640px;
+  max-width: var(--feld-breite);
   font-size: 0.88rem;
   line-height: 1.5;
   color: var(--text-soft);
@@ -3633,6 +3752,26 @@ button.secondary::after {
  */
 .card .row:not(:has(.field)) {
   margin-bottom: 1.2rem;
+}
+
+/*
+ * Eine Knopfzeile **zwischen** zwei Flächen hält den Abstand der Flächen.
+ *
+ * Die Regel darüber gilt innerhalb einer Karte. Steht die Zeile dagegen
+ * zwischen zwei Flächen — die Knöpfe eines Formulars, „Neuer Mandant" über
+ * einer Liste —, brachte sie gar keinen Abstand mit: Oben die Lücke der Karte,
+ * unten nichts, und die Knöpfe klebten an dem, was folgte.
+ *
+ * An den Nachbarn festgemacht und nicht an einer Klasse: Wer die nächste solche
+ * Zeile baut, soll nicht erst herausfinden müssen, dass es dafür einen Namen
+ * gibt. Von beiden Seiten, weil eine Zeile mal unter einer Fläche steht und mal
+ * über einer — und in einer Tabellenzelle unter keiner von beiden, wo ein
+ * Abstand die Zelle auseinanderzöge.
+ */
+.card + .row,
+.row:has(+ .card),
+.row:has(+ .table-wrap) {
+  margin-bottom: var(--flaechen-luecke);
 }
 
 /*
