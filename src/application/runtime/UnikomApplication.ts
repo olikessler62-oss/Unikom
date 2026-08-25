@@ -493,6 +493,10 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
         freigaben: shares,
         freigabezugang: shareAccess,
         referenzen: referenzquellen,
+        // Damit ein Durchgang, der ein Schema nennt, dessen Regeln auch
+        // anwendet. Ohne diese Zeile stünde die Prüfung auf dem Bildschirm
+        // und fände nicht statt.
+        profile: wiring.profilRepository,
         blockweise,
         background: backgroundService,
         logger,

@@ -12,6 +12,8 @@ import {
   InMemoryHeartbeatRepository,
   InMemoryNotificationRepository,
 } from '../../infrastructure/persistence/InMemoryBackgroundRepository.js';
+import { fortschreiben, neuesProfil } from '../../domain/consolidation/Profil.js';
+import { InMemoryProfilRepository } from '../../infrastructure/persistence/InMemoryProfilRepository.js';
 import { InMemoryConflictRepository } from '../../infrastructure/persistence/InMemoryConflictRepository.js';
 import { InMemoryResultRepository } from '../../infrastructure/persistence/InMemoryResultRepository.js';
 import { InMemoryTenantRepository } from '../../infrastructure/persistence/InMemoryTenantRepository.js';
@@ -134,6 +136,9 @@ interface Werkbank {
   meldungen: InMemoryNotificationRepository;
   ergebnisse: InMemoryResultRepository;
   konflikte: InMemoryConflictRepository;
+  profile: InMemoryProfilRepository;
+  /** Was der Lauf ins Protokoll geschrieben hat — in der Reihenfolge. */
+  protokoll: string[];
 }
 
 function werkbank(features: FeatureSet = ALLES): Werkbank {
@@ -141,13 +146,19 @@ function werkbank(features: FeatureSet = ALLES): Werkbank {
   const meldungen = new InMemoryNotificationRepository();
   const ergebnisse = new InMemoryResultRepository();
   const konflikte = new InMemoryConflictRepository();
+  const profile = new InMemoryProfilRepository();
+  const protokoll: string[] = [];
 
   return {
     ablage,
     meldungen,
     ergebnisse,
     konflikte,
+    profile,
+    protokoll,
     umgebung: {
+      profile,
+      logger: { log: (eintrag) => protokoll.push(eintrag.message) },
       consolidation: new ConsolidationService(),
       conflicts: new ConflictService(konflikte),
       results: new ResultService(ergebnisse),
@@ -695,6 +706,203 @@ test('eine einzelne unlesbare Datei macht die übrigen nicht wertlos', async () 
 
   assert.equal(ergebnis.status, TransferRunStatus.SUCCESS);
   assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 2);
+});
+
+/* ---------- Das Schema des Mandanten ---------- */
+
+/** Ein Schema, das die Kundennummer verlangt. */
+function legeSchemaAn(bank: Werkbank, schwere: 'FEHLER' | 'KONFLIKT' = 'FEHLER'): Promise<unknown> {
+  return bank.profile.save(
+    neuesProfil({
+      id: 'p1',
+      tenantId: 'default',
+      name: 'Kundenliste',
+      vorgabe: {
+        verbindlichkeit: 'HINWEIS',
+        columns: 2,
+        spalten: [
+          { position: 1, name: 'kdnr', type: 'STRING' },
+          { position: 2, name: 'ort', type: 'STRING' },
+        ],
+      },
+      regeln: [
+        {
+          id: 'kdnr-pflicht',
+          name: 'Kundennummer darf nicht leer sein',
+          feld: 'kdnr',
+          pruefung: { art: 'PFLICHT' },
+          schwere,
+        },
+      ],
+    })
+  );
+}
+
+function schemajob(bei?: 'WARNEN' | 'ABBRECHEN'): TransferJob {
+  return job({
+    consolidation: {
+      enabled: true,
+      input: { from: 'DIRECTORY', directory: '/eingang' },
+      regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+      schema: { profil: 'p1', bei },
+    },
+  });
+}
+
+test('ohne Schema wird nichts geprüft — und nichts behauptet', async () => {
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(job());
+
+  assert.ok(!bank.protokoll.some((zeile) => /Schema/.test(zeile)), bank.protokoll.join(' | '));
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 1);
+});
+
+test('eine Zeile, die gegen das Schema verstößt, hält die Datei auf', async () => {
+  /*
+   * Zeilenweise aufgeteilt wird noch nicht — die Ablehnungsdatei gibt es
+   * nicht. Bis dahin entscheidet die Prüfung über die Datei, so wie es die
+   * alte Schemaprüfung auch tat. Verloren geht dabei nichts.
+   */
+  const bank = werkbank();
+
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.equal((await bank.ergebnisse.list('default')).length, 0);
+  assert.ok(
+    bank.protokoll.some((zeile) => /1 gescheitert/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+  assert.ok(bank.protokoll.some((zeile) => /Zeile 2:/.test(zeile)));
+  assert.ok(bank.protokoll.some((zeile) => /wird deshalb nicht verarbeitet/.test(zeile)));
+});
+
+test('mit „Warnen" läuft dieselbe Datei durch — und das Protokoll sagt es trotzdem', async () => {
+  const bank = werkbank();
+
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob('WARNEN'));
+
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 2);
+  assert.ok(bank.protokoll.some((zeile) => /1 gescheitert/.test(zeile)));
+});
+
+test('ein Konflikt hält die Datei nicht auf — er ist kein Fehlschlag', async () => {
+  const bank = werkbank();
+
+  await legeSchemaAn(bank, 'KONFLIKT');
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 2);
+  assert.ok(bank.protokoll.some((zeile) => /1 zur Prüfung durch einen Menschen/.test(zeile)));
+});
+
+test('auch ein sauberer Durchgang steht im Protokoll', async () => {
+  // Sonst hieße „nichts im Protokoll" zweierlei: geprüft und in Ordnung, oder
+  // gar nicht geprüft.
+  const bank = werkbank();
+
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['4712', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.ok(
+    bank.protokoll.some((zeile) => /2 Zeilen gegen das Schema geprüft, nichts zu beanstanden/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('eine nicht erkannte Kopfzeile macht aus einem Schema keinen Datenausfall', async () => {
+  /*
+   * Besteht eine Datei nur aus Text, lässt sich nicht erkennen, ob die erste
+   * Zeile eine Kopfzeile ist — die Spalten heißen dann „Spalte 1", „Spalte 2".
+   * Eine Regel für „kdnr" fände ihr Feld in keiner Zeile.
+   *
+   * Würde sie trotzdem angewandt, wäre jede Zeile gescheitert und die ganze
+   * Lieferung abgewiesen — wegen fehlender Überschriften, nicht wegen der
+   * Daten. Der Lauf sagt es stattdessen und verarbeitet weiter.
+   */
+  const bank = werkbank();
+
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['Anna', 'Bonn'], ['Bert', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.ok(
+    bank.protokoll.some((zeile) => /gibt es in der Datei nicht/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+  assert.equal((await bank.ergebnisse.list('default')).length, 1, 'die Lieferung wird trotzdem verarbeitet');
+});
+
+test('es gilt die letzte Fassung des Schemas, nicht die erste', async () => {
+  /*
+   * Eine Fassung festzuhalten wäre die vorsichtigere Wahl — und die falsche:
+   * Wer eine Regel korrigiert, will sie heute Nacht wirksam haben und nicht
+   * erst, wenn jemand den Workflow anfasst.
+   */
+  const bank = werkbank();
+
+  await legeSchemaAn(bank);
+
+  const profil = await bank.profile.getById('p1');
+  const fort = fortschreiben(profil!, { regeln: [], notiz: 'Regel zurückgenommen' });
+
+  assert.equal(fort.neu, true);
+  await bank.profile.save(fort.profil);
+
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 2, 'die neue Fassung prüft nichts mehr');
+  assert.ok(
+    bank.protokoll.some((zeile) => /keine Regeln für Werte/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('ein Schema, das es nicht mehr gibt, läuft nicht still durch', async () => {
+  /*
+   * Ein Durchgang, der sich auf ein Schema beruft, das gelöscht wurde, sonst
+   * verarbeitete wie einer, bei dem nie eines verlangt war.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.ok(
+    bank.protokoll.some((zeile) => /gibt es nicht mehr/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 1);
+});
+
+test('ohne Zugriff auf die Schemata sagt der Lauf es, statt zu schweigen', async () => {
+  const bank = werkbank();
+
+  bank.umgebung.profile = undefined;
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  assert.ok(
+    bank.protokoll.some((zeile) => /keinen Zugriff auf die Schemata/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
 });
 
 test('ohne das Modul läuft der Schritt nicht — und sagt es', async () => {

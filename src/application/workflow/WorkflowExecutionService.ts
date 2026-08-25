@@ -47,6 +47,9 @@ import type { TransferExecutionOptions, TransferRunResult } from '../transfer/Tr
 import type { JobExecutor } from '../transfer/TransferOrchestratorService.js';
 import type { Dateiablage, Verzeichniseintrag } from './Dateiablage.js';
 import { istLesbar, liesDatei, passt, passtEndung, type Lesewunsch } from './Eingang.js';
+import { aktuelleVersion, type ProfilRepository } from '../../domain/consolidation/Profil.js';
+import { befundzeilen, teileQuelleAuf } from '../../domain/quality/Quellenaufteilung.js';
+import type { Qualitaetsregel } from '../../domain/quality/Regeln.js';
 
 /**
  * Der Workflow als **ein** Lauf (SPEC-01, Abschnitt 13 und 32).
@@ -128,6 +131,15 @@ export interface Konsolidierungsumgebung {
       seite: 'Quelle' | 'Ziel'
     ): Promise<ShareCredentials | undefined>;
   };
+  /**
+   * Die Schemata des Mandanten (FR_008).
+   *
+   * Fehlt der Bestand, wird nicht gegen ein Profil geprüft — und der Lauf sagt
+   * es, statt still ohne Regeln zu rechnen. Ein Durchgang, der ausdrücklich ein
+   * Schema nennt, dessen Regeln aber niemand liest, wäre die gefährlichste Art
+   * von Stille: Auf dem Bildschirm steht eine Prüfung, die nicht stattfindet.
+   */
+  profile?: ProfilRepository;
   /** Fehlt sie, entstehen keine Meldungen — das ist die Verdrahtung für Tests. */
   background?: BackgroundService;
   logger?: Logger;
@@ -631,6 +643,54 @@ export class WorkflowExecutionService implements JobExecutor {
    * auch die Dateien von gestern, und die noch einmal zu konsolidieren ergäbe
    * jede Nacht ein Ergebnis, das um einen Tag zu groß ist.
    */
+  /**
+   * Die Qualitätsregeln des gewählten Schemas.
+   *
+   * Ohne Schema keine Regeln — das ist der Regelfall und keine Auffälligkeit.
+   * Ist eines gewählt und lässt sich nicht lesen, steht das im Protokoll: Ein
+   * Durchgang, der sich auf ein Schema beruft, das es nicht mehr gibt, läuft
+   * sonst durch, als wäre nie eines verlangt worden.
+   *
+   * Es gilt die **letzte** Version. Eine Fassung festzuhalten wäre die
+   * vorsichtigere Wahl — und die falsche: Wer eine Regel korrigiert, will sie
+   * heute Nacht wirksam haben und nicht erst, wenn jemand den Workflow anfasst.
+   */
+  private async profilregeln(
+    schritt: Konsolidierungsdurchgang,
+    hinweise: string[]
+  ): Promise<readonly Qualitaetsregel[]> {
+    const kennung = schritt.schema?.profil;
+
+    if (!kennung) {
+      return [];
+    }
+
+    if (!this.umgebung.profile) {
+      hinweise.push(
+        `Der Durchgang nennt das Schema „${kennung}", aber dieser Lauf hat keinen Zugriff auf die Schemata. ` +
+          'Es wurde nichts geprüft'
+      );
+
+      return [];
+    }
+
+    const profil = await this.umgebung.profile.getById(kennung);
+
+    if (!profil) {
+      hinweise.push(`Das Schema „${kennung}" gibt es nicht mehr. Es wurde nichts geprüft`);
+
+      return [];
+    }
+
+    const regeln = aktuelleVersion(profil).regeln ?? [];
+
+    if (regeln.length === 0) {
+      hinweise.push(`Das Schema „${profil.name}" enthält keine Regeln für Werte. Geprüft wurde nichts`);
+    }
+
+    return regeln;
+  }
+
   private async quellen(
     job: TransferJob,
     schritt: Konsolidierungsdurchgang,
@@ -667,6 +727,8 @@ export class WorkflowExecutionService implements JobExecutor {
       ? new Schemapruefer(this.umgebung.ablage, { datei: schritt.schema.datei, bei: schritt.schema.bei })
       : undefined;
 
+    const regeln = await this.profilregeln(schritt, hinweise);
+    const pruefwunsch = { region: regionAus(wirksam), nullWerte: wirksam.nullWerte, jetzt };
     const eingang = await this.dateien(job, schritt, vorlage, uebertragen, hinweise, laufId, jetzt);
 
     for (const datei of eingang.dateien) {
@@ -685,8 +747,36 @@ export class WorkflowExecutionService implements JobExecutor {
 
         const gelesen = liesDatei({ name: datei.name, bytes, geaendert: datei.geaendert }, wunsch);
 
-        quellen.push(...gelesen.quellen);
         hinweise.push(...gelesen.hinweise);
+
+        /*
+         * Gegen das Schema des Mandanten, Zeile für Zeile.
+         *
+         * Was dabei herauskommt, steht **im Protokoll** und verändert die
+         * Quellen noch nicht: Eine Zeile herauszunehmen, ohne sie irgendwo
+         * hinzuschreiben, hieße Daten zu verlieren — und die Ablehnungsdatei
+         * gibt es noch nicht. Bis dahin entscheidet die Prüfung über die
+         * **Datei**, so wie es die alte Schemaprüfung auch tat.
+         */
+        if (regeln.length === 0) {
+          quellen.push(...gelesen.quellen);
+          continue;
+        }
+
+        const berichte = gelesen.quellen.map((quelle) => teileQuelleAuf(quelle, regeln, pruefwunsch));
+
+        hinweise.push(...befundzeilen(datei.name, berichte));
+
+        if (berichte.some((bericht) => bericht.gescheitert.length > 0) && schritt.schema?.bei !== 'WARNEN') {
+          hinweise.push(
+            `„${datei.name}" wird deshalb nicht verarbeitet. ` +
+              'Soll sie trotz Fehlern durchlaufen, steht das am Durchgang unter „Bei Verstoß"'
+          );
+
+          continue;
+        }
+
+        quellen.push(...gelesen.quellen);
       } catch (fehler) {
         /*
          * Eine unlesbare Datei macht die übrigen nicht wertlos — aber sie
