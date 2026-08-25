@@ -8,6 +8,94 @@
 >
 > Bei der nächsten Prüfrunde wird angehängt, nicht überschrieben.
 
+## Runde 10 — Das Archiv, und was es deckt (25.08.2026)
+
+### Erst das Archiv, dann der Zugriff
+
+Der Lauf nimmt die Lieferung aus dem Abholverzeichnis, teilt sie auf und legt
+abgeleitete Dateien nach Erledigt und Gescheitert. Das ist nur zu verantworten,
+solange das Original unverändert woanders liegt.
+
+**Entschieden:** Das Archivpaket entsteht, **bevor** eine Datei angefasst wird.
+Andersherum lägen die Dateien schon im Arbeitsverzeichnis, wenn das Sichern
+fehlschlägt — aus dem Abholverzeichnis genommen, nirgends gesichert, und der
+nächste Lauf fände sie nicht mehr. Schlägt es fehl, bleibt der Stapel liegen,
+wo er ist.
+
+**Ein Paket je Lauf**, nicht je Datei: Drei Filialdateien desselben Tages sind
+eine Lieferung. Einzeln abgelegt ließe sich später nicht mehr sagen, welche
+zusammengehörten.
+
+**Der Schlüssel ist der Hauptschlüssel der Installation** und nicht einer je
+Ziel. Ein Ziel bekommt einen eigenen, weil der Empfänger die Datei öffnen
+können muss; das Archiv soll niemand öffnen können außer dem Betreiber selbst.
+
+### Ein Rückweg, den nur der Quelltext kennt, ist keiner
+
+Zwischenstand war: Das Archiv war eine Einbahnstraße. Verschlüsselt abgelegt,
+nie wieder aufzumachen.
+
+**Entschieden:** `decryptBytes` als Gegenstück, `readZip` zum Entpacken — das
+gab es schon für XLSX —, und drei Türen über die Schnittstelle:
+
+```text
+packages  welche Pakete liegen da       ohne eines zu öffnen
+open      was steckt in diesem Paket    Namen und Größen, kein Inhalt
+file      diese eine Datei, bitte       der Inhalt, als Base64
+```
+
+Ein Verzeichnis mit dreihundert Paketen entschlüsselte sonst dreihundert
+Archive, nur um eine Liste zu zeigen. Und wer wissen will, ob die Lieferung von
+Dienstag drei Dateien hatte, braucht dafür keine Kundendaten.
+
+**Base64 und nicht Text:** Im Archiv liegt auch eine Arbeitsmappe. Als
+Zeichenkette geschickt wäre sie kaputt, und zwar unbemerkt.
+
+### Die Reihenfolge war nicht beliebig
+
+Gebaut wurde in dieser Folge: Archiv schreiben → Rückweg → Ansicht → Leeren.
+
+Der Grund steht in der Mitte: Das Löschen im Arbeitsverzeichnis ist durch das
+Archiv gedeckt — aber nur, solange sich das Archiv auch öffnen lässt. Zwischen
+„Archiv geschrieben" und „Archiv lesbar" lag ein Zustand, in dem das Löschen
+eine Zusage ohne Deckung gewesen wäre. Bis dahin wurde nur der **leere Ordner**
+fortgenommen, keine einzige Datei.
+
+### Was gelöscht wird, und was nie
+
+**Entschieden:** Fortgenommen wird, was dieser Lauf hineingelegt hat und was
+nach dem Wegräumen noch daliegt — und nur, wenn das Archivpaket geschrieben
+wurde. Ohne Paket bleibt jede Datei liegen: lieber ein volles Verzeichnis als
+ein Bestand, den es nirgends mehr gibt.
+
+Was **nicht** aus diesem Lauf stammt, wird nie angefasst, auch nicht bei
+geschriebenem Archiv. Es steht in keinem Paket, und wer es dort abgelegt hat,
+hatte einen Grund.
+
+Ins Protokoll kommt der Pfad des Pakets. Eine Zeile „gelöscht" ohne die Angabe,
+wo die Daten jetzt liegen, ist keine Nachvollziehbarkeit, sondern eine
+Behauptung.
+
+### Zwei Schranken um denselben Handgriff
+
+Hier liegt der eine Griff, der einen ganzen Bestand kostet:
+
+* Der Ordner muss auf die **Laufkennung** enden — verglichen wird das letzte
+  Glied und nicht das Ende der Zeichenkette. `raeumeAus` wird auch mit dem
+  Abholverzeichnis gerufen, und ein Leeren dort träfe das Verzeichnis, in das
+  der Lieferant schreibt.
+* `rmdir` und nicht `rm -r`: Es scheitert von selbst, sobald noch etwas darin
+  liegt.
+
+### Offen
+
+Eine **Aufbewahrungsfrist** für das Archiv gibt es nicht. FR_009 §2 nennt
+keine — obwohl dasselbe Dokument Bestände ohne Frist verbietet, und das Archiv
+hält per Definition Originaldaten. Dieselbe Lücke betrifft Erledigt und
+Gescheitert.
+
+---
+
 ## Runde 9 — Zwei Schalter, und sie beantworten Verschiedenes (25.08.2026)
 
 ### Der Lauf liest das Schema — und was daraus folgt

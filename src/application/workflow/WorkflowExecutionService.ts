@@ -182,15 +182,29 @@ export interface Konsolidierungsumgebung {
  * Dateien gemeint waren.
  */
 /** Die Eingangsdateien eines Durchgangs, und ob ein Stapel übernommen wurde. */
+interface Uebernahme {
+  verzeichnis: string;
+  namen: string[];
+  /**
+   * Der Pfad des Archivpakets — oder nichts, wo keines verlangt war.
+   *
+   * Er ist die **Deckung** fürs Aufräumen: Eine Eingangsdatei aus dem
+   * Arbeitsverzeichnis fortzunehmen ist nur zu verantworten, solange das
+   * Original nachweislich woanders liegt. Ohne diesen Pfad wird nichts
+   * gelöscht.
+   */
+  archiviert?: string;
+}
+
 interface Eingang {
   dateien: { name: string; pfad: string; geaendert?: string }[];
-  uebernommen?: { verzeichnis: string; namen: string[] };
+  uebernommen?: Uebernahme;
 }
 
 interface Quellenfund {
   quellen: Quelle[];
   hinweise: string[];
-  uebernommen?: { verzeichnis: string; namen: string[] };
+  uebernommen?: Uebernahme;
   /**
    * Zeilen, die ein Mensch ansehen muss — aus den Regeln des Schemas.
    *
@@ -429,7 +443,7 @@ export class WorkflowExecutionService implements JobExecutor {
        * „Erledigt" oder „Gescheitert" geräumt sind — vorher wäre es kein
        * Aufräumen, sondern ein Griff in einen laufenden Vorgang.
        */
-      await this.leereLaufverzeichnis(job, laufId, uebernommen.verzeichnis);
+      await this.leereLaufverzeichnis(job, laufId, uebernommen);
 
       return ergebnis;
     } catch (fehler) {
@@ -444,7 +458,7 @@ export class WorkflowExecutionService implements JobExecutor {
 
       // Auch nach einem Fehlschlag: Der Ordner ist leer oder er sagt, was
       // darin liegt. Ein Wurf ist kein Grund, Spuren zu hinterlassen.
-      await this.leereLaufverzeichnis(job, laufId, uebernommen.verzeichnis);
+      await this.leereLaufverzeichnis(job, laufId, uebernommen);
 
       throw fehler;
     }
@@ -1114,7 +1128,9 @@ export class WorkflowExecutionService implements JobExecutor {
      * Stapel liegen, wo er ist, und der nächste Blick des Workers versucht es
      * erneut.
      */
-    if (!(await this.archiviere(job, schritt, verzeichnis, stand.stapel, laufId, jetzt, hinweise))) {
+    const gesichert = await this.archiviere(job, schritt, verzeichnis, stand.stapel, laufId, jetzt, hinweise);
+
+    if (!gesichert.weiter) {
       return { dateien: [] };
     }
 
@@ -1131,7 +1147,7 @@ export class WorkflowExecutionService implements JobExecutor {
 
     return {
       dateien: this.alsQuellen(ziel, stand.stapel, genommen),
-      uebernommen: { verzeichnis: ziel, namen: [...stand.stapel] },
+      uebernommen: { verzeichnis: ziel, namen: [...stand.stapel], archiviert: gesichert.paket },
     };
   }
 
@@ -1178,11 +1194,11 @@ export class WorkflowExecutionService implements JobExecutor {
     laufId: string,
     jetzt: Date,
     hinweise: string[]
-  ): Promise<boolean> {
+  ): Promise<{ weiter: boolean; paket?: string }> {
     const archiv = schritt.dateien?.abholung?.archiv;
 
     if (!archiv) {
-      return true;
+      return { weiter: true };
     }
 
     if (!this.umgebung.archiv) {
@@ -1192,7 +1208,7 @@ export class WorkflowExecutionService implements JobExecutor {
       );
       this.protokoll(job, laufId, 'ERROR', 'Archivierung nicht verdrahtet — der Stapel wurde nicht angefasst');
 
-      return false;
+      return { weiter: false };
     }
 
     try {
@@ -1206,7 +1222,7 @@ export class WorkflowExecutionService implements JobExecutor {
 
       hinweise.push(`${namen.length} Eingangsdatei(en) verschlüsselt gesichert in „${pfad}"`);
 
-      return true;
+      return { weiter: true, paket: pfad };
     } catch (fehler) {
       const grund = fehler instanceof Error ? fehler.message : String(fehler);
 
@@ -1224,7 +1240,7 @@ export class WorkflowExecutionService implements JobExecutor {
         ziel: { art: 'LAUF', id: laufId },
       });
 
-      return false;
+      return { weiter: false };
     }
   }
 
@@ -1242,14 +1258,28 @@ export class WorkflowExecutionService implements JobExecutor {
    * Ordner muss auf die Laufkennung enden. Ein Vorsatz hält niemanden auf, der
    * in zwei Jahren einen zweiten Aufrufer schreibt.
    *
-   * ## Was nicht gelöscht wird
+   * ## Was gelöscht wird — und wodurch es gedeckt ist
    *
-   * Dateien. Keine einzige. Fortgenommen wird nur der leere Ordner; was noch
-   * darin liegt, bleibt und wird benannt. Ein Lauf, der Eingangsdateien
-   * löscht, wäre erst zu verantworten, wenn sich das Archiv auch wieder öffnen
-   * lässt — und dieser Weg ist noch nicht gebaut.
+   * Fortgenommen wird, was **dieser Lauf hineingelegt hat** und was nach dem
+   * Wegräumen noch daliegt: die Dateien eines Stapels, den niemand nach
+   * „Erledigt" holen konnte, weil kein Verzeichnis dafür eingetragen ist.
+   *
+   * Und nur, wenn das **Archivpaket** dieses Laufs geschrieben wurde. Das ist
+   * die Deckung: Das Original liegt verschlüsselt im Archiv und lässt sich von
+   * dort wieder herausholen. Ohne Paket bleibt jede Datei liegen — lieber ein
+   * volles Verzeichnis als ein Bestand, den es nirgends mehr gibt.
+   *
+   * Was **nicht** aus diesem Lauf stammt, wird nie angefasst, auch nicht bei
+   * geschütztem Archiv: Es steht in keinem Paket, und wer es dort abgelegt
+   * hat, hatte einen Grund.
+   *
+   * Ins Protokoll kommt der Pfad des Pakets. Eine Zeile „gelöscht" ohne die
+   * Angabe, wo die Daten jetzt liegen, ist keine Nachvollziehbarkeit, sondern
+   * eine Behauptung.
    */
-  private async leereLaufverzeichnis(job: TransferJob, laufId: string, verzeichnis: string): Promise<void> {
+  private async leereLaufverzeichnis(job: TransferJob, laufId: string, uebernommen: Uebernahme): Promise<void> {
+    const verzeichnis = uebernommen.verzeichnis;
+
     if (!istLaufverzeichnis(verzeichnis, laufId)) {
       this.protokoll(
         job,
@@ -1271,13 +1301,60 @@ export class WorkflowExecutionService implements JobExecutor {
       return;
     }
 
-    if (rest.length > 0) {
+    const unsere = rest.filter((eintrag) => uebernommen.namen.includes(eintrag.name));
+    const fremde = rest.filter((eintrag) => !uebernommen.namen.includes(eintrag.name));
+
+    if (unsere.length > 0) {
+      if (!uebernommen.archiviert) {
+        this.protokoll(
+          job,
+          laufId,
+          'WARNING',
+          `„${verzeichnis}" bleibt stehen: ${unsere.length} Datei(en) liegen noch darin ` +
+            `(${unsere.map((eintrag) => eintrag.name).join(', ')}). ` +
+            'Fortgenommen wird nur, was im Archiv gesichert ist — und für diesen Lauf gibt es kein Archivpaket'
+        );
+
+        return;
+      }
+
+      for (const eintrag of unsere) {
+        try {
+          await this.umgebung.ablage.entferne(this.umgebung.ablage.pfad(verzeichnis, eintrag.name));
+        } catch (fehler) {
+          this.protokoll(
+            job,
+            laufId,
+            'WARNING',
+            `„${eintrag.name}" ließ sich nicht fortnehmen: ` +
+              `${fehler instanceof Error ? fehler.message : String(fehler)}`
+          );
+
+          return;
+        }
+      }
+
+      this.protokoll(
+        job,
+        laufId,
+        'INFO',
+        `${unsere.length} Eingangsdatei(en) aus „${verzeichnis}" fortgenommen. ` +
+          `Das Original liegt in „${uebernommen.archiviert}"`
+      );
+    }
+
+    if (fremde.length > 0) {
+      /*
+       * Nicht aus diesem Lauf und deshalb in keinem Paket. Wer es dorthin
+       * gelegt hat, hatte einen Grund — und der Ordner bleibt stehen, damit er
+       * es wiederfindet.
+       */
       this.protokoll(
         job,
         laufId,
         'WARNING',
-        `„${verzeichnis}" bleibt stehen: ${rest.length} Datei(en) liegen noch darin ` +
-          `(${rest.map((eintrag) => eintrag.name).join(', ')})`
+        `„${verzeichnis}" bleibt stehen: ${fremde.length} fremde Datei(en) liegen darin ` +
+          `(${fremde.map((eintrag) => eintrag.name).join(', ')})`
       );
 
       return;

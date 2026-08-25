@@ -2532,6 +2532,90 @@ test('ohne Zielverzeichnis bleibt der Ordner stehen — und sagt, was darin lieg
   );
 });
 
+/** Drei Filialdateien im Abholverzeichnis — ein vollständiger Stapel. */
+function dreiDateien(bank: Werkbank): void {
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
+  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['2']]);
+  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
+}
+
+test('mit Archiv wird das Arbeitsverzeichnis wirklich geleert', async () => {
+  /*
+   * Der Fall, für den das Archiv gebaut wurde: Ohne Zielverzeichnis holt
+   * niemand die Dateien nach „Erledigt", und sie säßen für immer im
+   * Arbeitsverzeichnis. Fortgenommen werden dürfen sie, weil das Original
+   * verschlüsselt im Archiv liegt — und von dort wieder herauszuholen ist.
+   */
+  const bank = werkbank();
+
+  dreiDateien(bank);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    stapeljob({ abholung: { arbeit: '/arbeit', archiv: '/archiv' } })
+  );
+
+  assert.equal(bank.ablage.dateien.has('/arbeit/TR-1/Filiale_Nord_0821.csv'), false);
+  assert.deepEqual(bank.ablage.fortgenommen, ['/arbeit/TR-1']);
+  assert.ok(archivdatei(bank), 'und das Original liegt im Archiv');
+});
+
+test('das Protokoll sagt, wohin die Dateien gegangen sind', async () => {
+  /*
+   * Eine Zeile „gelöscht" ohne die Angabe, wo die Daten jetzt liegen, ist
+   * keine Nachvollziehbarkeit, sondern eine Behauptung.
+   */
+  const bank = werkbank();
+
+  dreiDateien(bank);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    stapeljob({ abholung: { arbeit: '/arbeit', archiv: '/archiv' } })
+  );
+
+  const zeile = bank.protokoll.find((eintrag) => /fortgenommen\. Das Original liegt/.test(eintrag));
+
+  assert.ok(zeile, bank.protokoll.join(' | '));
+  assert.match(zeile, /3 Eingangsdatei\(en\)/);
+  assert.match(zeile, /\/archiv\/.*\.zip\.enc/);
+});
+
+test('ohne Archivpaket wird keine einzige Datei fortgenommen', async () => {
+  // Lieber ein volles Verzeichnis als ein Bestand, den es nirgends mehr gibt.
+  const bank = werkbank();
+
+  dreiDateien(bank);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    stapeljob({ abholung: { arbeit: '/arbeit' } })
+  );
+
+  assert.equal(bank.ablage.dateien.has('/arbeit/TR-1/Filiale_Nord_0821.csv'), true);
+  assert.ok(
+    bank.protokoll.some((zeile) => /für diesen Lauf gibt es kein Archivpaket/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('eine fremde Datei im Arbeitsverzeichnis wird nie angefasst', async () => {
+  /*
+   * Sie steht in keinem Paket, und wer sie dort abgelegt hat, hatte einen
+   * Grund. Der Ordner bleibt deshalb stehen, damit er sie wiederfindet.
+   */
+  const bank = werkbank();
+
+  dreiDateien(bank);
+  bank.ablage.lege('/arbeit/TR-1/notiz_von_hand.csv', ['a'], [['x']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    stapeljob({ abholung: { arbeit: '/arbeit', archiv: '/archiv' } })
+  );
+
+  assert.equal(bank.ablage.dateien.has('/arbeit/TR-1/notiz_von_hand.csv'), true);
+  assert.equal(bank.ablage.dateien.has('/arbeit/TR-1/Filiale_Nord_0821.csv'), false, 'unsere gehen trotzdem');
+  assert.deepEqual(bank.ablage.fortgenommen, [], 'der Ordner bleibt stehen');
+  assert.ok(bank.protokoll.some((zeile) => /1 fremde Datei\(en\)/.test(zeile)));
+});
+
 test('das Abholverzeichnis wird niemals fortgenommen', async () => {
   /*
    * Beim verworfenen Stapel wird mit dem **Abholverzeichnis** aufgeräumt. Ein
