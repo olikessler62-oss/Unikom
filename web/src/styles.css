@@ -557,7 +557,7 @@ code {
   letter-spacing: 0.03em;
   text-align: left;
   cursor: pointer;
-  transition: color 180ms ease, background 180ms ease, border-color 180ms ease, transform 180ms ease;
+  transition: color 180ms ease, background 180ms ease, border-color 180ms ease;
 }
 
 /*
@@ -579,7 +579,6 @@ code {
   color: var(--text);
   background: var(--g-3);
   border-color: var(--rule);
-  transform: translateX(2px);
 }
 
 /* Der aktive Punkt ist die nächsthöhere Graustufe — mit orangefarbener Kante. */
@@ -3224,7 +3223,7 @@ button {
   text-transform: uppercase;
   cursor: pointer;
   box-shadow: 0 0 22px -12px rgba(var(--accent), 0.95), inset 0 1px 0 rgba(var(--sheen), 0.35);
-  transition: box-shadow 200ms ease, transform 200ms ease, filter 200ms ease;
+  transition: box-shadow 200ms ease, filter 200ms ease;
 }
 
 /* Ein Lichtstreifen wandert beim Überfahren durch die Fläche. */
@@ -3240,8 +3239,40 @@ button::after {
   transition: left 550ms ease;
 }
 
+/*
+ * Ein Knopf bewegt sich beim Überfahren nicht.
+ *
+ * Hier stand `transform: translateY(-1px)` — ein Anheben um ein Pixel. Es sah
+ * nach fast nichts aus und war ein endloser Kreislauf: Ein Element, das sich
+ * beim Überfahren bewegt, kann sich damit unter dem Zeiger wegziehen.
+ *
+ * ```text
+ * Zeiger auf der Unterkante  →  Knopf weicht 1 px nach oben
+ *                            →  Zeiger steht daneben, Überfahren endet
+ *                            →  Knopf fällt zurück
+ *                            →  Zeiger steht wieder darauf …
+ * ```
+ *
+ * Sichtbar als flackernder Mauszeiger, viele Male pro Sekunde — er wechselt
+ * zwischen Hand und Pfeil, weil das Element darunter wechselt. Am deutlichsten
+ * in einer dichten Liste: in der Seitenleiste, im Verzeichnisbrowser, in den
+ * Auswahlkacheln. Dort liegen die Kanten dicht beieinander, und der Zeiger
+ * trifft sie beim Wandern immer wieder.
+ *
+ * ## Warum an dieser Stelle und nicht bei jedem Bedienelement einzeln
+ *
+ * Die Bewegung kam aus dieser Grundregel und traf jeden `<button>`, der sie
+ * nicht ausdrücklich zurücknahm. Mehrere Bauteile tun das bereits
+ * (`.subnav__tab`, `.chain__step`, `.tree__name`, `.row-button`,
+ * `.reiter__blatt`) — wer eines vergisst, bekommt das Flackern zurück, und
+ * genau das ist beim Menüpunkt und im Verzeichnisbrowser passiert.
+ *
+ * Spring läuft ohnehin ohne jede Knopfbewegung (`transform: none !important`,
+ * weiter unten) — dort ist nie jemandem etwas abgegangen. Was der Knopf beim
+ * Überfahren sagt, sagt er über Helligkeit und Licht; beides ändert nicht die
+ * Fläche, auf der die Maus steht.
+ */
 button:hover:not(:disabled) {
-  transform: translateY(-1px);
   filter: brightness(1.09);
   box-shadow: 0 0 30px -10px rgba(var(--accent), 1), inset 0 1px 0 rgba(var(--sheen), 0.45);
 }
@@ -3250,8 +3281,9 @@ button:hover:not(:disabled)::after {
   left: 120%;
 }
 
+/* Gedrückt: eine Stufe dunkler. Vorher nahm das Anheben sich hier zurück. */
 button:active:not(:disabled) {
-  transform: translateY(0);
+  filter: brightness(0.94);
 }
 
 button:focus-visible {
