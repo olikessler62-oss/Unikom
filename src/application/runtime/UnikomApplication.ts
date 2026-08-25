@@ -98,6 +98,7 @@ import { RemoteDirectoryService } from '../transfer/RemoteDirectoryService.js';
 import { LocalDirectoryService } from '../transfer/LocalDirectoryService.js';
 import { DestinationAdapterProvider } from '../transfer/DestinationAdapterProvider.js';
 import { NodeDateiablage } from '../../infrastructure/filesystem/NodeDateiablage.js';
+import { Archivdienst } from '../workflow/Archivdienst.js';
 import { Umformungsvorschaudienst } from '../workflow/Umformungsvorschau.js';
 import { Zuordnungsvorschaudienst } from '../workflow/Zuordnungsvorschau.js';
 import { Ausleitungsdienst } from '../conflicts/Ausleitungsdienst.js';
@@ -298,12 +299,10 @@ function defaultMasterKeyProvider(dataDirectory?: string, trace?: (message: stri
 }
 
 function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoot?: string): UnikomApplication {
-  const credentialService = new CredentialService(
-    wiring.credentialRepository,
-    new SecretCipher(
-      options.masterKeyProvider ?? defaultMasterKeyProvider(defaultStagingRoot, options.onSecurityNotice)
-    )
-  );
+  const hauptschluessel =
+    options.masterKeyProvider ?? defaultMasterKeyProvider(defaultStagingRoot, options.onSecurityNotice);
+
+  const credentialService = new CredentialService(wiring.credentialRepository, new SecretCipher(hauptschluessel));
 
   const logger = new LevelFilteredLogger(
     new CompositeLogger(...[wiring.logStore, options.logger].filter((target): target is Logger => Boolean(target))),
@@ -498,6 +497,19 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
         results: resultService,
         tenants: wiring.tenantRepository,
         ablage: new NodeDateiablage(),
+        /*
+         * Das Archiv der Eingangsdateien. Ohne diese Zeile bliebe jeder
+         * Durchgang mit eingetragenem Archivverzeichnis stehen — und das zu
+         * Recht: Zerlegt werden darf eine Lieferung nur, solange das Original
+         * gesichert ist.
+         *
+         * Der Hauptschlüssel wird bei **jedem** Paket neu geholt und nirgends
+         * gehalten. Ein Schlüssel in einem langlebigen Objekt steht in jedem
+         * Speicherabbild.
+         */
+        archiv: new Archivdienst(new NodeDateiablage(), () =>
+          hauptschluessel.getMasterKey().toString('base64')
+        ),
         // Damit ein Durchgang, der von einer Windows-Freigabe liest, sie mit
         // dem hinterlegten Zugang verbindet und nicht mit dem Dienstkonto.
         freigaben: shares,

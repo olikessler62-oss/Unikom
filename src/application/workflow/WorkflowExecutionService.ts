@@ -46,6 +46,7 @@ import type { ResultService } from '../result/ResultService.js';
 import type { TransferExecutionOptions, TransferRunResult } from '../transfer/TransferExecutionService.js';
 import type { JobExecutor } from '../transfer/TransferOrchestratorService.js';
 import type { Dateiablage, Verzeichniseintrag } from './Dateiablage.js';
+import { archivdateiname, type Archivdienst } from './Archivdienst.js';
 import { istLesbar, liesDatei, passt, passtEndung, type Lesewunsch } from './Eingang.js';
 import { aktuelleVersion, type ProfilRepository } from '../../domain/consolidation/Profil.js';
 import {
@@ -149,6 +150,15 @@ export interface Konsolidierungsumgebung {
    * von Stille: Auf dem Bildschirm steht eine Prüfung, die nicht stattfindet.
    */
   profile?: ProfilRepository;
+  /**
+   * Legt die Eingangsdateien verschlüsselt ins Archiv (FR_006, Runde 8).
+   *
+   * Fehlt er, wird nicht archiviert — und ein Durchgang, der ein
+   * Archivverzeichnis nennt, läuft dann **nicht**. Still ohne Sicherung zu
+   * verarbeiten wäre der eine Fall, den niemand bemerkt: Das Ergebnis sieht
+   * vollständig aus, und das Original ist fort.
+   */
+  archiv?: Archivdienst;
   /** Fehlt sie, entstehen keine Meldungen — das ist die Verdrahtung für Tests. */
   background?: BackgroundService;
   logger?: Logger;
@@ -1084,6 +1094,19 @@ export class WorkflowExecutionService implements JobExecutor {
       return { dateien: this.alsQuellen(verzeichnis, stand.stapel, genommen) };
     }
 
+    /*
+     * Erst das Archiv, dann der Zugriff.
+     *
+     * Andersherum lägen die Dateien schon im Arbeitsverzeichnis, wenn das
+     * Sichern fehlschlägt — aus dem Abholverzeichnis genommen, nirgends
+     * gesichert, und der nächste Lauf fände sie nicht mehr. So bleibt der
+     * Stapel liegen, wo er ist, und der nächste Blick des Workers versucht es
+     * erneut.
+     */
+    if (!(await this.archiviere(job, schritt, verzeichnis, stand.stapel, laufId, jetzt, hinweise))) {
+      return { dateien: [] };
+    }
+
     const ziel = this.umgebung.ablage.pfad(arbeit, laufId);
 
     for (const name of stand.stapel) {
@@ -1121,6 +1144,79 @@ export class WorkflowExecutionService implements JobExecutor {
    * liegenzulassen wäre der Fall, in dem derselbe Stapel morgen wieder
    * verworfen wird, und übermorgen auch.
    */
+  /**
+   * Sichert die Lieferung, bevor sie angefasst wird.
+   *
+   * Gibt zurück, ob der Lauf weitergehen darf. Ohne eingetragenes
+   * Archivverzeichnis: ja — dann ist nichts versprochen worden. Mit einem und
+   * ohne Sicherung: nein.
+   *
+   * ## Warum ein Fehlschlag den Lauf anhält
+   *
+   * Das Archiv ist der Grund, warum die Lieferung überhaupt zerlegt werden
+   * darf: Erledigt und Gescheitert tragen abgeleitete Dateien, das Original
+   * liegt im Archiv. Fällt es aus und der Lauf ginge weiter, wäre die
+   * Zerlegung eine Zusage ohne Deckung — und niemand sähe es, weil das
+   * Ergebnis vollständig aussieht.
+   */
+  private async archiviere(
+    job: TransferJob,
+    schritt: Konsolidierungsdurchgang,
+    verzeichnis: string,
+    namen: readonly string[],
+    laufId: string,
+    jetzt: Date,
+    hinweise: string[]
+  ): Promise<boolean> {
+    const archiv = schritt.dateien?.abholung?.archiv;
+
+    if (!archiv) {
+      return true;
+    }
+
+    if (!this.umgebung.archiv) {
+      hinweise.push(
+        `Der Durchgang nennt das Archiv „${archiv}", aber dieser Lauf kann nicht archivieren. ` +
+          'Der Stapel bleibt liegen und wird nicht verarbeitet'
+      );
+      this.protokoll(job, laufId, 'ERROR', 'Archivierung nicht verdrahtet — der Stapel wurde nicht angefasst');
+
+      return false;
+    }
+
+    try {
+      const pfad = await this.umgebung.archiv.lege({
+        verzeichnis,
+        namen,
+        archiv,
+        benennung: archivdateiname(job.name, laufId, jetzt),
+        jetzt,
+      });
+
+      hinweise.push(`${namen.length} Eingangsdatei(en) verschlüsselt gesichert in „${pfad}"`);
+
+      return true;
+    } catch (fehler) {
+      const grund = fehler instanceof Error ? fehler.message : String(fehler);
+
+      hinweise.push(
+        `Das Archiv ließ sich nicht schreiben: ${grund}. ` +
+          'Der Stapel bleibt im Abholverzeichnis liegen und wird nicht verarbeitet'
+      );
+      this.protokoll(job, laufId, 'ERROR', `Archivierung fehlgeschlagen: ${grund}`);
+
+      await this.melde(job, 'LAUF_FEHLER', {
+        titel: `Archivierung fehlgeschlagen (${job.name})`,
+        text:
+          `Die Eingangsdateien aus „${verzeichnis}" ließen sich nicht ins Archiv legen: ${grund}. ` +
+          'Sie wurden nicht angefasst und liegen unverändert an ihrem Platz',
+        ziel: { art: 'LAUF', id: laufId },
+      });
+
+      return false;
+    }
+  }
+
   private async raeumeAus(
     job: TransferJob,
     laufId: string,

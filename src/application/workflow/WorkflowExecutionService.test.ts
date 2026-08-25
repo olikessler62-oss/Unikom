@@ -12,6 +12,7 @@ import {
   InMemoryHeartbeatRepository,
   InMemoryNotificationRepository,
 } from '../../infrastructure/persistence/InMemoryBackgroundRepository.js';
+import { Archivdienst } from './Archivdienst.js';
 import { fortschreiben, neuesProfil } from '../../domain/consolidation/Profil.js';
 import { InMemoryProfilRepository } from '../../infrastructure/persistence/InMemoryProfilRepository.js';
 import { InMemoryConflictRepository } from '../../infrastructure/persistence/InMemoryConflictRepository.js';
@@ -158,6 +159,7 @@ function werkbank(features: FeatureSet = ALLES): Werkbank {
     protokoll,
     umgebung: {
       profile,
+      archiv: new Archivdienst(ablage, () => ARCHIVSCHLUESSEL),
       logger: { log: (eintrag) => protokoll.push(eintrag.message) },
       consolidation: new ConsolidationService(),
       conflicts: new ConflictService(konflikte),
@@ -2454,6 +2456,80 @@ function stapeljob(teile: Record<string, unknown> = {}): TransferJob {
     },
   });
 }
+
+/* ---------- Das Archiv ---------- */
+
+/** Ein Rohschlüssel, wie ihn die Installation hält: 32 Bytes, Base64. */
+const ARCHIVSCHLUESSEL = Buffer.alloc(32, 7).toString('base64');
+
+function archivdatei(bank: Werkbank): { pfad: string; bytes: Uint8Array } | undefined {
+  for (const [pfad, bytes] of bank.ablage.dateien) {
+    if (pfad.startsWith('/archiv')) {
+      return { pfad, bytes };
+    }
+  }
+
+  return undefined;
+}
+
+test('die Lieferung wird gesichert, bevor sie angefasst wird', async () => {
+  const bank = werkbank();
+
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
+  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['2']]);
+  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    stapeljob({ abholung: { arbeit: '/arbeit', erledigt: '/erledigt', archiv: '/archiv' } })
+  );
+
+  const paket = archivdatei(bank);
+
+  assert.ok(paket, 'es liegt ein Archivpaket');
+  assert.match(paket.pfad, /_Archiv_/);
+  assert.ok(paket.pfad.endsWith('.zip.enc'), paket.pfad);
+  // Der Umschlag ist unserer — und kein lesbares ZIP.
+  assert.equal(new TextDecoder().decode(paket.bytes.slice(0, 6)), 'UNIKOM');
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 3, 'und verarbeitet wurde trotzdem');
+});
+
+test('ohne Archivierung bleibt der Stapel liegen', async () => {
+  /*
+   * Ein Lauf, der die Lieferung zerlegt und das Original nicht sichern konnte,
+   * hätte die Zusage gebrochen, die das Zerlegen überhaupt erlaubt — und
+   * niemand sähe es, weil das Ergebnis vollständig aussieht.
+   */
+  const bank = werkbank();
+
+  bank.umgebung.archiv = undefined;
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
+  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['2']]);
+  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    stapeljob({ abholung: { arbeit: '/arbeit', erledigt: '/erledigt', archiv: '/archiv' } })
+  );
+
+  assert.equal((await bank.ergebnisse.list('default')).length, 0);
+  assert.ok(
+    bank.ablage.dateien.has('/abholung/Filiale_Nord_0821.csv'),
+    'die Dateien liegen unverändert im Abholverzeichnis'
+  );
+});
+
+test('ohne eingetragenes Archiv läuft alles wie zuvor', async () => {
+  // Wo nichts versprochen wurde, wird auch nichts angehalten.
+  const bank = werkbank();
+
+  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
+  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['2']]);
+  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(stapeljob());
+
+  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 3);
+  assert.equal(archivdatei(bank), undefined);
+});
 
 test('ein unvollständiger Stapel wird nicht angefasst', async () => {
   const bank = werkbank();
