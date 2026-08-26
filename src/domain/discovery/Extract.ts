@@ -1,3 +1,4 @@
+import { ersatzname } from '../consolidation/Spaltennamen.js';
 import type { DataBlock } from './Discovery.js';
 
 /**
@@ -28,7 +29,7 @@ export function toCsv(block: DataBlock, options: ExtractOptions = {}): string {
 
   if (mitKopf) {
     zeilen.push(
-      block.columns.map((spalte, index) => feld(spalte.name ?? `Spalte ${index + 1}`, trenner)).join(trenner)
+      block.columns.map((spalte, index) => feld(spalte.name ?? ersatzname(index), trenner)).join(trenner)
     );
   }
 

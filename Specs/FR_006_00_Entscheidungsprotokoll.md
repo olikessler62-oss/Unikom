@@ -8,6 +8,84 @@
 >
 > Bei der nächsten Prüfrunde wird angehängt, nicht überschrieben.
 
+## Runde 14 — Das Schema wusste, wie die Spalten heißen (26.08.2026)
+
+### Der Widerspruch
+
+In `Profil` steht: Die Qualitätsregeln „binden über den **Feldnamen** an die
+Spalten der Vorgabe."
+
+Eine reine Textdatei hat aber keine Feldnamen. Besteht sie nur aus Text, lässt
+sich nicht entscheiden, ob die erste Zeile Überschriften trägt oder Daten —
+beides sieht gleich aus. Der Leser nennt die Spalten dann „Spalte 1",
+„Spalte 2", und eine Regel für `kdnr` findet darin kein `kdnr`:
+
+```text
+4711;Meier;Bonn        eine Lieferung ohne Kopfzeile
+  ↓
+Spalte 1;Spalte 2;Spalte 3
+  ↓
+Regel für „kdnr"  →  prüft nichts
+```
+
+Die Lieferung lief durch, als wäre alles in Ordnung. Der Lauf sagte zwar „diese
+Spalten gibt es in der Datei nicht" — aber die Antwort lag die ganze Zeit
+daneben: **Das Schema führt die Spaltennamen**, Stelle für Stelle, in seiner
+Strukturvorgabe. Es hat nur nie jemand danach gefragt.
+
+**Entschieden:** Vor der Prüfung werden die Spalten benannt, die sich nicht
+selbst benennen konnten.
+
+### Nur, was die Datei nicht benannt hat
+
+Wo eine Kopfzeile steht, bleibt sie stehen — auch wenn das Schema etwas anderes
+sagt. Ein Programm, das gelieferte Spaltennamen überschreibt, entscheidet über
+die Bedeutung von Daten, die es nicht kennt: Kämen die Spalten eines Tages in
+anderer Reihenfolge, hieße die dritte weiterhin „ort", und darin stünde der
+Umsatz.
+
+Widersprechen sich beide, steht das im Protokoll. Es ist der Fall, in dem eine
+Regel stillschweigend nichts prüft, und deshalb gehört er dorthin, wo man ihn
+liest.
+
+### Der Platzhalter wird an seiner Stelle erkannt
+
+„Spalte 7" ist an Position 7 ein Platzhalter und an Position 2 ein Spaltenname,
+den jemand tatsächlich so geliefert hat. Der Unterschied ist selten und real.
+
+**Entschieden:** `istErsatzname(name, stelle)` vergleicht mit dem Namen, den
+**diese** Stelle bekäme — nicht mit einem Muster. Und `ersatzname` bildet ihn an
+einer einzigen Stelle; er entstand vorher an fünf.
+
+### Die Kopfzeile, die niemand erkannt hat
+
+Beim Bauen fiel der zweite Teil desselben Problems auf: Ist die erste Zeile eine
+Kopfzeile, die der Leser nicht erkennen konnte, läuft sie als **Datensatz** mit.
+Im Ergebnis steht dann eine Zeile, in der unter „kdnr" das Wort „kdnr" steht.
+
+**Entschieden:** Das Schema entscheidet es. Steht in der ersten Zeile genau das,
+was es als Spaltennamen führt, ist es die Kopfzeile. Ein Datensatz, der
+zufällig die Spaltennamen in genau ihrer Reihenfolge enthält, kommt nicht vor.
+
+**Jede** benannte Spalte muss stimmen. Eine von dreien reichte nicht — dann
+stünde in der zweiten Spalte ein Datenwert, und man würfe einen Datensatz wegen
+einer Übereinstimmung fort. Verglichen wird ohne Rücksicht auf Großschreibung
+und Leerraum: Wer eine Kopfzeile von Hand tippt, schreibt „KdNr" und meint
+„kdnr".
+
+**Und die Zeilennummern wandern mit.** Nach der fortgenommenen Kopfzeile ist die
+erste übrige Zeile die *zweite* der Datei. Ohne diese Verschiebung nännte die
+Ablehnungsdatei „Zeile 2", während der Fehler in Zeile 3 steht — und wer
+nachsieht, findet dort eine Zeile, nur eben die falsche.
+
+### Beides in einem Zug geladen
+
+Regeln und Struktur kommen aus derselben Profilversion. Zweimal zu laden hieße,
+zwei Fassungen desselben Schemas in einem Lauf zu haben: Wer dazwischen
+speichert, bekäme Regeln der einen und Spaltennamen der anderen.
+
+---
+
 ## Runde 13 — Der Rückweg endete im Nichts (26.08.2026)
 
 ### Der Befund

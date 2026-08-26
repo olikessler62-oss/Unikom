@@ -1,5 +1,6 @@
 import type { Quelle } from '../../domain/consolidation/Quellen.js';
 import { waehleBlatt, type Blattwahl } from '../../domain/consolidation/Quellen.js';
+import { ersatzname } from '../../domain/consolidation/Spaltennamen.js';
 import type { RecognitionOptions } from '../../domain/consolidation/Recognition.js';
 import { ausTabelle, texte, type Gelesen } from '../../infrastructure/formats/Bestand.js';
 import { readCsv } from '../../infrastructure/formats/Csv.js';
@@ -193,7 +194,7 @@ function ausBlatt(blatt: XlsxSheet, wunsch: Lesewunsch): { fields: string[]; zei
   }
 
   return {
-    fields: block.columns.map((spalte, index) => spalte.name ?? `Spalte ${index + 1}`),
+    fields: block.columns.map((spalte, index) => spalte.name ?? ersatzname(index)),
     zeilen: block.rows,
     notes: erkannt.notes,
   };

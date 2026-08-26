@@ -898,15 +898,13 @@ test('auch ein sauberer Durchgang steht im Protokoll', async () => {
   );
 });
 
-test('eine nicht erkannte Kopfzeile macht aus einem Schema keinen Datenausfall', async () => {
+test('eine nicht erkannte Kopfzeile bekommt ihre Namen aus dem Schema', async () => {
   /*
    * Besteht eine Datei nur aus Text, lässt sich nicht erkennen, ob die erste
    * Zeile eine Kopfzeile ist — die Spalten heißen dann „Spalte 1", „Spalte 2".
-   * Eine Regel für „kdnr" fände ihr Feld in keiner Zeile.
+   * Eine Regel für „kdnr" fände ihr Feld in keiner Zeile und prüfte nichts.
    *
-   * Würde sie trotzdem angewandt, wäre jede Zeile gescheitert und die ganze
-   * Lieferung abgewiesen — wegen fehlender Überschriften, nicht wegen der
-   * Daten. Der Lauf sagt es stattdessen und verarbeitet weiter.
+   * Das Schema weiß, wie die Spalten heißen. Es hat nur nie jemand gefragt.
    */
   const bank = werkbank();
 
@@ -916,10 +914,92 @@ test('eine nicht erkannte Kopfzeile macht aus einem Schema keinen Datenausfall',
   await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
 
   assert.ok(
-    bank.protokoll.some((zeile) => /gibt es in der Datei nicht/.test(zeile)),
+    bank.protokoll.some((zeile) => /2 Spalte\(n\) ohne Kopfzeile wurden aus dem Schema benannt: kdnr, ort/.test(zeile)),
     bank.protokoll.join(' | ')
   );
-  assert.equal((await bank.ergebnisse.list('default')).length, 1, 'die Lieferung wird trotzdem verarbeitet');
+  assert.ok(
+    !bank.protokoll.some((zeile) => /gibt es in der Datei nicht/.test(zeile)),
+    'und die Regeln greifen jetzt'
+  );
+});
+
+test('die Kopfzeile läuft dann nicht als Datensatz mit', async () => {
+  /*
+   * Sie trägt genau die Namen, die das Schema führt — ein Datensatz, der
+   * zufällig die Spaltennamen in ihrer Reihenfolge enthält, kommt nicht vor.
+   * Ohne diesen Schluss stünde im Ergebnis eine Zeile, in der unter „kdnr" das
+   * Wort „kdnr" steht.
+   */
+  const bank = werkbank();
+
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['Anna', 'Bonn'], ['Bert', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  const stand = (await bank.ergebnisse.list('default'))[0];
+
+  assert.deepEqual(stand.zeilen, [
+    ['Anna', 'Bonn'],
+    ['Bert', 'Köln'],
+  ]);
+});
+
+test('die Zeilennummern zählen weiter die Datei und nicht die Liste', async () => {
+  /*
+   * Nach der fortgenommenen Kopfzeile ist die erste übrige Zeile die **zweite**
+   * der Datei. Zählte die Ablehnungsdatei die Liste, stünde dort „Zeile 2",
+   * während der Fehler in Zeile 3 steht — und wer nachsieht, findet dort eine
+   * Zeile, nur eben die falsche.
+   */
+  const bank = werkbank();
+
+  await erlaubeTeilen(bank);
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['Anna', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(schemajob());
+
+  const abgelehnt = ablehnungsdatei(bank);
+
+  assert.ok(abgelehnt, bank.protokoll.join(' | '));
+  assert.match(abgelehnt.text, /Unikom_Zeile/);
+  const zeilen = abgelehnt.text.split(String.fromCharCode(10));
+
+  assert.ok(
+    zeilen.some((zeile) => zeile.split(';').map((wert) => wert.trim()).includes('3')),
+    `die Zeile der Datei und nicht der Liste: ${abgelehnt.text}`
+  );
+});
+
+test('ohne Schema bleibt es bei „Spalte 1" — und der Lauf sagt es', async () => {
+  /*
+   * Der Nachweis, dass die Benennung am Schema hängt und nicht am Zufall. Ohne
+   * eines gibt es niemanden, der die Spalten benennen könnte; die Regeln
+   * bleiben dann außen vor, und das steht im Protokoll statt in einem stillen
+   * Ergebnis.
+   */
+  const bank = werkbank();
+
+  await legeSchemaAn(bank);
+  bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['Anna', 'Bonn']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/eingang' },
+        regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+        // Kein `schema` am Durchgang: Das Profil gibt es, aber niemand nennt es.
+      },
+    })
+  );
+
+  assert.ok(
+    !bank.protokoll.some((zeile) => /aus dem Schema benannt/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+  assert.deepEqual((await bank.ergebnisse.list('default'))[0].felder, ['Spalte 1', 'Spalte 2']);
 });
 
 /* ---------- Ganz oder in Teilen ---------- */

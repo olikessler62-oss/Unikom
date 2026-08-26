@@ -1,5 +1,6 @@
 import type { Cell } from '../../domain/consolidation/Cell.js';
 import { textCell } from '../../domain/consolidation/Cell.js';
+import { ersatzname } from '../../domain/consolidation/Spaltennamen.js';
 import type { Feststellungen } from '../../domain/consolidation/Feststellungen.js';
 import { recogniseTypedField, werkzeugFuer, type RecognitionOptions } from '../../domain/consolidation/Recognition.js';
 import type { Column, DataBlock, DiscoveryResult } from '../../domain/discovery/Discovery.js';
@@ -130,7 +131,7 @@ export function ausTabelle(table: Table): Gelesen {
  */
 export function ausBlock(block: { columns: { name?: string }[]; rows: string[][] }): Gelesen {
   return {
-    fields: block.columns.map((spalte, index) => spalte.name ?? `Spalte ${index + 1}`),
+    fields: block.columns.map((spalte, index) => spalte.name ?? ersatzname(index)),
     rows: block.rows.map((zeile) => zeile.map(textCell)),
     feststellungen: { spalten: block.columns.length },
     ragged: [],

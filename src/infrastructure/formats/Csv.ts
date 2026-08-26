@@ -1,4 +1,5 @@
 import { recogniseField, type RecognitionOptions } from '../../domain/consolidation/Recognition.js';
+import { ersatzname } from '../../domain/consolidation/Spaltennamen.js';
 
 /**
  * CSV lesen — und dabei drei Feststellungen treffen, die keine Wahl sind:
@@ -207,7 +208,7 @@ export function detectHeader(rows: readonly string[][], options: RecognitionOpti
 
   for (let spalte = 0; spalte < spalten; spalte += 1) {
     const werte = koerper.map((zeile) => zeile[spalte] ?? '');
-    const erkannt = recogniseField(`Spalte ${spalte + 1}`, werte, options);
+    const erkannt = recogniseField(ersatzname(spalte), werte, options);
 
     if (erkannt.type === 'STRING' || erkannt.type === 'NULL' || !erkannt.certain) {
       continue;
@@ -292,8 +293,8 @@ export function readCsv(bytes: Uint8Array, options: CsvOptions): Table {
   const rows = kopf.header ? alle.slice(1) : alle;
   const breite = alle[0]?.length ?? 0;
   const fields = kopf.header
-    ? (alle[0] ?? []).map((name, index) => name.trim() || `Spalte ${index + 1}`)
-    : Array.from({ length: breite }, (_, index) => `Spalte ${index + 1}`);
+    ? (alle[0] ?? []).map((name, index) => name.trim() || ersatzname(index))
+    : Array.from({ length: breite }, (_, index) => ersatzname(index));
 
   const ragged = alle
     .map((zeile, index) => (zeile.length === breite ? 0 : index + 1))

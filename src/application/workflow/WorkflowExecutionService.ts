@@ -36,6 +36,8 @@ import { pruefeFolge } from '../../domain/transfer/Schrittfolge.js';
 import { ablagestand, type Abholbereit, type Ablagestand } from '../../domain/transfer/Ablageorte.js';
 import type { Paketbestand } from '../../domain/transfer/Archivpaket.js';
 import type { Vorentscheidung } from '../../domain/consolidation/Vorentscheidung.js';
+import { benenneNach } from '../../domain/consolidation/Spaltennamen.js';
+import type { Strukturvorgabe } from '../../domain/discovery/Expectation.js';
 import type { Referenzbestand, Referenzregel } from '../../domain/consolidation/Referenz.js';
 import { alsBytes, schreibeCsv } from '../../infrastructure/formats/CsvSchreiben.js';
 import { schreibeFixedWidth } from '../../infrastructure/formats/FixedWidthSchreiben.js';
@@ -916,9 +918,13 @@ export class WorkflowExecutionService implements JobExecutor {
    * jede Nacht ein Ergebnis, das um einen Tag zu groß ist.
    */
   /**
-   * Die Qualitätsregeln des gewählten Schemas.
+   * Was das gewählte Schema zu diesem Durchgang beiträgt.
    *
-   * Ohne Schema keine Regeln — das ist der Regelfall und keine Auffälligkeit.
+   * **Beides in einem Zug**: die Qualitätsregeln und die Struktur. Zweimal zu
+   * laden hieße, zwei Fassungen desselben Schemas in einem Lauf zu haben — wer
+   * dazwischen speichert, bekäme Regeln der einen und Spaltennamen der anderen.
+   *
+   * Ohne Schema kommt nichts — das ist der Regelfall und keine Auffälligkeit.
    * Ist eines gewählt und lässt sich nicht lesen, steht das im Protokoll: Ein
    * Durchgang, der sich auf ein Schema beruft, das es nicht mehr gibt, läuft
    * sonst durch, als wäre nie eines verlangt worden.
@@ -927,14 +933,14 @@ export class WorkflowExecutionService implements JobExecutor {
    * vorsichtigere Wahl — und die falsche: Wer eine Regel korrigiert, will sie
    * heute Nacht wirksam haben und nicht erst, wenn jemand den Workflow anfasst.
    */
-  private async profilregeln(
+  private async schemastand(
     schritt: Konsolidierungsdurchgang,
     hinweise: string[]
-  ): Promise<readonly Qualitaetsregel[]> {
+  ): Promise<{ regeln: readonly Qualitaetsregel[]; vorgabe?: Strukturvorgabe }> {
     const kennung = schritt.schema?.profil;
 
     if (!kennung) {
-      return [];
+      return { regeln: [] };
     }
 
     if (!this.umgebung.profile) {
@@ -943,7 +949,7 @@ export class WorkflowExecutionService implements JobExecutor {
           'Es wurde nichts geprüft'
       );
 
-      return [];
+      return { regeln: [] };
     }
 
     const profil = await this.umgebung.profile.getById(kennung);
@@ -951,16 +957,17 @@ export class WorkflowExecutionService implements JobExecutor {
     if (!profil) {
       hinweise.push(`Das Schema „${kennung}" gibt es nicht mehr. Es wurde nichts geprüft`);
 
-      return [];
+      return { regeln: [] };
     }
 
-    const regeln = aktuelleVersion(profil).regeln ?? [];
+    const version = aktuelleVersion(profil);
+    const regeln = version.regeln ?? [];
 
     if (regeln.length === 0) {
       hinweise.push(`Das Schema „${profil.name}" enthält keine Regeln für Werte. Geprüft wurde nichts`);
     }
 
-    return regeln;
+    return { regeln, vorgabe: version.vorgabe };
   }
 
   /**
@@ -1069,7 +1076,8 @@ export class WorkflowExecutionService implements JobExecutor {
       ? new Schemapruefer(this.umgebung.ablage, { datei: schritt.schema.datei, bei: schritt.schema.bei })
       : undefined;
 
-    const regeln = await this.profilregeln(schritt, hinweise);
+    const schema = await this.schemastand(schritt, hinweise);
+    const regeln = schema.regeln;
     const auslieferung = await this.auslieferungsart(job);
     const pruefwunsch = { region: regionAus(wirksam), nullWerte: wirksam.nullWerte, jetzt };
     const eingang = await this.dateien(job, schritt, lage, uebertragen, hinweise, laufId, jetzt);
@@ -1093,6 +1101,31 @@ export class WorkflowExecutionService implements JobExecutor {
         const gelesen = liesDatei({ name: datei.name, bytes, geaendert: datei.geaendert }, wunsch);
 
         hinweise.push(...gelesen.hinweise);
+
+        /*
+         * Die Spalten benennen, bevor irgendetwas sie beim Namen nennt.
+         *
+         * Die Qualitätsregeln binden über den Feldnamen; eine reine Textdatei
+         * bringt aber keinen mit und heißt „Spalte 1, Spalte 2, …". Eine Regel
+         * für „kdnr" fände darin kein „kdnr" — sie prüfte nichts, und die
+         * Lieferung liefe durch, als wäre alles in Ordnung.
+         */
+        for (const quelle of gelesen.quellen) {
+          const benannt = benenneNach(quelle.felder, quelle.zeilen[0], schema.vorgabe);
+
+          quelle.felder = benannt.felder;
+          hinweise.push(...benannt.hinweise.map((satz) => `„${datei.name}": ${satz}`));
+
+          /*
+           * Und die Kopfzeile fort, wo es eine war. Die Nummern wandern mit:
+           * Ohne sie zeigte jede Herkunftsangabe eine Zeile zu weit nach oben,
+           * und das fände niemand — die Nummern sähen plausibel aus.
+           */
+          if (benannt.kopfzeile) {
+            quelle.zeilenNummern = (quelle.zeilenNummern ?? quelle.zeilen.map((_, stelle) => stelle + 1)).slice(1);
+            quelle.zeilen = quelle.zeilen.slice(1);
+          }
+        }
 
         /*
          * Gegen das Schema des Mandanten, Zeile für Zeile.
