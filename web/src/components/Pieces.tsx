@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
   type KeyboardEvent as Tastenereignis,
   type MouseEvent,
@@ -10,6 +11,7 @@ import { createPortal } from 'react-dom';
 import type { RunStatus } from '../api/types.js';
 import { locale } from '../i18n/texts.js';
 import { useText } from '../i18n/useText.js';
+import { alsEineZeile } from './Einzeiler.js';
 
 /** Der Anschluss in der Kopfzeile, in den Ansichten ihre Knöpfe hängen. */
 export const HEADER_ACTIONS = 'header-actions';
@@ -358,6 +360,203 @@ export function FieldButton({
     <button type="button" className="field-button" title={title} aria-label={title} disabled={disabled} onClick={onClick}>
       {children}
     </button>
+  );
+}
+
+/**
+ * Ein Feld für eine Angabe, die mehr als eine Zeile sein darf.
+ *
+ * ```text
+ * Mandanten-Beschreibung
+ * ┌──────────────────────────────────────────┬───┐
+ * │ Norddeutsche Handels AG …                │ ✎ │
+ * ├──────────────────────────────────────────┴───┘
+ * │ Norddeutsche Handels AG                  │
+ * │ Ansprechpartner: Frau Ohlsen             │   das Fenster, unmittelbar
+ * │ Abrechnung monatlich                     │   unter dem Feld
+ * │                          [ OK ] [ Abbr. ]│
+ * └──────────────────────────────────────────┘
+ * ```
+ *
+ * ## Warum die Zeile nicht beschriftet wird
+ *
+ * Ein `input` **kann** keine zweite Zeile tragen: Der Browser streicht
+ * Zeilenumbrüche aus seinem Wert, sobald ihn jemand anfasst. Ein Feld, in das
+ * man hier tippt, hätte den Rest des Textes beim ersten Zeichen fortgeworfen —
+ * und zwar den unsichtbaren Teil, also den, dessen Verlust niemand bemerkt.
+ *
+ * Die Zeile zeigt deshalb nur und nimmt nichts an. Geschrieben wird im Fenster,
+ * und dorthin führen beide Wege, die man ausprobiert: der Stift daneben und ein
+ * Klick auf die Zeile selbst.
+ *
+ * ## Warum das Fenster unter dem Feld steht und nicht in der Mitte
+ *
+ * Es bearbeitet **dieses** Feld und nicht die Seite. Ein Fenster in der Mitte
+ * des Bildschirms verdeckt, wovon es handelt, und lässt offen, welche der
+ * Angaben man gerade ändert — bei „Name" und „Beschreibung" nebeneinander ist
+ * das eine Frage, die man sich stellt. Unter dem Feld beantwortet die Stelle
+ * sie.
+ *
+ * Es ist so breit wie die Zeile darüber und höher als sie. Die Breite ist die
+ * Zusage: Was hier hineinpasst, passt auch dorthin — nur eben in mehr Zeilen.
+ *
+ * ## Die drei Ausgänge, und warum nur einer verwirft
+ *
+ * `OK` übernimmt, `Abbrechen` und `Escape` verwerfen. Ein Klick **daneben**
+ * übernimmt ebenfalls: Das Fenster steht mitten im Formular, und wer daneben
+ * klickt, wollte meist zum nächsten Feld — nicht seinen Text fortwerfen.
+ * Verwerfen soll man sagen müssen; das ist die Richtung, in der ein Versehen
+ * nichts kostet.
+ */
+export function Memofeld({
+  label,
+  value,
+  placeholder,
+  explain,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  /** Beispieltext — in der Zeile und im Fenster derselbe. */
+  placeholder?: string;
+  /** Erklärung hinter einem Knopf neben dem Feld — siehe `Field`. */
+  explain?: ReactNode;
+  onChange(text: string): void;
+}) {
+  const [offen, setOffen] = useState(false);
+  const [entwurf, setEntwurf] = useState(value);
+  const fenster = useRef<HTMLDivElement>(null);
+
+  /*
+   * Was beim Schließen gilt, wird beim Schließen gelesen.
+   *
+   * Der Horcher auf den Klick daneben wird einmal angemeldet, wenn das Fenster
+   * aufgeht. Läse er den Entwurf aus dem Abschluss von damals, übernähme er den
+   * Stand vom Öffnen — und jedes getippte Zeichen wäre fort. Ihn bei jedem
+   * Zeichen neu anzumelden wäre die andere Lösung; sie kostet einen Horcher pro
+   * Tastendruck und geht schief, sobald noch etwas anderes davon abhängt.
+   */
+  const stand = useRef({ entwurf, onChange });
+  stand.current = { entwurf, onChange };
+
+  const vorschau = alsEineZeile(value);
+
+  function oeffne(): void {
+    setEntwurf(value);
+    setOffen(true);
+  }
+
+  function uebernimm(): void {
+    setOffen(false);
+    stand.current.onChange(stand.current.entwurf);
+  }
+
+  /* Zeile und Stift tun dasselbe: auf und wieder zu, und zu heißt übernehmen. */
+  function umschalten(): void {
+    if (offen) {
+      uebernimm();
+    } else {
+      oeffne();
+    }
+  }
+
+  useEffect(() => {
+    if (!offen) {
+      return;
+    }
+
+    function daneben(ereignis: PointerEvent): void {
+      /*
+       * „Daneben" ist außerhalb der ganzen Zeile und nicht nur des Fensters:
+       * Der Stift steht in derselben Zeile, und ein Klick auf ihn schlösse
+       * sonst erst hier und öffnete gleich danach wieder.
+       */
+      const zeile = fenster.current?.parentElement;
+
+      if (zeile && !zeile.contains(ereignis.target as Node)) {
+        uebernimm();
+      }
+    }
+
+    document.addEventListener('pointerdown', daneben);
+    return () => document.removeEventListener('pointerdown', daneben);
+  }, [offen]);
+
+  /*
+   * Der Merkzettel zeigt, was die Zeile verschweigt — und sonst nichts. Beide
+   * Kürzungen zählen: die nach der ersten Zeile, die wir selbst vornehmen, und
+   * die nach der Breite, die der Browser vornimmt.
+   */
+  function merkzettel(ereignis: MouseEvent<HTMLInputElement>): void {
+    const feld = ereignis.currentTarget;
+    const verborgen = vorschau !== value || feld.scrollWidth > feld.clientWidth;
+
+    if (value !== '' && verborgen) {
+      feld.title = value;
+    } else {
+      feld.removeAttribute('title');
+    }
+  }
+
+  return (
+    <Field
+      label={label}
+      explain={explain}
+      action={
+        <FieldButton title={`„${label}" bearbeiten`} onClick={umschalten}>
+          <PencilIcon />
+        </FieldButton>
+      }
+    >
+      <input
+        className="memo__zeile"
+        readOnly
+        aria-label={label}
+        value={vorschau}
+        placeholder={placeholder}
+        onMouseEnter={merkzettel}
+        onClick={umschalten}
+        // Eine Zeile, die sich anklicken lässt, muss sich auch drücken lassen.
+        onKeyDown={(ereignis) => {
+          if (ereignis.key === 'Enter' || ereignis.key === ' ') {
+            ereignis.preventDefault();
+            umschalten();
+          }
+        }}
+      />
+
+      {offen && (
+        <div
+          ref={fenster}
+          className="memo"
+          role="dialog"
+          aria-label={label}
+          // Escape gehört dem Fenster, nicht der Seite darunter.
+          onKeyDown={(ereignis) => {
+            if (ereignis.key === 'Escape') {
+              ereignis.stopPropagation();
+              setOffen(false);
+            }
+          }}
+        >
+          <textarea
+            className="memo__text"
+            autoFocus
+            value={entwurf}
+            placeholder={placeholder}
+            onChange={(ereignis) => setEntwurf(ereignis.target.value)}
+          />
+
+          {/* Rechtsbündig, OK vor Abbrechen — wie in jedem Fenster hier. */}
+          <div className="row memo__knoepfe">
+            <button onClick={uebernimm}>OK</button>
+            <button className="secondary" onClick={() => setOffen(false)}>
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+    </Field>
   );
 }
 

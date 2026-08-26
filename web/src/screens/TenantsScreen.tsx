@@ -3,12 +3,14 @@ import { useState } from 'react';
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
 import type { Auslieferungsart, Credential, Tenant, Vorlageart } from '../api/types.js';
+import { alsEineZeile } from '../components/Einzeiler.js';
 import {
   CheckField,
   Empty,
   Field,
   InfoButton,
   Loading,
+  Memofeld,
   Modal,
   Notice,
   titelBeiUeberlaufWahl,
@@ -275,12 +277,24 @@ export function TenantsScreen({ canManage }: Props) {
                 <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} autoFocus />
               </Field>
 
-              <Field label="Mandanten-Beschreibung">
-                <input
-                  value={draft.description}
-                  onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-                />
-              </Field>
+              {/*
+                * Die Beschreibung darf mehr sein als eine Zeile.
+                *
+                * Sie ist die einzige Stelle am Mandanten, an der etwas stehen
+                * darf, das Unikom nicht auswertet: der Ansprechpartner, die
+                * Abrechnungsart, warum dieser Kunde eine eigene Region hat. Ein
+                * Feld, das eine Zeile fasst, hätte all das auf eine Zeile
+                * gezwungen — und wer es trotzdem hineinschriebe, verlöre den
+                * Rest beim nächsten Anfassen.
+                *
+                * In der Zeile steht deshalb nur ihr Anfang; geschrieben wird im
+                * Fenster hinter dem Stift.
+                */}
+              <Memofeld
+                label="Mandanten-Beschreibung"
+                value={draft.description}
+                onChange={(description) => setDraft((jetzt) => (jetzt ? { ...jetzt, description } : jetzt))}
+              />
             </div>
 
             {/*
@@ -496,7 +510,18 @@ export function TenantsScreen({ canManage }: Props) {
                     <tr key={tenant.id}>
                       <td>
                         <div style={{ fontWeight: 600 }}>{tenant.name}</div>
-                        {tenant.description && <div className="muted">{tenant.description}</div>}
+                        {/*
+                          * Auch hier nur die erste Zeile: In HTML wird aus
+                          * einem Umbruch ein Leerzeichen, und aus drei Zeilen
+                          * wird eine, in der „Handels AG Ansprechpartner: Frau
+                          * Ohlsen" hintereinander steht. Der ganze Text hängt
+                          * als Merkzettel daran.
+                          */}
+                        {tenant.description && (
+                          <div className="muted" title={tenant.description}>
+                            {alsEineZeile(tenant.description)}
+                          </div>
+                        )}
                       </td>
                       <td className="muted">
                         {tenant.rootDirectory ?? <span className="badge badge--muted">nicht eingegrenzt</span>}

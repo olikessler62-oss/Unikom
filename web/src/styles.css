@@ -2495,8 +2495,16 @@ option:checked {
   color: #e8a99b;
 }
 
-/* Eingabefeld und ein Knopf daneben, auf einer Linie. */
+/*
+ * Eingabefeld und ein Knopf daneben, auf einer Linie.
+ *
+ * `position: relative` macht die Zeile zum Bezug für das, was sich unter ihr
+ * öffnet — das Memofenster hängt daran. Sie selbst rührt sich davon nicht: Alle
+ * ihre Kinder stehen im Fluss, und einen eigenen Stapel bildet sie ohne
+ * `z-index` nicht.
+ */
 .field__row {
+  position: relative;
   display: flex;
   gap: var(--feld-luecke);
   align-items: center;
@@ -2609,6 +2617,87 @@ svg.icon--strich {
 
 .card:has(.hint-button) .field > select {
   max-width: calc(100% - var(--hint-gutter));
+}
+
+/*
+ * Die Zeile, die eine mehrzeilige Angabe zeigt — siehe `Memofeld`.
+ *
+ * Sie nimmt keine Eingabe an, deshalb der Zeiger einer Schaltfläche: Was sich
+ * anklicken lässt, soll aussehen, als ließe es sich anklicken.
+ *
+ * `text-overflow` kürzt, was in der Breite nicht hineinpasst, und setzt dafür
+ * dasselbe Zeichen wie die Kürzung nach der ersten Zeile. Wer die Zeile ansieht,
+ * sieht deshalb nur „hier steht mehr" — und nicht zwei verschiedene Sorten von
+ * „mehr".
+ */
+.memo__zeile {
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+/*
+ * Das Fenster, das unmittelbar unter dem Feld aufgeht.
+ *
+ * ## Breite: aus denselben Marken gerechnet, nicht gemessen
+ *
+ * Es soll so breit sein wie das Eingabefeld darüber — nicht wie die ganze
+ * Zeile, denn rechts steht der Stift. Der Abstand zur rechten Kante der Zeile
+ * ist deshalb genau das, was hinter dem Feld noch kommt: die Knopfbreite und
+ * die Lücke davor. Als Rechnung aus den Marken und nicht als abgeschriebene
+ * Zahl — wächst der Knopf, wandert die Kante von selbst mit.
+ *
+ * ## Höhe: vom Inhalt bestimmt, mit einer Untergrenze
+ *
+ * Ein Memo, das eine Zeile hoch aufgeht, wäre dasselbe Feld noch einmal. Die
+ * Untergrenze sagt: Hier ist Platz für einen Absatz. Ziehen darf man weiter —
+ * `textarea` bringt das mit.
+ *
+ * ## Warum es über allem liegt, aber nicht über den Fenstern
+ *
+ * 30 liegt über den Flächen darunter (die tragen keinen Rang) und unter der
+ * Glocke (40) und den Fenstern (50). Eine Meldung, die etwas Wichtiges sagt,
+ * gehört vor ein Memo — nicht dahinter.
+ */
+.memo {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: calc(var(--field-size) + var(--feld-luecke));
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 0.85rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-small);
+  background: linear-gradient(168deg, var(--g-3) 0%, var(--g-2) 55%, var(--g-1) 100%);
+  box-shadow: 0 28px 60px -30px rgba(var(--shade), 0.95);
+}
+
+/*
+ * Steht in der Zeile auch ein Erklärknopf, endet das Eingabefeld eine Spalte
+ * früher — und das Fenster mit ihm. Heute trägt kein Memofeld einen; wenn es
+ * soweit ist, soll die Kante nicht stillschweigend danebenlaufen.
+ */
+.field__row:has(.hint-button) .memo {
+  right: calc(var(--field-size) + var(--feld-luecke) + var(--hint-gutter));
+}
+
+/*
+ * Fließtext und keine Schreibmaschine.
+ *
+ * Ein Memo trägt hier sonst Schlüsselmaterial — dort macht feste Zeichenbreite
+ * lange Base64-Zeilen vergleichbar. Eine Beschreibung ist Prosa; in derselben
+ * Schrift wie das Feld daneben liest sie sich wie das, was sie ist.
+ */
+.memo__text {
+  min-height: 9.5rem;
+  font-family: inherit;
+  font-size: 0.94rem;
+}
+
+.memo__knoepfe {
+  justify-content: flex-end;
 }
 
 /*
