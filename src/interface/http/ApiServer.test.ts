@@ -2448,13 +2448,43 @@ test('die Freigabe wird verweigert, solange ein Fall offen ist', async (t) => {
     },
   });
 
-  const freigegeben = await client.request('POST', '/api/conflicts/release', {
-    body: { tenantId: 'default', newRunId: 'lauf2' },
+  /*
+   * Entschieden ist entschieden — die Freigabe scheitert jetzt nicht mehr am
+   * Bestand, sondern am **Rückweg**: Der Korrekturlauf rechnet auf der
+   * ursprünglichen Lieferung, und diese Fälle stammen aus einer Vorschau, die
+   * nie eine hatte.
+   */
+  const ohnePaket = await client.request('POST', '/api/conflicts/release', {
+    body: { tenantId: 'default', runId: 'lauf1', newRunId: 'lauf2' },
   });
 
-  assert.equal(freigegeben.status, 200, freigegeben.body?.error);
-  assert.deepEqual(freigegeben.body.felder, ['konflikt_uuid', 'ort']);
-  assert.deepEqual(freigegeben.body.zeilen, [[id, 'Bonn']]);
+  assert.equal(ohnePaket.status, 409);
+  assert.match(ohnePaket.body.error, /kein Archivpaket/);
+});
+
+test('ohne Lauf gibt es keinen Rückweg', async (t) => {
+  /*
+   * Der Korrekturlauf rechnet auf **einer** Lieferung, und die steht im
+   * Archivpaket eines bestimmten Laufs. „Alle bereinigten Fälle des Mandanten"
+   * ist keine Lieferung, sondern eine Auswahl über mehrere.
+   */
+  const client = await harness(t);
+  await withUser(client, 'anna', 'ADMIN');
+  await client.login('anna');
+
+  const id = await konfliktLauf(client);
+
+  await client.request('POST', `/api/conflicts/${id}/decide`, {
+    body: {
+      tenantId: 'default',
+      decision: { kind: 'BEREINIGEN', fields: [{ field: 'ort', choice: { kind: 'QUELLE', source: 'CRM.csv' } }] },
+    },
+  });
+
+  const ohneLauf = await client.request('POST', '/api/conflicts/release', { body: { tenantId: 'default' } });
+
+  assert.equal(ohneLauf.status, 400);
+  assert.match(ohneLauf.body.error, /braucht den Lauf/);
 });
 
 test('der Bearbeitungsstand wird je Benutzer gespeichert', async (t) => {

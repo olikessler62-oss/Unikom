@@ -235,6 +235,19 @@ export class ConsolidationService {
      */
     const entschieden = nachDatensatz(auftrag.vorentscheidungen ?? []);
 
+    /*
+     * Welche davon ihren Datensatz wiedergefunden haben.
+     *
+     * Eine Entscheidung, die niemanden trifft, ist der stille Fall: Der
+     * Korrekturlauf läuft durch, das Ergebnis sieht vollständig aus, und der
+     * Konflikt steht wieder da, als hätte niemand ihn angefasst. Das kommt vor,
+     * wenn der Fall keinen Konsolidierungsschlüssel trug — dann steht in
+     * `datensatz` „Kunden.csv, Zeile 7", und Zeilennummern überstehen keine
+     * erneute Verarbeitung. Es ist eine Grenze und keine Panne; sie gehört
+     * benannt.
+     */
+    const angewandt = new Set<string>();
+
     let datensaetze = alleDatensaetze(auftrag.quellen);
     const gelesen = datensaetze.length;
 
@@ -409,6 +422,8 @@ export class ConsolidationService {
             continue;
           }
 
+          angewandt.add(klartext);
+
           const vereinigt = fuehreZusammen(
             klartext,
             menge,
@@ -481,6 +496,16 @@ export class ConsolidationService {
       for (const datensatz of gruppe) {
         inGruppe.set(datensatz, schluessel);
       }
+    }
+
+    const verfehlt = [...entschieden.keys()].filter((datensatz) => !angewandt.has(datensatz));
+
+    if (verfehlt.length > 0) {
+      hinweise.push(
+        `${verfehlt.length} Entscheidung(en) fanden ihren Datensatz nicht wieder ` +
+          `(${verfehlt.slice(0, 5).join(', ')}${verfehlt.length > 5 ? ', …' : ''}). ` +
+          'Diese Fälle werden erneut vorgelegt'
+      );
     }
 
     return this.bericht(auftrag, {

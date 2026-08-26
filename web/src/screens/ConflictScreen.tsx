@@ -9,6 +9,7 @@ import type {
   Konfliktfall,
   Konfliktliste,
   Konfliktstatus,
+  Korrekturergebnis,
   Kritikalitaet,
   Massenergebnis,
   Massenvorschau,
@@ -321,17 +322,31 @@ export function ConflictScreen() {
     }
   }
 
-  async function freigeben(): Promise<void> {
+  /**
+   * Die Freigabe **ist** der Lauf.
+   *
+   * Vorher endete sie bei den Daten: Die Fälle standen auf „zur erneuten
+   * Verarbeitung gegeben", und niemand verarbeitete sie erneut. Wer zwanzig
+   * Fälle entschieden hatte, las „stehen bereit" und wartete auf etwas, das
+   * nicht kam.
+   */
+  async function freigeben(laufId: string): Promise<void> {
     setBusy(true);
     setFehler(undefined);
 
     try {
-      const ergebnis = await api.post<{ zeilen: string[][] }>('/api/conflicts/release', {
+      const ergebnis = await api.post<Korrekturergebnis>('/api/conflicts/release', {
         tenantId: mandant,
-        newRunId: new Date().toISOString(),
+        runId: laufId,
       });
 
-      setMeldung(`${ergebnis.zeilen.length} bereinigte Fälle stehen zur erneuten Verarbeitung bereit.`);
+      setMeldung(
+        ergebnis.gelungen
+          ? `Korrekturlauf ${ergebnis.laufId} ist durch: ${ergebnis.abgeschlossen} von ${ergebnis.faelle} ` +
+            'Fall/Fällen gelten als erfolgreich verarbeitet.'
+          : `Korrekturlauf ${ergebnis.laufId} ist misslungen: ${ergebnis.meldung}. ` +
+            `${ergebnis.faelle} Fall/Fälle stehen weiter auf „zur erneuten Verarbeitung gegeben".`
+      );
       await laden();
     } catch (error) {
       setFehler(messageOf(error, 'Die Freigabe ist nicht möglich'));
@@ -353,7 +368,14 @@ export function ConflictScreen() {
       {fehler && <Notice kind="error">{fehler}</Notice>}
       {meldung && <Notice kind="info">{meldung}</Notice>}
 
-      {liste && <Freigabe stand={liste.stand} busy={busy} onFreigeben={() => void freigeben()} />}
+      {liste && (
+        <Freigabe
+          stand={liste.stand}
+          laeufe={laeufeMitBereinigten(liste.faelle)}
+          busy={busy}
+          onFreigeben={(laufId) => void freigeben(laufId)}
+        />
+      )}
 
       {mandant && <Ausleitungen mandant={mandant} />}
 
@@ -643,15 +665,42 @@ function Ausleitungen({ mandant }: { mandant: string }) {
   );
 }
 
+/**
+ * Die Läufe, zu denen bereinigte Fälle vorliegen.
+ *
+ * Der Korrekturlauf rechnet auf **einer** Lieferung, und die steht im
+ * Archivpaket eines bestimmten Laufs. „Alle bereinigten Fälle des Mandanten"
+ * ist keine Lieferung, sondern eine Auswahl über mehrere — deshalb wird der
+ * Lauf gewählt und nicht weggelassen.
+ */
+export function laeufeMitBereinigten(faelle: readonly Konfliktfall[]): { laufId: string; faelle: number }[] {
+  const gezaehlt = new Map<string, number>();
+
+  for (const fall of faelle) {
+    if (fall.status === 'BEREINIGT') {
+      gezaehlt.set(fall.laufId, (gezaehlt.get(fall.laufId) ?? 0) + 1);
+    }
+  }
+
+  return [...gezaehlt]
+    .map(([laufId, anzahl]) => ({ laufId, faelle: anzahl }))
+    .sort((eins, zwei) => eins.laufId.localeCompare(zwei.laufId));
+}
+
 function Freigabe({
   stand,
+  laeufe,
   busy,
   onFreigeben,
 }: {
   stand: Konfliktliste['stand'];
+  laeufe: { laufId: string; faelle: number }[];
   busy: boolean;
-  onFreigeben(): void;
+  onFreigeben(laufId: string): void;
 }) {
+  const [gewaehlt, setGewaehlt] = useState('');
+  const lauf = laeufe.find((eintrag) => eintrag.laufId === gewaehlt) ?? laeufe[0];
+
   return (
     <section className="card">
       <h2>Stand der Bearbeitung</h2>
@@ -669,11 +718,31 @@ function Freigabe({
       {stand.freigabeMoeglich ? (
         <>
           <Notice kind="info">
-            Es wartet kein Fall mehr auf eine Entscheidung. Die bereinigten Fälle können zur erneuten Verarbeitung
-            gegeben werden — sie bekommt eine eigene Verarbeitungs-ID und verweist auf den ursprünglichen Lauf.
+            Es wartet kein Fall mehr auf eine Entscheidung. Der Korrekturlauf rechnet die ursprüngliche Lieferung
+            noch einmal — diesmal mit den getroffenen Entscheidungen. Er bekommt eine eigene Verarbeitungs-ID und
+            verweist auf den ursprünglichen Lauf; sein Ergebnis ersetzt das zurückgehaltene.
           </Notice>
-          <button disabled={busy || stand.bereinigt === 0} onClick={onFreigeben}>
-            {stand.bereinigt} bereinigte Fälle zur erneuten Verarbeitung geben
+
+          {/*
+            * Die Auswahl nur, wo es etwas zu wählen gibt.
+            *
+            * Bei einem einzigen Lauf wäre sie ein Feld mit genau einem Eintrag —
+            * eine Frage, auf die es nur eine Antwort gibt, lässt man besser weg.
+            */}
+          {laeufe.length > 1 && (
+            <Field label="Lauf">
+              <select value={lauf?.laufId ?? ''} onChange={(event) => setGewaehlt(event.target.value)}>
+                {laeufe.map((eintrag) => (
+                  <option key={eintrag.laufId} value={eintrag.laufId}>
+                    {eintrag.laufId} ({eintrag.faelle} bereinigt)
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          <button disabled={busy || !lauf} onClick={() => lauf && onFreigeben(lauf.laufId)}>
+            {lauf ? `${lauf.faelle} bereinigte Fälle aus Lauf ${lauf.laufId} erneut verarbeiten` : 'Nichts zu tun'}
           </button>
         </>
       ) : (

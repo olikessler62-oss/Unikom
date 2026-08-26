@@ -107,7 +107,15 @@ import { Referenzquellendienst } from '../consolidation/Referenzquellendienst.js
 import type { Referenzquellenbestand } from '../../domain/consolidation/Referenzquelle.js';
 import { InMemoryReferenzquellenRepository } from '../../infrastructure/persistence/InMemoryReferenzquellenRepository.js';
 import { SqliteReferenzquellenRepository } from '../../infrastructure/persistence/sqlite/SqliteReferenzquellenRepository.js';
-import type { Ausleitungsbestand } from '../../domain/conflicts/Ausleitung.js';
+import type { Ausleitungsbestand, Laufauskunft } from '../../domain/conflicts/Ausleitung.js';
+import type { Paketbestand } from '../../domain/transfer/Archivpaket.js';
+import { Korrekturdienst } from '../conflicts/Korrekturdienst.js';
+import {
+  WorkflowExecutionService,
+  type Konsolidierungsumgebung,
+} from '../workflow/WorkflowExecutionService.js';
+import { InMemoryPaketRepository } from '../../infrastructure/persistence/InMemoryPaketRepository.js';
+import { SqlitePaketRepository } from '../../infrastructure/persistence/sqlite/SqlitePaketRepository.js';
 import { InMemoryAusleitungsRepository } from '../../infrastructure/persistence/InMemoryAusleitungsRepository.js';
 import { SqliteAusleitungsRepository } from '../../infrastructure/persistence/sqlite/SqliteAusleitungsRepository.js';
 import { TransferRunStatus } from '../../domain/transfer/TransferRun.js';
@@ -170,6 +178,8 @@ export interface UnikomApplication {
   archivdienst?: Archivdienst;
   /** Schreibt Konflikt- und Konfliktzieldateien und raeumt sie nach Frist fort (SPEC-07 §5). */
   ausleitungsdienst: Ausleitungsdienst;
+  /** Der Rueckweg: aus entschiedenen Faellen wird ein Lauf (SPEC-07, Abschnitt 13). */
+  korrekturdienst: Korrekturdienst;
   /** Verwaltet die Referenzquellen und liest sie zum Lauf (SPEC-04 §6, §8). */
   referenzquellen: Referenzquellendienst;
   resultRepository: Ergebnisbestand;
@@ -276,6 +286,8 @@ interface Wiring {
   installationStateRepository: InstallationStateRepository;
   /** Die Ausleitungen des Konfliktbestands (SPEC-07, Dateimodell). */
   ausleitungsbestand: Ausleitungsbestand;
+  /** Welches Archivpaket zu welchem Lauf gehört (SPEC-07, Abschnitt 13). */
+  paketbestand: Paketbestand;
   /** Die verwalteten Referenzquellen (SPEC-04, Abschnitt 8). */
   referenzquellenbestand: Referenzquellenbestand;
   /** Die Bestände für Auskunft und Löschauftrag (FR_009); leer in der flüchtigen Bauart. */
@@ -408,26 +420,38 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
 
   const referenzquellen = new Referenzquellendienst(wiring.referenzquellenbestand, ablage, logger);
 
+  /*
+   * Ein Lauf ist durch, wenn er nicht mehr laeuft und nicht misslungen ist.
+   * Alles andere behaelt seine Unterlagen: Wer einen misslungenen Lauf
+   * untersucht, braucht genau die Dateien, die eine Frist sonst fortraeumte
+   * (SPEC-07, Abschnitt 5).
+   *
+   * Einmal und nicht zweimal: Ausleitungen und Archivpakete stellen dieselbe
+   * Frage, und zwei Antworten darauf waeren zwei, die auseinanderlaufen.
+   */
+  const laufauskunft: Laufauskunft = {
+    abgeschlossen: async (laufId) => {
+      const lauf = await wiring.runRepository.getById(laufId);
+
+      return lauf?.status === TransferRunStatus.SUCCESS || lauf?.status === TransferRunStatus.SUCCESS_NO_FILES;
+    },
+  };
+
+  /*
+   * Die Umgebung, in der konsolidiert wird — einmal gebaut, zweimal benutzt.
+   *
+   * Der nächtliche Lauf und der Korrekturlauf rechnen unter denselben
+   * Bedingungen: dieselben Regeln, dasselbe Archiv, derselbe Ergebnisbestand.
+   * Zwei Umgebungen wären zwei, die auseinanderlaufen — und das fünde man
+   * daran, dass eine Korrektur ein anderes Ergebnis ergäbe als der Lauf, den
+   * sie ersetzen soll.
+   */
   const ausleitungsdienst = new Ausleitungsdienst(
     wiring.conflictRepository,
     wiring.ausleitungsbestand,
     ablage,
     logger,
-    {
-      /*
-       * Ein Lauf ist durch, wenn er nicht mehr laeuft und nicht misslungen
-       * ist. Alles andere behaelt seine Unterlagen: Wer einen misslungenen
-       * Lauf untersucht, braucht genau die Dateien, die eine Frist sonst
-       * fortraeumte (SPEC-07, Abschnitt 5).
-       */
-      abgeschlossen: async (laufId) => {
-        const lauf = await wiring.runRepository.getById(laufId);
-
-        return (
-          lauf?.status === TransferRunStatus.SUCCESS || lauf?.status === TransferRunStatus.SUCCESS_NO_FILES
-        );
-      },
-    },
+    laufauskunft,
     {
       /*
        * Die Frist je Mandant (SPEC-07 §5). Was je Kunde verschieden sein kann,
@@ -437,7 +461,79 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     }
   );
 
+  /*
+   * Die Umgebung, in der konsolidiert wird — einmal gebaut, zweimal benutzt.
+   *
+   * Der nächtliche Lauf und der Korrekturlauf rechnen unter denselben
+   * Bedingungen: dieselben Regeln, dasselbe Archiv, derselbe Ergebnisbestand.
+   * Zwei Umgebungen wären zwei, die auseinanderlaufen — und man fände es
+   * daran, dass eine Korrektur ein anderes Ergebnis ergäbe als der Lauf, den
+   * sie ersetzen soll.
+   */
+  const konsolidierung: Konsolidierungsumgebung = {
+    consolidation: consolidationService,
+    conflicts: conflictService,
+    results: resultService,
+    tenants: wiring.tenantRepository,
+    ablage,
+    /*
+     * Das Archiv der Eingangsdateien. Ohne diese Zeile bliebe jeder Durchgang
+     * stehen — und das zu Recht: Zerlegt werden darf eine Lieferung nur,
+     * solange das Original gesichert ist.
+     *
+     * Der Hauptschlüssel wird bei **jedem** Paket neu geholt und nirgends
+     * gehalten. Ein Schlüssel in einem langlebigen Objekt steht in jedem
+     * Speicherabbild.
+     */
+    archiv,
+    /*
+     * Und der Vermerk dazu: welches Paket zu welchem Lauf gehört. Ohne ihn
+     * fände der Korrekturlauf die ursprüngliche Lieferung nicht wieder, und die
+     * Bereinigung könnte nicht erkennen, dass ein Paket noch gebraucht wird.
+     */
+    pakete: wiring.paketbestand,
+    // Damit ein Durchgang, der von einer Windows-Freigabe liest, sie mit dem
+    // hinterlegten Zugang verbindet und nicht mit dem Dienstkonto.
+    freigaben: shares,
+    freigabezugang: shareAccess,
+    referenzen: referenzquellen,
+    // Damit ein Durchgang, der ein Schema nennt, dessen Regeln auch anwendet.
+    // Ohne diese Zeile stünde die Prüfung auf dem Bildschirm und fände nicht
+    // statt.
+    profile: wiring.profilRepository,
+    blockweise,
+    background: backgroundService,
+    logger,
+    features,
+    hoechstmenge: options.hoechstmenge,
+  };
+
+  /*
+   * Ein eigener Ausführer für den Rückweg.
+   *
+   * Er teilt sich die ganze Umgebung mit dem nächtlichen. Was ihm fehlt, ist
+   * ein Übertragungsschritt: Ein Korrekturlauf holt nichts ab, er rechnet auf
+   * einer Lieferung, die längst dasteht. Der Platz dafür bleibt deshalb leer
+   * und sagt es — statt eine Übertragung zu erfinden, die nie stattfindet.
+   */
+  const korrekturdienst = new Korrekturdienst(
+    conflictService,
+    wiring.paketbestand,
+    archiv,
+    wiring.jobRepository,
+    new WorkflowExecutionService(
+      {
+        execute: () => {
+          throw new Error('Ein Korrekturlauf überträgt nicht — er rechnet auf dem Archivpaket');
+        },
+      },
+      konsolidierung
+    ),
+    logger
+  );
+
   return {
+    korrekturdienst,
     jobRepository: wiring.jobRepository,
     profilRepository: wiring.profilRepository,
     snapshots: wiring.snapshots,
@@ -507,42 +603,13 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
       processingStages,
       retentionService,
       ausleitungen: ausleitungsdienst,
-      archivbereinigung: new Archivbereinigung(wiring.tenantRepository, wiring.jobRepository, archiv, logger),
+      archivbereinigung: new Archivbereinigung(wiring.paketbestand, ablage, logger, laufauskunft, {
+        tage: async (tenantId) => (await wiring.tenantRepository.getById(tenantId))?.archivTage,
+      }),
       runGate: licenceService,
       runControls,
       terminwache: (versaeumt) => backgroundService.meldeAusbleiben(versaeumt).then(() => undefined),
-      konsolidierung: {
-        consolidation: consolidationService,
-        conflicts: conflictService,
-        results: resultService,
-        tenants: wiring.tenantRepository,
-        ablage: new NodeDateiablage(),
-        /*
-         * Das Archiv der Eingangsdateien. Ohne diese Zeile bliebe jeder
-         * Durchgang mit eingetragenem Archivverzeichnis stehen — und das zu
-         * Recht: Zerlegt werden darf eine Lieferung nur, solange das Original
-         * gesichert ist.
-         *
-         * Der Hauptschlüssel wird bei **jedem** Paket neu geholt und nirgends
-         * gehalten. Ein Schlüssel in einem langlebigen Objekt steht in jedem
-         * Speicherabbild.
-         */
-        archiv,
-        // Damit ein Durchgang, der von einer Windows-Freigabe liest, sie mit
-        // dem hinterlegten Zugang verbindet und nicht mit dem Dienstkonto.
-        freigaben: shares,
-        freigabezugang: shareAccess,
-        referenzen: referenzquellen,
-        // Damit ein Durchgang, der ein Schema nennt, dessen Regeln auch
-        // anwendet. Ohne diese Zeile stünde die Prüfung auf dem Bildschirm
-        // und fände nicht statt.
-        profile: wiring.profilRepository,
-        blockweise,
-        background: backgroundService,
-        logger,
-        features,
-        hoechstmenge: options.hoechstmenge,
-      },
+      konsolidierung,
     }),
     close: wiring.close,
   };
@@ -617,6 +684,7 @@ export function createPersistentApplication(
       mappingRepository: new SqliteMappingRepository(database),
       conflictRepository: new SqliteConflictRepository(database),
       ausleitungsbestand: new SqliteAusleitungsRepository(database),
+      paketbestand: new SqlitePaketRepository(database),
       referenzquellenbestand: new SqliteReferenzquellenRepository(database),
       resultRepository: new SqliteResultRepository(database),
       heartbeatRepository: new SqliteHeartbeatRepository(database),
@@ -674,6 +742,7 @@ export function createInMemoryApplication(options: ApplicationOptions = {}): Uni
       mappingRepository: new InMemoryMappingRepository(),
       conflictRepository: new InMemoryConflictRepository(),
       ausleitungsbestand: new InMemoryAusleitungsRepository(),
+      paketbestand: new InMemoryPaketRepository(),
       referenzquellenbestand: new InMemoryReferenzquellenRepository(),
       resultRepository: new InMemoryResultRepository(),
       heartbeatRepository: new InMemoryHeartbeatRepository(),

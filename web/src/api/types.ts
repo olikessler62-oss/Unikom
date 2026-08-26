@@ -1382,6 +1382,23 @@ export interface Bearbeitungsschritt {
   bemerkung?: string;
 }
 
+/**
+ * Was aus einer Freigabe geworden ist — der Rückweg (SPEC-07, Abschnitt 13).
+ *
+ * Die Freigabe **ist** der Lauf: Sie räumt nicht nur den Bestand auf, sondern
+ * rechnet die ursprüngliche Lieferung noch einmal, diesmal mit den getroffenen
+ * Entscheidungen.
+ */
+export interface Korrekturergebnis {
+  gelungen: boolean;
+  laufId: string;
+  faelle: number;
+  abgeschlossen: number;
+  meldung: string;
+  /** Die Konfliktzieldatei — der Nachweis, nicht der Weg. */
+  zieldatei: { felder: string[]; zeilen: string[][] };
+}
+
 export interface Freigabestand {
   gesamt: number;
   bereinigt: number;

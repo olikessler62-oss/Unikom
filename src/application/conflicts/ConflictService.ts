@@ -23,6 +23,8 @@ import {
 import { wiedereinstieg, type Bearbeitungsstand, type Wiedereinstieg } from '../../domain/conflicts/Fortschritt.js';
 import { anfuegen, type Bearbeitungsschritt, type Schrittart } from '../../domain/conflicts/Historie.js';
 import type { Konfliktbestand } from '../../domain/conflicts/Konfliktbestand.js';
+import { vorentscheidungenAus } from '../../domain/conflicts/Rueckweg.js';
+import type { Vorentscheidung } from '../../domain/consolidation/Vorentscheidung.js';
 import {
   darfWechseln,
   istErledigt,
@@ -604,7 +606,20 @@ export class ConflictService {
     tenantId: string,
     benutzer: Benutzerangabe,
     optionen: { laufId?: string; neuerLaufId: string; jetzt?: Date }
-  ): Promise<{ felder: string[]; zeilen: string[][]; ids: string[] }> {
+  ): Promise<{
+    felder: string[];
+    zeilen: string[][];
+    ids: string[];
+    /**
+     * Dieselben Entscheidungen, wie der Korrekturlauf sie braucht.
+     *
+     * Aus **denselben** Fällen wie die Zeilen und in einem Zug — sie ein
+     * zweites Mal zu lesen hieße, sie nach einem Statuswechsel zu lesen, und
+     * dann wären es keine mehr. Die Datei ist der Nachweis, diese Liste ist die
+     * Vorgabe; beide stammen aus demselben Augenblick.
+     */
+    vorentscheidungen: Vorentscheidung[];
+  }> {
     const jetzt = optionen.jetzt ?? new Date();
     const alle = await this.bestand.list(tenantId, { status: ['BEREINIGT'] });
     const faelle = optionen.laufId ? alle.filter((fall) => fall.laufId === optionen.laufId) : alle;
@@ -632,7 +647,7 @@ export class ConflictService {
       });
     }
 
-    return { felder, zeilen, ids };
+    return { felder, zeilen, ids, vorentscheidungen: vorentscheidungenAus(faelle) };
   }
 
   /**

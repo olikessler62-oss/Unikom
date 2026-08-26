@@ -13,6 +13,7 @@ import {
   InMemoryNotificationRepository,
 } from '../../infrastructure/persistence/InMemoryBackgroundRepository.js';
 import { Archivdienst, ARCHIVENDUNG } from './Archivdienst.js';
+import { InMemoryPaketRepository } from '../../infrastructure/persistence/InMemoryPaketRepository.js';
 import { istLaufverzeichnis } from './WorkflowExecutionService.js';
 import { fortschreiben, neuesProfil } from '../../domain/consolidation/Profil.js';
 import { InMemoryProfilRepository } from '../../infrastructure/persistence/InMemoryProfilRepository.js';
@@ -2985,6 +2986,244 @@ test('nach Ablauf der Frist wird der Stapel verworfen und gemeldet', async () =>
   assert.ok(
     meldungen.some((meldung) => meldung.anlass === 'STAPEL_VERWORFEN'),
     'es wurde gemeldet'
+  );
+});
+
+test('das Archivpaket wird vermerkt, mit Lauf und Workflow', async () => {
+  /*
+   * Der Griff, an dem der Korrekturlauf die ursprüngliche Lieferung
+   * wiederfindet. Die Laufkennung steht zwar auch im Dateinamen, aber das hält
+   * genau so lange, bis jemand einen Workflow umbenennt.
+   */
+  const bank = werkbank();
+  const pakete = new InMemoryPaketRepository();
+
+  bank.ablage.lege('/eingang/a.csv', ['kdnr'], [['1']]);
+
+  await new WorkflowExecutionService(uebertragung(), { ...bank.umgebung, pakete }).execute(job());
+
+  const vermerkt = await pakete.zuLauf('TR-1');
+
+  assert.ok(vermerkt, 'es gibt einen Eintrag');
+  assert.equal(vermerkt.jobId, 'job1');
+  assert.equal(vermerkt.tenantId, 'default');
+  assert.equal(vermerkt.dateien, 1);
+  assert.match(vermerkt.pfad, /^\/archiv\/.*\.zip\.enc$/);
+});
+
+test('ohne Paketbestand wird trotzdem archiviert', async () => {
+  // Der Vermerk ist die Zugabe, nicht die Bedingung: Ein Lauf, der ohne ihn
+  // stehenbliebe, verlöre eine Lieferung wegen einer Buchführung.
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/a.csv', ['kdnr'], [['1']]);
+
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(job());
+
+  assert.equal(ergebnis.status, TransferRunStatus.SUCCESS);
+  assert.ok(archivdatei(bank));
+});
+
+/* ---------- Der Rückweg: derselbe Lauf, diesmal mit den Entscheidungen ---------- */
+
+/** Zwei Quellen, die sich über den Ort streiten — als Bytes, wie aus dem Paket. */
+function lieferung(): { name: string; inhalt: Uint8Array }[] {
+  return [
+    { name: 'CRM.csv', inhalt: alsBytes(schreibeCsv(['kdnr', 'ort'], [['4711', 'Bonn']])) },
+    { name: 'ERP.csv', inhalt: alsBytes(schreibeCsv(['kdnr', 'ort'], [['4711', 'Köln']])) },
+  ];
+}
+
+function streitjob(): TransferJob {
+  return job({
+    consolidation: {
+      enabled: true,
+      input: { from: 'DIRECTORY', directory: '/eingang' },
+      output: { to: 'DIRECTORY', directory: '/ergebnis' },
+      regeln: { betriebsart: 'SAMMELN', art: 'MERGE', schluessel: { felder: ['kdnr'] } },
+    },
+  });
+}
+
+test('der Korrekturlauf rechnet auf der Lieferung aus dem Paket', async () => {
+  /*
+   * Im Abholverzeichnis liegt inzwischen die Lieferung von heute. Aus ihr zu
+   * rechnen ergäbe ein Ergebnis, das mit den entschiedenen Fällen nichts mehr
+   * zu tun hat — und es sähe vollständig aus.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/heute.csv', ['kdnr', 'ort'], [['9999', 'Ulm']]);
+
+  const lauf = await new WorkflowExecutionService(uebertragung(), bank.umgebung).korrigiere(streitjob(), {
+    ausLauf: 'TR-1',
+    laufId: 'KOR-1',
+    lieferung: lieferung(),
+    vorentscheidungen: [{ datensatz: '4711', werte: { ort: 'Hamburg' }, herkunft: 'Konfliktfall 3f2a' }],
+  });
+
+  assert.equal(lauf.status, TransferRunStatus.SUCCESS, lauf.message);
+
+  const stand = (await bank.ergebnisse.list('default'))[0];
+
+  assert.equal(stand.zeilen.length, 1, 'nur die Lieferung von damals');
+  assert.deepEqual(stand.zeilen[0], ['4711', 'Hamburg']);
+});
+
+test('der entschiedene Fall wird nicht noch einmal vorgelegt', async () => {
+  const bank = werkbank();
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).korrigiere(streitjob(), {
+    ausLauf: 'TR-1',
+    laufId: 'KOR-1',
+    lieferung: lieferung(),
+    vorentscheidungen: [{ datensatz: '4711', werte: { ort: 'Hamburg' }, herkunft: 'Konfliktfall 3f2a' }],
+  });
+
+  assert.deepEqual(await bank.konflikte.list('default'), []);
+});
+
+test('ohne die Entscheidung stünde derselbe Konflikt wieder da', async () => {
+  // Der Nachweis, dass der Test darüber etwas misst.
+  const bank = werkbank();
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).korrigiere(streitjob(), {
+    ausLauf: 'TR-1',
+    laufId: 'KOR-1',
+    lieferung: lieferung(),
+    vorentscheidungen: [],
+  });
+
+  assert.equal((await bank.konflikte.list('default')).length, 1);
+});
+
+test('nur der erste Durchgang liest aus dem Paket', async () => {
+  /*
+   * Wo eine Vorlage steht, hat der Durchgang davor schon gerechnet — und der
+   * hat aus dem Paket gelesen. Ein zweiter Griff hinein höbe die ganze Kette
+   * auf: Durchgang 2 rechnete wieder auf dem Rohbestand, und das Ergebnis sähe
+   * aus wie eines.
+   */
+  const bank = werkbank();
+
+  const lauf = await new WorkflowExecutionService(uebertragung(), bank.umgebung).korrigiere(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/eingang' },
+        output: { to: 'DIRECTORY', directory: '/zwischen' },
+        regeln: { betriebsart: 'SAMMELN', art: 'MERGE', schluessel: { felder: ['kdnr'] } },
+        weitere: [
+          {
+            name: 'Nachlauf',
+            input: { from: 'PRECEDING' },
+            output: { to: 'DIRECTORY', directory: '/ergebnis' },
+            regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+          },
+        ],
+      },
+    }),
+    {
+      ausLauf: 'TR-1',
+      laufId: 'KOR-1',
+      lieferung: lieferung(),
+      vorentscheidungen: [{ datensatz: '4711', werte: { ort: 'Hamburg' }, herkunft: 'Konfliktfall 3f2a' }],
+    }
+  );
+
+  assert.equal(lauf.status, TransferRunStatus.SUCCESS, lauf.message);
+
+  const staende = await bank.ergebnisse.list('default');
+
+  assert.equal(staende.length, 2, 'je Durchgang ein Stand');
+  assert.equal(
+    staende[staende.length - 1].zeilen.length,
+    1,
+    'der zweite rechnet auf dem zusammengeführten Satz und nicht noch einmal auf den zwei Rohdateien'
+  );
+});
+
+test('der neue Stand verweist auf den ursprünglichen Lauf', async () => {
+  /*
+   * „Ein erneuter Verarbeitungslauf erzeugt einen neuen Verarbeitungslauf mit
+   * eigener Verarbeitungs-ID, der auf den ursprünglichen verweist." Ohne den
+   * Verweis stünden zwei Stände nebeneinander, und niemand sähe, dass der eine
+   * den anderen ersetzt.
+   */
+  const bank = werkbank();
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).korrigiere(streitjob(), {
+    ausLauf: 'TR-1',
+    laufId: 'KOR-1',
+    lieferung: lieferung(),
+    vorentscheidungen: [{ datensatz: '4711', werte: { ort: 'Hamburg' }, herkunft: 'Konfliktfall 3f2a' }],
+  });
+
+  const stand = (await bank.ergebnisse.list('default'))[0];
+
+  assert.equal(stand.laufId, 'KOR-1');
+  assert.equal(stand.ausLauf, 'TR-1');
+});
+
+test('der Korrekturlauf archiviert nicht und räumt nichts fort', async () => {
+  /*
+   * Die Lieferung wurde beim ersten Mal behandelt: gesichert, herausgenommen,
+   * weggeräumt. Sie ein zweites Mal durch denselben Weg zu schicken ergäbe ein
+   * zweites Paket derselben Dateien — und einen Griff in Verzeichnisse, in
+   * denen inzwischen etwas anderes liegt.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/heute.csv', ['kdnr', 'ort'], [['9999', 'Ulm']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).korrigiere(streitjob(), {
+    ausLauf: 'TR-1',
+    laufId: 'KOR-1',
+    lieferung: lieferung(),
+    vorentscheidungen: [{ datensatz: '4711', werte: { ort: 'Hamburg' }, herkunft: 'Konfliktfall 3f2a' }],
+  });
+
+  assert.equal(archivdatei(bank), undefined, 'kein zweites Paket');
+  assert.deepEqual(bank.ablage.verschoben, [], 'und nichts angefasst');
+  assert.ok(bank.ablage.dateien.has('/eingang/heute.csv'), 'die Lieferung von heute liegt unberührt');
+});
+
+test('eine Entscheidung, die ihren Datensatz nicht wiederfindet, wird benannt', async () => {
+  /*
+   * Der stille Fall: Der Lauf geht durch, das Ergebnis sieht vollständig aus,
+   * und der Konflikt steht wieder da, als hätte niemand ihn angefasst. Das
+   * kommt vor, wenn der Fall keinen Schlüssel trug — dann steht in `datensatz`
+   * „Kunden.csv, Zeile 7", und Zeilennummern überstehen keine erneute
+   * Verarbeitung.
+   */
+  const bank = werkbank();
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).korrigiere(streitjob(), {
+    ausLauf: 'TR-1',
+    laufId: 'KOR-1',
+    lieferung: lieferung(),
+    vorentscheidungen: [{ datensatz: 'CRM.csv, Zeile 1', werte: { ort: 'Hamburg' }, herkunft: 'Fall x' }],
+  });
+
+  assert.ok(
+    bank.protokoll.some((zeile) => /1 Entscheidung\(en\) fanden ihren Datensatz nicht wieder/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('das Protokoll nennt Paket und Herkunft des Laufs', async () => {
+  const bank = werkbank();
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).korrigiere(streitjob(), {
+    ausLauf: 'TR-1',
+    laufId: 'KOR-1',
+    lieferung: lieferung(),
+    vorentscheidungen: [{ datensatz: '4711', werte: { ort: 'Hamburg' }, herkunft: 'Konfliktfall 3f2a' }],
+  });
+
+  assert.ok(
+    bank.protokoll.some((zeile) => /Korrekturlauf zu Lauf TR-1: 2 Datei\(en\) aus dem Archivpaket/.test(zeile)),
+    bank.protokoll.join(' | ')
   );
 });
 

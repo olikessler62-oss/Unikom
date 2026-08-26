@@ -8,6 +8,157 @@
 >
 > Bei der nächsten Prüfrunde wird angehängt, nicht überschrieben.
 
+## Runde 13 — Der Rückweg endete im Nichts (26.08.2026)
+
+### Der Befund
+
+`POST /api/conflicts/release` setzte die bereinigten Fälle auf
+`ERNEUT_VERARBEITET` und gab die Zeilen zurück. Der Bildschirm schickte dabei
+**kein** Verzeichnis mit — die Konfliktzieldatei wurde also nirgends
+geschrieben. Und `abschliessen()` (→ `ERFOLGREICH_VERARBEITET`) rief **keine**
+Route auf; der letzte Statusübergang war unerreichbar.
+
+Wer zwanzig Fälle entschieden hatte, las „stehen zur erneuten Verarbeitung
+bereit" und wartete auf etwas, das nicht kam.
+
+**Entschieden:** Die Freigabe **ist** der Lauf. Sie öffnet das Archivpaket des
+ursprünglichen Laufs, rechnet dieselbe Lieferung noch einmal — diesmal mit den
+Entscheidungen — und schließt die Fälle ab, wenn der Lauf durch ist.
+
+### Ersatz und nicht Ergänzung
+
+Drei Auslegungen standen zur Wahl, und sie unterscheiden sich darin, was der
+Kunde am Ende in der Hand hält:
+
+```text
+Ergänzung   das Ergebnis ohne die strittigen Zeilen, danach eine Nachlieferung
+            → zwei Dateien, die der Kunde selbst zusammenbringen muss
+Ersatz      dieselbe Lieferung noch einmal, mit den Entscheidungen
+            → eine vollständige Datei, die die zurückgehaltene ersetzt
+Am Stand    die Werte in den zurückgehaltenen Ergebnisstand einsetzen
+            → braucht einen Griff von Fall auf Ergebniszeile, den es nur
+              mit Dublettenschlüssel gibt
+```
+
+**Entschieden: Ersatz.** Ein Monatsabschluss aus zwei Dateien ist der Fehler,
+den jemand macht, nicht Unikom.
+
+### Die Entscheidung ist Stufe 0 der Prioritätenleiter
+
+Der Korrekturlauf rechnet auf **derselben** Lieferung. Ohne Vorgaben entstünden
+dabei genau dieselben Konflikte noch einmal.
+
+**Entschieden:** Eine `Vorentscheidung` greift in `fuehreZusammen`, vor jeder
+Abwägung — die einzige Stufe, die nicht aus einer Regel kommt.
+
+**Nicht als weitere Quelle**, so naheliegend das wäre. Eine Quelle unterliegt
+den Regeln: Prioritäten, Aktualität, Mehrheit. Eine Entscheidung tut das nicht;
+sie ist der Grund, warum die Regeln hier nicht mehr gefragt werden. Als Quelle
+könnte die eingestellte Quellenpriorität sie überstimmen — und der Mensch, der
+zwanzig Minuten an einem Fall gesessen hat, fände seinen Wert nicht wieder.
+
+Sie gilt auch dort, wo die Quellen sich einig sind: Wer einen Wert eingetragen
+hat, hat ihn für diesen Datensatz eingetragen und nicht unter dem Vorbehalt,
+dass die Lieferung ihm nicht widerspricht. Ein **leerer** Wert ist eine
+Entscheidung wie jede andere — sonst gäbe es keinen Weg, einen falsch gefüllten
+Wert wieder loszuwerden.
+
+### Die Herkunft hängt am Feld, nicht am Datensatz
+
+Je strittigem Feld entsteht ein eigener Konfliktfall; ein Datensatz mit drei
+strittigen Feldern hat also drei. Die Herkunft hing zuerst am Datensatz — damit
+hätten alle drei Felder die Fallnummer des zuletzt eingelesenen bekommen, und
+die Nachvollziehbarkeit zählte zwei Fälle weniger, ohne es zu sagen.
+
+**Und nicht der Name des Bearbeiters.** Am Fall hängt die *Sperre*, also wer ihn
+zuletzt in der Hand hatte — nicht notwendig der, der entschieden hat. Eine
+Herkunft, die den Falschen nennt, ist schlechter als eine, die niemanden nennt.
+Genannt werden Fallnummer und Tag; wer entschieden hat, steht in der Historie.
+
+### Woher die Lieferung kommt
+
+Nicht aus dem Abholverzeichnis: Dort liegt inzwischen die Lieferung von heute.
+Aus ihr zu rechnen ergäbe ein Ergebnis, das mit den entschiedenen Fällen nichts
+mehr zu tun hat — und es sähe vollständig aus.
+
+**Entschieden:** aus dem **Archivpaket** des ursprünglichen Laufs. Das ist die
+Lieferung von damals, unverändert. Damit bekommt das Archiv seine zweite
+Aufgabe: Es war der Grund, aus dem das Arbeitsverzeichnis geräumt werden darf —
+jetzt ist es auch der Grund, aus dem sich eine Entscheidung überhaupt anwenden
+lässt.
+
+Der Korrekturlauf **archiviert nicht und räumt nichts fort**. Die Lieferung
+wurde beim ersten Mal behandelt; sie ein zweites Mal durch denselben Weg zu
+schicken ergäbe ein zweites Paket derselben Dateien und einen Griff in
+Verzeichnisse, in denen inzwischen etwas anderes liegt.
+
+### Das Paket bekommt einen Eintrag
+
+Bisher wusste niemand, welches Paket zu welchem Lauf gehört — nur der Dateiname
+verriet es. Das hält genau so lange, bis jemand einen Workflow umbenennt.
+
+**Entschieden:** ein `Paketbestand` mit Mandant, Workflow, Lauf und Pfad. Er
+beantwortet zwei Fragen auf einmal:
+
+```text
+Wo liegt die Lieferung von Lauf TR-1?   der Griff für den Korrekturlauf
+Darf dieses Paket schon fort?           dieselbe Regel wie bei den Ausleitungen
+```
+
+Die zweite schließt eine offene Stelle aus Runde 10: Eine Frist, die ein Paket
+fortnimmt, dessen Lauf noch offene Fälle hat, macht die Konfliktbearbeitung
+wertlos — man entscheidet zwanzig Fälle und hat nichts mehr, worauf man sie
+anwenden könnte. Die Bedingung ist dieselbe wie bei einer Ausleitung
+(`darfFortgeraeumtWerden`), weil SPEC-07 §5 von *Dateien* spricht und nicht von
+einer Art davon.
+
+Die Bereinigung läuft damit über den **Bestand** statt über das Verzeichnis:
+
+```text
+über das Verzeichnis   was so heißt, wird für unseres gehalten
+über den Bestand       nur, was Unikom selbst vermerkt hat
+```
+
+Ein Paket ohne Eintrag wird nie angefasst.
+
+### Was still bleiben könnte, wird benannt
+
+Eine Entscheidung findet ihren Datensatz über den Konsolidierungsschlüssel.
+Trug der Fall keinen, steht in `datensatz` „Kunden.csv, Zeile 7" — und
+Zeilennummern überstehen keine erneute Verarbeitung. Der Lauf ginge durch, das
+Ergebnis sähe vollständig aus, und der Konflikt stünde wieder da.
+
+**Entschieden:** Der Bericht zählt, wie viele Entscheidungen ihren Datensatz
+nicht wiedergefunden haben, und nennt sie. Es ist eine Grenze und keine Panne —
+aber eine, die dasteht.
+
+### Der Abschluss ist keine Formsache
+
+„Ein bearbeiteter Konflikt gilt erst dann als erfolgreich verarbeitet, wenn die
+anschließende Verarbeitung erfolgreich abgeschlossen wurde."
+
+**Entschieden:** Misslingt der Korrekturlauf, bleiben die Fälle auf
+`ERNEUT_VERARBEITET`. Sie sind aus der Bearbeitung heraus, aber nicht durch —
+und genau so steht es im Bestand, statt dass alles erledigt aussieht und nichts
+geliefert wurde.
+
+**Und die Reihenfolge:** erst das Paket suchen, dann den Statuswechsel.
+Andersherum stünden die Fälle auf „erneut verarbeitet", und dann fiele auf,
+dass es keine Lieferung gibt — sie wären aus der Bearbeitung heraus und hätten
+keinen Weg zurück.
+
+### Die Freigabe braucht ihren Lauf
+
+Sie lief bisher über den ganzen Bestand des Mandanten. Der Korrekturlauf
+rechnet aber auf **einer** Lieferung, und die steht im Paket eines bestimmten
+Laufs. „Alle bereinigten Fälle des Mandanten" ist keine Lieferung, sondern eine
+Auswahl über mehrere.
+
+**Entschieden:** Der Lauf wird gewählt. Bei einem einzigen entfällt die Auswahl —
+eine Frage, auf die es nur eine Antwort gibt, lässt man besser weg.
+
+---
+
 ## Runde 12 — Die vier Verzeichnisse werden Pflicht (26.08.2026)
 
 ### Der Widerspruch

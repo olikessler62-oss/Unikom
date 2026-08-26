@@ -53,7 +53,7 @@ export interface RuntimeOptions {
    * Räumt abgelaufene Archivpakete fort (FR_006, Runde 10); fehlt sie, bleibt
    * jedes Paket liegen.
    */
-  archivbereinigung?: { bereinige(jetzt?: Date): Promise<unknown> };
+  archivbereinigung?: { bereinige(optionen?: { jetzt?: Date }): Promise<unknown> };
   /** Asked before any transfer starts; absent means the paid period is not checked. */
   runGate?: RunGate;
   /** Makes running transfers steerable; absent means they only run to the end. */
@@ -87,7 +87,7 @@ export class JobRuntimeService {
   private retentionAppliedOn?: string;
   private readonly retentionService?: RetentionService;
   private readonly ausleitungen?: { bereinige(optionen: { jetzt?: Date }): Promise<unknown> };
-  private readonly archivbereinigung?: { bereinige(jetzt?: Date): Promise<unknown> };
+  private readonly archivbereinigung?: { bereinige(optionen?: { jetzt?: Date }): Promise<unknown> };
 
   readonly orchestrator: TransferOrchestratorService;
   readonly bootstrap: RuntimeBootstrapService;
@@ -228,7 +228,7 @@ export class JobRuntimeService {
      * erreichbar, soll die andere trotzdem aufgeräumt werden.
      */
     try {
-      await this.archivbereinigung?.bereinige(now);
+      await this.archivbereinigung?.bereinige({ jetzt: now });
     } catch (error) {
       console.error('Bereinigung des Archivs fehlgeschlagen:', error instanceof Error ? error.message : String(error));
     }

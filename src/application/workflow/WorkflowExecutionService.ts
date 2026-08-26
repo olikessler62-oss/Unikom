@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   einstellungenDesMandanten,
   regionAus,
@@ -32,6 +34,8 @@ import {
 } from '../../domain/transfer/WorkflowStages.js';
 import { pruefeFolge } from '../../domain/transfer/Schrittfolge.js';
 import { ablagestand, type Abholbereit, type Ablagestand } from '../../domain/transfer/Ablageorte.js';
+import type { Paketbestand } from '../../domain/transfer/Archivpaket.js';
+import type { Vorentscheidung } from '../../domain/consolidation/Vorentscheidung.js';
 import type { Referenzbestand, Referenzregel } from '../../domain/consolidation/Referenz.js';
 import { alsBytes, schreibeCsv } from '../../infrastructure/formats/CsvSchreiben.js';
 import { schreibeFixedWidth } from '../../infrastructure/formats/FixedWidthSchreiben.js';
@@ -167,6 +171,15 @@ export interface Konsolidierungsumgebung {
    * vollständig aus, und das Original ist fort.
    */
   archiv?: Archivdienst;
+  /**
+   * Wo festgehalten wird, welches Paket zu welchem Lauf gehört.
+   *
+   * Fehlt er, wird trotzdem archiviert — nur weiß hinterher niemand mehr,
+   * welches Paket zu welchem Lauf gehört. Der Korrekturlauf findet dann keine
+   * Lieferung, und die Bereinigung kann nicht erkennen, dass zu diesem Paket
+   * noch Fälle offen sind.
+   */
+  pakete?: Paketbestand;
   /** Fehlt sie, entstehen keine Meldungen — das ist die Verdrahtung für Tests. */
   background?: BackgroundService;
   logger?: Logger;
@@ -217,8 +230,45 @@ interface Uebernahme {
   gescheitert: string;
 }
 
+/**
+ * Ein Lauf, der eine Lieferung noch einmal rechnet — mit dem, was ein Mensch
+ * inzwischen entschieden hat (SPEC-07, Abschnitt 13).
+ *
+ * ```text
+ * Lauf 1   Lieferung ──► Archivpaket ──► Ergebnis (zurückgehalten)
+ *                            │              └─ 3 Konflikte
+ *          ein Mensch entscheidet die 3
+ * Lauf 2   Archivpaket ─────┘ + Entscheidungen
+ *             └─► ein vollständiges Ergebnis, das Lauf 1 ersetzt
+ * ```
+ *
+ * ## Warum aus dem Archivpaket und nicht aus dem Abholverzeichnis
+ *
+ * Dort liegt inzwischen die Lieferung von heute. Aus ihr zu rechnen ergäbe ein
+ * Ergebnis, das mit den entschiedenen Fällen nichts mehr zu tun hat — und es
+ * sähe vollständig aus. Das Paket ist die Lieferung von damals, unverändert.
+ *
+ * ## Was der Korrekturlauf nicht tut
+ *
+ * Er archiviert nicht und räumt nichts fort. Die Lieferung wurde beim ersten
+ * Mal behandelt: gesichert, herausgenommen, nach „Erledigt" oder „Gescheitert"
+ * geräumt. Sie ein zweites Mal durch denselben Weg zu schicken ergäbe ein
+ * zweites Paket derselben Dateien und einen Griff in Verzeichnisse, in denen
+ * inzwischen etwas anderes liegt.
+ */
+export interface Korrekturauftrag {
+  /** Der Lauf, dessen Konflikte entschieden wurden. */
+  ausLauf: string;
+  /** Die Kennung des Korrekturlaufs — er ist ein eigener Lauf (SPEC-01 §9). */
+  laufId: string;
+  /** Die ursprüngliche Lieferung, so wie sie im Archivpaket liegt. */
+  lieferung: readonly { name: string; inhalt: Uint8Array }[];
+  vorentscheidungen: readonly Vorentscheidung[];
+  jetzt?: Date;
+}
+
 interface Eingang {
-  dateien: { name: string; pfad: string; geaendert?: string }[];
+  dateien: { name: string; pfad: string; geaendert?: string; inhalt?: Uint8Array }[];
   uebernommen?: Uebernahme;
   /**
    * Warum es hier nicht weitergeht — gesetzt, wenn der Zugriff selbst misslang.
@@ -245,6 +295,15 @@ interface Durchgangslage {
   wirksam: WirksameEinstellungen;
   stelle: number;
   von: number;
+  /**
+   * Der Korrekturauftrag, wo es einer ist.
+   *
+   * Er entscheidet zweierlei: woher der **erste** Durchgang liest — aus dem
+   * Paket und nicht aus dem Abholverzeichnis — und was beim Zusammenführen
+   * schon feststeht. Die späteren Durchgänge merken nichts davon: Sie
+   * übernehmen, was der vorige abgelegt hat, wie an jedem anderen Abend auch.
+   */
+  korrektur?: Korrekturauftrag;
   /**
    * Die Ablage, geprüft vor dem ersten Durchgang.
    *
@@ -307,10 +366,49 @@ export class WorkflowExecutionService implements JobExecutor {
     }
   }
 
+  /**
+   * Rechnet eine Lieferung noch einmal — mit dem, was inzwischen entschieden ist.
+   *
+   * Kein Übertragen davor: Es gibt nichts abzuholen. Die Lieferung kommt aus
+   * dem Archivpaket des ursprünglichen Laufs, und der neue Lauf verweist auf
+   * ihn (SPEC-07, Abschnitt 13: „Ein erneuter Verarbeitungslauf erzeugt einen
+   * neuen Verarbeitungslauf mit eigener Verarbeitungs-ID, der auf den
+   * ursprünglichen verweist").
+   */
+  async korrigiere(job: TransferJob, korrektur: Korrekturauftrag): Promise<TransferRunResult> {
+    const uebertragen: TransferRunResult = {
+      runId: korrektur.laufId,
+      jobId: job.id,
+      status: TransferRunStatus.SUCCESS,
+      filesFound: korrektur.lieferung.length,
+      filesSelected: korrektur.lieferung.length,
+      filesSucceeded: korrektur.lieferung.length,
+      filesSkipped: 0,
+      filesFailed: 0,
+      outcomes: [],
+      message: `Korrekturlauf zu Lauf ${korrektur.ausLauf}`,
+    };
+
+    try {
+      return await this.konsolidiere(job, uebertragen, { now: korrektur.jetzt }, korrektur);
+    } catch (fehler) {
+      const grund = fehler instanceof Error ? fehler.message : String(fehler);
+
+      this.protokoll(job, korrektur.laufId, 'ERROR', `Korrekturlauf fehlgeschlagen: ${grund}`);
+
+      return {
+        ...uebertragen,
+        status: TransferRunStatus.COMPLETED_WITH_ERRORS,
+        message: `${uebertragen.message} — fehlgeschlagen: ${grund}`,
+      };
+    }
+  }
+
   private async konsolidiere(
     job: TransferJob,
     uebertragen: TransferRunResult,
-    options: TransferExecutionOptions
+    options: TransferExecutionOptions,
+    korrektur?: Korrekturauftrag
   ): Promise<TransferRunResult> {
     const jetzt = options.now ?? new Date();
     const laufId = uebertragen.runId;
@@ -376,7 +474,7 @@ export class WorkflowExecutionService implements JobExecutor {
       ablagestand(durchgang, durchgangsname(durchgang, stelle, folge.length))
     );
 
-    for (const stand of staende) {
+    for (const stand of korrektur ? [] : staende) {
       if (stand.art === 'UNVOLLSTAENDIG') {
         return this.abgebrochen(job, uebertragen, stand.hinweis);
       }
@@ -395,6 +493,7 @@ export class WorkflowExecutionService implements JobExecutor {
         stelle,
         von: folge.length,
         stand: staende[stelle],
+        korrektur,
       });
 
       ergebnis = durchlaufen.lauf;
@@ -474,7 +573,7 @@ export class WorkflowExecutionService implements JobExecutor {
   ): Promise<{ lauf: TransferRunResult; weiter: boolean; uebergabe?: Uebergabe }> {
     const { uebertragen, laufId, jetzt, wirksam } = lage;
     const benennung = durchgangsname(durchgang, lage.stelle, lage.von);
-    const gefunden = await this.quellen(job, durchgang, lage.stand, lage.vorlage, uebertragen, wirksam, jetzt, laufId);
+    const gefunden = await this.quellen(job, durchgang, lage, uebertragen, wirksam, jetzt, laufId);
 
     /*
      * Was übernommen wurde, wird hinterher weggeräumt — wie der Durchgang auch
@@ -616,7 +715,16 @@ export class WorkflowExecutionService implements JobExecutor {
      * einziger Wert ergänzt wurde.
      */
     const referenzen = await this.referenzenFuer(job, durchgang, laufId, wirksam, jetzt);
-    const auftrag = { ...auftragAus(umgeformt.quellen, wirksameRegeln, wirksam), referenzen };
+    const auftrag = {
+      ...auftragAus(umgeformt.quellen, wirksameRegeln, wirksam),
+      referenzen,
+      /*
+       * Was ein Mensch entschieden hat, steht vor jeder Regel. Ohne diese Zeile
+       * entstünden im Korrekturlauf genau dieselben Konflikte noch einmal — und
+       * er endete, wo der ursprüngliche endete.
+       */
+      vorentscheidungen: lage.korrektur?.vorentscheidungen,
+    };
 
     /*
      * Blockweise, wo die Menge es verlangt — und in einem Zug, wo nicht. Die
@@ -670,6 +778,13 @@ export class WorkflowExecutionService implements JobExecutor {
       tenantId: job.tenantId,
       laufId,
       jobId: job.id,
+      /*
+       * „Ein erneuter Verarbeitungslauf erzeugt einen neuen Verarbeitungslauf
+       * mit eigener Verarbeitungs-ID, der auf den ursprünglichen verweist."
+       * Ohne diesen Verweis stünden zwei Stände nebeneinander, und niemand
+       * sähe, dass der eine den anderen ersetzt.
+       */
+      ausLauf: lage.korrektur?.ausLauf,
       bericht,
       eingang: alsEingang(umgeformt.quellen),
       schluessel: wirksameRegeln.schluessel,
@@ -920,8 +1035,7 @@ export class WorkflowExecutionService implements JobExecutor {
   private async quellen(
     job: TransferJob,
     schritt: Konsolidierungsdurchgang,
-    stand: Ablagestand,
-    vorlage: Uebergabe | undefined,
+    lage: { stand: Ablagestand; vorlage?: Uebergabe; korrektur?: Korrekturauftrag },
     uebertragen: TransferRunResult,
     wirksam: WirksameEinstellungen,
     jetzt: Date,
@@ -958,11 +1072,13 @@ export class WorkflowExecutionService implements JobExecutor {
     const regeln = await this.profilregeln(schritt, hinweise);
     const auslieferung = await this.auslieferungsart(job);
     const pruefwunsch = { region: regionAus(wirksam), nullWerte: wirksam.nullWerte, jetzt };
-    const eingang = await this.dateien(job, schritt, stand, vorlage, uebertragen, hinweise, laufId, jetzt);
+    const eingang = await this.dateien(job, schritt, lage, uebertragen, hinweise, laufId, jetzt);
 
     for (const datei of eingang.dateien) {
       try {
-        const bytes = await this.umgebung.ablage.lies(datei.pfad);
+        // Was schon im Speicher liegt, wird nicht von der Platte geholt: Die
+        // Lieferung des Korrekturlaufs kommt aus dem Archivpaket.
+        const bytes = datei.inhalt ?? (await this.umgebung.ablage.lies(datei.pfad));
 
         if (pruefer) {
           const befund = await pruefer.pruefe({ name: datei.name, bytes });
@@ -1346,6 +1462,23 @@ export class WorkflowExecutionService implements JobExecutor {
 
       hinweise.push(`${namen.length} Eingangsdatei(en) verschlüsselt gesichert in „${pfad}"`);
 
+      /*
+       * Der Eintrag danach und nicht davor: Ein vermerktes Paket, das es nicht
+       * gibt, schützte einen Lauf vor einer Bereinigung, die nichts zu tun
+       * hätte — und der Korrekturlauf liefe auf eine Datei zu, die nie
+       * geschrieben wurde.
+       */
+      await this.umgebung.pakete?.save({
+        id: randomUUID(),
+        tenantId: job.tenantId,
+        jobId: job.id,
+        laufId,
+        pfad,
+        name: basisname(pfad),
+        dateien: namen.length,
+        erstellt: jetzt.toISOString(),
+      });
+
       return { weiter: true, paket: pfad };
     } catch (fehler) {
       /*
@@ -1523,15 +1656,43 @@ export class WorkflowExecutionService implements JobExecutor {
   private async dateien(
     job: TransferJob,
     schritt: Konsolidierungsdurchgang,
-    stand: Ablagestand,
-    vorlage: Uebergabe | undefined,
+    lage: { stand: Ablagestand; vorlage?: Uebergabe; korrektur?: Korrekturauftrag },
     uebertragen: TransferRunResult,
     hinweise: string[],
     laufId: string,
     jetzt: Date
   ): Promise<Eingang> {
+    const { stand, vorlage, korrektur } = lage;
     const muster = schritt.dateien?.muster;
     const endungen = schritt.dateien?.endungen;
+
+    /*
+     * Der Korrekturlauf liest aus dem Paket — und **vor** allem anderen.
+     *
+     * Im Abholverzeichnis liegt inzwischen die Lieferung von heute. Aus ihr zu
+     * rechnen ergäbe ein Ergebnis, das mit den entschiedenen Fällen nichts mehr
+     * zu tun hat, und es sähe vollständig aus.
+     *
+     * Nur der erste Durchgang: Wo eine Vorlage steht, hat der Durchgang davor
+     * schon gerechnet, und der hat aus dem Paket gelesen.
+     */
+    if (korrektur && !vorlage) {
+      hinweise.push(
+        `Korrekturlauf zu Lauf ${korrektur.ausLauf}: ${korrektur.lieferung.length} Datei(en) aus dem Archivpaket, ` +
+          `${korrektur.vorentscheidungen.length} entschiedene(r) Datensatz/-sätze`
+      );
+
+      return {
+        dateien: korrektur.lieferung.map((datei) => ({
+          name: datei.name,
+          // Der Pfad ist die Herkunft und keine Anweisung: Gelesen wird der
+          // Inhalt, der schon dasteht. Er steht trotzdem dabei, weil jede
+          // Meldung über diese Datei ihn nennt.
+          pfad: `${korrektur.ausLauf}/${datei.name}`,
+          inhalt: datei.inhalt,
+        })),
+      };
+    }
 
     /*
      * Der Durchgang holt selbst ab — und `konsolidiere` hat vorher geprüft, dass

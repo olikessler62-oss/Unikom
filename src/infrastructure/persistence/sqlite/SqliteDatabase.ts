@@ -384,6 +384,30 @@ CREATE TABLE IF NOT EXISTS conflict_exports (
 
 CREATE INDEX IF NOT EXISTS ix_conflict_exports_tenant ON conflict_exports (tenant_id);
 
+-- Welches Archivpaket zu welchem Lauf gehoert (SPEC-07, Abschnitt 13).
+--
+-- Der Griff, an dem der Korrekturlauf die urspruengliche Lieferung wiederfindet.
+-- Die Laufkennung steht zwar auch im Dateinamen, aber das haelt genau so lange,
+-- bis jemand einen Workflow umbenennt oder ein Paket von Hand verschiebt.
+--
+-- Und die Antwort auf eine Frage, die die Bereinigung bisher nicht stellen
+-- konnte: Darf dieses Paket schon fort? Solange zu seinem Lauf ein Konflikt
+-- offen ist, ist es das Original, aus dem noch gerechnet wird.
+CREATE TABLE IF NOT EXISTS archive_packages (
+  id         TEXT PRIMARY KEY,
+  tenant_id  TEXT NOT NULL,
+  job_id     TEXT NOT NULL,
+  run_id     TEXT NOT NULL,
+  path       TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  files      INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  removed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS ix_archive_packages_run ON archive_packages (run_id);
+CREATE INDEX IF NOT EXISTS ix_archive_packages_tenant ON archive_packages (tenant_id);
+
 -- Verwaltete Referenzquellen (SPEC-04, Abschnitt 8).
 --
 -- Hier steht der Verweis und nicht der Datenbestand: Die Kundenliste bleibt,

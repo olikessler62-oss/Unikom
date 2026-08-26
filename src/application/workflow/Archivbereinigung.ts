@@ -1,107 +1,137 @@
+import type { Laufauskunft } from '../../domain/conflicts/Ausleitung.js';
 import type { Logger } from '../../domain/logging/LogEntry.js';
-import type { TransferJob } from '../../domain/transfer/TransferJob.js';
-import type { TenantRepository } from '../../domain/tenants/Tenant.js';
-import type { Archivdienst } from './Archivdienst.js';
+import { darfPaketFort, type Paketbestand } from '../../domain/transfer/Archivpaket.js';
+import type { Dateiablage } from './Dateiablage.js';
 
 /**
- * Räumt abgelaufene Archivpakete fort (FR_006, Runde 10).
+ * Räumt abgelaufene Archivpakete fort (FR_006, Runde 10 und 13).
  *
- * ## Warum das nicht im Archivdienst steht
+ * ## Warum über den Bestand und nicht über das Verzeichnis
  *
- * Der Dienst kennt ein Verzeichnis und eine Frist. Welche Verzeichnisse es
- * überhaupt gibt und welche Frist für welches gilt, steht ganz woanders: an den
- * Workflows und am Mandanten. Diese Datei bringt beides zusammen und sonst
- * nichts.
+ * Bisher durchsuchte diese Bereinigung die Archivverzeichnisse der Workflows
+ * und nahm fort, was auf die Archivendung endete und alt genug war. Das ging
+ * ohne Bestand — und es war die stillste Art, Originaldaten zu verlieren:
  *
- * ## Wo die Verzeichnisse herkommen
+ * ```text
+ * über das Verzeichnis   was so heißt, wird für unseres gehalten
+ * über den Bestand       nur, was Unikom selbst vermerkt hat
+ * ```
  *
- * Aus den Workflows — dieselbe Ableitung, die auch der Bildschirm benutzt. Eine
- * eigene Liste von Archivverzeichnissen zu führen hieße, sie beim Umhängen
- * eines Workflows nachzupflegen; wer das einmal vergisst, hat ein Verzeichnis,
- * das keine Frist mehr kennt und ewig wächst.
+ * Seit jedes Paket beim Anlegen eingetragen wird, gibt es die genauere Frage.
+ * Ein Paket ohne Eintrag wird nie angefasst; das ist die unbequemere Antwort
+ * und die richtige.
  *
- * ## Was hier nicht geprüft wird
+ * ## Was der Eintrag zusätzlich beantwortet
  *
- * Ob zu einem Paket noch offene Konflikte gehören. Die Ausleitungen tun das —
- * sie kennen ihren Lauf. Ein Archivpaket kennt seinen auch, aber nur über
- * seinen Dateinamen, und eine Aufbewahrungsentscheidung an einer Zeichenkette
- * festzumachen wäre die Art von Klugheit, die beim ersten umbenannten Workflow
- * Originaldaten kostet. Die Frist ist die Entscheidung des Kunden; sie genügt.
+ * **Ob der Lauf durch ist.** Ein Paket ist das Original einer Lieferung;
+ * solange sein Lauf offene Fälle hat, ist es genau das, woraus der
+ * Korrekturlauf rechnen wird. Eine Frist, die es vorher fortnimmt, macht die
+ * Konfliktbearbeitung wertlos — man entscheidet zwanzig Fälle und hat nichts
+ * mehr, worauf man sie anwenden könnte.
+ *
+ * Dieselbe Bedingung, dieselbe Auskunft und dieselbe Begründung wie bei den
+ * Ausleitungen: SPEC-07, Abschnitt 5, spricht von *Dateien* und nicht von einer
+ * Art davon.
+ *
+ * ## Die Bereinigung trifft ausschließlich Dateien
+ *
+ * Der Eintrag bleibt stehen und trägt ab dann `entferntAm`. Wer im März wissen
+ * will, warum ein Paket vom Januar nicht mehr da ist, findet hier die Antwort
+ * und nicht eine Lücke, die nach einem Fehler aussieht.
  */
-export class Archivbereinigung {
-  constructor(
-    private readonly tenants: TenantRepository,
-    private readonly jobs: { list(): Promise<TransferJob[]> },
-    private readonly dienst: Archivdienst,
-    private readonly logger?: Logger
-  ) {}
-
-  async bereinige(jetzt = new Date()): Promise<{ entfernt: number; fehler: number }> {
-    const alle = await this.jobs.list();
-    let entfernt = 0;
-    let fehler = 0;
-
-    for (const mandant of await this.tenants.list()) {
-      const tage = mandant.archivTage;
-
-      for (const verzeichnis of archivverzeichnisse(alle, mandant.id)) {
-        const ergebnis = await this.dienst.bereinige(verzeichnis, { tage, jetzt });
-
-        for (const pfad of ergebnis.entfernt) {
-          /*
-           * Je Paket eine Zeile. Ein Archiv ist das Original einer Lieferung;
-           * dass es fort ist, gehört einzeln ins Protokoll und nicht in eine
-           * Summe am Ende des Tages.
-           */
-          this.logger?.log({
-            timestamp: jetzt,
-            level: 'INFO',
-            message: `Archivpaket „${pfad}" ist abgelaufen und wurde fortgenommen`,
-          });
-        }
-
-        for (const problem of ergebnis.fehler) {
-          this.logger?.log({
-            timestamp: jetzt,
-            level: 'WARNING',
-            message: `Das Archivpaket „${problem.pfad}" ließ sich nicht forträumen: ${problem.grund}`,
-          });
-        }
-
-        entfernt += ergebnis.entfernt.length;
-        fehler += ergebnis.fehler.length;
-      }
-    }
-
-    return { entfernt, fehler };
-  }
+export interface Paketbereinigung {
+  /** Wie viele Pakete fortgeräumt wurden. */
+  entfernt: number;
+  /** Wie viele stehen blieben, weil ihr Lauf nicht durch ist. */
+  geschuetzt: number;
+  /** Was sich nicht löschen ließ — mit dem Grund, nicht verschwiegen. */
+  fehler: { pfad: string; grund: string }[];
 }
 
-/**
- * Jedes Archivverzeichnis, das an einem Workflow dieses Mandanten steht.
- *
- * Doppelte fallen fort: Zwei Durchgänge dürfen dasselbe Archiv benutzen, und
- * es zweimal zu bereinigen hieße, im zweiten Durchgang über Dateien zu
- * stolpern, die der erste schon fortgenommen hat.
- */
-export function archivverzeichnisse(jobs: readonly TransferJob[], tenantId: string): string[] {
-  const gefunden = new Set<string>();
+export class Archivbereinigung {
+  constructor(
+    private readonly pakete: Paketbestand,
+    private readonly ablage: Dateiablage,
+    private readonly logger?: Logger,
+    private readonly laeufe?: Laufauskunft,
+    /**
+     * Die Frist je Mandant (SPEC-07 §5).
+     *
+     * Fehlt sie, gilt für alle die Voreinstellung — die Bereinigung bleibt
+     * damit brauchbar, auch wo niemand etwas eingestellt hat.
+     */
+    private readonly fristen?: { tage(tenantId: string): Promise<number | undefined> }
+  ) {}
 
-  for (const job of jobs) {
-    if (job.tenantId !== tenantId) {
-      continue;
-    }
+  async bereinige(optionen: { tage?: number; jetzt?: Date } = {}): Promise<Paketbereinigung> {
+    const jetzt = optionen.jetzt ?? new Date();
+    const ergebnis: Paketbereinigung = { entfernt: 0, geschuetzt: 0, fehler: [] };
 
-    const durchgaenge = [job.consolidation, ...(job.consolidation?.weitere ?? [])];
+    for (const paket of await this.pakete.list()) {
+      /*
+       * Ob ein Paket fortgeräumt werden darf, entscheidet die Domäne — hier
+       * steht keine zweite Abschrift derselben Bedingungen. Zwei Stellen, die
+       * dasselbe prüfen, sind zwei Stellen, an denen es auseinanderläuft.
+       */
+      const lauf = { abgeschlossen: await this.abgeschlossen(paket.laufId) };
 
-    for (const durchgang of durchgaenge) {
-      const archiv = durchgang?.dateien?.abholung?.archiv;
+      /*
+       * Die Frist des Mandanten schlägt die Voreinstellung, und ein
+       * ausdrücklich mitgegebener Wert schlägt beides — er kommt von einem
+       * Menschen, der gerade zusieht.
+       */
+      const tage = optionen.tage ?? (await this.fristen?.tage(paket.tenantId));
 
-      if (archiv) {
-        gefunden.add(archiv);
+      if (!darfPaketFort(paket, lauf, { tage, jetzt })) {
+        if (paket.entferntAm === undefined && !lauf.abgeschlossen) {
+          ergebnis.geschuetzt += 1;
+        }
+
+        continue;
       }
+
+      try {
+        await this.ablage.entferne(paket.pfad);
+      } catch (fehler) {
+        const grund = fehler instanceof Error ? fehler.message : String(fehler);
+
+        ergebnis.fehler.push({ pfad: paket.pfad, grund });
+
+        this.logger?.log({
+          timestamp: jetzt,
+          level: 'WARNING',
+          message: `Das Archivpaket „${paket.name}" ließ sich nicht forträumen: ${grund}`,
+        });
+
+        continue;
+      }
+
+      await this.pakete.save({ ...paket, entferntAm: jetzt.toISOString() });
+      ergebnis.entfernt += 1;
+
+      /*
+       * Je Paket eine Zeile. Ein Archiv ist das Original einer Lieferung; dass
+       * es fort ist, gehört einzeln ins Protokoll und nicht in eine Summe am
+       * Ende des Tages.
+       */
+      this.logger?.log({
+        timestamp: jetzt,
+        level: 'INFO',
+        message:
+          `Archivpaket fortgeräumt: „${paket.name}" (angelegt am ${paket.erstellt.slice(0, 10)}, ` +
+          `${paket.dateien} Eingangsdatei(en)). Der Lauf ist abgeschlossen`,
+      });
     }
+
+    return ergebnis;
   }
 
-  return [...gefunden];
+  /** Ohne Auskunft über die Läufe wird nichts fortgeräumt. */
+  private async abgeschlossen(laufId: string): Promise<boolean> {
+    if (!this.laeufe) {
+      return false;
+    }
+
+    return this.laeufe.abgeschlossen(laufId);
+  }
 }

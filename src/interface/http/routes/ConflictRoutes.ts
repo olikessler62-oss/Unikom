@@ -1,5 +1,7 @@
 import { KonfliktFehler, type Benutzerangabe } from '../../../application/conflicts/ConflictService.js';
+import { KorrekturFehler } from '../../../application/conflicts/Korrekturdienst.js';
 import type { AuthenticatedSession } from '../../../application/users/SessionService.js';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 import { assertWithinTenant } from '../../../domain/tenants/TenantContainment.js';
@@ -259,32 +261,55 @@ export function conflictRoutes(application: UnikomApplication): Route[] {
         }
 
         const laufId = text(eingabe.runId);
-        const inhalt = await application.conflictService.zurVerarbeitung(tenantId, benutzer(session), {
-          laufId,
-          neuerLaufId: text(eingabe.newRunId) ?? new Date().toISOString(),
-        });
+
+        if (!laufId) {
+          throw new ApiError(
+            400,
+            'Die Freigabe braucht den Lauf, dessen Fälle entschieden wurden. Der Korrekturlauf rechnet auf ' +
+              'dessen Lieferung — und die steht in dessen Archivpaket, nicht im Bestand aller Läufe'
+          );
+        }
 
         /*
-         * Ohne Verzeichnis bleibt es bei den Daten — die Freigabe ist dann
-         * eine fachliche Handlung ohne Datei. Mit Verzeichnis schreibt der
-         * **Server** die Konfliktzieldatei dorthin, wo der nächste Lauf sie
-         * findet. Eine im Browser gespeicherte Kopie läge auf einem anderen
-         * Rechner als der Dienst, der sie verarbeiten soll.
+         * Die Freigabe **ist** der Lauf.
+         *
+         * Vorher endete sie bei den Daten: Die Fälle standen auf „zur erneuten
+         * Verarbeitung gegeben", und niemand verarbeitete sie erneut. Wer
+         * zwanzig Fälle entschieden hatte, bekam „stehen bereit" zu lesen und
+         * wartete auf etwas, das nicht kam.
+         */
+        const ergebnis = await application.korrekturdienst
+          .fuehreAus({
+            tenantId,
+            laufId,
+            neuerLaufId: text(eingabe.newRunId) ?? `KOR-${randomUUID()}`,
+            benutzer: benutzer(session),
+          })
+          .catch((fehler: unknown) => {
+            throw alsApiFehler(fehler);
+          });
+
+        /*
+         * Die Konfliktzieldatei ist der **Nachweis** und nicht der Weg —
+         * gerechnet hat der Lauf oben aus den Entscheidungen im Bestand. Ohne
+         * Verzeichnis bleibt es bei den Daten in der Antwort; mit Verzeichnis
+         * schreibt der **Server** sie dorthin. Eine im Browser gespeicherte
+         * Kopie läge auf einem anderen Rechner als der Dienst.
          */
         const verzeichnis = text(eingabe.directory);
 
         if (!verzeichnis) {
-          return ok(inhalt);
+          return ok(ergebnis);
         }
 
-        const ausleitung = await application.ausleitungsdienst.leiteZielAus(inhalt, {
+        const ausleitung = await application.ausleitungsdienst.leiteZielAus(ergebnis.zieldatei, {
           tenantId,
           verzeichnis: await gepruefteAblage(application, tenantId, verzeichnis),
           laufId,
           wer: benutzer(session),
         });
 
-        return ok({ ...inhalt, ausleitung });
+        return ok({ ...ergebnis, ausleitung });
       },
     },
     {
@@ -488,20 +513,25 @@ function entscheidungAus(wert: unknown): Entscheidung {
 }
 
 /**
- * Ein `KonfliktFehler` trägt seinen Statuscode selbst.
+ * Ein Fachfehler trägt seinen Statuscode selbst.
  *
  * Ohne diese Umsetzung würde aus einer verlorenen Wettlaufsituation ein 500 —
  * und der Benutzer läse „Interner Fehler", wo „Jemand anderes war schneller"
- * steht.
+ * steht. Dasselbe gilt für den Rückweg: „Zu diesem Lauf gibt es kein
+ * Archivpaket" ist eine Auskunft und keine Panne.
  */
+function alsApiFehler(fehler: unknown): unknown {
+  if (fehler instanceof KonfliktFehler || fehler instanceof KorrekturFehler) {
+    return new ApiError(fehler.status, fehler.message);
+  }
+
+  return fehler;
+}
+
 async function gefangen<T>(handlung: () => Promise<T>): Promise<ApiResponse> {
   try {
     return ok(await handlung());
   } catch (fehler) {
-    if (fehler instanceof KonfliktFehler) {
-      throw new ApiError(fehler.status, fehler.message);
-    }
-
-    throw fehler;
+    throw alsApiFehler(fehler);
   }
 }
