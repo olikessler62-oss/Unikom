@@ -248,18 +248,24 @@ export function TenantsScreen({ canManage }: Props) {
       {draft ? (
         <>
           {/*
-            * Zwei Flächen und nicht eine: oben, wer der Mandant ist — unten,
-            * wie er eingestellt ist.
+            * Drei Flächen und nicht eine — sie beantworten drei Fragen:
+            *
+            * ```text
+            * Mandant bearbeiten   wer er ist, und ob er läuft
+            * Einstellungen        wie er rechnet und wie lange er aufbewahrt
+            * Benachrichtigung     wer davon erfährt
+            * ```
             *
             * Name, Beschreibung und Region trägt jeder Mandant, und sie sind
-            * beim Anlegen in einer Minute ausgefüllt. Alles darunter ist
-            * Einstellung: Sie hat eine Voreinstellung, sie wird selten
-            * geändert, und wer einen Mandanten nur umbenennen will, soll
-            * nicht daran vorbeiscrollen müssen.
+            * beim Anlegen in einer Minute ausgefüllt. Der Haken „ist aktiv"
+            * gehört dazu: Ob dieser Mandant überhaupt läuft, ist eine Aussage
+            * über ihn und keine Einstellung.
             *
-            * Das Root-Verzeichnis steht unten an erster Stelle. Es beschreibt
-            * nicht den Kunden, sondern begrenzt ihn — und es ist die
-            * folgenreichste Angabe der ganzen Fläche.
+            * Alles in der zweiten Fläche hat eine Voreinstellung, wird selten
+            * geändert, und wer einen Mandanten nur umbenennen will, soll nicht
+            * daran vorbeiscrollen müssen. Das Root-Verzeichnis steht dort an
+            * erster Stelle: Es beschreibt nicht den Kunden, sondern begrenzt
+            * ihn — und ist die folgenreichste Angabe der ganzen Fläche.
             */}
           <section className="card">
             <h2>{draft.id ? 'Mandant bearbeiten' : 'Neuer Mandant'}</h2>
@@ -328,6 +334,19 @@ export function TenantsScreen({ canManage }: Props) {
                 </select>
               </Field>
             </div>
+
+            {/*
+              * Ob dieser Mandant überhaupt läuft, gehört zu ihm und nicht zu
+              * seinen Einstellungen. Er stand am Ende der zweiten Fläche,
+              * hinter Fristen, Konfliktumgang und Meldewegen — die
+              * folgenreichste Angabe des Mandanten an der Stelle, die man
+              * zuletzt liest.
+              */}
+            <CheckField
+              label="Mandant ist aktiv"
+              checked={draft.enabled}
+              onChange={(enabled) => setDraft({ ...draft, enabled })}
+            />
           </section>
 
           <section className="card">
@@ -405,20 +424,30 @@ export function TenantsScreen({ canManage }: Props) {
               voreinstellung={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.konflikteVoreinstellung}
               onChange={setDraft}
             />
-
-            <Meldewege draft={draft} credentials={credentials.data ?? []} onChange={setDraft} />
-
-            <CheckField
-              label="Mandant ist aktiv"
-              checked={draft.enabled}
-              onChange={(enabled) => setDraft({ ...draft, enabled })}
-            />
           </section>
 
           {/*
-            * Die Knöpfe stehen unter beiden Flächen und in keiner: Sie
-            * speichern den ganzen Mandanten. In einer der beiden Karten
-            * sähen sie aus, als träfen sie nur deren Angaben.
+            * Eine eigene Fläche für die Meldungen.
+            *
+            * Sie beantwortet eine Frage, die mit den übrigen Einstellungen
+            * nichts zu tun hat: **wer erfährt davon.** Zwischen
+            * Aufbewahrungsfristen und Konfliktumgang stand sie da wie ein
+            * Nachtrag — dabei ist sie das Einzige auf dieser Fläche, das nach
+            * draußen wirkt.
+            *
+            * Und sie ist lang: Empfänger, Server, Verschlüsselung, Absender,
+            * Zugang. Am Ende einer ohnehin hohen Fläche fand sie niemand.
+            */}
+          <section className="card">
+            <h2>Benachrichtigung</h2>
+
+            <Meldewege draft={draft} credentials={credentials.data ?? []} onChange={setDraft} />
+          </section>
+
+          {/*
+            * Die Knöpfe stehen unter allen Flächen und in keiner: Sie speichern
+            * den ganzen Mandanten. In einer der Karten sähen sie aus, als
+            * träfen sie nur deren Angaben.
             */}
           <div className="row">
             <button disabled={saving || !draft.name} onClick={() => void save()}>
@@ -684,8 +713,13 @@ function Meldewege({
 }) {
   return (
     <>
-      <h3>Benachrichtigung per E-Mail</h3>
-
+      {/*
+        * Keine eigene Überschrift mehr: Die Fläche heißt „Benachrichtigung",
+        * und darin „Benachrichtigung per E-Mail" zu wiederholen sagt dasselbe
+        * zweimal. Kommt eines Tages ein zweiter Weg dazu, bekommt jeder von
+        * beiden seine — vorher wäre sie eine Gliederung für einen einzigen
+        * Punkt.
+        */}
       <Field
         label="Empfänger"
         explain="Durch Komma getrennt. Leer heißt: Meldungen stehen nur im Benachrichtigungscenter."
