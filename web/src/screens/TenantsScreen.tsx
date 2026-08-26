@@ -264,7 +264,7 @@ export function TenantsScreen({ canManage }: Props) {
           <section className="card">
             <h2>{draft.id ? 'Mandant bearbeiten' : 'Neuer Mandant'}</h2>
 
-            <div className="field-paar field-paar--zeichen field-paar--namen">
+            <div className="field-paar field-paar--namen">
               <Field label="Mandanten-Name">
                 <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} autoFocus />
               </Field>

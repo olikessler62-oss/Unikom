@@ -2084,38 +2084,38 @@ option:checked {
 }
 
 /*
- * Ein Paar, das nach Zeichen bemessen ist — nicht nach der Spaltenbreite.
+ * Der Name ist nach Zeichen bemessen, die Beschreibung nimmt den Rest.
  *
- * Ein Name ist kein Aufsatz. Ihm 640 Pixel zu geben, weil das Feld darunter sie
- * braucht, heißt dem Benutzer etwas über die erwartete Länge zu sagen, das
- * nicht stimmt. Die Breite kommt deshalb aus der Zeichenzahl: dreißig links,
- * fünfzig rechts, zusammen achtzig.
+ * Ein Name ist kein Aufsatz. Ihm die halbe Zeile zu geben, weil das Feld
+ * daneben sie braucht, hieße dem Benutzer etwas über die erwartete Länge zu
+ * sagen, das nicht stimmt. Seine Breite kommt deshalb aus der Zeichenzahl.
  *
  * `ch` ist die Breite der Ziffer Null — gemessen in der Schrift dieser Zeile,
  * und die ist dieselbe, die auch im Feld steht. In einer proportionalen Schrift
- * ist die Null breiter als der Durchschnittsbuchstabe, achtzig `ch` fassen also
- * eher mehr als achtzig Zeichen. Großzügig ist hier die richtige Richtung: Ein
- * Feld, in das die angekündigten dreißig Zeichen knapp nicht passen, wäre eine
- * gebrochene Zusage; eines, das ein wenig übersteht, fällt niemandem auf.
+ * ist die Null breiter als der Durchschnittsbuchstabe; die Angabe fällt damit
+ * eher großzügig aus, und das ist die richtige Richtung.
  *
- * Beide Zeilen tragen dieselbe Breite und enden damit bündig — auch die, deren
- * Hälften gleich groß sind.
+ * ## Warum die Beschreibung nicht ebenfalls zählt
+ *
+ * Weil die Zeile dort enden soll, wo die Zeile darüber endet — am Info-Knopf
+ * der Zeitzone. Zwei gezählte Hälften ergaben zusammen eine Breite, die mit
+ * der Fläche nichts zu tun hatte: Die Zeile stand über den Rand hinaus, und die
+ * beiden Zeilen endeten nicht mehr bündig. Gezählt wird deshalb nur, was eine
+ * Zusage trägt; der Rest ist Platz, und den teilt die Fläche zu.
+ *
+ * `flex-shrink: 1` auch links: Wird das Fenster schmal, geben beide nach. Ein
+ * Feld, das seine Zeichenzahl gegen jede Fläche verteidigt, schiebt das andere
+ * auf Daumenbreite.
  */
-.field-paar--zeichen {
+.field-paar--namen {
   flex-wrap: nowrap;
-  max-width: calc(80ch + 2 * var(--feld-innen) + var(--feld-luecke));
 }
 
-/*
- * `flex-basis: 0`, damit das Verhältnis das Verhältnis bleibt.
- *
- * Mit einer Basis größer als null teilt sich nur der **Rest** im Verhältnis,
- * und aus 3 zu 5 würde bei enger Fläche 45 zu 55. Aus demselben Grund bricht
- * diese Zeile nicht um: Zwei Felder, die zusammen schmaler werden, bleiben
- * lesbar — eines, das allein auf voller Breite darunter rutscht, sieht aus wie
- * ein Versehen.
- */
-.field-paar--zeichen > .field {
+.field-paar--namen > .field:first-child {
+  flex: 0 1 calc(24ch + var(--feld-innen));
+}
+
+.field-paar--namen > .field:last-child {
   flex: 1 1 0;
 }
 
@@ -2138,15 +2138,6 @@ option:checked {
 
 .field-paar--rechts-fest > .field:last-child {
   flex: 0 0 auto;
-}
-
-/* Der Name fällt kürzer aus als die Beschreibung: dreißig Zeichen zu fünfzig. */
-.field-paar--namen > .field:first-child {
-  flex-grow: 3;
-}
-
-.field-paar--namen > .field:last-child {
-  flex-grow: 5;
 }
 
 /*
