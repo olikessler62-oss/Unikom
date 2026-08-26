@@ -675,6 +675,33 @@ export function titelBeiUeberlauf(): { onMouseEnter(event: MouseEvent<HTMLInputE
 }
 
 /**
+ * Derselbe Merkzettel für ein Auswahlfeld.
+ *
+ * Ein Auswahlfeld trägt in `value` die **Kennung** und nicht den Text — „en-GS"
+ * statt „Südgeorgien und die Südlichen Sandwichinseln". Gezeigt werden muss, was
+ * dasteht; die Kennung im Merkzettel beantwortete eine Frage, die niemand
+ * stellt.
+ *
+ * Gebraucht wird er nur, wo das Feld schmaler ist als seine Liste — siehe
+ * `select.input--wahl-lang`. Ein Feld, das seinen längsten Eintrag ohnehin
+ * trägt, läuft nie über, und die Messung sagt das auch.
+ */
+export function titelBeiUeberlaufWahl(): { onMouseEnter(event: MouseEvent<HTMLSelectElement>): void } {
+  return {
+    onMouseEnter: (event) => {
+      const feld = event.currentTarget;
+      const text = feld.selectedOptions[0]?.text ?? '';
+
+      if (text !== '' && feld.scrollWidth > feld.clientWidth) {
+        feld.title = text;
+      } else {
+        feld.removeAttribute('title');
+      }
+    },
+  };
+}
+
+/**
  * Ein Winkel, der die Richtung zeigt.
  *
  * Nur einer, nicht zwei: Ein Zeichen, das sich dreht, sagt „hier bewegt sich

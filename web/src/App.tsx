@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 
+import { useAuswahlschliesser } from './components/Auswahlschliesser.js';
 import { Meldungen } from './components/Meldungen.js';
 import { MenuIcon } from './components/MenuIcon.js';
 import { useText } from './i18n/useText.js';
@@ -135,6 +136,14 @@ function useOverflowing(reference: React.RefObject<HTMLElement | null>): boolean
 type View = { area: string; editingJob?: string; historyJob?: string };
 
 export function App() {
+  /*
+   * Eine offene Auswahlliste schließt sich, sobald der Zeiger fortgeht — für
+   * die ganze Anwendung und nicht je Feld. Sie liegt über der Fläche und
+   * verdeckt, was darunter steht; wer woanders hinsieht, soll sie nicht erst
+   * wegklicken müssen.
+   */
+  useAuswahlschliesser();
+
   const session = useSession();
   const t = useText();
   const [view, setView] = useState<View>({ area: 'dashboard' });

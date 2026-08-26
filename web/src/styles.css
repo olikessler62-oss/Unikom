@@ -1852,6 +1852,35 @@ select.input--wahl {
 }
 
 /*
+ * Ein Auswahlfeld, dessen **Liste** breiter sein darf als es selbst.
+ *
+ * 281 Länder stehen zur Wahl, und das längste heißt „Südgeorgien und die
+ * Südlichen Sandwichinseln (en-GS)" — zweiundfünfzig Zeichen. Ein geschlossenes
+ * Feld, das die alle tragen könnte, ist breiter als die Fläche, in der es steht.
+ *
+ * Getrennt, was zwei Fragen sind:
+ *
+ * ```text
+ * die Liste   muss jeden Eintrag lesbar zeigen   →  max-content
+ * das Feld    zeigt den gewählten                →  was die Zeile übrig lässt
+ * ```
+ *
+ * Der gewählte ist bei einem Kunden aus Bonn „Deutschland (de-DE)" und passt.
+ * Wird er doch zu lang, steht der volle Text beim Überfahren daneben — siehe
+ * `titelBeiUeberlaufWahl`. Abgeschnittener Text ohne diesen Ausweg wäre der
+ * Fall, den die Breitenrechnung darüber gerade verhindern soll.
+ */
+select.input--wahl-lang {
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.field__row > select.input--wahl-lang {
+  flex: 1 1 0;
+}
+
+/*
  * In einer Zeile mit einem Knopf wächst ein Feld sonst auf den ganzen Rest.
  * `flex: 1` setzt eine Basis von null und schlägt damit jede Breite; ohne diese
  * Zeile bliebe die Regel darüber genau dort wirkungslos, wo es auffällt.
@@ -2091,19 +2120,23 @@ option:checked {
 }
 
 /*
- * Ein Paar, dessen Hälften nur so breit sind, wie ihr Inhalt es verlangt.
+ * Ein Paar, dessen **rechte** Hälfte ihre Breite selbst bestimmt.
  *
- * Für Comboboxen: Sie müssen ihren längsten Eintrag zeigen können, sonst steht
- * dort abgeschnittener Text und niemand sieht, was gewählt ist. Wie breit das
- * ist, weiß nur das Bauteil — es zählt seine Einträge und setzt die
- * Mindestbreite selbst; hier wird nur nicht mehr gestreckt.
+ * Für eine Combobox, die ihren längsten Eintrag zeigen muss: Wie breit das ist,
+ * weiß nur das Bauteil — es zählt seine Einträge und setzt die Mindestbreite
+ * selbst.
+ *
+ * Die linke Hälfte nimmt, was übrig bleibt. Beide ihre Breite bestimmen zu
+ * lassen war der Fehler davor: Die Zeile wurde so breit, wie die beiden
+ * längsten Einträge es zusammen verlangten, stand über den Rand der Fläche
+ * hinaus, und der Info-Knopf rechts stand nicht mehr in einer Flucht mit den
+ * übrigen. Die Zeile endet jetzt wieder dort, wo ein einzelnes Feld endet.
  */
-.field-paar--eng {
-  flex-wrap: wrap;
-  max-width: none;
+.field-paar--rechts-fest > .field:first-child {
+  flex: 1 1 0;
 }
 
-.field-paar--eng > .field {
+.field-paar--rechts-fest > .field:last-child {
   flex: 0 0 auto;
 }
 
@@ -4918,6 +4951,11 @@ button.secondary::after {
     color: var(--text-soft);
     font-size: 0.7rem;
     transition: none;
+  }
+
+  /* Die Liste eines langen Auswahlfeldes richtet sich nach ihrem Inhalt. */
+  select.input--wahl-lang::picker(select) {
+    min-width: max-content;
   }
 
   select::picker(select) {

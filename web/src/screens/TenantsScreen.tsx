@@ -3,7 +3,16 @@ import { useState } from 'react';
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
 import type { Auslieferungsart, Credential, Tenant, Vorlageart } from '../api/types.js';
-import { CheckField, Empty, Field, InfoButton, Loading, Modal, Notice } from '../components/Pieces.js';
+import {
+  CheckField,
+  Empty,
+  Field,
+  InfoButton,
+  Loading,
+  Modal,
+  Notice,
+  titelBeiUeberlaufWahl,
+} from '../components/Pieces.js';
 import { LOCALES, previewOf, timeZones } from './regions.js';
 
 interface Draft {
@@ -88,16 +97,23 @@ const EMPTY: Draft = {
  *
  * Gezählt statt gemessen, und zwar hier, wo die Einträge stehen: Ein
  * geschlossenes Auswahlfeld misst sich am **gewählten** Eintrag, nicht am
- * längsten. „Bonn" ergäbe ein schmales Feld, in das „Südgeorgien und die
- * Südlichen Sandwichinseln" nicht hineinpasst — und dann steht dort
+ * längsten. „Europe/Berlin" ergäbe ein schmales Feld, in das
+ * „America/Argentina/Rio_Gallegos" nicht hineinpasst — und dann steht dort
  * abgeschnittener Text, ohne dass jemand die Ursache sieht.
  *
  * Die Zugabe deckt Innenabstand, Rahmen und den Pfeil rechts. Sie ist
  * großzügig gerundet: `ch` ist die Breite der Ziffer Null, und ein Feld, das
  * ein paar Pixel übersteht, fällt niemandem auf — eines, das ein Zeichen zu
  * schmal ist, schon.
+ *
+ * ## Für die Region wird nicht gerechnet
+ *
+ * Sie hat 281 Einträge, und der längste heißt „Südgeorgien und die Südlichen
+ * Sandwichinseln (en-GS)". Ein Feld dieser Breite steht über den Rand der
+ * Fläche hinaus, und der Info-Knopf der Zeitzone daneben stünde nicht mehr in
+ * einer Flucht mit den übrigen. Sie nimmt deshalb, was die Zeile übrig lässt;
+ * ihre **Liste** richtet sich nach ihrem Inhalt — siehe `input--wahl-lang`.
  */
-const REGION_BREITE = `calc(${Math.max(...LOCALES.map((eintrag) => eintrag.label.length))}ch + 3.2rem)`;
 const ZONEN_BREITE = `calc(${Math.max(...timeZones().map((zone) => zone.length))}ch + 3.2rem)`;
 
 interface Props {
@@ -273,15 +289,15 @@ export function TenantsScreen({ canManage }: Props) {
               * weiterbeantwortet: Beide zusammen sagen, wie ein Zeitpunkt aus
               * diesem Haus zu lesen ist.
               */}
-            <div className="field-paar field-paar--eng">
+            <div className="field-paar field-paar--rechts-fest">
               <Field
                 label="Region"
                 explain={`So schreibt dieser Mandant den 3. April 2026: ${previewOf(draft.locale, draft.timeZone).sample} — ${previewOf(draft.locale, draft.timeZone).order}.`}
               >
                 <select
-                  className="input--wahl"
-                  style={{ minWidth: REGION_BREITE }}
+                  className="input--wahl-lang"
                   value={draft.locale}
+                  {...titelBeiUeberlaufWahl()}
                   onChange={(event) => setDraft({ ...draft, locale: event.target.value })}
                 >
                   {/* Was am Mandanten steht, bleibt wählbar — auch wenn es nicht in der Liste steht. */}
