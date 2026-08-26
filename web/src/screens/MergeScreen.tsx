@@ -66,6 +66,7 @@ const OHNE_HAUPTSATZ_LABELS: Record<OhneHauptsatz, string> = {
 };
 
 const GRUND_LABELS: Record<Entscheidungsgrund, string> = {
+  KONFLIKTBEARBEITUNG: 'von Hand entschieden',
   EINIG: 'alle einig',
   EINZIGER_WERT: 'nur eine Quelle hatte einen Wert',
   BENUTZERREGEL: 'ausdrückliche Regel',

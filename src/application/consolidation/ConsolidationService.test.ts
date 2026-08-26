@@ -185,6 +185,65 @@ test('ein Wertekonflikt nennt alles, was zum Entscheiden nötig ist', () => {
   assert.equal(werte(bericht, '4711', 'ort'), '', 'der strittige Wert bleibt leer');
 });
 
+test('eine Entscheidung aus der Konfliktbearbeitung löst ihn ebenfalls', () => {
+  /*
+   * Der Korrekturlauf rechnet auf **derselben** Lieferung. Ohne diese Vorgabe
+   * entstünde hier genau derselbe Konflikt noch einmal — und der Lauf endete,
+   * wo der erste endete.
+   */
+  const bericht = dienst.konsolidiere(
+    auftrag({
+      quellen: [ORT_A, ORT_B],
+      betriebsart: 'SAMMELN',
+      fuehrend: undefined,
+      vorentscheidungen: [
+        { datensatz: '4711', werte: { ort: 'Hamburg' }, herkunft: 'Konfliktfall 3f2a, entschieden von OKE' },
+      ],
+    })
+  );
+
+  assert.equal(werte(bericht, '4711', 'ort'), 'Hamburg');
+  assert.equal(
+    bericht.konflikte.filter((eintrag) => eintrag.art === 'WERTEKONFLIKT').length,
+    0,
+    'und er wird nicht noch einmal vorgelegt'
+  );
+});
+
+test('die Entscheidung steht mit ihrer Herkunft im Ergebnis', () => {
+  // Ein Ergebnis, in dem nicht mehr zu sehen ist, welche Werte von Hand gesetzt
+  // wurden, wäre genau das, was die Nachvollziehbarkeit verhindern soll.
+  const bericht = dienst.konsolidiere(
+    auftrag({
+      quellen: [ORT_A, ORT_B],
+      betriebsart: 'SAMMELN',
+      fuehrend: undefined,
+      vorentscheidungen: [
+        { datensatz: '4711', werte: { ort: 'Hamburg' }, herkunft: 'Konfliktfall 3f2a, entschieden von OKE' },
+      ],
+    })
+  );
+
+  const zeile = bericht.zeilen.find((eintrag) => eintrag.schluessel === '4711');
+  const feld = zeile?.entscheidungen.find((eintrag) => eintrag.feld === 'ort');
+
+  assert.equal(feld?.grund, 'KONFLIKTBEARBEITUNG');
+  assert.match(feld?.begruendung ?? '', /Konfliktfall 3f2a/);
+});
+
+test('eine Entscheidung für einen anderen Datensatz lässt den Konflikt stehen', () => {
+  const bericht = dienst.konsolidiere(
+    auftrag({
+      quellen: [ORT_A, ORT_B],
+      betriebsart: 'SAMMELN',
+      fuehrend: undefined,
+      vorentscheidungen: [{ datensatz: '9999', werte: { ort: 'Hamburg' }, herkunft: 'anderer Fall' }],
+    })
+  );
+
+  assert.equal(bericht.konflikte.filter((eintrag) => eintrag.art === 'WERTEKONFLIKT').length, 1);
+});
+
 test('eine Quellenpriorität löst denselben Fall ohne Konflikt', () => {
   const bericht = dienst.konsolidiere(
     auftrag({

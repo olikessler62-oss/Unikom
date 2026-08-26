@@ -1232,6 +1232,7 @@ export type OhneHauptsatz = 'KONFLIKT' | 'UEBERNEHMEN' | 'UEBERSPRINGEN';
 export type Mehrfachtreffer = 'KONFLIKT' | 'ALLE' | 'FELD';
 
 export type Entscheidungsgrund =
+  | 'KONFLIKTBEARBEITUNG'
   | 'EINIG'
   | 'EINZIGER_WERT'
   | 'BENUTZERREGEL'

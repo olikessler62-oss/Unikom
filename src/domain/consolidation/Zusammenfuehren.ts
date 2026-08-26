@@ -1,5 +1,6 @@
 import { entscheide, type Angebot, type Entscheidungsgrund, type Entscheidungsregeln } from './Prioritaet.js';
 import type { Datensatz } from './Quellen.js';
+import { QUELLE_BEARBEITUNG, type Datensatzentscheidung } from './Vorentscheidung.js';
 
 /**
  * Aus mehreren Datensätzen wird einer (SPEC-04, Abschnitt 7; SPEC-06,
@@ -29,6 +30,12 @@ import type { Datensatz } from './Quellen.js';
  * Ein Feld ohne entscheidbaren Wert bleibt leer, und der Datensatz entsteht
  * trotzdem — mit dem Konflikt daneben. Alles andere hieße, wegen eines
  * strittigen Telefonanschlusses auch Name und Anschrift zurückzuhalten.
+ *
+ * ## Und einmal wird gar nicht abgewogen
+ *
+ * Hat ein Mensch über dieses Feld dieses Datensatzes bereits entschieden, gilt
+ * sein Wert. Die Regeln werden dann nicht mehr gefragt — sie sind der Weg zu
+ * einer Entscheidung, und die liegt vor. Siehe `Vorentscheidung`.
  */
 export interface Feldergebnis {
   feld: string;
@@ -97,7 +104,9 @@ export function fuehreZusammen(
   schluessel: string,
   gruppe: readonly Datensatz[],
   regeln: Entscheidungsregeln = {},
-  vorgabe?: readonly string[]
+  vorgabe?: readonly string[],
+  /** Was ein Mensch über **diesen** Datensatz entschieden hat — siehe `Vorentscheidung`. */
+  entschieden?: Datensatzentscheidung
 ): Zusammengefuehrt {
   const werte = new Map<string, string>();
   const felder: Feldergebnis[] = [];
@@ -116,6 +125,34 @@ export function fuehreZusammen(
       wert: datensatz.werte.get(feld) ?? '',
       stand: datensatz.stand,
     }));
+
+    const gesetzt = entschieden?.felder.get(feld);
+
+    if (gesetzt !== undefined) {
+      /*
+       * Ohne Bedingung: auch dort, wo die Quellen sich einig sind. Ein Mensch,
+       * der einen Wert eingetragen hat, hat ihn für diesen Datensatz
+       * eingetragen — und nicht unter dem Vorbehalt, dass die Lieferung ihm
+       * nicht widerspricht. Der Fall entstand ohnehin nur, weil es etwas zu
+       * entscheiden gab.
+       */
+      werte.set(feld, gesetzt.wert);
+      felder.push({
+        feld,
+        wert: gesetzt.wert,
+        quelle: QUELLE_BEARBEITUNG,
+        grund: 'KONFLIKTBEARBEITUNG',
+        // Die Herkunft **dieses** Feldes, nicht die des Datensatzes: Drei
+        // strittige Felder sind drei Fälle, und jedes Feld nennt seinen.
+        begruendung: gesetzt.herkunft,
+        // Eine Entscheidung ist keine Schätzung. Sie noch einmal an einer
+        // Mindestkonfidenz zu messen hieße, sie zur Vermutung zu erklären.
+        konfidenz: 1,
+        uebergangen: angebote.filter((angebot) => angebot.wert !== gesetzt.wert),
+      });
+
+      continue;
+    }
 
     const entscheidung = entscheide(feld, angebote, regeln);
 

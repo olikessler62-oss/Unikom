@@ -9,6 +9,7 @@ import { STANDARDVERGLEICH, vergleichswert, type Vergleich } from './Schluessel.
  * ## Die Reihenfolge ist die Regel
  *
  * ```text
+ * 0. ein Mensch hat entschieden    →  die Regeln werden nicht mehr gefragt
  * 1. alle einig                    →  nichts zu entscheiden
  * 2. nur einer hat einen Wert      →  ergänzen, nicht entscheiden
  * 3. explizite Benutzerregel
@@ -19,7 +20,12 @@ import { STANDARDVERGLEICH, vergleichswert, type Vergleich } from './Schluessel.
  * 8. sonst Konflikt
  * ```
  *
- * Die ersten beiden Stufen stehen vor jeder Regel, weil dort gar keine
+ * Stufe 0 steht nicht in dieser Funktion, sondern eine Ebene darüber, in
+ * `fuehreZusammen`: Sie ist keine Abwägung, sondern deren Ende. Sie steht
+ * trotzdem in der Liste, damit die Reihenfolge vollständig ist — siehe
+ * `Vorentscheidung`.
+ *
+ * Die beiden Stufen danach stehen vor jeder Regel, weil dort gar keine
  * Entscheidung ansteht: Wo alle dasselbe sagen, gibt es nichts zu wählen, und
  * wo nur einer etwas sagt, wird ergänzt (SPEC-04, Abschnitt 7).
  *
@@ -42,6 +48,13 @@ import { STANDARDVERGLEICH, vergleichswert, type Vergleich } from './Schluessel.
  * ist `begruendung` kein optionales Feld.
  */
 export type Entscheidungsgrund =
+  /**
+   * Ein Mensch hat diesen Wert für diesen Datensatz entschieden.
+   *
+   * Der stärkste Grund von allen, und der einzige, der nicht aus einer Regel
+   * kommt. Er entsteht nur im Korrekturlauf — siehe `Vorentscheidung`.
+   */
+  | 'KONFLIKTBEARBEITUNG'
   | 'EINIG'
   | 'EINZIGER_WERT'
   | 'BENUTZERREGEL'

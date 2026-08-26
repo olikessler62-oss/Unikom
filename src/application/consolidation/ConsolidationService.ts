@@ -30,6 +30,7 @@ import {
 } from '../../domain/consolidation/Referenz.js';
 import { gruppiere, type Schluessel } from '../../domain/consolidation/Schluessel.js';
 import { fuehreZusammen, zielfelder, type Feldergebnis } from '../../domain/consolidation/Zusammenfuehren.js';
+import { nachDatensatz, type Vorentscheidung } from '../../domain/consolidation/Vorentscheidung.js';
 
 /**
  * Mehrere Quellen zu einem Bestand (Etappe 5).
@@ -89,6 +90,14 @@ export interface Konsolidierungsauftrag {
    * Datensätze bleiben stehen, und daneben entsteht eine Frage.
    */
   aehnlichkeit?: Aehnlichkeitsregeln;
+  /**
+   * Was ein Mensch über einzelne Datensätze bereits entschieden hat.
+   *
+   * Der Korrekturlauf rechnet auf **derselben** Lieferung wie der Lauf, der die
+   * Konflikte erzeugt hat. Ohne diese Vorgaben entstünden dabei genau dieselben
+   * Konflikte noch einmal. Siehe `Vorentscheidung`.
+   */
+  vorentscheidungen?: readonly Vorentscheidung[];
 }
 
 export type Konfliktart =
@@ -219,6 +228,12 @@ export class ConsolidationService {
     const namen = new Map(auftrag.quellen.map((quelle) => [quelle.id, quelle]));
 
     this.pruefeAuftrag(auftrag, konflikte, hinweise);
+
+    /*
+     * Einmal je Lauf zusammengelegt, nicht je Gruppe gesucht: Ein Datensatz mit
+     * drei strittigen Feldern hat drei Fälle, und alle drei gehören zusammen.
+     */
+    const entschieden = nachDatensatz(auftrag.vorentscheidungen ?? []);
 
     let datensaetze = alleDatensaetze(auftrag.quellen);
     const gelesen = datensaetze.length;
@@ -394,7 +409,13 @@ export class ConsolidationService {
             continue;
           }
 
-          const vereinigt = fuehreZusammen(klartext, menge, auftrag.entscheidung, felder);
+          const vereinigt = fuehreZusammen(
+            klartext,
+            menge,
+            auftrag.entscheidung,
+            felder,
+            entschieden.get(klartext)
+          );
 
           zusammengefuehrt += 1;
 
