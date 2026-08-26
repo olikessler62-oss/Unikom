@@ -8,6 +8,7 @@ import {
   CheckField,
   Empty,
   Field,
+  FooterAction,
   InfoButton,
   Loading,
   Memofeld,
@@ -462,15 +463,21 @@ export function TenantsScreen({ canManage }: Props) {
             * Die Knöpfe stehen unter allen Flächen und in keiner: Sie speichern
             * den ganzen Mandanten. In einer der Karten sähen sie aus, als
             * träfen sie nur deren Angaben.
+            *
+            * Und sie stehen im Fuß des Rahmens, außerhalb des rollenden
+            * Kastens. Drei Flächen sind höher als ein Bildschirm; am Ende des
+            * Inhalts standen sie hinter allem, was man vorher ausfüllt. Wer
+            * oben den Namen geändert hatte, musste erst an Einstellungen und
+            * Benachrichtigung vorbei, um es festzuhalten.
             */}
-          <div className="row">
+          <FooterAction>
             <button disabled={saving || !draft.name} onClick={() => void save()}>
               {saving ? 'Wird gespeichert …' : 'Speichern'}
             </button>
             <button className="secondary" onClick={() => setDraft(undefined)}>
               Abbrechen
             </button>
-          </div>
+          </FooterAction>
         </>
       ) : (
         /*

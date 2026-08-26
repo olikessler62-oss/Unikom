@@ -729,6 +729,54 @@ code {
 }
 
 /*
+ * Der Fuß des Bereichs — der Streifen, auf dem eine Ansicht abschließt.
+ *
+ * Er steht außerhalb des rollenden Kastens, so wie der Kopf darüber, und aus
+ * demselben Grund: Ein klebender Fuß hielte innerhalb des Innenabstands seines
+ * Bereichs und ließe darunter einen Streifen offen, durch den der Inhalt
+ * sichtbar weiterläuft. Was fest stehen soll, steht nicht im Kasten.
+ *
+ * Sein Aussehen holt er sich beim Fuß des Editors — es ist dieselbe Sache, nur
+ * eine Ebene höher: die Zeile, mit der ein ganzer Bildschirm endet. Zwei
+ * getrennte Regeln liefen bei der ersten Änderung auseinander, und dann sähe
+ * derselbe Streifen an zwei Stellen verschieden aus.
+ *
+ * ## Rechtsbündig, und nicht auseinandergezogen
+ *
+ * Der Editor hat links etwas anderes stehen als rechts; hier stehen nur
+ * „Speichern" und „Abbrechen", und die gehören zusammen. Links unter dem
+ * Formular läsen sie sich wie ein weiteres Feld — rechts sind sie der Abschluss
+ * der ganzen Zeile, dort, wo die Hand nach dem Ausfüllen ohnehin ist.
+ *
+ * ## Leer nimmt er nichts
+ *
+ * `:empty` und nicht eine Klasse, die die Ansicht setzt: Ob unten Knöpfe stehen,
+ * sieht man am Fuß selbst. Eine Ansicht, die ihre Knöpfe wieder einzieht, müsste
+ * sonst auch daran denken, den Rahmen zu benachrichtigen — und die eine, die es
+ * vergisst, hinterlässt einen leeren Streifen mit einer Linie darüber.
+ */
+.main__footer,
+.editor__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.9rem 0;
+  margin-top: 1.4rem;
+  background: var(--g-ground);
+  border-top: 1px solid var(--rule);
+}
+
+.main__footer {
+  justify-content: flex-end;
+}
+
+.main__footer:empty {
+  display: none;
+}
+
+/*
  * Unterpunkte eines Bereichs. Sie tragen kein Orange als Fläche — das bleibt
  * der einen Hauptaktion je Ansicht vorbehalten; hier reicht die hellere Stufe
  * mit orangefarbener Kante, dieselbe Sprache wie der aktive Menüpunkt.
@@ -2434,18 +2482,19 @@ option:checked {
   cursor: default;
 }
 
-/* Die Leiste schließt den Rahmen unten ab — der Bildlauf endet über ihr. */
+/*
+ * Die Leiste schließt den Rahmen unten ab — der Bildlauf endet über ihr.
+ *
+ * Wie sie aussieht, steht beim Fuß des Bereichs (`.main__footer`): Es ist
+ * derselbe Streifen, nur eine Ebene tiefer, weil der Editor seinen Rahmen selbst
+ * baut. Hier steht nur, was den Editor von den übrigen Ansichten unterscheidet.
+ *
+ * Auseinandergezogen und nicht rechtsbündig: Links steht, wo man herkommt
+ * („Zurück"), rechts, wo es weitergeht. Wo unten nur „Speichern" und
+ * „Abbrechen" stehen, gehören beide zusammen und damit an einen Rand.
+ */
 .editor__foot {
-  flex: none;
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  padding: 0.9rem 0;
-  margin-top: 1.4rem;
-  background: var(--g-ground);
-  border-top: 1px solid var(--rule);
 }
 
 /*
@@ -4167,7 +4216,8 @@ button.secondary::after {
 :where([data-theme='spring']) .main__header,
 :where([data-theme='spring']) .table-wrap,
 :where([data-theme='spring']) .editor__head,
-:where([data-theme='spring']) .editor__foot {
+:where([data-theme='spring']) .editor__foot,
+:where([data-theme='spring']) .main__footer {
   background: var(--panel-fill);
   border: 1px solid var(--panel-edge);
   border-radius: var(--radius);
@@ -4684,7 +4734,8 @@ button.secondary::after {
   border-bottom: none;
 }
 
-:where([data-theme='spring']) .editor__foot {
+:where([data-theme='spring']) .editor__foot,
+:where([data-theme='spring']) .main__footer {
   padding: 1rem 1.7rem;
   border-top: none;
 }

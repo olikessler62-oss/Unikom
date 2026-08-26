@@ -22,7 +22,7 @@ import { DataEnquiryScreen } from './screens/DataEnquiryScreen.js';
 import { ConsolidationScreen } from './screens/ConsolidationScreen.js';
 import { WorkflowsScreen } from './screens/WorkflowsScreen.js';
 import { useSession } from './session/useSession.js';
-import { HEADER_ACTIONS, Notice } from './components/Pieces.js';
+import { FOOTER_ACTIONS, HEADER_ACTIONS, Notice } from './components/Pieces.js';
 import type { Licence, Permission } from './api/types.js';
 
 /** Alles außer „gilt" und „wird nicht geprüft" gehört auf den Bildschirm. */
@@ -352,6 +352,19 @@ export function App() {
             <div className="card empty">Dieser Bereich wird gerade gebaut.</div>
           )}
         </div>
+
+        {/*
+          * Der Platz für die Knöpfe, mit denen eine Ansicht abschließt —
+          * „Speichern" und „Abbrechen". Er steht immer hier und ist meistens
+          * leer; die Ansichten hängen sich mit `FooterAction` hinein.
+          *
+          * Außerhalb des rollenden Kastens und nicht darin: Die Knöpfe gehören
+          * zum Formular als Ganzem und nicht zu seiner letzten Fläche. Am Ende
+          * des Inhalts standen sie hinter allem, was man vorher ausfüllt — wer
+          * oben etwas geändert hatte, musste erst herunterrollen, um es
+          * festzuhalten.
+          */}
+        <div id={FOOTER_ACTIONS} className="main__footer" />
       </main>
     </div>
   );

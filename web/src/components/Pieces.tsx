@@ -16,26 +16,55 @@ import { alsEineZeile } from './Einzeiler.js';
 /** Der Anschluss in der Kopfzeile, in den Ansichten ihre Knöpfe hängen. */
 export const HEADER_ACTIONS = 'header-actions';
 
+/** Derselbe Anschluss am Fuß — für die Knöpfe, die eine Ansicht abschließen. */
+export const FOOTER_ACTIONS = 'footer-actions';
+
 /**
- * Ein Knopf, der in die Kopfzeile gehört, aber tief darunter entsteht.
+ * Ein Knopf, der in den Rahmen gehört, aber tief darin entsteht.
  *
- * „Zurück zur Historie" gehört neben die Überschrift — inhaltlich zum Kopf, im
- * Bauwerk aber drei Ebenen tiefer, in der Ansicht eines einzelnen Laufs. Statt
- * den Zustand nach oben zu reichen und durch drei Bildschirme zurück, hängt der
- * Knopf sich dorthin, wo er hingehört. Die Ansicht behält ihn; nur gezeichnet
- * wird er woanders.
+ * „Zurück zur Historie" gehört neben die Überschrift, „Speichern" unter die
+ * Fläche — inhaltlich zum Rahmen, im Bauwerk aber drei Ebenen tiefer, in der
+ * Ansicht eines einzelnen Laufs oder Mandanten. Statt den Zustand nach oben zu
+ * reichen und durch drei Bildschirme zurück, hängt der Knopf sich dorthin, wo
+ * er hingehört. Die Ansicht behält ihn; nur gezeichnet wird er woanders.
  *
  * Das Ziel steht erst nach dem ersten Durchlauf fest, deshalb der Umweg über
- * den Zustand: Beim ersten Zeichnen gibt es die Kopfzeile im Baum noch nicht.
+ * den Zustand: Beim ersten Zeichnen gibt es den Rahmen im Baum noch nicht.
  */
-export function HeaderAction({ children }: { children: ReactNode }) {
+function Anschluss({ ziel, children }: { ziel: string; children: ReactNode }) {
   const [target, setTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    setTarget(document.getElementById(HEADER_ACTIONS));
-  }, []);
+    setTarget(document.getElementById(ziel));
+  }, [ziel]);
 
   return target ? createPortal(children, target) : null;
+}
+
+/** Ein Knopf neben der Überschrift. */
+export function HeaderAction({ children }: { children: ReactNode }) {
+  return <Anschluss ziel={HEADER_ACTIONS}>{children}</Anschluss>;
+}
+
+/**
+ * Die Knöpfe, mit denen eine Ansicht abschließt — unter dem Inhalt, nicht darin.
+ *
+ * ## Warum sie nicht mitscrollen
+ *
+ * „Speichern" und „Abbrechen" gehören nicht zu einer der Flächen, sondern zum
+ * Formular als Ganzem. Am Ende des Inhalts standen sie hinter drei Panels: Wer
+ * oben etwas geändert hatte, musste erst herunterrollen, um es festzuhalten —
+ * und wer unten arbeitete, sah nicht, dass es sie gibt.
+ *
+ * ## Warum ein eigener Fuß und nicht `position: sticky`
+ *
+ * Aus demselben Grund, aus dem der Kopf keiner ist. Ein klebender Fuß hält
+ * innerhalb des Innenabstands seines Bereichs, nicht an dessen Kante — darunter
+ * bliebe ein Streifen offen, durch den der Inhalt sichtbar weiterläuft. Der Fuß
+ * steht deshalb außerhalb des rollenden Kastens, so wie der Kopf darüber.
+ */
+export function FooterAction({ children }: { children: ReactNode }) {
+  return <Anschluss ziel={FOOTER_ACTIONS}>{children}</Anschluss>;
 }
 
 export type Tone = 'error' | 'info' | 'warn';
