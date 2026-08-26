@@ -270,12 +270,22 @@ export function formatDuration(milliseconds?: number): string {
 
 export function Field({
   label,
+  pflicht,
   hint,
   explain,
   action,
   children,
 }: {
   label: string;
+  /**
+   * Ob dieses Feld ausgefüllt sein muss.
+   *
+   * Als Zeichen am Etikett und nicht als Farbe am leeren Feld: Rot am Feld
+   * hieße „falsch", und leer ist nicht falsch — es ist unfertig. Der Stern sagt,
+   * was verlangt wird, **bevor** jemand anfängt, statt es beim Speichern
+   * vorzuwerfen.
+   */
+  pflicht?: boolean;
   /** Erklärung unter dem Feld — für einen kurzen Nachsatz. */
   hint?: ReactNode;
   /**
@@ -303,7 +313,14 @@ export function Field({
 
   return (
     <div className="field">
-      <label>{label}</label>
+      <label>
+        {label}
+        {pflicht && (
+          <span className="field__pflicht" title="Pflichtangabe">
+            *
+          </span>
+        )}
+      </label>
       {beside ? (
         <div className="field__row">
           {children}

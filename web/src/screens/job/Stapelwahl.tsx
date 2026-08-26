@@ -18,6 +18,12 @@ import {
 } from '../../components/Pieces.js';
 import { alsMuster, alsZeilen, dateiname, gefuellte, kuerze } from './dateizeilen.js';
 import type { Feldstand } from './feldstand.js';
+/*
+ * Aus der Domäne und nicht aus einer Kopie: Dieselbe Funktion entscheidet beim
+ * Speichern und im Nachtlauf. Ein zweiter Satz Regeln in der Oberfläche wäre
+ * der, der beim nächsten Umbau vergessen wird.
+ */
+import { ablagestand, nameVon } from '../../../../src/domain/transfer/Ablageorte.js';
 import { Verzeichnisfeld, Verzeichnisfenster } from '../../components/Verzeichniswahl.js';
 
 /**
@@ -67,6 +73,15 @@ export function Stapelwahl({
    */
   const anzahl = stapel?.anzahl ?? (stapel?.plaetze.length || 2);
   const abholverzeichnis = eigenesVerzeichnis ? eingang.directory : undefined;
+
+  /*
+   * Dieselbe Regel, die auch der Dienst beim Speichern und der Lauf um drei Uhr
+   * nachts anwendet — aus der Domäne und nicht hier noch einmal formuliert.
+   * Zwei Auslegungen derselben Pflicht wären zwei, die auseinanderlaufen: Die
+   * Fläche stünde auf grün und das Speichern schlüge fehl.
+   */
+  const ablage = ablagestand({ input: eingang, dateien: wahl }, 'Der Durchgang');
+  const fehlend = ablage.art === 'UNVOLLSTAENDIG' ? ablage.fehlend : [];
 
   const aendern = (teile: Partial<Dateiwahl>): void => onChange({ ...wahl, ...teile });
 
@@ -215,7 +230,10 @@ export function Stapelwahl({
   };
 
   return (
-    <Klappkarte titel={stapel ? 'Mehrere Dateien zusammenführen' : 'Welche Dateien'} stand={stand(wahl)}>
+    <Klappkarte
+      titel={stapel ? 'Mehrere Dateien zusammenführen' : 'Welche Dateien'}
+      stand={stand(wahl, fehlend.length > 0)}
+    >
       {/*
         * Zwei Betriebsarten, zwei Flächen.
         *
@@ -475,6 +493,21 @@ export function Stapelwahl({
             Verzeichnisse festlegen
           </button>
 
+          {/*
+            * Was fehlt, steht **am Knopf** und nicht erst hinter ihm.
+            *
+            * Die vier Felder liegen in einem Fenster, und ein Fenster, das man
+            * erst öffnen muss, um zu sehen, dass darin etwas fehlt, wird nicht
+            * geöffnet. Der Punkt an der Überschrift sagt, **dass** etwas fehlt;
+            * diese Zeile sagt, was.
+            */}
+          {fehlend.length > 0 && (
+            <span className="feld-fehlt">
+              {fehlend.length === 1 ? 'Es fehlt ' : 'Es fehlen '}
+              {fehlend.map(nameVon).join(', ')}
+            </span>
+          )}
+
           <Hint title="Verzeichnisse">
             Wohin die Eingangsdateien wandern: ins Archiv, ins Arbeitsverzeichnis, und nach dem Durchgang nach
             „Erledigt" oder „Gescheitert".
@@ -485,6 +518,7 @@ export function Stapelwahl({
       {orteOffen && (
         <Ablageorte
           wahl={wahl}
+          pflicht={eigenesVerzeichnis}
           tenantId={tenantId}
           onAendern={aendern}
           onClose={() => setOrteOffen(false)}
@@ -540,7 +574,17 @@ export function Stapelwahl({
  * sie gehören. Der Lauf sagt das ins Protokoll — der Punkt sagt es beim
  * Einrichten, und das ist die Stelle, an der man es noch ändern will.
  */
-function stand(wahl: Dateiwahl | undefined): Feldstand {
+function stand(wahl: Dateiwahl | undefined, ablageFehlt: boolean): Feldstand {
+  /*
+   * Die fehlende Ablage steht vor allem anderen — auch vor „LEER". Ein
+   * Durchgang, an dem noch nichts eingetragen ist, hat trotzdem schon vier
+   * Verzeichnisse offen: Sie sind Pflicht, sobald er aus einem Verzeichnis
+   * liest, und das steht bereits fest.
+   */
+  if (ablageFehlt) {
+    return 'UNVOLLSTAENDIG';
+  }
+
   if (!wahl) {
     return 'LEER';
   }
@@ -931,11 +975,22 @@ function Sekundaerdateien({
  */
 function Ablageorte({
   wahl,
+  pflicht,
   tenantId,
   onAendern,
   onClose,
 }: {
   wahl: Dateiwahl | undefined;
+  /**
+   * Ob dieser Durchgang selbst abholt.
+   *
+   * Nur dann sind die vier Pflicht. Einem Durchgang, dem die Dateien gereicht
+   * werden, fehlt das Abholverzeichnis, aus dem etwas herauszunehmen wäre —
+   * und wer die Felder trotzdem ausfüllte, bekäme ein Archiv, in das nie etwas
+   * gelegt wird. Das Fenster bleibt trotzdem erreichbar: „Gescheitert" nimmt
+   * auch dort die abgelehnten Zeilen auf.
+   */
+  pflicht: boolean;
   tenantId?: string;
   onAendern(teile: Partial<Dateiwahl>): void;
   onClose(): void;
@@ -947,6 +1002,7 @@ function Ablageorte({
     <Modal title="Verzeichnisse" onClose={onClose}>
       <Verzeichnisfeld
         label="Archiv (Original)"
+        pflicht={pflicht}
         titel="Archivverzeichnis wählen"
         wert={wahl?.abholung?.archiv ?? ''}
         explain={
@@ -970,6 +1026,7 @@ function Ablageorte({
 
       <Verzeichnisfeld
         label="Arbeitsverzeichnis"
+        pflicht={pflicht}
         titel="Arbeitsverzeichnis wählen"
         wert={wahl?.abholung?.arbeit ?? ''}
         explain={
@@ -980,8 +1037,9 @@ function Ablageorte({
               nächsten Stapel und kann nicht halb mitkommen.
             </p>
             <p>
-              Leer heißt: Es wird aus dem Abholverzeichnis gelesen. Das läuft, aber eine Datei, die mitten im Lauf
-              ankommt, lässt sich dann nicht sicher ausschließen — und der Lauf sagt das jedes Mal ins Protokoll.
+              Pflicht, solange dieser Durchgang selbst abholt. Ohne dieses Verzeichnis müsste aus dem
+              Abholverzeichnis gelesen werden — und eine Datei, die mitten im Lauf ankommt, ließe sich dann nicht
+              sicher ausschließen. Der Lauf fängt deshalb ohne es gar nicht erst an.
             </p>
           </>
         }
@@ -993,9 +1051,10 @@ function Ablageorte({
 
       <Verzeichnisfeld
         label="Erledigt"
+        pflicht={pflicht}
         titel="Verzeichnis für erledigte Dateien wählen"
         wert={wahl?.abholung?.erledigt ?? ''}
-        explain="Wohin die Eingangsdateien nach einem gelungenen Durchgang wandern. Leer heißt: Sie bleiben liegen — und stehen beim nächsten Lauf wieder da."
+        explain="Wohin die Eingangsdateien nach einem gelungenen Durchgang wandern. Pflicht, solange dieser Durchgang selbst abholt: Ohne dieses Verzeichnis blieben sie liegen und stünden beim nächsten Lauf wieder da."
         disabled={!tenantId}
         lies={(pfad) => durchsehen(pfad, tenantId)}
         marke={<Schreibprobe verzeichnis={wahl?.abholung?.erledigt} tenantId={tenantId} />}
@@ -1004,6 +1063,7 @@ function Ablageorte({
 
       <Verzeichnisfeld
         label="Gescheitert"
+        pflicht={pflicht}
         titel="Verzeichnis für gescheiterte Dateien wählen"
         wert={wahl?.abholung?.gescheitert ?? ''}
         explain={

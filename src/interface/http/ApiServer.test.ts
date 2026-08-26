@@ -2756,6 +2756,20 @@ test('ohne ein einziges Modul lässt sich alles Interne weiter einstellen', asyn
   assert.equal(regeln.status, 200, 'die geltenden Regeln lassen sich ansehen');
 });
 
+/**
+ * Die vier Pflichtverzeichnisse eines abholenden Durchgangs.
+ *
+ * Ohne sie nimmt der Dienst den Workflow nicht an — siehe
+ * `assertAblageorteSindDa`. Als eine Zeile, damit ein Test über Regeln,
+ * Umformungen oder Schemata sie nicht viermal ausbuchstabieren muss.
+ */
+const ABHOLUNG = {
+  archiv: 'C:/archiv',
+  arbeit: 'C:/arbeit',
+  erledigt: 'C:/erledigt',
+  gescheitert: 'C:/gescheitert',
+};
+
 test('ohne Modul 3 geht kein Datensatz hinaus', async (t) => {
   // „Alles, was Daten-Migration und Daten-Export angeht: nur schreiben, wenn
   // Modul 3 gekauft und angehakt ist."
@@ -2769,6 +2783,7 @@ test('ohne Modul 3 geht kein Datensatz hinaus', async (t) => {
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+      dateien: { abholung: ABHOLUNG },
     },
   });
   const abschluss = await client.request('POST', '/api/results/complete', {
@@ -2813,6 +2828,7 @@ test('ein Workflow ohne eingeschaltetes Modul 3 gibt nichts heraus', async (t) =
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+      dateien: { abholung: ABHOLUNG },
     },
   });
 
@@ -2846,6 +2862,7 @@ test('ein Kunde mit nur der Konsolidierung kann einen Workflow anlegen und speic
         enabled: true,
         input: { from: 'DIRECTORY', directory: 'C:/eingang' },
         output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+        dateien: { abholung: ABHOLUNG },
       },
     },
   });

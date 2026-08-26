@@ -882,6 +882,7 @@ function verzeichnisTeil(pfad: string): string {
  */
 export function Verzeichnisfeld({
   label,
+  pflicht,
   explain,
   titel,
   wert,
@@ -892,6 +893,8 @@ export function Verzeichnisfeld({
   onChange,
 }: {
   label: string;
+  /** Ob ohne dieses Verzeichnis nichts läuft — siehe `Field`. */
+  pflicht?: boolean;
   explain?: ReactNode;
   /** Die Überschrift des Fensters — sie soll sagen, wofür das Verzeichnis gilt. */
   titel: string;
@@ -916,6 +919,7 @@ export function Verzeichnisfeld({
     <>
       <Field
         label={label}
+        pflicht={pflicht}
         explain={explain}
         action={
           <>

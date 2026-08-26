@@ -8,6 +8,105 @@
 >
 > Bei der nächsten Prüfrunde wird angehängt, nicht überschrieben.
 
+## Runde 12 — Die vier Verzeichnisse werden Pflicht (26.08.2026)
+
+### Der Widerspruch
+
+Vier Verzeichnisse gehen einen Weg: **Archiv** (die verschlüsselte Kopie, bevor
+etwas angefasst wird), **Arbeit** (der Zugriff selbst), **Erledigt** und
+**Gescheitert** (wohin die Eingangsdateien danach wandern).
+
+Jedes einzelne war freiwillig, und jedes hatte sein „läuft auch ohne":
+
+```text
+ohne Arbeitsverzeichnis   wird aus dem Abholverzeichnis gelesen
+ohne Archiv               wird nicht gesichert
+ohne Erledigt             bleiben die Dateien liegen
+ohne Gescheitert          bleiben sie auch dann liegen
+```
+
+Zusammengenommen ergibt das einen Durchgang, der jede Nacht dieselbe Lieferung
+noch einmal verarbeitet, während jemand hineinschreibt — und der dabei nichts
+anrichtet, was man an einem Ergebnis sähe.
+
+**Entschieden:** Alle vier sind Pflicht, sobald ein Durchgang selbst abholt. Die
+Regel steht **einmal** in der Domäne (`Ablageorte.ts`) und wird an drei Stellen
+angewendet: in der Fläche beim Einrichten, im Dienst beim Speichern und im Lauf
+vor dem ersten Durchgang. Drei Auslegungen derselben Pflicht wären drei, die
+auseinanderlaufen.
+
+### Was dabei ans Licht kam: der Weg gab es nur mit Stapelbedingung
+
+Beim Bauen zeigte sich, dass die Übernahme — archivieren, ins Arbeitsverzeichnis
+verschieben, hinterher wegräumen — **ausschließlich** lief, wenn am Durchgang
+eine Stapelbedingung stand. Ohne sie las er aus dem Abholverzeichnis, sicherte
+nichts und räumte nichts fort.
+
+Vier Verzeichnisse zur Pflicht zu machen und drei davon dann nicht anzufassen
+wäre ein Formular gewesen und keine Zusage.
+
+**Entschieden:** Der Zugriff geht für beide Wege durch dieselbe Stelle
+(`uebernimm`). Mit Stapelbedingung entscheidet sie, **welche** Dateien
+mitkommen; ohne sie kommen die mit, die da sind. Was danach geschieht, ist
+dasselbe.
+
+### Warum ein Lauf ohne die vier abbricht, statt auszuhelfen
+
+Eine fehlende Angabe ist ein **Einrichtungsfehler** und keine schlechte
+Lieferung. Die Dateien nach „Gescheitert" zu räumen — wenn es das überhaupt
+gibt — hieße, die Daten für den Fehler von jemand anderem zu bestrafen: Wer
+hinterher die Verzeichnisse einträgt, müsste sie erst wieder herausfischen.
+
+**Entschieden:** Es wird **nichts** angefasst. Die Lieferung bleibt im
+Abholverzeichnis liegen, der Lauf sagt ins Protokoll, was fehlt und wo es
+einzutragen ist, und der nächste Blick des Workers nimmt sie mit — sobald die
+Angabe steht.
+
+**Geprüft wird vor dem ersten Durchgang**, nicht erst dort, wo das Verzeichnis
+gebraucht wird. Bräche der zweite Durchgang ab, hätte der erste seine
+Eingangsdateien längst nach „Erledigt" geräumt und sein Ergebnis geschrieben.
+Wer die Angabe dann nachträgt, findet einen halb gelaufenen Workflow vor und
+muss herausfinden, welche Hälfte.
+
+### Ein misslungenes Archiv war eine ruhige Nacht
+
+Beim Sichern konnte etwas schiefgehen — dann kam der Durchgang ohne Dateien
+zurück. Ohne Dateien heißt aber „nichts gefunden", und das ist der **Regelfall**
+eines Workflows, der jede Nacht in ein Verzeichnis sieht: gemeldet als
+`SUCCESS_NO_FILES`. Solange nur Durchgänge mit Stapelbedingung archivierten,
+traf das selten; seit jede Lieferung gesichert wird, träfe es jeden.
+
+**Entschieden:** Der Grund reist mit (`Eingang.abbruch`) und wird zum Abbruch
+des Durchgangs. Und gemeldet wird **einmal** — vorher meldete die Archivierung
+selbst und der Abbruch noch einmal. Wer die zweite Meldung wegklickt, hat die
+erste schon gelesen; beim nächsten Mal klickt er beide weg.
+
+### Was Pflicht wird, löscht Zweige
+
+Drei Zweige waren danach von außen nicht mehr erreichbar und sind fort:
+
+```text
+raeumeAus ohne Zielverzeichnis        „die Dateien bleiben liegen"
+archiviere ohne Archivverzeichnis     „dann ist nichts versprochen worden"
+leereLaufverzeichnis ohne Paket       „es gibt kein Archivpaket"
+```
+
+`Uebernahme.archiviert` ist damit keine Möglichkeit mehr, sondern eine Zusage:
+Misslingt die Sicherung, wird gar nicht erst zugegriffen.
+
+### Wer nicht abholt, braucht nichts
+
+Ein Durchgang, dem die Dateien **gereicht** werden, hat kein Abholverzeichnis,
+aus dem etwas herauszunehmen wäre. Die vier Angaben zu verlangen wäre eine
+Pflicht ohne Wirkung — und wer sie ausfüllte, bekäme ein Archiv, in das nie
+etwas gelegt wird.
+
+**Entschieden:** Die Pflicht gilt nur bei `input.from === 'DIRECTORY'`. Das
+Fenster bleibt trotzdem erreichbar: „Gescheitert" nimmt auch dort die
+abgelehnten Zeilen auf.
+
+---
+
 ## Runde 11 — Ein Schlüssel, den niemand eingerichtet hat (25.08.2026)
 
 ### Der Widerspruch

@@ -24,8 +24,14 @@ import {
 } from '../../domain/transfer/Stapel.js';
 import type { TransferJob } from '../../domain/transfer/TransferJob.js';
 import { FileTransferStatus, TransferRunStatus } from '../../domain/transfer/TransferRun.js';
-import { durchgaenge, stageIsActive, type Konsolidierungsdurchgang } from '../../domain/transfer/WorkflowStages.js';
+import {
+  durchgaenge,
+  durchgangsname,
+  stageIsActive,
+  type Konsolidierungsdurchgang,
+} from '../../domain/transfer/WorkflowStages.js';
 import { pruefeFolge } from '../../domain/transfer/Schrittfolge.js';
+import { ablagestand, type Abholbereit, type Ablagestand } from '../../domain/transfer/Ablageorte.js';
 import type { Referenzbestand, Referenzregel } from '../../domain/consolidation/Referenz.js';
 import { alsBytes, schreibeCsv } from '../../infrastructure/formats/CsvSchreiben.js';
 import { schreibeFixedWidth } from '../../infrastructure/formats/FixedWidthSchreiben.js';
@@ -188,25 +194,73 @@ interface Uebernahme {
   verzeichnis: string;
   namen: string[];
   /**
-   * Der Pfad des Archivpakets — oder nichts, wo keines verlangt war.
+   * Der Pfad des Archivpakets.
    *
    * Er ist die **Deckung** fürs Aufräumen: Eine Eingangsdatei aus dem
    * Arbeitsverzeichnis fortzunehmen ist nur zu verantworten, solange das
-   * Original nachweislich woanders liegt. Ohne diesen Pfad wird nichts
-   * gelöscht.
+   * Original nachweislich woanders liegt.
+   *
+   * Keine Möglichkeit mehr, sondern eine Zusage: Seit das Archiv Pflicht ist,
+   * gibt es eine Übernahme ohne Paket nicht — misslingt die Sicherung, wird
+   * gar nicht erst zugegriffen.
    */
-  archiviert?: string;
+  archiviert: string;
+  /**
+   * Wohin die Eingangsdateien nach dem Durchgang wandern — gelungen und nicht.
+   *
+   * Sie stehen hier, weil sie **zu diesem Zugriff** gehören. Sie stattdessen
+   * beim Aufräumen erneut aus dem Durchgang zu holen hieße, eine Einstellung
+   * zweimal zu lesen: einmal, als der Stapel herausgenommen wurde, und einmal,
+   * als er zurückgelegt wird. Dazwischen liegt der ganze Lauf.
+   */
+  erledigt: string;
+  gescheitert: string;
 }
 
 interface Eingang {
   dateien: { name: string; pfad: string; geaendert?: string }[];
   uebernommen?: Uebernahme;
+  /**
+   * Warum es hier nicht weitergeht — gesetzt, wenn der Zugriff selbst misslang.
+   *
+   * Eine leere Liste allein sagt das nicht: „Nichts gefunden" ist der Regelfall
+   * eines Workflows, der jede Nacht in ein Verzeichnis sieht, und wurde deshalb
+   * als Erfolg ohne Dateien gemeldet. Ein Archiv, das sich nicht schreiben
+   * ließ, sah damit aus wie eine ruhige Nacht.
+   */
+  abbruch?: string;
+}
+
+/**
+ * Woran ein Durchgang hängt: sein Lauf, sein Platz in der Folge, seine Ablage.
+ *
+ * Als eigener Name und nicht dreimal ausgeschrieben — dreimal derselbe Rumpf
+ * ist die Stelle, an der ein Feld beim vierten Mal fehlt.
+ */
+interface Durchgangslage {
+  uebertragen: TransferRunResult;
+  vorlage?: Uebergabe;
+  laufId: string;
+  jetzt: Date;
+  wirksam: WirksameEinstellungen;
+  stelle: number;
+  von: number;
+  /**
+   * Die Ablage, geprüft vor dem ersten Durchgang.
+   *
+   * Hier wird sie nur noch **benutzt**. Sie mitzuführen statt sie unten erneut
+   * zu erheben ist der Unterschied zwischen einer Zusicherung und zwei
+   * Meinungen über dieselbe Einstellung.
+   */
+  stand: Ablagestand;
 }
 
 interface Quellenfund {
   quellen: Quelle[];
   hinweise: string[];
   uebernommen?: Uebernahme;
+  /** Warum der Durchgang nicht rechnen kann — siehe `Eingang.abbruch`. */
+  abbruch?: string;
   /**
    * Zeilen, die ein Mensch ansehen muss — aus den Regeln des Schemas.
    *
@@ -305,6 +359,29 @@ export class WorkflowExecutionService implements JobExecutor {
       this.protokoll(job, laufId, 'WARNING', `Reihenfolge der Konsolidierung: ${mangel.hinweis}`);
     }
 
+    /*
+     * Die Ablage jedes Durchgangs — geprüft **vor** dem ersten.
+     *
+     * Nicht erst dort, wo sie gebraucht wird: Bräche der zweite Durchgang an
+     * einem fehlenden Verzeichnis ab, hätte der erste seine Eingangsdateien
+     * längst nach „Erledigt" geräumt und sein Ergebnis geschrieben. Wer die
+     * Angabe dann nachträgt, findet einen halb gelaufenen Workflow vor und muss
+     * herausfinden, welche Hälfte.
+     *
+     * Und es ist die **einzige** Stelle, an der geprüft wird. Der Zugriff weiter
+     * unten bekommt diesen Befund gereicht, statt ihn erneut zu erheben — eine
+     * zweite Prüfung wäre die, die beim nächsten Umbau anders ausfällt.
+     */
+    const staende = folge.map((durchgang, stelle) =>
+      ablagestand(durchgang, durchgangsname(durchgang, stelle, folge.length))
+    );
+
+    for (const stand of staende) {
+      if (stand.art === 'UNVOLLSTAENDIG') {
+        return this.abgebrochen(job, uebertragen, stand.hinweis);
+      }
+    }
+
     let ergebnis = uebertragen;
     let vorlage: Uebergabe | undefined;
 
@@ -317,6 +394,7 @@ export class WorkflowExecutionService implements JobExecutor {
         wirksam,
         stelle,
         von: folge.length,
+        stand: staende[stelle],
       });
 
       ergebnis = durchlaufen.lauf;
@@ -347,15 +425,7 @@ export class WorkflowExecutionService implements JobExecutor {
   private async einDurchgang(
     job: TransferJob,
     durchgang: Konsolidierungsdurchgang,
-    lage: {
-      uebertragen: TransferRunResult;
-      vorlage?: Uebergabe;
-      laufId: string;
-      jetzt: Date;
-      wirksam: WirksameEinstellungen;
-      stelle: number;
-      von: number;
-    }
+    lage: Durchgangslage
   ): Promise<{ lauf: TransferRunResult; weiter: boolean; uebergabe?: Uebergabe }> {
     const eingang = durchgang.input;
 
@@ -400,19 +470,11 @@ export class WorkflowExecutionService implements JobExecutor {
   private async durchgangIntern(
     job: TransferJob,
     durchgang: Konsolidierungsdurchgang,
-    lage: {
-      uebertragen: TransferRunResult;
-      vorlage?: Uebergabe;
-      laufId: string;
-      jetzt: Date;
-      wirksam: WirksameEinstellungen;
-      stelle: number;
-      von: number;
-    }
+    lage: Durchgangslage
   ): Promise<{ lauf: TransferRunResult; weiter: boolean; uebergabe?: Uebergabe }> {
     const { uebertragen, laufId, jetzt, wirksam } = lage;
     const benennung = durchgangsname(durchgang, lage.stelle, lage.von);
-    const gefunden = await this.quellen(job, durchgang, lage.vorlage, uebertragen, wirksam, jetzt, laufId);
+    const gefunden = await this.quellen(job, durchgang, lage.stand, lage.vorlage, uebertragen, wirksam, jetzt, laufId);
 
     /*
      * Was übernommen wurde, wird hinterher weggeräumt — wie der Durchgang auch
@@ -437,7 +499,7 @@ export class WorkflowExecutionService implements JobExecutor {
         laufId,
         uebernommen.verzeichnis,
         uebernommen.namen,
-        gelungen(ergebnis.lauf) ? durchgang.dateien?.abholung?.erledigt : durchgang.dateien?.abholung?.gescheitert
+        gelungen(ergebnis.lauf) ? uebernommen.erledigt : uebernommen.gescheitert
       );
 
       /*
@@ -455,7 +517,7 @@ export class WorkflowExecutionService implements JobExecutor {
         laufId,
         uebernommen.verzeichnis,
         uebernommen.namen,
-        durchgang.dateien?.abholung?.gescheitert
+        uebernommen.gescheitert
       );
 
       // Auch nach einem Fehlschlag: Der Ordner ist leer oder er sagt, was
@@ -470,15 +532,7 @@ export class WorkflowExecutionService implements JobExecutor {
   private async rechne(
     job: TransferJob,
     durchgang: Konsolidierungsdurchgang,
-    lage: {
-      uebertragen: TransferRunResult;
-      vorlage?: Uebergabe;
-      laufId: string;
-      jetzt: Date;
-      wirksam: WirksameEinstellungen;
-      stelle: number;
-      von: number;
-    },
+    lage: Durchgangslage,
     gefunden: Quellenfund,
     benennung: string
   ): Promise<{ lauf: TransferRunResult; weiter: boolean; uebergabe?: Uebergabe }> {
@@ -486,6 +540,16 @@ export class WorkflowExecutionService implements JobExecutor {
 
     for (const hinweis of gefunden.hinweise) {
       this.protokoll(job, laufId, 'INFO', hinweis);
+    }
+
+    /*
+     * Vor „keine Quelle gefunden": Ein misslungener Zugriff ist kein leeres
+     * Verzeichnis. Beides endet ohne Dateien, aber nur eines davon ist der
+     * Regelfall — und wer sie zusammenwirft, bekommt für ein Archiv, das sich
+     * nicht schreiben ließ, die Meldung „nichts zu tun".
+     */
+    if (gefunden.abbruch) {
+      return { lauf: await this.abgebrochen(job, uebertragen, gefunden.abbruch), weiter: false };
     }
 
     if (gefunden.quellen.length === 0) {
@@ -856,6 +920,7 @@ export class WorkflowExecutionService implements JobExecutor {
   private async quellen(
     job: TransferJob,
     schritt: Konsolidierungsdurchgang,
+    stand: Ablagestand,
     vorlage: Uebergabe | undefined,
     uebertragen: TransferRunResult,
     wirksam: WirksameEinstellungen,
@@ -893,7 +958,7 @@ export class WorkflowExecutionService implements JobExecutor {
     const regeln = await this.profilregeln(schritt, hinweise);
     const auslieferung = await this.auslieferungsart(job);
     const pruefwunsch = { region: regionAus(wirksam), nullWerte: wirksam.nullWerte, jetzt };
-    const eingang = await this.dateien(job, schritt, vorlage, uebertragen, hinweise, laufId, jetzt);
+    const eingang = await this.dateien(job, schritt, stand, vorlage, uebertragen, hinweise, laufId, jetzt);
 
     for (const datei of eingang.dateien) {
       try {
@@ -984,7 +1049,7 @@ export class WorkflowExecutionService implements JobExecutor {
       }
     }
 
-    return { quellen, hinweise, pruefbedarf, uebernommen: eingang.uebernommen };
+    return { quellen, hinweise, pruefbedarf, uebernommen: eingang.uebernommen, abbruch: eingang.abbruch };
   }
 
   /**
@@ -1008,12 +1073,13 @@ export class WorkflowExecutionService implements JobExecutor {
   private async stapelDateien(
     job: TransferJob,
     schritt: Konsolidierungsdurchgang,
-    verzeichnis: string,
+    ablage: Abholbereit,
     genommen: Verzeichniseintrag[],
     hinweise: string[],
     laufId: string,
     jetzt: Date
   ): Promise<Eingang> {
+    const verzeichnis = ablage.verzeichnis;
     const bedingung = schritt.dateien!.stapel!;
     const reife = (schritt.dateien?.reifeSekunden ?? 0) * 1000;
 
@@ -1099,13 +1165,7 @@ export class WorkflowExecutionService implements JobExecutor {
        * mitgehen — sonst naehme ein alter, nie fertig gewordener Stapel jede
        * Nacht einen frischen mit.
        */
-      await this.raeumeAus(
-        job,
-        laufId,
-        verzeichnis,
-        stand.zugeordnet,
-        schritt.dateien?.abholung?.gescheitert
-      );
+      await this.raeumeAus(job, laufId, verzeichnis, stand.zugeordnet, ablage.orte.gescheitert);
 
       await this.melde(job, 'STAPEL_VERWORFEN', {
         titel: `Unvollständiger Stapel verworfen (${job.name})`,
@@ -1127,52 +1187,95 @@ export class WorkflowExecutionService implements JobExecutor {
       }
     }
 
-    const arbeit = schritt.dateien?.abholung?.arbeit;
+    return this.uebernimm(
+      job,
+      ablage,
+      stand.stapel,
+      genommen,
+      laufId,
+      jetzt,
+      hinweise,
+      `Stapel vollständig (${stand.stapel.length} Datei(en))`
+    );
+  }
 
-    if (!arbeit) {
-      hinweise.push(
-        'Der Stapel wird aus dem Abholverzeichnis gelesen: Es ist kein Arbeitsverzeichnis eingetragen. ' +
-          'Eine Datei, die während des Laufs ankommt, kann dann nicht sicher ausgeschlossen werden.'
-      );
-
+  /**
+   * Nimmt die Lieferung aus dem Abholverzeichnis heraus.
+   *
+   * ## Das Verschieben ist der Zugriff
+   *
+   * Erst wenn feststeht, welche Dateien zu diesem Lauf gehören, wandern genau
+   * diese in ein eigenes Verzeichnis. Was danach im Abholverzeichnis ankommt,
+   * gehört zum nächsten Lauf und kann nicht halb mitkommen.
+   *
+   * ## Mit Stapelbedingung und ohne
+   *
+   * Bisher übernahm nur der Stapel. Ein Durchgang ohne Bedingung las aus dem
+   * Abholverzeichnis, archivierte nichts und räumte hinterher nichts fort —
+   * jede Nacht dieselbe Lieferung, während jemand hineinschreibt. Vier
+   * Verzeichnisse zur Pflicht zu machen und drei davon dann nicht anzufassen
+   * wäre ein Formular gewesen und keine Zusage.
+   *
+   * ## Erst das Archiv, dann der Zugriff
+   *
+   * Andersherum lägen die Dateien schon im Arbeitsverzeichnis, wenn das Sichern
+   * fehlschlägt — aus dem Abholverzeichnis genommen, nirgends gesichert, und
+   * der nächste Lauf fände sie nicht mehr. So bleibt die Lieferung liegen, wo
+   * sie ist, und der nächste Blick des Workers versucht es erneut.
+   *
+   * ## Alles oder nichts
+   *
+   * Scheitert das Verschieben einer Datei, wird nichts konsolidiert. Die schon
+   * verschobenen bleiben im Arbeitsverzeichnis liegen; sie von Hand
+   * zurückzulegen ist eine Minute Arbeit, ein Ergebnis aus zwei Dritteln einer
+   * Lieferung kostet einen Monatsabschluss.
+   */
+  private async uebernimm(
+    job: TransferJob,
+    ablage: Abholbereit,
+    namen: readonly string[],
+    genommen: readonly Verzeichniseintrag[],
+    laufId: string,
+    jetzt: Date,
+    hinweise: string[],
+    meldung: string
+  ): Promise<Eingang> {
+    if (namen.length === 0) {
       /*
-       * Ohne Arbeitsverzeichnis wird nicht übernommen — und deshalb hinterher
-       * auch nichts weggeräumt. Dateien aus dem Abholverzeichnis zu räumen, die
-       * man nie herausgenommen hat, wäre der Griff nach einem Stapel, der
-       * inzwischen ein anderer sein kann.
+       * Nichts zu holen ist nichts zu übernehmen. Ein leeres Archivpaket und ein
+       * leeres Arbeitsverzeichnis für einen Lauf, der nichts vorgefunden hat,
+       * wären jede Nacht ein Stück mehr — und die Suche nach dem einen Paket,
+       * in dem etwas steht, ginge über Monate.
        */
-      return { dateien: this.alsQuellen(verzeichnis, stand.stapel, genommen) };
-    }
-
-    /*
-     * Erst das Archiv, dann der Zugriff.
-     *
-     * Andersherum lägen die Dateien schon im Arbeitsverzeichnis, wenn das
-     * Sichern fehlschlägt — aus dem Abholverzeichnis genommen, nirgends
-     * gesichert, und der nächste Lauf fände sie nicht mehr. So bleibt der
-     * Stapel liegen, wo er ist, und der nächste Blick des Workers versucht es
-     * erneut.
-     */
-    const gesichert = await this.archiviere(job, schritt, verzeichnis, stand.stapel, laufId, jetzt, hinweise);
-
-    if (!gesichert.weiter) {
       return { dateien: [] };
     }
 
-    const ziel = this.umgebung.ablage.pfad(arbeit, laufId);
+    const gesichert = await this.archiviere(job, ablage, namen, laufId, jetzt, hinweise);
 
-    for (const name of stand.stapel) {
+    if (!gesichert.weiter) {
+      return { dateien: [], abbruch: gesichert.grund };
+    }
+
+    const ziel = this.umgebung.ablage.pfad(ablage.orte.arbeit, laufId);
+
+    for (const name of namen) {
       await this.umgebung.ablage.verschiebe(
-        this.umgebung.ablage.pfad(verzeichnis, name),
+        this.umgebung.ablage.pfad(ablage.verzeichnis, name),
         this.umgebung.ablage.pfad(ziel, name)
       );
     }
 
-    hinweise.push(`Stapel vollständig (${stand.stapel.length} Datei(en)), zur Verarbeitung übernommen`);
+    hinweise.push(`${meldung}, zur Verarbeitung übernommen`);
 
     return {
-      dateien: this.alsQuellen(ziel, stand.stapel, genommen),
-      uebernommen: { verzeichnis: ziel, namen: [...stand.stapel], archiviert: gesichert.paket },
+      dateien: this.alsQuellen(ziel, namen, genommen),
+      uebernommen: {
+        verzeichnis: ziel,
+        namen: [...namen],
+        archiviert: gesichert.paket as string,
+        erledigt: ablage.orte.erledigt,
+        gescheitert: ablage.orte.gescheitert,
+      },
     };
   }
 
@@ -1199,9 +1302,9 @@ export class WorkflowExecutionService implements JobExecutor {
   /**
    * Sichert die Lieferung, bevor sie angefasst wird.
    *
-   * Gibt zurück, ob der Lauf weitergehen darf. Ohne eingetragenes
-   * Archivverzeichnis: ja — dann ist nichts versprochen worden. Mit einem und
-   * ohne Sicherung: nein.
+   * Gibt zurück, ob der Lauf weitergehen darf. Ohne Sicherung: nein. Ein Zweig
+   * für „kein Archivverzeichnis eingetragen" steht hier nicht mehr — seit die
+   * vier Verzeichnisse Pflicht sind, gibt es diesen Fall nicht.
    *
    * ## Warum ein Fehlschlag den Lauf anhält
    *
@@ -1213,27 +1316,23 @@ export class WorkflowExecutionService implements JobExecutor {
    */
   private async archiviere(
     job: TransferJob,
-    schritt: Konsolidierungsdurchgang,
-    verzeichnis: string,
+    ablage: Abholbereit,
     namen: readonly string[],
     laufId: string,
     jetzt: Date,
     hinweise: string[]
-  ): Promise<{ weiter: boolean; paket?: string }> {
-    const archiv = schritt.dateien?.abholung?.archiv;
-
-    if (!archiv) {
-      return { weiter: true };
-    }
+  ): Promise<{ weiter: boolean; paket?: string; grund?: string }> {
+    const verzeichnis = ablage.verzeichnis;
+    const archiv = ablage.orte.archiv;
 
     if (!this.umgebung.archiv) {
-      hinweise.push(
+      const grund =
         `Der Durchgang nennt das Archiv „${archiv}", aber dieser Lauf kann nicht archivieren. ` +
-          'Der Stapel bleibt liegen und wird nicht verarbeitet'
-      );
-      this.protokoll(job, laufId, 'ERROR', 'Archivierung nicht verdrahtet — der Stapel wurde nicht angefasst');
+        'Die Lieferung bleibt liegen und wird nicht verarbeitet';
 
-      return { weiter: false };
+      hinweise.push(grund);
+
+      return { weiter: false, grund };
     }
 
     try {
@@ -1249,23 +1348,19 @@ export class WorkflowExecutionService implements JobExecutor {
 
       return { weiter: true, paket: pfad };
     } catch (fehler) {
-      const grund = fehler instanceof Error ? fehler.message : String(fehler);
+      /*
+       * Gemeldet wird nicht hier, sondern am Abbruch des Durchgangs. Zwei
+       * Meldungen für einen Vorfall sind eine zu viel: Wer die zweite wegklickt,
+       * hat die erste schon gelesen — und beim nächsten Mal beide.
+       */
+      const grund =
+        `Die Eingangsdateien aus „${verzeichnis}" ließen sich nicht ins Archiv legen: ` +
+        `${fehler instanceof Error ? fehler.message : String(fehler)}. ` +
+        'Sie wurden nicht angefasst und liegen unverändert an ihrem Platz';
 
-      hinweise.push(
-        `Das Archiv ließ sich nicht schreiben: ${grund}. ` +
-          'Der Stapel bleibt im Abholverzeichnis liegen und wird nicht verarbeitet'
-      );
-      this.protokoll(job, laufId, 'ERROR', `Archivierung fehlgeschlagen: ${grund}`);
+      hinweise.push(grund);
 
-      await this.melde(job, 'LAUF_FEHLER', {
-        titel: `Archivierung fehlgeschlagen (${job.name})`,
-        text:
-          `Die Eingangsdateien aus „${verzeichnis}" ließen sich nicht ins Archiv legen: ${grund}. ` +
-          'Sie wurden nicht angefasst und liegen unverändert an ihrem Platz',
-        ziel: { art: 'LAUF', id: laufId },
-      });
-
-      return { weiter: false };
+      return { weiter: false, grund };
     }
   }
 
@@ -1289,10 +1384,10 @@ export class WorkflowExecutionService implements JobExecutor {
    * Wegräumen noch daliegt: die Dateien eines Stapels, den niemand nach
    * „Erledigt" holen konnte, weil kein Verzeichnis dafür eingetragen ist.
    *
-   * Und nur, wenn das **Archivpaket** dieses Laufs geschrieben wurde. Das ist
-   * die Deckung: Das Original liegt verschlüsselt im Archiv und lässt sich von
-   * dort wieder herausholen. Ohne Paket bleibt jede Datei liegen — lieber ein
-   * volles Verzeichnis als ein Bestand, den es nirgends mehr gibt.
+   * Gedeckt ist es durch das **Archivpaket** dieses Laufs: Das Original liegt
+   * verschlüsselt im Archiv und lässt sich von dort wieder herausholen. Ein
+   * Zweig für „kein Paket" steht hier nicht mehr — seit das Archiv Pflicht
+   * ist, gibt es eine Übernahme ohne Paket nicht.
    *
    * Was **nicht** aus diesem Lauf stammt, wird nie angefasst, auch nicht bei
    * geschütztem Archiv: Es steht in keinem Paket, und wer es dort abgelegt
@@ -1330,19 +1425,6 @@ export class WorkflowExecutionService implements JobExecutor {
     const fremde = rest.filter((eintrag) => !uebernommen.namen.includes(eintrag.name));
 
     if (unsere.length > 0) {
-      if (!uebernommen.archiviert) {
-        this.protokoll(
-          job,
-          laufId,
-          'WARNING',
-          `„${verzeichnis}" bleibt stehen: ${unsere.length} Datei(en) liegen noch darin ` +
-            `(${unsere.map((eintrag) => eintrag.name).join(', ')}). ` +
-            'Fortgenommen wird nur, was im Archiv gesichert ist — und für diesen Lauf gibt es kein Archivpaket'
-        );
-
-        return;
-      }
-
       for (const eintrag of unsere) {
         try {
           await this.umgebung.ablage.entferne(this.umgebung.ablage.pfad(verzeichnis, eintrag.name));
@@ -1402,26 +1484,23 @@ export class WorkflowExecutionService implements JobExecutor {
     }
   }
 
+  /**
+   * `nach` ist keine Möglichkeit mehr.
+   *
+   * Früher stand hier ein Zweig für „kein Zielverzeichnis eingetragen": eine
+   * Warnung, und die Dateien blieben im Arbeitsverzeichnis liegen, das der
+   * nächste Lauf nicht wiederfindet. Seit die vier Verzeichnisse Pflicht sind,
+   * gibt es diesen Fall nicht — und einen Zweig stehen zu lassen, den nichts
+   * mehr erreicht, hieße, ihn beim nächsten Lesen für einen möglichen Zustand
+   * zu halten.
+   */
   private async raeumeAus(
     job: TransferJob,
     laufId: string,
     verzeichnis: string,
     namen: readonly string[],
-    nach: string | undefined
+    nach: string
   ): Promise<void> {
-    if (!nach) {
-      this.protokoll(
-        job,
-        laufId,
-        'WARNING',
-        `Die Dateien bleiben in „${verzeichnis}" liegen: Es ist kein Zielverzeichnis eingetragen. ` +
-          'Der nächste Lauf legt sein eigenes Verzeichnis an und findet sie nicht wieder — ' +
-          'sie sammeln sich dort an, bis jemand sie holt.'
-      );
-
-      return;
-    }
-
     for (const name of namen) {
       try {
         await this.umgebung.ablage.verschiebe(
@@ -1444,6 +1523,7 @@ export class WorkflowExecutionService implements JobExecutor {
   private async dateien(
     job: TransferJob,
     schritt: Konsolidierungsdurchgang,
+    stand: Ablagestand,
     vorlage: Uebergabe | undefined,
     uebertragen: TransferRunResult,
     hinweise: string[],
@@ -1454,17 +1534,13 @@ export class WorkflowExecutionService implements JobExecutor {
     const endungen = schritt.dateien?.endungen;
 
     /*
-     * Der Vorgänger ist ab dem zweiten Durchgang die Datei, die der Durchgang
-     * davor geschrieben hat — und nicht mehr das, was die Übertragung abgelegt
-     * hat. Sonst rechnete jeder Durchgang wieder auf dem Rohbestand, und die
-     * Folge wäre keine.
+     * Der Durchgang holt selbst ab — und `konsolidiere` hat vorher geprüft, dass
+     * er es darf. Hier steht deshalb keine zweite Prüfung: Was der Befund sagt,
+     * ist entschieden, und er bringt jedes Verzeichnis mit, das der Zugriff
+     * braucht.
      */
-    if (schritt.input.from === 'PRECEDING' && vorlage) {
-      return { dateien: [vorlage] };
-    }
-
-    if (schritt.input.from === 'DIRECTORY') {
-      const verzeichnis = schritt.input.directory;
+    if (stand.art === 'BEREIT') {
+      const verzeichnis = stand.verzeichnis;
       const eintraege = await this.umgebung.ablage.liste(verzeichnis);
       const genommen = eintraege.filter(
         (eintrag) =>
@@ -1495,16 +1571,29 @@ export class WorkflowExecutionService implements JobExecutor {
        * wird genommen.
        */
       if (schritt.dateien?.stapel) {
-        return this.stapelDateien(job, schritt, verzeichnis, genommen, hinweise, laufId, jetzt);
+        return this.stapelDateien(job, schritt, stand, genommen, hinweise, laufId, jetzt);
       }
 
-      return {
-        dateien: genommen.map((eintrag) => ({
-          name: eintrag.name,
-          pfad: this.umgebung.ablage.pfad(verzeichnis, eintrag.name),
-          geaendert: eintrag.geaendert,
-        })),
-      };
+      return this.uebernimm(
+        job,
+        stand,
+        genommen.map((eintrag) => eintrag.name),
+        genommen,
+        laufId,
+        jetzt,
+        hinweise,
+        `${genommen.length} Datei(en) gefunden`
+      );
+    }
+
+    /*
+     * Der Vorgänger ist ab dem zweiten Durchgang die Datei, die der Durchgang
+     * davor geschrieben hat — und nicht mehr das, was die Übertragung abgelegt
+     * hat. Sonst rechnete jeder Durchgang wieder auf dem Rohbestand, und die
+     * Folge wäre keine.
+     */
+    if (vorlage) {
+      return { dateien: [vorlage] };
     }
 
     /*
@@ -2049,12 +2138,6 @@ interface Uebergabe {
 }
 
 /**
- * Wie ein Durchgang in Protokoll und Meldung heißt.
- *
- * Bei einem einzigen bleibt es bei „Konsolidierung" — eine Nummer, wo es nichts
- * zu nummerieren gibt, sieht nach einem Fehler aus.
- */
-/**
  * Wie eine Gruppe in einer Meldung heißt.
  *
  * Ohne Schlüssel gibt es nur eine, und dann wäre ein Vorspann Lärm. Mit
@@ -2074,16 +2157,6 @@ function fertigeGruppenname(gruppe: Stapelgruppe | undefined): string | undefine
  */
 function gelungen(lauf: TransferRunResult): boolean {
   return lauf.status === TransferRunStatus.SUCCESS || lauf.status === TransferRunStatus.SUCCESS_NO_FILES;
-}
-
-function durchgangsname(durchgang: Konsolidierungsdurchgang, stelle: number, von: number): string {
-  if (von <= 1) {
-    return 'Konsolidierung';
-  }
-
-  const eigen = durchgang.name?.trim();
-
-  return `Durchgang ${stelle + 1} von ${von}${eigen ? ` (${eigen})` : ''}`;
 }
 
 /** Der Dateiname aus einem Pfad — mit beiden Trennzeichen, die vorkommen. */

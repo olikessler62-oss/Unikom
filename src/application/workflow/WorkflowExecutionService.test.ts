@@ -12,7 +12,7 @@ import {
   InMemoryHeartbeatRepository,
   InMemoryNotificationRepository,
 } from '../../infrastructure/persistence/InMemoryBackgroundRepository.js';
-import { Archivdienst } from './Archivdienst.js';
+import { Archivdienst, ARCHIVENDUNG } from './Archivdienst.js';
 import { istLaufverzeichnis } from './WorkflowExecutionService.js';
 import { fortschreiben, neuesProfil } from '../../domain/consolidation/Profil.js';
 import { InMemoryProfilRepository } from '../../infrastructure/persistence/InMemoryProfilRepository.js';
@@ -20,7 +20,7 @@ import { InMemoryConflictRepository } from '../../infrastructure/persistence/InM
 import { InMemoryResultRepository } from '../../infrastructure/persistence/InMemoryResultRepository.js';
 import { InMemoryTenantRepository } from '../../infrastructure/persistence/InMemoryTenantRepository.js';
 import { InMemoryTransferRunRepository } from '../../infrastructure/persistence/InMemoryTransferRunRepository.js';
-import { createTransferJob } from '../../testing/TransferJobFixture.js';
+import { createTransferJob, mitAblage } from '../../testing/TransferJobFixture.js';
 import { BackgroundService } from '../background/BackgroundService.js';
 import { ConflictService } from '../conflicts/ConflictService.js';
 import { ConsolidationService } from '../consolidation/ConsolidationService.js';
@@ -105,11 +105,24 @@ class Ablage implements Dateiablage {
     this.fortgenommen.push(pfad);
   }
 
+  /**
+   * Ziele, deren Verschieben scheitert — als Anfang des Pfades.
+   *
+   * Damit gibt es den Fall, in dem das Wegräumen misslingt und die Dateien im
+   * Arbeitsverzeichnis liegen bleiben — ohne ihn wäre der Zweig, der sie unter
+   * der Deckung des Archivs fortnimmt, von außen nicht erreichbar.
+   */
+  readonly klemmt = new Set<string>();
+
   async verschiebe(von: string, nach: string): Promise<void> {
     const inhalt = this.dateien.get(von);
 
     if (!inhalt) {
       throw new Error(`Es gibt keine Datei ${von}`);
+    }
+
+    if ([...this.klemmt].some((sperre) => nach.startsWith(sperre))) {
+      throw new Error(`„${nach}" lässt sich nicht beschreiben`);
     }
 
     this.dateien.set(nach, inhalt);
@@ -194,7 +207,7 @@ function werkbank(features: FeatureSet = ALLES): Werkbank {
 }
 
 function job(teile: Partial<TransferJob> = {}): TransferJob {
-  return createTransferJob({
+  return mitAblage(createTransferJob({
     id: 'job1',
     name: 'Nachtlauf',
     tenantId: 'default',
@@ -205,11 +218,22 @@ function job(teile: Partial<TransferJob> = {}): TransferJob {
       regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
     },
     ...teile,
-  });
+  }));
 }
 
 async function offeneMeldungen(bank: Werkbank): Promise<Benachrichtigung[]> {
   return bank.meldungen.list('default', false);
+}
+
+/**
+ * Was der Lauf abgelegt hat — ohne die Archivpakete.
+ *
+ * Seit jeder abholende Durchgang seine Lieferung sichert, steht in jedem Lauf
+ * ein Paket in „geschrieben". Es gehört nicht zum Ergebnis, sondern ist das
+ * Original; ein Test über Ergebnisdateien hat es nicht mitzuzählen.
+ */
+function ergebnisse(bank: Werkbank): string[] {
+  return bank.ablage.geschrieben.filter((pfad) => !pfad.endsWith(ARCHIVENDUNG));
 }
 
 /* ---------- Der Grundfall ---------- */
@@ -640,7 +664,7 @@ test('eine Ergebnisdatei entsteht nur aus einem freigegebenen Stand', async () =
   );
 
   assert.deepEqual(
-    bank.ablage.geschrieben,
+    ergebnisse(bank),
     [],
     'ein Ergebnis, das auf eine Entscheidung wartet, darf nicht schon im Verzeichnis liegen'
   );
@@ -668,10 +692,10 @@ test('ein freigegebenes Ergebnis wird als CSV abgelegt und lässt sich wieder le
     })
   );
 
-  assert.equal(bank.ablage.geschrieben.length, 1);
-  assert.match(bank.ablage.geschrieben[0], /^\/ergebnis\/Nachtlauf_Ergebnis_\d{8}_\d{6}\.csv$/);
+  assert.equal(ergebnisse(bank).length, 1);
+  assert.match(ergebnisse(bank)[0], /^\/ergebnis\/Nachtlauf_Ergebnis_\d{8}_\d{6}\.csv$/);
 
-  const inhalt = new TextDecoder().decode(await bank.ablage.lies(bank.ablage.geschrieben[0]));
+  const inhalt = new TextDecoder().decode(await bank.ablage.lies(ergebnisse(bank)[0]));
 
   assert.match(inhalt, /kdnr;ort/);
   assert.match(inhalt, /1;Bonn/);
@@ -686,7 +710,7 @@ test('ohne Ergebnis-Verzeichnis wird nichts geschrieben', async () => {
 
   await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(job());
 
-  assert.deepEqual(bank.ablage.geschrieben, []);
+  assert.deepEqual(ergebnisse(bank), []);
 });
 
 /* ---------- Wenn etwas schiefgeht ---------- */
@@ -716,15 +740,47 @@ test('ein Fehler wird zu einem Lauf mit Begründung, nicht zu einer Ausnahme', a
 });
 
 test('eine einzelne unlesbare Datei macht die übrigen nicht wertlos', async () => {
+  /*
+   * Unlesbar heißt hier: Die Bytes sind da, ergeben aber keine Tabelle. Das
+   * fängt der Leser je Datei ab, und die übrigen laufen weiter.
+   *
+   * Der andere Fall — die Bytes selbst sind nicht zu holen — ist etwas anderes
+   * und steht im Test darunter: Er trifft schon das Archiv, und dann wird gar
+   * nicht erst zugegriffen.
+   */
   const bank = werkbank();
 
   bank.ablage.lege('/eingang/gut.csv', ['kdnr'], [['1'], ['2']]);
-  bank.ablage.dateien.set('/eingang/kaputt.csv', undefined as unknown as Uint8Array);
+  bank.ablage.dateien.set('/eingang/kaputt.xlsx', new TextEncoder().encode('keine Arbeitsmappe'));
 
   const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(job());
 
   assert.equal(ergebnis.status, TransferRunStatus.SUCCESS);
   assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 2);
+});
+
+test('eine Datei, die sich gar nicht holen lässt, hält die Lieferung an', async () => {
+  /*
+   * Ohne ihre Bytes gibt es kein vollständiges Archivpaket — und ohne das keine
+   * Deckung dafür, die Lieferung aus dem Abholverzeichnis zu nehmen. Der Lauf
+   * fässt deshalb nichts an und sagt, warum.
+   *
+   * Gemeldet wird das als Fehlschlag und nicht als „nichts zu tun". Beides
+   * endet ohne Dateien, aber nur eines davon ist der Regelfall.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/gut.csv', ['kdnr'], [['1'], ['2']]);
+  bank.ablage.dateien.set('/eingang/weg.csv', undefined as unknown as Uint8Array);
+
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(job());
+
+  assert.equal(ergebnis.status, TransferRunStatus.COMPLETED_WITH_ERRORS);
+  assert.deepEqual(bank.ablage.verschoben, [], 'nichts angefasst');
+  assert.ok(
+    bank.protokoll.some((zeile) => /ließen sich nicht ins Archiv legen/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
 });
 
 /* ---------- Das Schema des Mandanten ---------- */
@@ -972,7 +1028,35 @@ test('ohne Verzeichnis für Gescheitertes wird nicht geteilt', async () => {
   await legeSchemaAn(bank);
   bank.ablage.lege('/eingang/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
 
-  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(teiljob(undefined));
+  /*
+   * Ein Durchgang, der selbst abholt, hat sein Gescheitert-Verzeichnis seit
+   * der Pflicht immer — sonst fängt er gar nicht erst an. Übrig bleibt der
+   * Durchgang, dem die Dateien **gereicht** werden: Er hat kein
+   * Abholverzeichnis und deshalb auch keine vier Wege daran.
+   */
+  bank.ablage.lege('/ziel/Kunden.csv', ['kdnr', 'ort'], [['4711', 'Bonn'], ['', 'Köln']]);
+
+  await new WorkflowExecutionService(
+    uebertragung({
+      outcomes: [
+        {
+          filename: 'Kunden.csv',
+          status: FileTransferStatus.SUCCESS,
+          destinationPath: '/ziel/Kunden.csv',
+        },
+      ] as TransferRunResult['outcomes'],
+    }),
+    bank.umgebung
+  ).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'PRECEDING' },
+        regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+        schema: { profil: 'p1' },
+      },
+    })
+  );
 
   assert.equal((await bank.ergebnisse.list('default')).length, 0, 'die Lieferung bleibt ganz stehen');
   assert.ok(
@@ -1782,7 +1866,7 @@ test('ein zweiter Durchgang rechnet auf dem, was der erste geschrieben hat', asy
       consolidation: {
         enabled: true,
         input: { from: 'DIRECTORY', directory: '/eingang' },
-        output: { to: 'DIRECTORY', directory: '/arbeit' },
+        output: { to: 'DIRECTORY', directory: '/zwischen' },
         regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
         weitere: [
           {
@@ -1796,9 +1880,9 @@ test('ein zweiter Durchgang rechnet auf dem, was der erste geschrieben hat', asy
     })
   );
 
-  const geschrieben = bank.ablage.geschrieben.map((pfad) => pfad.slice(0, pfad.lastIndexOf('/')));
+  const geschrieben = ergebnisse(bank).map((pfad) => pfad.slice(0, pfad.lastIndexOf('/')));
 
-  assert.deepEqual(geschrieben, ['/arbeit', '/ergebnis'], 'beide Durchgänge legen ab, in dieser Reihenfolge');
+  assert.deepEqual(geschrieben, ['/zwischen', '/ergebnis'], 'beide Durchgänge legen ab, in dieser Reihenfolge');
   assert.match(ergebnis.message, /Durchgang 2 von 2 \(Nachlauf\)/);
 
   const staende = await bank.ergebnisse.list('default');
@@ -2315,7 +2399,19 @@ class Gespurte extends Ablage {
 }
 
 function anFreigabe(bank: Werkbank, teile: Partial<Konsolidierungsumgebung> = {}): Werkbank {
-  return { ...bank, umgebung: { ...bank.umgebung, ...teile } };
+  return {
+    ...bank,
+    umgebung: {
+      ...bank.umgebung,
+      /*
+       * Das Archiv liest dieselben Dateien wie der Durchgang. Eines, das auf
+       * einer anderen Ablage sitzt, fände sie nicht — und der Lauf bräche ab
+       * an einer Stelle, die mit der Freigabe nichts zu tun hat.
+       */
+      ...(teile.ablage ? { archiv: new Archivdienst(teile.ablage, () => ARCHIVSCHLUESSEL) } : {}),
+      ...teile,
+    },
+  };
 }
 
 function freigabejob(credentialId?: string): TransferJob {
@@ -2645,27 +2741,23 @@ test('das Verzeichnis des Laufs verschwindet, wenn nichts mehr darin liegt', asy
   assert.ok(bank.protokoll.some((zeile) => /ist leer und wurde fortgenommen/.test(zeile)));
 });
 
-test('ohne Zielverzeichnis bleibt der Ordner stehen — und sagt, was darin liegt', async () => {
+test('was sich nicht nach Erledigt räumen lässt, wird trotzdem fortgenommen', async () => {
   /*
-   * Gelöscht wird keine einzige Datei. Ein Lauf, der Eingangsdateien löscht,
-   * wäre erst zu verantworten, wenn sich das Archiv auch wieder öffnen lässt.
+   * Der Fall, für den das Archiv gebaut wurde: Das Wegräumen misslingt, und die
+   * Dateien säßen für immer im Arbeitsverzeichnis. Fortgenommen werden dürfen
+   * sie, weil das Original verschlüsselt im Archiv liegt — und von dort wieder
+   * herauszuholen ist.
    */
   const bank = werkbank();
 
-  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
-  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['2']]);
-  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
+  dreiDateien(bank);
+  bank.ablage.klemmt.add('/erledigt');
 
-  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
-    stapeljob({ abholung: { arbeit: '/arbeit' } })
-  );
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(stapeljob());
 
-  assert.deepEqual(bank.ablage.fortgenommen, [], 'nichts fortgenommen');
-  assert.ok(bank.ablage.dateien.has('/arbeit/TR-1/Filiale_Nord_0821.csv'), 'die Datei liegt noch da');
-  assert.ok(
-    bank.protokoll.some((zeile) => /bleibt stehen: 3 Datei\(en\) liegen noch darin/.test(zeile)),
-    bank.protokoll.join(' | ')
-  );
+  assert.equal(bank.ablage.dateien.has('/arbeit/TR-1/Filiale_Nord_0821.csv'), false);
+  assert.deepEqual(bank.ablage.fortgenommen, ['/arbeit/TR-1']);
+  assert.ok(archivdatei(bank), 'und das Original liegt im Archiv');
 });
 
 /** Drei Filialdateien im Abholverzeichnis — ein vollständiger Stapel. */
@@ -2675,26 +2767,6 @@ function dreiDateien(bank: Werkbank): void {
   bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
 }
 
-test('mit Archiv wird das Arbeitsverzeichnis wirklich geleert', async () => {
-  /*
-   * Der Fall, für den das Archiv gebaut wurde: Ohne Zielverzeichnis holt
-   * niemand die Dateien nach „Erledigt", und sie säßen für immer im
-   * Arbeitsverzeichnis. Fortgenommen werden dürfen sie, weil das Original
-   * verschlüsselt im Archiv liegt — und von dort wieder herauszuholen ist.
-   */
-  const bank = werkbank();
-
-  dreiDateien(bank);
-
-  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
-    stapeljob({ abholung: { arbeit: '/arbeit', archiv: '/archiv' } })
-  );
-
-  assert.equal(bank.ablage.dateien.has('/arbeit/TR-1/Filiale_Nord_0821.csv'), false);
-  assert.deepEqual(bank.ablage.fortgenommen, ['/arbeit/TR-1']);
-  assert.ok(archivdatei(bank), 'und das Original liegt im Archiv');
-});
-
 test('das Protokoll sagt, wohin die Dateien gegangen sind', async () => {
   /*
    * Eine Zeile „gelöscht" ohne die Angabe, wo die Daten jetzt liegen, ist
@@ -2703,33 +2775,15 @@ test('das Protokoll sagt, wohin die Dateien gegangen sind', async () => {
   const bank = werkbank();
 
   dreiDateien(bank);
+  bank.ablage.klemmt.add('/erledigt');
 
-  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
-    stapeljob({ abholung: { arbeit: '/arbeit', archiv: '/archiv' } })
-  );
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(stapeljob());
 
   const zeile = bank.protokoll.find((eintrag) => /fortgenommen\. Das Original liegt/.test(eintrag));
 
   assert.ok(zeile, bank.protokoll.join(' | '));
   assert.match(zeile, /3 Eingangsdatei\(en\)/);
   assert.match(zeile, /\/archiv\/.*\.zip\.enc/);
-});
-
-test('ohne Archivpaket wird keine einzige Datei fortgenommen', async () => {
-  // Lieber ein volles Verzeichnis als ein Bestand, den es nirgends mehr gibt.
-  const bank = werkbank();
-
-  dreiDateien(bank);
-
-  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
-    stapeljob({ abholung: { arbeit: '/arbeit' } })
-  );
-
-  assert.equal(bank.ablage.dateien.has('/arbeit/TR-1/Filiale_Nord_0821.csv'), true);
-  assert.ok(
-    bank.protokoll.some((zeile) => /für diesen Lauf gibt es kein Archivpaket/.test(zeile)),
-    bank.protokoll.join(' | ')
-  );
 });
 
 test('eine fremde Datei im Arbeitsverzeichnis wird nie angefasst', async () => {
@@ -2829,18 +2883,27 @@ test('ohne Archivierung bleibt der Stapel liegen', async () => {
   );
 });
 
-test('ohne eingetragenes Archiv läuft alles wie zuvor', async () => {
-  // Wo nichts versprochen wurde, wird auch nichts angehalten.
+test('ohne Archivdienst wird die Lieferung nicht angefasst', async () => {
+  /*
+   * Ein Lauf, der nicht archivieren kann, darf nicht so tun, als hätte er es
+   * getan. Er fässt nichts an und sagt, warum — sonst wäre das Verschieben
+   * eine Zusage ohne Deckung.
+   */
   const bank = werkbank();
 
-  bank.ablage.lege('/abholung/Filiale_Nord_0821.csv', ['kdnr'], [['1']]);
-  bank.ablage.lege('/abholung/Filiale_Sued_0821.csv', ['kdnr'], [['2']]);
-  bank.ablage.lege('/abholung/Filiale_West_0821.csv', ['kdnr'], [['3']]);
+  dreiDateien(bank);
 
-  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(stapeljob());
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), {
+    ...bank.umgebung,
+    archiv: undefined,
+  }).execute(stapeljob());
 
-  assert.equal((await bank.ergebnisse.list('default'))[0].zeilen.length, 3);
-  assert.equal(archivdatei(bank), undefined);
+  assert.equal(ergebnis.status, TransferRunStatus.COMPLETED_WITH_ERRORS);
+  assert.deepEqual(bank.ablage.verschoben, [], 'nichts angefasst');
+  assert.ok(
+    bank.protokoll.some((zeile) => /kann nicht archivieren/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
 });
 
 test('ein unvollständiger Stapel wird nicht angefasst', async () => {
@@ -2925,8 +2988,103 @@ test('nach Ablauf der Frist wird der Stapel verworfen und gemeldet', async () =>
   );
 });
 
-test('ohne Stapelbedingung bleibt alles, wie es war', async () => {
-  // Ein Durchgang, der nie einen Stapel verlangt hat, soll nichts verschieben.
+/* ---------- Ohne die vier Verzeichnisse fängt nichts an ---------- */
+
+test('ein Durchgang ohne Archiv läuft nicht — und fasst nichts an', async () => {
+  /*
+   * Ein Einrichtungsfehler ist keine schlechte Lieferung. Die Dateien nach
+   * „Gescheitert" zu räumen hieße, die Daten für den Fehler von jemand anderem
+   * zu bestrafen: Wer hinterher das Verzeichnis einträgt, müsste sie erst
+   * wieder herausfischen.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/a.csv', ['kdnr'], [['1']]);
+
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/eingang' },
+        regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+        dateien: { abholung: { archiv: undefined } },
+      },
+    })
+  );
+
+  assert.equal(ergebnis.status, TransferRunStatus.COMPLETED_WITH_ERRORS);
+  assert.deepEqual(bank.ablage.verschoben, [], 'nichts angefasst');
+  assert.ok(bank.ablage.dateien.has('/eingang/a.csv'), 'die Lieferung liegt noch da');
+  assert.ok(
+    bank.protokoll.some((zeile) => /Es fehlt das Verzeichnis „Archiv"/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('das Protokoll nennt den Ort, an dem es einzutragen ist', async () => {
+  // „Es fehlt etwas" ohne die Angabe, wo, schickt die Ferndiagnose auf die Suche.
+  const bank = werkbank();
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/eingang' },
+        regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+        dateien: { abholung: { erledigt: undefined } },
+      },
+    })
+  );
+
+  assert.ok(
+    bank.protokoll.some((zeile) => /unter „Verzeichnisse"/.test(zeile)),
+    bank.protokoll.join(' | ')
+  );
+});
+
+test('geprüft wird, bevor der erste Durchgang rechnet', async () => {
+  /*
+   * Bräche der zweite Durchgang an einem fehlenden Verzeichnis ab, hätte der
+   * erste seine Eingangsdateien längst nach „Erledigt" geräumt und sein
+   * Ergebnis geschrieben. Wer die Angabe dann nachträgt, findet einen halb
+   * gelaufenen Workflow vor und muss herausfinden, welche Hälfte.
+   */
+  const bank = werkbank();
+
+  bank.ablage.lege('/eingang/a.csv', ['kdnr'], [['1']]);
+
+  await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(
+    job({
+      consolidation: {
+        enabled: true,
+        input: { from: 'DIRECTORY', directory: '/eingang' },
+        output: { to: 'DIRECTORY', directory: '/zwischen' },
+        regeln: { betriebsart: 'SAMMELN', art: 'APPEND' },
+        weitere: [
+          {
+            name: 'Anreichern',
+            input: { from: 'DIRECTORY', directory: '/zweiter' },
+            output: { to: 'DIRECTORY', directory: '/ergebnis' },
+            dateien: { abholung: { gescheitert: undefined } },
+          },
+        ],
+      },
+    })
+  );
+
+  assert.deepEqual(ergebnisse(bank), [], 'der erste Durchgang hat nicht gerechnet');
+  assert.deepEqual(bank.ablage.verschoben, [], 'und nichts angefasst');
+});
+
+test('auch ohne Stapelbedingung geht die Lieferung denselben Weg', async () => {
+  /*
+   * Früher übernahm nur der Stapel: Ein Durchgang ohne Bedingung las aus dem
+   * Abholverzeichnis, archivierte nichts und räumte hinterher nichts fort —
+   * jede Nacht dieselbe Lieferung, während jemand hineinschreibt.
+   *
+   * Vier Verzeichnisse zur Pflicht zu machen und drei davon dann nicht
+   * anzufassen wäre ein Formular gewesen und keine Zusage.
+   */
   const bank = werkbank();
 
   bank.ablage.lege('/eingang/a.csv', ['kdnr'], [['1']]);
@@ -2934,6 +3092,26 @@ test('ohne Stapelbedingung bleibt alles, wie es war', async () => {
   const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(job());
 
   assert.equal(ergebnis.status, TransferRunStatus.SUCCESS);
+  assert.ok(archivdatei(bank), 'gesichert, bevor etwas angefasst wird');
+  assert.deepEqual(
+    bank.ablage.verschoben,
+    ['/eingang/a.csv -> /arbeit/TR-1/a.csv', '/arbeit/TR-1/a.csv -> /erledigt/a.csv'],
+    'erst ins Arbeitsverzeichnis, nach dem Durchgang nach Erledigt'
+  );
+});
+
+test('ein leeres Abholverzeichnis wird nicht übernommen', async () => {
+  /*
+   * Ein leeres Archivpaket und ein leeres Arbeitsverzeichnis für einen Lauf,
+   * der nichts vorgefunden hat, wären jede Nacht ein Stück mehr — und die Suche
+   * nach dem einen Paket, in dem etwas steht, ginge über Monate.
+   */
+  const bank = werkbank();
+
+  const ergebnis = await new WorkflowExecutionService(uebertragung(), bank.umgebung).execute(job());
+
+  assert.equal(ergebnis.status, TransferRunStatus.SUCCESS_NO_FILES);
+  assert.equal(archivdatei(bank), undefined);
   assert.deepEqual(bank.ablage.verschoben, []);
 });
 /* ---------- Der Stapelschlüssel im Lauf ---------- */

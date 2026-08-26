@@ -168,6 +168,20 @@ test('eine unbrauchbare Einstellung wird mit einem lesbaren Satz abgelehnt', asy
 /* ---------- Die Regeln am Workflow ---------- */
 
 /** Die Felder, die jeder Workflow braucht — hier geht es um die anderen. */
+/**
+ * Die vier Pflichtverzeichnisse eines abholenden Durchgangs.
+ *
+ * Ohne sie nimmt der Dienst den Workflow nicht an — siehe
+ * `assertAblageorteSindDa`. Als eine Zeile, damit ein Test über Regeln,
+ * Umformungen oder Schemata sie nicht viermal ausbuchstabieren muss.
+ */
+const ABHOLUNG = {
+  archiv: 'C:/archiv',
+  arbeit: 'C:/arbeit',
+  erledigt: 'C:/erledigt',
+  gescheitert: 'C:/gescheitert',
+};
+
 const WORKFLOW = {
   tenantId: 'default',
   sourceType: 'LOCAL',
@@ -209,7 +223,7 @@ test('die Konsolidierungsregeln überstehen das Speichern und Lesen', async (t) 
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
-      dateien: { muster: 'Filiale_*.csv' },
+      dateien: { muster: 'Filiale_*.csv', abholung: ABHOLUNG },
       regeln: {
         betriebsart: 'ANREICHERN',
         art: 'MERGE',
@@ -258,6 +272,7 @@ test('ein Workflow nur mit Konsolidierung lässt sich anlegen', async (t) => {
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+      dateien: { abholung: ABHOLUNG },
     },
   });
 
@@ -604,6 +619,7 @@ test('die Umformungen überstehen das Speichern und Lesen', async (t) => {
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+      dateien: { abholung: ABHOLUNG },
       umformung: {
         felder: [{ feld: 'nachname', schritte: [{ art: 'TRIMMEN' }, { art: 'ANFANGSGROSS' }] }],
         aufteilungen: [
@@ -888,6 +904,7 @@ test('mehrere Durchgänge überstehen das Speichern und Lesen', async (t) => {
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/arbeit' },
+      dateien: { abholung: ABHOLUNG },
       weitere: [
         {
           name: 'anreichern',
@@ -1046,6 +1063,7 @@ test('der Referenzverweis am Durchgang übersteht das Speichern und Lesen', asyn
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+      dateien: { abholung: ABHOLUNG },
       regeln: {
         betriebsart: 'SAMMELN',
         art: 'APPEND',
@@ -1085,6 +1103,7 @@ test('das Ausgabeformat mit festen Feldbreiten übersteht das Speichern und Lese
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+      dateien: { abholung: ABHOLUNG },
       format: 'FESTBREITEN',
       festbreiten: {
         kopfzeile: true,
@@ -1125,6 +1144,7 @@ test('die Schemaprüfung übersteht das Speichern und Lesen', async (t) => {
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+      dateien: { abholung: ABHOLUNG },
       schema: { datei: 'C:/schemas/kunden.json', bei: 'WARNEN' },
     },
   });
@@ -1152,6 +1172,7 @@ test('die Wahl eines Schemas übersteht das Speichern und Lesen', async (t) => {
       enabled: true,
       input: { from: 'DIRECTORY', directory: 'C:/eingang' },
       output: { to: 'DIRECTORY', directory: 'C:/ergebnis' },
+      dateien: { abholung: ABHOLUNG },
       schema: { profil: 'p-bestellung-mueller', bei: 'ABBRECHEN' },
     },
   });

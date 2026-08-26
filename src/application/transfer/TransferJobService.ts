@@ -5,12 +5,16 @@ import type { TransferJob } from '../../domain/transfer/TransferJob.js';
 import type { TransferJobRepository } from '../../domain/transfer/TransferJobRepository.js';
 import {
   activeStages,
+  durchgaenge,
+  durchgangsname,
   followingStage,
   precedingStage,
   schreibtDatei,
   stageConfig,
+  stageIsActive,
   STAGE_LABELS,
 } from '../../domain/transfer/WorkflowStages.js';
+import { ablagestand } from '../../domain/transfer/Ablageorte.js';
 import { isSafeFilename } from '../../infrastructure/filesystem/SafePath.js';
 import { assertJobIsLicensed, requiredFeaturesFor } from '../licensing/JobLicensing.js';
 import { assertJobStaysWithinItsTenant } from '../tenants/JobTenantRules.js';
@@ -44,6 +48,7 @@ export class TransferJobService {
     assertConflictNameIsUsable(job);
     assertRemoteConnectionsAreComplete(job);
     assertStagesAreCoherent(job);
+    assertAblageorteSindDa(job);
     await this.assertTenantRules(job);
 
     return this.repository.save(job);
@@ -69,6 +74,7 @@ export class TransferJobService {
     assertConflictNameIsUsable(updated);
     assertRemoteConnectionsAreComplete(updated);
     assertStagesAreCoherent(updated);
+    assertAblageorteSindDa(updated);
     await this.assertTenantRules(updated);
 
     return this.repository.save(updated);
@@ -317,3 +323,39 @@ export function assertStagesAreCoherent(job: TransferJob): void {
   }
 }
 
+
+/**
+ * Ein Durchgang, der selbst abholt, braucht seine vier Verzeichnisse.
+ *
+ * ## Warum hier und nicht erst im Lauf
+ *
+ * Der Lauf prüft es auch — er muss, denn ein Workflow aus einer älteren Fassung
+ * kennt die Pflicht nicht. Aber ein Workflow, der sich speichern lässt und dann
+ * nachts nicht anfängt, meldet seinen Einrichtungsfehler an niemanden: Wer ihn
+ * angelegt hat, ist längst nach Hause gegangen, und der Fehler zeigt sich als
+ * eine ausgebliebene Lieferung.
+ *
+ * Beide Male derselbe Satz aus derselben Funktion. Zwei Formulierungen für
+ * dieselbe Bedingung wären zwei, die auseinanderlaufen.
+ *
+ * ## Warum nur bei eingeschalteter Konsolidierung
+ *
+ * Ein abgeschalteter Schritt läuft nicht, und seine halbfertige Einstellung
+ * aufzubewahren ist genau das, wofür der Schalter da ist — wer ihn wieder
+ * anhakt, bekommt die Meldung dann.
+ */
+export function assertAblageorteSindDa(job: TransferJob): void {
+  if (!stageIsActive(job, 'CONSOLIDATE')) {
+    return;
+  }
+
+  const folge = durchgaenge(job.consolidation);
+
+  for (const [stelle, durchgang] of folge.entries()) {
+    const stand = ablagestand(durchgang, durchgangsname(durchgang, stelle, folge.length));
+
+    if (stand.art === 'UNVOLLSTAENDIG') {
+      throw new Error(stand.hinweis);
+    }
+  }
+}

@@ -237,6 +237,31 @@ export function durchgaenge(schritt: KonsolidierungConfig | undefined): Konsolid
   ];
 }
 
+/**
+ * Wie ein Durchgang einem Menschen gegenüber heißt — im Protokoll, in einer
+ * Meldung und in der Fehlermeldung beim Speichern.
+ *
+ * An **einer** Stelle, weil es dieselbe Sache ist: Wer im Protokoll
+ * „Durchgang 2 von 3 (Anreichern)" liest, soll denselben Durchgang meinen wie
+ * der, den die Oberfläche beim Speichern benannt hat.
+ *
+ * Bei einem einzigen bleibt es bei „Konsolidierung" — eine Nummer, wo es nichts
+ * zu nummerieren gibt, sieht nach einem Fehler aus.
+ */
+export function durchgangsname(
+  durchgang: Pick<Konsolidierungsdurchgang, 'name'>,
+  stelle: number,
+  von: number
+): string {
+  if (von <= 1) {
+    return 'Konsolidierung';
+  }
+
+  const eigen = durchgang.name?.trim();
+
+  return `Durchgang ${stelle + 1} von ${von}${eigen ? ` (${eigen})` : ''}`;
+}
+
 export type StageId = 'TRANSFER' | 'CONSOLIDATE' | 'DELIVER';
 
 /**

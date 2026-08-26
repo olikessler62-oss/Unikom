@@ -5217,3 +5217,28 @@ button.secondary::after {
   border-bottom-color: rgb(var(--accent));
   color: var(--text);
 }
+
+/*
+ * Die Marke am Etikett eines Pflichtfeldes.
+ *
+ * Am Etikett und nicht am Feld: Rot am leeren Feld hieße „falsch", und leer ist
+ * nicht falsch — es ist unfertig. Der Stern sagt, was verlangt wird, bevor
+ * jemand anfängt, statt es beim Speichern vorzuwerfen.
+ */
+.field__pflicht {
+  color: rgb(var(--caution));
+  margin-left: 0.15rem;
+  cursor: default;
+}
+
+/*
+ * Was an einer Stelle noch fehlt, als Zeile neben dem Knopf, der dorthin führt.
+ *
+ * Sie steht in derselben Zeile und nicht darunter: Eine Zeile, die unter dem
+ * Knopf erscheint, schiebt alles darunter fort, sobald jemand ein Feld leert.
+ */
+.feld-fehlt {
+  color: rgb(var(--caution));
+  font-size: 0.9rem;
+  align-self: center;
+}

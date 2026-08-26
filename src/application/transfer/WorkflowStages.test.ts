@@ -19,7 +19,7 @@ import { InMemoryTransferFileRepository } from '../../infrastructure/persistence
 import { InMemoryTransferJobRepository } from '../../infrastructure/persistence/InMemoryTransferJobRepository.js';
 import { LocalSourceAdapter } from '../../infrastructure/sources/local/LocalSourceAdapter.js';
 import { reviveJob } from '../../infrastructure/persistence/TransferRecordMapping.js';
-import { createTransferJob } from '../../testing/TransferJobFixture.js';
+import { createTransferJob, TESTABLAGE } from '../../testing/TransferJobFixture.js';
 import { requiredFeaturesFor } from '../licensing/JobLicensing.js';
 import { TransferExecutionService } from './TransferExecutionService.js';
 import { TransferJobService } from './TransferJobService.js';
@@ -178,6 +178,126 @@ test('a workflow of one link carries no number at all', () => {
   // A lone "1" would only suggest a missing "2".
   assert.equal(numberedStages(createTransferJob({ transfer: OFF, consolidation: { ...STANDALONE } })).size, 0);
   assert.equal(numberedStages(createTransferJob({})).size, 0);
+});
+
+/* ---------- Die vier Verzeichnisse eines abholenden Durchgangs ---------- */
+
+/*
+ * Geprüft wird auch im Lauf — er muss, denn ein Workflow aus einer älteren
+ * Fassung kennt die Pflicht nicht. Hier steht sie trotzdem: Ein Workflow, der
+ * sich speichern lässt und dann nachts nicht anfängt, meldet seinen
+ * Einrichtungsfehler an niemanden.
+ */
+
+test('ein abholender Durchgang ohne Archiv wird nicht gespeichert', async () => {
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () =>
+      service.create(
+        createTransferJob({
+          transfer: OFF,
+          consolidation: { ...STANDALONE, dateien: { abholung: { archiv: undefined } } },
+        })
+      ),
+    /Es fehlt das Verzeichnis „Archiv"/
+  );
+});
+
+test('fehlen mehrere, stehen sie alle in der Meldung', async () => {
+  // Eines nach dem anderen zu melden hieße, viermal zu speichern.
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () =>
+      service.create(
+        createTransferJob({
+          transfer: OFF,
+          consolidation: {
+            ...STANDALONE,
+            dateien: { abholung: { archiv: undefined, erledigt: undefined } },
+          },
+        })
+      ),
+    /Es fehlen die Verzeichnisse „Archiv" und „Erledigt"/
+  );
+});
+
+test('ein späterer Durchgang wird mitgeprüft und beim Namen genannt', async () => {
+  /*
+   * Nur den ersten zu prüfen hieße, den Fehler bis in die Nacht zu tragen — und
+   * dann bricht der Lauf ab, nachdem der erste Durchgang schon gerechnet hat.
+   */
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await assert.rejects(
+    () =>
+      service.create(
+        createTransferJob({
+          transfer: OFF,
+          consolidation: {
+            ...STANDALONE,
+            weitere: [
+              {
+                name: 'Anreichern',
+                input: { from: 'DIRECTORY', directory: '/zweiter-eingang' },
+                output: { to: 'DIRECTORY', directory: '/fertig' },
+                dateien: { abholung: { gescheitert: undefined } },
+              },
+            ],
+          },
+        })
+      ),
+    /Durchgang 2 von 2 \(Anreichern\) liest aus „\/zweiter-eingang"/
+  );
+});
+
+test('auch beim Ändern — ein Verzeichnis lässt sich nicht wieder herausnehmen', async () => {
+  /*
+   * Das Anlegen zu prüfen und das Ändern nicht hieße, die Pflicht gilt genau
+   * einmal: Wer den Pfad hinterher leert, bekäme sie nie wieder zu sehen — und
+   * der Workflow liefe von da an nicht mehr, ohne dass jemand etwas gesagt
+   * hätte.
+   */
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+  const angelegt = await service.create(createTransferJob({ transfer: OFF, consolidation: { ...STANDALONE } }));
+
+  await assert.rejects(
+    () =>
+      service.update(angelegt.id, {
+        // Der Auftrag geht so an den Dienst, wie er ist — durch keine Fixture,
+        // die etwas ergänzt. Deshalb stehen die drei anderen ausdrücklich da.
+        consolidation: { ...STANDALONE, dateien: { abholung: { ...TESTABLAGE, arbeit: undefined } } },
+      }),
+    /Es fehlt das Verzeichnis „Arbeitsverzeichnis"/
+  );
+});
+
+test('ein Durchgang, dem die Dateien gereicht werden, braucht keine Ablage', async () => {
+  /*
+   * Es gibt kein Abholverzeichnis, aus dem etwas herauszunehmen wäre. Die vier
+   * Angaben zu verlangen wäre eine Pflicht ohne Wirkung.
+   */
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+  const gespeichert = await service.create(
+    createTransferJob({ consolidation: { ...CHAINED, dateien: undefined } })
+  );
+
+  assert.equal(gespeichert.consolidation?.dateien, undefined);
+});
+
+test('ein abgeschalteter Schritt hält niemanden auf', async () => {
+  /*
+   * Seine halbfertige Einstellung aufzubewahren ist genau das, wofür der
+   * Schalter da ist — wer ihn wieder anhakt, bekommt die Meldung dann.
+   */
+  const service = new TransferJobService(new InMemoryTransferJobRepository());
+
+  await service.create(
+    createTransferJob({
+      consolidation: { ...STANDALONE, enabled: false, dateien: { abholung: { archiv: undefined } } },
+    })
+  );
 });
 
 test('a workflow with nothing switched on is refused', async () => {
