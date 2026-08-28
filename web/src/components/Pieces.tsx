@@ -106,8 +106,8 @@ export function Notice({ kind, children }: { kind: Tone; children: ReactNode }) 
  * Ein ruhender Erklärtext.
  *
  * Er sagt dasselbe wie eine Meldung, aber er ist kein Ereignis — er gilt immer.
- * Deshalb springt er nicht auf, sondern wartet hinter einem kleinen runden Knopf
- * neben dem Bedienelement, um das es geht. Wer die Regel kennt, sieht ein
+ * Deshalb springt er nicht auf, sondern wartet hinter einem kleinen Knopf neben
+ * dem Bedienelement, um das es geht. Wer die Regel kennt, sieht ein
  * Zeichen; wer sie nicht kennt, ist einen Klick davon entfernt.
  */
 export function Hint({
@@ -151,7 +151,7 @@ export function Loading() {
 }
 
 /**
- * Ein kleiner runder Knopf neben einem Eingabefeld. Er trägt die Erklärung,
+ * Ein kleiner Knopf neben einem Eingabefeld. Er trägt die Erklärung,
  * ohne dass sie dauerhaft Platz nimmt: eine Regel, die man einmal versteht,
  * muss nicht bei jedem Bearbeiten wieder mitgelesen werden.
  */

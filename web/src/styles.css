@@ -32,8 +32,12 @@
  *
  * Das gilt auch für die Form: Radien, Knopfform und Schattenfarbe sind Marken,
  * keine festen Werte. Spring ist nicht das hellere Autumn, sondern eine andere
- * Handschrift — runder, ruhiger, mit Violett statt Orange und schwarzen
- * Pillenknöpfen statt leuchtender Kanten.
+ * Handschrift — ruhiger, mit Violett statt Orange und schwarzen Knöpfen statt
+ * leuchtender Kanten.
+ *
+ * Die **Form** unterscheidet die beiden nicht: Fünf Pixel Radius gelten hier wie
+ * dort. Ein Thema, das auch die Ecken anders fügt, wäre nicht mehr dieselbe
+ * Oberfläche in anderer Farbe, sondern eine zweite.
  */
 :root {
   --sans: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
@@ -114,10 +118,22 @@
    */
   --draft-name: #a6b6c9;
 
-  --radius: 12px;
-  --radius-small: 8px;
-  /* Knöpfe folgen der Form der Flächen. */
-  --radius-button: 8px;
+  /*
+   * Ein Radius für alles, und er ist klein.
+   *
+   * Zwölf Pixel an einer Fläche, acht an einem Knopf, eine Kapsel an jeder Pille
+   * und ein Kreis an jedem kleinen Knopf — das waren vier Formensprachen auf
+   * einem Bildschirm. Fassen sie eine Ecke unterschiedlich stark, liest das Auge
+   * daraus eine Ordnung, die es nicht gibt: Eine runde Pille wirkt neben einer
+   * eckigen Fläche wie etwas anderes, obwohl sie dasselbe ist — eine
+   * Beschriftung.
+   *
+   * Fünf Pixel nehmen der Kante die Härte und sonst nichts. Die Gliederung tragen
+   * jetzt Fläche, Farbe und Abstand; die Form sagt nichts mehr dazu.
+   */
+  --radius: 5px;
+  --radius-small: 5px;
+  --radius-button: 5px;
   /* Die Farbe, aus der Schatten gemacht sind. */
   --shade: 0, 0, 0;
   /* Der Fuß der Seitenleiste, wo sie in den Grund übergeht. */
@@ -183,10 +199,10 @@
 
   --draft-name: #33425b;
 
-  /* Ein Radius für alles: Flächen, Felder und Knöpfe. */
-  --radius: 10px;
-  --radius-small: 10px;
-  --radius-button: 10px;
+  /* Derselbe Radius wie in Autumn — die Form unterscheidet die Themen nicht. */
+  --radius: 5px;
+  --radius-small: 5px;
+  --radius-button: 5px;
   --shade: 0, 0, 0;
   --sidebar-foot: transparent;
 
@@ -261,7 +277,7 @@
   background-color: rgba(var(--sheen), 0.24);
   background-clip: content-box;
   border: 3px solid transparent;
-  border-radius: 999px;
+  border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -791,7 +807,7 @@ code {
 .subnav__tab {
   padding: 0.34rem 0.95rem;
   border: 1px solid var(--rule);
-  border-radius: 999px;
+  border-radius: 5px;
   background: var(--g-3);
   color: var(--text-soft);
   font-size: 0.68rem;
@@ -928,7 +944,7 @@ code {
   margin: 0 0 var(--pille-nachlauf);
   padding: 0.32rem 0.9rem 0.32rem 0.75rem;
   border: 1px solid var(--rule-strong);
-  border-radius: 999px;
+  border-radius: 5px;
   background: linear-gradient(100deg, var(--g-5) 0%, var(--g-4) 100%);
   box-shadow: 0 0 26px -14px rgba(var(--accent), 0.9), inset 0 1px 0 rgba(var(--sheen), 0.08);
   font-family: var(--mono);
@@ -1293,7 +1309,7 @@ code {
   margin-top: 0.7rem;
   padding: 0.14rem 0.55rem;
   border: 1px solid var(--rule);
-  border-radius: 999px;
+  border-radius: 5px;
   background: var(--g-4);
   font-family: var(--mono);
   font-size: 0.62rem;
@@ -1381,7 +1397,7 @@ code {
   right: -0.35rem;
   min-width: 1.05rem;
   padding: 0 0.25rem;
-  border-radius: 999px;
+  border-radius: 5px;
   background: rgb(var(--alarm));
   color: #fff;
   font-size: 0.68rem;
@@ -1658,7 +1674,7 @@ th.cell--open {
   height: 1.9rem;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 50%;
+  border-radius: 5px;
   background: none;
   color: var(--text-faint);
   cursor: pointer;
@@ -1699,7 +1715,7 @@ th.cell--open {
   gap: 0.4rem;
   padding: 0.12rem 0.55rem;
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: 5px;
   background: rgba(var(--sheen), 0.045);
   font-family: var(--sans);
   font-size: 0.63rem;
@@ -1768,7 +1784,7 @@ label {
   padding: 0.16rem 0.6rem;
   margin-bottom: 0.45rem;
   border: 1px solid var(--rule);
-  border-radius: 999px;
+  border-radius: 5px;
   background: var(--g-4);
   font-family: var(--mono);
   font-size: 0.62rem;
@@ -2364,7 +2380,7 @@ option:checked {
   gap: 0.7rem;
   padding: 0.3rem 0.3rem 0.3rem 1rem;
   border: 1px solid rgba(var(--accent), 0.3);
-  border-radius: 999px;
+  border-radius: 5px;
   background: linear-gradient(100deg, var(--g-3) 0%, var(--g-2) 70%);
   box-shadow: 0 0 24px -14px rgba(var(--accent), 0.9), inset 0 1px 0 rgba(var(--sheen), 0.05);
   font-size: 0.72rem;
@@ -2376,7 +2392,7 @@ option:checked {
 .editor__tenant select {
   width: auto;
   min-width: 12rem;
-  border-radius: 999px;
+  border-radius: 5px;
   font-size: 0.88rem;
   letter-spacing: 0;
   text-transform: none;
@@ -2446,7 +2462,7 @@ option:checked {
   place-items: center;
   width: 1.35rem;
   height: 1.35rem;
-  border-radius: 50%;
+  border-radius: 5px;
   border: 1px solid rgba(var(--accent), 0.45);
   font-family: var(--mono);
   font-size: 0.7rem;
@@ -3373,16 +3389,21 @@ svg.icon--strich {
 }
 
 /*
- * Der runde Knopf für eine Erklärung. Er setzt jede Eigenschaft der
- * Grundform neu, statt sie zu ergänzen: von der eckigen, orangefarbenen
- * Schaltfläche bleibt hier nichts übrig außer der Farbe des Randes.
+ * Der kleine Knopf für eine Erklärung. Er setzt jede Eigenschaft der Grundform
+ * neu, statt sie zu ergänzen: von der orangefarbenen Schaltfläche bleibt hier
+ * nichts übrig außer der Farbe des Randes.
+ *
+ * Er war einmal kreisrund. Das unterschied ihn von allem anderen auf dem
+ * Bildschirm — und genau das war der Fehler: Ein Zeichen, das seine eigene Form
+ * mitbringt, sagt „ich gehöre nicht hierher". Er gehört aber dazu, und zwar zu
+ * dem Feld, neben dem er steht. Größe und Farbe setzen ihn genug ab.
  */
 .info-button {
   flex: none;
   width: 1.75rem;
   height: 1.75rem;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 5px;
   border: 1px solid rgba(var(--accent), 0.45);
   background: var(--g-3);
   color: rgb(var(--accent));
@@ -3854,7 +3875,7 @@ button.secondary::after {
   overflow: hidden;
   width: min(430px, 100%);
   padding: 2.5rem 2.5rem 2.2rem;
-  border-radius: 16px;
+  border-radius: 5px;
   box-shadow: 0 40px 100px -45px rgba(var(--shade), 1), 0 0 70px -40px rgba(var(--accent), 0.55);
 }
 
@@ -3881,7 +3902,7 @@ button.secondary::after {
   position: absolute;
   inset: 1px;
   z-index: 1;
-  border-radius: 15px;
+  border-radius: 4px;
   background: linear-gradient(168deg, var(--g-3) 0%, var(--g-2) 55%, var(--g-1) 100%);
 }
 
@@ -4951,7 +4972,7 @@ button.secondary::after {
  *
  * Eine Meldung ist ein Ereignis: Sie erscheint in der Mitte, will gelesen und
  * weggeklickt werden. Ein Hinweis gilt immer: Er wartet hinter einem kleinen
- * runden Knopf neben dem Bedienelement, um das es geht.
+ * Knopf neben dem Bedienelement, um das es geht.
  *
  * Beide benutzen dasselbe Fenster. Der Tonfall färbt nur den Rand und die
  * Überschrift — dieselbe Form für Hinweis, Warnung und Fehler, damit man das
@@ -4965,7 +4986,7 @@ button.secondary::after {
   width: 1.35rem;
   height: 1.35rem;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 5px;
   border: 1px solid currentColor;
   background: none;
   color: var(--text-faint);
@@ -5117,7 +5138,7 @@ button.secondary::after {
     align-items: center;
     min-height: 34px;
     padding: 0 0.6rem;
-    border-radius: calc(var(--radius-small) - 4px);
+    border-radius: calc(var(--radius-small) - 2px);
     background: var(--picker-fill);
     color: var(--option-text);
   }
