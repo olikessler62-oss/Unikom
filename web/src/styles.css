@@ -143,7 +143,7 @@
    * Beide beginnen dunkel und enden hell, damit die zwei Bänder an ihrer
    * gemeinsamen Ecke denselben Ton tragen und als ein Stück gelesen werden.
    */
-  --rahmen: #14476e;
+  --app-shell-header-panel-color: #14476e;
   /*
    * Die beiden Enden des Verlaufs werden aus der Grundfarbe gemischt und nicht
    * daneben eingetragen.
@@ -156,8 +156,18 @@
    * 78 % zu Schwarz und 82 % zu Weiß sind die Mischungen des Vorbilds
    * (FR-011 §1b).
    */
-  --rahmen-dunkel: color-mix(in srgb, var(--rahmen) 78%, #000);
-  --rahmen-hell: color-mix(in srgb, var(--rahmen) 82%, #fff);
+  --app-shell-header-panel-gradient-vertical: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--app-shell-header-panel-color) 78%, #000) 0%,
+    var(--app-shell-header-panel-color) 60%,
+    color-mix(in srgb, var(--app-shell-header-panel-color) 82%, #fff) 100%
+  );
+  --app-shell-header-panel-gradient-horizontal: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--app-shell-header-panel-color) 78%, #000) 0%,
+    var(--app-shell-header-panel-color) 60%,
+    color-mix(in srgb, var(--app-shell-header-panel-color) 82%, #fff) 100%
+  );
 
   /*
    * Die Breite der Seitenleiste (FR-011 §1b: 15rem).
@@ -166,7 +176,7 @@
    * allem, was sich neben ihr ausrichtet - ein Fenster, das links neben der
    * Leiste beginnt, muss wissen, wo sie aufhört.
    */
-  --sidebar-breite: 15rem;
+  --app-shell-sidebar-width: 15rem;
 
   /*
    * Der Kopf einer Fläche: Modalkopf, Listenkopf, Tabellenkopf.
@@ -192,7 +202,7 @@
    * haben, liegt die Kante darunter über die ganze Breite auf einer Linie -
    * und erst dann liest man die beiden als ein Band statt als zwei Kästen.
    */
-  --bandhoehe: 5.75rem;
+  --app-shell-brand-band-height: 5.75rem;
 
   /*
    * Die Höhe jedes Bedienelements: Eingabefeld, Auswahlfeld, Knopf.
@@ -312,9 +322,6 @@
   --radius-button: 5px;
   /* Die Farbe, aus der Schatten gemacht sind. */
   --shade: 15, 23, 42;
-  /* Der Fuß der Seitenleiste, wo sie am hellsten ist. */
-  --sidebar-foot: var(--rahmen-hell);
-
   color-scheme: light;
 }
 
@@ -328,7 +335,7 @@
  */
 @media (min-width: 768px) {
   :root {
-    --bandhoehe: 4.75rem;
+    --app-shell-brand-band-height: 4.75rem;
   }
 }
 
@@ -414,7 +421,7 @@
  * zwölf Pixel zur Seite, sobald eine Liste eine Zeile länger wird als das
  * Fenster — und wieder zurück, wenn man eine löscht.
  */
-.main__body,
+.app-shell-main,
 .editor__body,
 .run-log,
 .table-wrap {
@@ -571,32 +578,33 @@ code {
   color: var(--text);
 }
 
-/* ---------- Layout ---------- */
-
-/*
- * Genau bildschirmhoch, nicht mindestens: gescrollt wird nur im Inhalt. Ein
- * langes Formular soll das Menü nicht aus dem Bild schieben — es ist der Weg
- * hinaus, und der muss immer sichtbar sein.
- */
-.shell {
-  display: grid;
-  grid-template-columns: var(--sidebar-breite) 1fr;
-  height: 100vh;
-  overflow: hidden;
-}
-
-/*
- * Die Seitenleiste trägt den Rahmen: ein Verlauf von oben nach unten, dunkel
- * beginnend, hell endend.
+/* ===================================================================
+ * Die Shell (FR-011 §3 bis §6)
  *
- * Sie setzt dabei ihre eigenen Marken um, und daran hängt das Ganze. Alles, was
- * in ihr steht - Menüpunkte, Symbole, Linien, Trenner -, holt seine Farbe aus
- * denselben Marken wie überall sonst und wird hell, ohne selbst davon zu
- * wissen. Ohne diesen Umschlag müsste jeder Baustein zweimal eingefärbt werden,
- * einmal für den hellen Inhalt und einmal für die dunkle Leiste - und der
- * nächste, den jemand hinzufügt, stünde wieder in Schwarz auf Blau da.
+ * Was hier steht, ist nur, was sich nicht als Klasse ins Markup schreiben
+ * lässt: Verläufe, Schatten, aufgemalte Flächen und der Umschlag der
+ * Farbmarken. Alle Maße - Breiten, Höhen, Abstände, Richtungen - stehen jetzt
+ * am Element.
+ *
+ * Die Namen sind die der Spec. Das ist kein Geschmack: Wer das nächste Rezept
+ * von dort übernimmt, soll es einsetzen können, ohne vorher zu übersetzen.
+ * =================================================================== */
+
+/*
+ * Die Seitenleiste trägt den Rahmen und schlägt ihre Marken um.
+ *
+ * Der Umschlag ist der Kunstgriff, an dem das Ganze hängt: Alles, was in ihr
+ * steht, holt seine Farbe aus denselben Marken wie überall sonst und wird hell,
+ * ohne davon zu wissen. Ohne ihn müsste jeder Baustein zweimal eingefärbt
+ * werden, und der nächste, den jemand hinzufügt, stünde wieder in Schwarz auf
+ * Blau da.
  */
-.sidebar {
+.app-shell-sidebar {
+  --color-foreground: #ffffff;
+  --color-muted: rgba(255, 255, 255, 0.78);
+  --color-border: rgba(255, 255, 255, 0.2);
+  --color-primary: #ffffff;
+
   --text: #ffffff;
   --text-soft: rgba(255, 255, 255, 0.78);
   --text-faint: rgba(255, 255, 255, 0.55);
@@ -605,303 +613,163 @@ code {
   --rule-strong: rgba(255, 255, 255, 0.24);
   --sheen: 255, 255, 255;
   /*
-   * In der Leiste ist der Akzent Weiß.
-   *
-   * Das Blau des Akzents ist die Farbe dieser Fläche selbst - eine Markierung
-   * darin wäre unsichtbar. Was hier hervorhebt, ist Licht.
+   * In der Leiste ist der Akzent Weiß. Das Blau des Akzents ist die Farbe
+   * dieser Fläche selbst - eine Markierung darin wäre unsichtbar. Was hier
+   * hervorhebt, ist Licht.
    */
   --accent: 255, 255, 255;
   --g-3: rgba(255, 255, 255, 0.1);
   --g-4: rgba(255, 255, 255, 0.16);
 
-  position: relative;
-  padding: 0 0 1.25rem;
-  display: flex;
-  flex-direction: column;
+  background: var(--app-shell-header-panel-gradient-vertical);
+  color: var(--text);
+  box-shadow: 12px 0 18px -10px rgb(2 6 23 / 0.5);
+}
+
+/* Die Kante zwischen Schriftzug und Inhalt - nur, wo sie nebeneinanderstehen. */
+@media (min-width: 768px) {
+  .app-shell-brand-header {
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}
+
+.app-shell-brand-wordmark {
+  display: block;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: 0.07em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@media (min-width: 768px) {
+  .app-shell-brand-wordmark {
+    font-size: 1.0625rem;
+    letter-spacing: 0.08em;
+  }
+}
+
+/*
+ * Das Menü malt sich schwarz, das Logo-Band bleibt blau.
+ *
+ * Als aufgemalte Fläche hinter dem Inhalt und nicht als Hintergrund des
+ * Kastens: So reicht sie über den Innenabstand hinaus bis an beide Ränder der
+ * Leiste, ohne dass der Kasten selbst breiter wird als die Punkte darin.
+ */
+.app-shell-sidebar-nav-menu::before,
+.app-shell-sidebar-nav-underflow::before,
+.app-shell-sidebar-nav-legal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.app-shell-sidebar-nav-menu::before {
+  background: #000;
+}
+
+/*
+ * Zwischen dem Ende des Menüs und dem Fuß der Leiste: ein Verlauf von Schwarz
+ * in die helle Panelfarbe. Er wächst über den freien Platz - auf einem hohen
+ * Bildschirm ist er lang, auf einem flachen fast nicht da.
+ */
+.app-shell-sidebar-nav-underflow::before {
   background: linear-gradient(
     180deg,
-    var(--rahmen-dunkel) 0%,
-    var(--rahmen) 60%,
-    var(--sidebar-foot) 100%
+    #000 0%,
+    40%,
+    color-mix(in srgb, var(--app-shell-header-panel-color) 82%, #fff) 100%
   );
-  color: var(--text);
-  /* Nur für den Notfall: auf einem sehr flachen Fenster wäre sonst der letzte
-     Menüpunkt unerreichbar. Im Normalfall entsteht hier keine Leiste. */
-  overflow-y: auto;
 }
 
-/* Die Kante zum Inhalt - eine Linie, kein Leuchten. */
-.sidebar::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 1px;
-  background: rgba(255, 255, 255, 0.12);
+/* Der Fuß mit Datenschutz und Impressum - dunkler, mit einer Haarlinie oben. */
+.app-shell-sidebar-nav-legal::before {
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 0.32) 0%, rgb(0 0 0 / 0.4) 100%),
+    var(--app-shell-header-panel-color);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/*
- * Der Schriftzug ist die linke Hälfte des Kopfbands.
- *
- * Er holt seine Höhe aus derselben Marke wie die Kopfleiste rechts daneben.
- * Darunter liegt eine Linie: in der Leiste eine helle Kante, rechts die Kante
- * zwischen Blau und Inhalt. Dieselbe Höhe, eine Linie.
- *
- * Hier stand einmal ein kurzer Leuchtstrich unter dem Wort. Er war die
- * Abgrenzung, solange es kein Band gab; jetzt grenzt das Band selbst ab, und
- * zwei Striche übereinander wären einer zu viel.
- */
-.sidebar__brand {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  height: var(--bandhoehe);
-  min-height: var(--bandhoehe);
-  padding: 0 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: 1.3rem;
-  font-weight: 600;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  color: var(--brand);
-}
-
-.sidebar__nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  margin-top: 1.4rem;
-  padding: 0 0.85rem;
-}
-
-.sidebar__link {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 0.85rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-small);
-  color: var(--text-soft);
-  background: none;
-  font: inherit;
-  font-size: 0.88rem;
-  letter-spacing: 0.03em;
-  text-align: left;
-  cursor: pointer;
-  transition: color 180ms ease, background 180ms ease, border-color 180ms ease;
+/* Der Schnitt zwischen zwei Gruppen des Menüs. */
+.app-shell-sidebar-nav-divider {
+  margin: 0.375rem 0.75rem;
+  border-top: 1px solid #242424;
 }
 
 /*
- * Das Symbol vor dem Wort. Es trägt keine eigene Farbe, sondern die der Schrift
- * daneben — sonst bliebe es zurück, sobald ein Punkt hervorgehoben wird.
+ * Menüpunkt: Überfahren und Ausgewählt.
+ *
+ * Zwei Marken statt zweier Klassenketten im Markup, weil beide Zustände
+ * dieselbe Fläche tragen und sich nur in der Stärke unterscheiden. Die Kante
+ * links kommt als Klasse dazu - sie ist Geometrie.
  */
-.sidebar__icon {
-  flex: none;
-  width: 17px;
-  height: 17px;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
+.sw-nav-hl:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.12);
 }
 
-.sidebar__link:hover {
-  color: var(--text);
-  background: var(--g-3);
-  border-color: var(--rule);
+.sw-nav-hl-active,
+.sw-nav-hl-active:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.16);
 }
 
-/* Der aktive Punkt ist die nächsthöhere Graustufe — mit orangefarbener Kante. */
-.sidebar__link--active {
-  color: var(--text-loud);
-  font-weight: 600;
-  background: linear-gradient(100deg, var(--g-4) 0%, var(--g-3) 70%);
-  border-color: rgba(var(--accent), 0.32);
-  box-shadow: 0 0 22px -10px rgba(var(--accent), 0.75), inset 0 1px 0 rgba(var(--sheen), 0.06);
+/*
+ * Die Kopfleiste der Seite.
+ *
+ * Derselbe Verlauf wie die Leiste, nur waagerecht, und beide beginnen dunkel:
+ * An der Ecke, an der sie zusammenstoßen, tragen sie denselben Ton, und aus
+ * zwei Flächen wird ein Band.
+ *
+ * Sie rollt waagerecht, statt umzubrechen. Eine Leiste, die bei Platzmangel
+ * zweizeilig wird, verschöbe alles darunter - und die Kante, die mit dem
+ * Schriftzug fluchtet, läge dann nicht mehr auf einer Linie.
+ */
+.app-page-toolbar-header {
+  background: var(--app-shell-header-panel-gradient-horizontal);
+  box-shadow: 0 12px 18px -10px rgb(2 6 23 / 0.5);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  color: #ffffff;
 }
 
-.sidebar__link--active::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 20%;
-  bottom: 20%;
+.planning-toolbar-scroll-row {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  height: var(--app-shell-brand-band-height);
+}
+
+/* Der Trenner läuft über die volle Höhe des Bandes, nicht nur um den Text. */
+.planning-toolbar-segment-divider {
   width: 2px;
-  border-radius: 2px;
-  background: rgb(var(--accent));
-  box-shadow: 0 0 11px rgba(var(--accent), 0.9);
+  flex-shrink: 0;
+  align-self: stretch;
+  background: rgba(255, 255, 255, 0.22);
 }
 
-/* Ein Atemzug innerhalb eines Bereichs — er trennt, ohne einen Schnitt zu machen. */
-.sidebar__space {
-  height: 0.55rem;
+/* Die schmale Leiste am unteren Rand des Bandes, wenn es doch rollt. */
+.app-page-toolbar-header::-webkit-scrollbar {
+  height: 4px;
 }
 
-/*
- * Der Schnitt zwischen den Bereichen — offener Raum, keine Linie. Die einzige
- * Linie der Seitenleiste bleibt die unter dem Schriftzug; im Menü trennt der
- * Abstand allein, und er ist so bemessen wie zu der Zeit, als dort noch eine
- * Linie lag: die Punkte stehen unverändert.
- */
-.sidebar__break {
-  height: 2.1rem;
-}
-
-/*
- * Der Rahmen der Ansicht: Kopf oben, scrollender Kasten darunter. Er selbst
- * scrollt nicht — er teilt die Höhe zwischen beiden auf und schneidet ab, was
- * darüber hinausgeht.
- */
-/*
- * Der Bereich trägt selbst keinen Innenabstand mehr.
- *
- * Er hatte einmal einen, und der Kopf saß darin. Das Kopfband soll aber bis an
- * beide Ränder laufen - es ist der Rahmen und nicht der Inhalt. Den Abstand
- * tragen jetzt die Teile, die ihn brauchen: der rollende Kasten und der Fuß.
- */
-.main {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-/*
- * Die Lesebreite bleibt begrenzt - für das, was gelesen wird. Für das Band
- * nicht: Ein Kopf, der auf einem breiten Bildschirm mitten im Fenster aufhört,
- * wäre kein Rahmen mehr, sondern eine Fläche mit einem Rest daneben.
- *
- * Der Innenabstand zählt zur Breite - `box-sizing: border-box` gilt überall -,
- * deshalb steht er in der Rechnung mit drin. Die Lesebreite bleibt dieselbe.
- */
-.main > .main__body,
-.main > .main__footer {
-  max-width: calc(1180px + 5.5rem);
-  padding-left: 2.75rem;
-  padding-right: 2.75rem;
-}
-
-/*
- * Der einzige Teil, der scrollt.
- *
- * Vorher scrollte der ganze Bereich und der Kopf blieb mit `sticky` stehen. Das
- * hielt nicht, was es versprach: Ein klebender Kopf hält unterhalb des
- * Innenabstands seines Bereichs, nicht am oberen Fensterrand — darüber blieb ein
- * Streifen offen, durch den der Inhalt sichtbar weiterlief. Ein Knopf, der
- * gerade dort vorbeikam, stand plötzlich über der Ecke des Kopf-Panels.
- *
- * Jetzt steht der Kopf fest und der Inhalt scrollt in seinem eigenen Kasten
- * darunter. Er endet oben an der Kante des Kopfes und unten am Rand des
- * Bereichs — dazwischen wird gescrollt, außerhalb steht alles. Derselbe Aufbau
- * wie im Editor, nur eine Ebene höher.
- *
- * `min-height: 0` ist die Zeile, ohne die nichts davon trägt: Ein Flex-Kind darf
- * sonst nicht kleiner werden als sein Inhalt, wächst also über den Bereich
- * hinaus, statt zu scrollen.
- */
-.main > .main__body {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding-top: 1.6rem;
-  padding-bottom: 2.1rem;
-  overflow-y: auto;
-}
-
-/* Der letzte Kasten trägt seinen Nachlauf nicht in den unteren Abstand hinein. */
-.main__body > *:last-child {
-  margin-bottom: 0;
-}
-
-/*
- * Die beiden Linien, zwischen denen gescrollt wird.
- *
- * Sie kommen nur, wenn es etwas zu scrollen gibt — sonst grenzten sie nichts ab
- * und wären bloß zwei Striche. Ob das so ist, weiß nur der Browser zur Laufzeit;
- * die Klasse setzt `useOverflowing` in der Anwendung.
- *
- * Als Rahmen und nicht als Verlauf: Ein Rahmen gehört zum scrollenden Kasten
- * selbst und bleibt deshalb stehen, während der Inhalt darunter durchläuft.
- */
-.main__body--scrolls {
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-}
-
-/*
- * Der Editor teilt sich die Höhe selbst ein und bringt seinen Bildlauf mit.
- * Hier wird deshalb nicht gescrollt, sondern nur Platz gemacht.
- */
-.main--fills > .main__body {
-  padding-bottom: 1.5rem;
-  overflow: hidden;
-}
-
-/*
- * Das Kopfband - die rechte Hälfte, über dem Inhalt.
- *
- * Es ist so hoch wie der Schriftzug in der Seitenleiste, und das ist keine
- * Kosmetik: Beide holen ihre Höhe aus `--bandhoehe`, damit die Kante darunter
- * über die ganze Breite auf einer Linie liegt.
- *
- * Der Verlauf läuft waagerecht und beginnt dunkel - der senkrechte in der
- * Leiste ebenso. An der Ecke, an der die beiden zusammenstoßen, tragen sie
- * deshalb denselben Ton, und aus zwei Flächen wird ein Band.
- *
- * ## Warum hier keine Marken umgeschlagen werden
- *
- * Die Seitenleiste dreht ihre Farbmarken um und färbt damit alles ein, was in
- * ihr steht - ein Griff für viele Bausteine. Hier trägt derselbe Griff nicht:
- * Aus dem Band klappen Listen heraus, die der Meldungen und die der Sprachen,
- * und die hängen über dem hellen Inhalt. Sie nähmen die umgeschlagenen Marken
- * mit und stünden weiß auf weiß da.
- *
- * Das Band trägt drei Dinge, also stehen hier drei Regeln. Was herausklappt,
- * bleibt beim Hellen und holt sich nur seine Schriftfarbe zurück.
- */
-.main__header {
-  flex: none;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  height: var(--bandhoehe);
-  min-height: var(--bandhoehe);
-  padding: 0 1.6rem 0 2.75rem;
-  background: linear-gradient(
-    90deg,
-    var(--rahmen-dunkel) 0%,
-    var(--rahmen) 60%,
-    var(--rahmen-hell) 100%
-  );
-  color: #ffffff;
-}
-
-.main__header h1 {
-  margin: 0;
-  font-size: 1.2rem;
-  letter-spacing: 0.01em;
-  color: #ffffff;
-}
-
-/* Rechts im Band: die Glocke und die Sprache. */
-.main__header__ende {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  margin-left: auto;
+.app-page-toolbar-header::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border: 0;
+  border-radius: 9999px;
 }
 
 /* Ein Knopf im Band ist hell umrandet. Ein blauer Knopf auf Blau wäre keiner. */
-.main__header button.secondary {
+.app-page-toolbar-header button.secondary {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.3);
   color: #ffffff;
 }
 
-.main__header button.secondary:hover:not(:disabled) {
+.app-page-toolbar-header button.secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.24);
   border-color: rgba(255, 255, 255, 0.45);
   color: #ffffff;
@@ -911,16 +779,15 @@ code {
  * Die zwei Bedienelemente im Band: die Glocke und die Sprache.
  *
  * Sie stehen nebeneinander, also sehen sie gleich aus - dieselbe Höhe, dieselbe
- * Fläche, derselbe Rahmen, dieselbe Schrift. Und sie sehen aus wie überall
- * sonst in der Anwendung: Ein Bedienelement wird nicht dadurch ein anderes,
- * dass der Grund hinter ihm blau ist.
+ * Fläche, derselbe Rahmen, dieselbe Schrift. Und dieselbe wie überall sonst in
+ * der Anwendung: Ein Bedienelement wird nicht dadurch ein anderes, dass der
+ * Grund hinter ihm blau ist.
  *
- * Hier standen zuerst zwei Fassungen nebeneinander - die Glocke als bloßes
- * weißes Zeichen, die Sprache als helles Feld. Das las sich als zwei
- * verschiedene Sachen, und die Höhen gingen auseinander.
+ * Die Spec zeichnet sie randlos weiß mit blaugrünem Überfahren. Hier gilt die
+ * spätere Entscheidung: helle Fläche, schwarze Schrift.
  */
-.main__header .bell__button,
-.main__header .sprachwahl select {
+.app-page-toolbar-header .bell__button,
+.app-page-toolbar-header .sprachwahl select {
   box-sizing: border-box;
   height: var(--control-hoehe);
   min-height: var(--control-hoehe);
@@ -930,7 +797,7 @@ code {
 }
 
 /* Beim Überfahren tritt der Rahmen hervor - wie an jedem anderen Feld auch. */
-.main__header .bell__button:hover:not(:disabled) {
+.app-page-toolbar-header .bell__button:hover:not(:disabled) {
   border-color: rgba(var(--sheen), 0.3);
 }
 
@@ -939,10 +806,9 @@ code {
  *
  * Die Regel darüber wiegt zwei Klassen und schlüge sonst die Regel des
  * Zustands, die nur eine wiegt - der Alarm wäre genau dort verschwunden, wo er
- * hingehört, und zwar lautlos. Die beiden Zeilen stehen deshalb ein zweites
- * Mal da; die Farbe selbst steht weiterhin nur an einer Stelle, in `--alarm`.
+ * hingehört, und zwar lautlos.
  */
-.main__header .bell__button--urgent {
+.app-page-toolbar-header .bell__button--urgent {
   border-color: rgba(var(--alarm), 0.55);
   color: rgb(var(--alarm));
 }
@@ -954,24 +820,16 @@ code {
  * erbt es vom Band und wäre weiß. Eine Zeile, die genau dann verschwindet, wenn
  * man sie aufklappt.
  */
-.main__header .bell__panel,
-.main__header .modal {
+.app-page-toolbar-header .bell__panel,
+.app-page-toolbar-header .modal {
   color: var(--text);
 }
 
 /*
  * Die Sprache steht oben rechts, im Band.
  *
- * Sie ist ein gewöhnliches Auswahlfeld und sieht auch so aus: helle Fläche,
- * schwarze Schrift, derselbe Rahmen wie jedes andere. Hier stand zuerst eine
- * Fassung ohne Fläche - weiße Schrift auf dem Blau, wie in der Kopfleiste des
- * Vorbilds. Das war der Fehler: Aufgeklappt steht die Liste schwarz auf weiß
- * da, zugeklappt stand dasselbe Wort weiß auf Blau. Ein Bedienelement, das
- * seine Farben wechselt, sobald man es benutzt, liest sich als zwei.
- *
- * Es bleibt nur schmaler und etwas flacher als eines in einem Formular: Es
- * steht in einer Leiste neben einem Symbol und nicht in einer Spalte neben
- * seinesgleichen.
+ * Ein gewöhnliches Auswahlfeld, nur schmaler und flacher: Es steht in einer
+ * Leiste neben einem Symbol und nicht in einer Spalte neben seinesgleichen.
  */
 .sprachwahl select {
   width: auto;
@@ -980,62 +838,15 @@ code {
 }
 
 /*
- * Der Platz für Knöpfe, die zur Überschrift gehören — „Zurück zur Historie" und
- * was später dazukommt. Er steht immer da und ist meistens leer; ein leerer
- * Flex-Kasten nimmt keine Höhe.
+ * Die zwei Linien, zwischen denen gescrollt wird.
+ *
+ * Sie kommen nur, wenn es etwas zu scrollen gibt - sonst grenzten sie nichts ab
+ * und wären bloß zwei Striche. Ob das so ist, weiß nur der Browser zur
+ * Laufzeit; die Klasse setzt `useOverflowing` in der Anwendung.
  */
-.main__header__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-/*
- * Der Fuß des Bereichs — der Streifen, auf dem eine Ansicht abschließt.
- *
- * Er steht außerhalb des rollenden Kastens, so wie der Kopf darüber, und aus
- * demselben Grund: Ein klebender Fuß hielte innerhalb des Innenabstands seines
- * Bereichs und ließe darunter einen Streifen offen, durch den der Inhalt
- * sichtbar weiterläuft. Was fest stehen soll, steht nicht im Kasten.
- *
- * Sein Aussehen holt er sich beim Fuß des Editors — es ist dieselbe Sache, nur
- * eine Ebene höher: die Zeile, mit der ein ganzer Bildschirm endet. Zwei
- * getrennte Regeln liefen bei der ersten Änderung auseinander, und dann sähe
- * derselbe Streifen an zwei Stellen verschieden aus.
- *
- * ## Rechtsbündig, und nicht auseinandergezogen
- *
- * Der Editor hat links etwas anderes stehen als rechts; hier stehen nur
- * „Speichern" und „Abbrechen", und die gehören zusammen. Links unter dem
- * Formular läsen sie sich wie ein weiteres Feld — rechts sind sie der Abschluss
- * der ganzen Zeile, dort, wo die Hand nach dem Ausfüllen ohnehin ist.
- *
- * ## Leer nimmt er nichts
- *
- * `:empty` und nicht eine Klasse, die die Ansicht setzt: Ob unten Knöpfe stehen,
- * sieht man am Fuß selbst. Eine Ansicht, die ihre Knöpfe wieder einzieht, müsste
- * sonst auch daran denken, den Rahmen zu benachrichtigen — und die eine, die es
- * vergisst, hinterlässt einen leeren Streifen mit einer Linie darüber.
- */
-.main__footer,
-.editor__foot {
-  flex: none;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  padding: 0.9rem 0;
-  margin-top: 1.4rem;
-  background: var(--g-ground);
+.app-shell-main-scrolls {
   border-top: 1px solid var(--rule);
-}
-
-.main__footer {
-  justify-content: flex-end;
-}
-
-.main__footer:empty {
-  display: none;
+  border-bottom: 1px solid var(--rule);
 }
 
 /*
@@ -2812,16 +2623,25 @@ option:checked {
 /*
  * Die Leiste schließt den Rahmen unten ab — der Bildlauf endet über ihr.
  *
- * Wie sie aussieht, steht beim Fuß des Bereichs (`.main__footer`): Es ist
- * derselbe Streifen, nur eine Ebene tiefer, weil der Editor seinen Rahmen selbst
- * baut. Hier steht nur, was den Editor von den übrigen Ansichten unterscheidet.
+ * Sie teilte sich ihre Gestalt einmal mit dem Fuß des Bereichs. Den gibt es
+ * nicht mehr - der Rahmen hat seinen Anschluss verloren, als er auf Klassen
+ * umgestellt wurde, und niemand hing mehr darin. Was hier steht, ist deshalb
+ * die ganze Regel und nicht mehr nur der Unterschied.
  *
  * Auseinandergezogen und nicht rechtsbündig: Links steht, wo man herkommt
- * („Zurück"), rechts, wo es weitergeht. Wo unten nur „Speichern" und
- * „Abbrechen" stehen, gehören beide zusammen und damit an einen Rand.
+ * („Zurück"), rechts, wo es weitergeht.
  */
 .editor__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.9rem 0;
+  margin-top: 1.4rem;
+  background: var(--g-ground);
+  border-top: 1px solid var(--rule);
 }
 
 /*
@@ -3931,13 +3751,14 @@ button {
  * Ein Menüpunkt, ein Reiter, ein Kettenglied, eine Auswahlkachel: Sie sind aus
  * demselben Baustein gemacht, aber sie stehen nicht neben einem Eingabefeld,
  * sondern gliedern die Seite. Ihre Höhe kommt aus ihrem Inhalt - eine Kachel
- * trägt zwei Zeilen, ein Menüpunkt ein Symbol neben dem Wort.
+ * trägt zwei Zeilen, ein Reiter sein Wort.
  *
  * Sie stehen hier zusammen und nicht jede in ihrer eigenen Regel, damit man
  * sieht, dass es eine Gruppe ist. Wer den nächsten Baustein dieser Art baut,
- * trägt ihn hier ein.
+ * trägt ihn hier ein - es sei denn, er ist schon auf Klassen umgestellt: Der
+ * Menüpunkt der Seitenleiste stand hier und trägt sein `h-auto` inzwischen
+ * selbst.
  */
-.sidebar__link,
 .subnav__tab,
 .reiter__blatt,
 .chain__step,
@@ -4401,98 +4222,22 @@ button.secondary::after {
 /* ---------- Schmale Fenster ---------- */
 
 /*
- * Unikom ist ein Werkzeug für den Schreibtisch, aber es soll auf einem
- * Notebook-Bildschirm oder einem Tablet nicht auseinanderfallen. Zwei Stufen
- * genügen: erst wird es enger, dann legt sich die Seitenleiste nach oben.
+ * Was hier stand, macht jetzt die Shell selbst.
  *
- * In beiden Stufen bleibt es dabei, dass nur der Inhalt scrollt.
+ * Zwei Stufen regelten Seitenleiste, Kopf und Inhaltsbereich für schmale
+ * Fenster: erst enger, dann die Leiste nach oben. Beides steht jetzt als
+ * Klassen am Element - `md:flex-row`, `md:w-[…]`, `max-md:flex-none`. Ein Maß
+ * an zwei Stellen zu führen, einmal als Klasse und einmal als Regel, wäre die
+ * Gelegenheit, sie gegeneinander zu verstellen.
+ *
+ * Übrig bleibt, was nicht zur Shell gehört: der Editor und die Tabellen.
  */
-@media (max-width: 1100px) {
-  .shell {
-    grid-template-columns: 200px 1fr;
-  }
-
-  .main {
-    padding: 1.8rem 1.6rem;
-  }
-
-  .sidebar__brand {
-    padding: 0 1.1rem;
-    font-size: 1.15rem;
-    letter-spacing: 0.2em;
-  }
-}
-
 @media (max-width: 780px) {
-  .shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
-
-  /* Aus der Spalte wird eine Leiste: die Menüpunkte laufen nach rechts weiter
-     und lassen sich dort schieben, statt den halben Bildschirm zu belegen. */
-  .sidebar {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.55rem 0.9rem;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .sidebar::after {
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: auto;
-    height: 1px;
-    background: linear-gradient(90deg, rgba(var(--accent), 0.8) 0%, rgba(var(--sheen), 0.12) 60%, transparent 100%);
-  }
-
-  .sidebar__brand {
-    padding: 0 0.6rem 0 0.2rem;
-    font-size: 1rem;
-    white-space: nowrap;
-  }
-
-  /* Der Strich unter dem Schriftzug gehört unter eine Überschrift, nicht
-     mitten in eine Zeile. */
-  .sidebar__brand::after {
-    display: none;
-  }
-
-  .sidebar__nav {
-    flex-direction: row;
-    align-items: center;
-    margin-top: 0;
-    padding: 0;
-  }
-
-  .sidebar__link {
-    white-space: nowrap;
-  }
-
-  /* Abstände drehen sich mit: was Höhe war, wird Breite. */
-  .sidebar__break {
-    width: 1.1rem;
-    height: auto;
-  }
-
-  .sidebar__space {
-    width: 0.35rem;
-    height: auto;
-  }
-
+  /* Der Stand des Bündels ist auf einem schmalen Bildschirm kein Platz wert. */
   .build-stamp {
     display: none;
   }
 
-  .main {
-    padding: 1.4rem 1.1rem;
-  }
-
-  .main__header h1,
   .editor__title h1 {
     font-size: 1.35rem;
   }
