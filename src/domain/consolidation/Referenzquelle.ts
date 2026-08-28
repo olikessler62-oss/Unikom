@@ -119,7 +119,7 @@ export function maengel(quelle: Pick<Referenzquelle, 'name' | 'verzeichnis'>): s
   const gefunden: string[] = [];
 
   if (!quelle.name.trim()) {
-    gefunden.push('Der Referenzquelle fehlt ein Name — unter ihm wird sie in Regeln und Berichten genannt');
+    gefunden.push('Der Referenzquelle fehlt ein Name - unter ihm wird sie in Regeln und Berichten genannt');
   }
 
   if (!quelle.verzeichnis.trim()) {

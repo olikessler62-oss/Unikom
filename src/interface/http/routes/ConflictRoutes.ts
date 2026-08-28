@@ -266,7 +266,7 @@ export function conflictRoutes(application: UnikomApplication): Route[] {
           throw new ApiError(
             400,
             'Die Freigabe braucht den Lauf, dessen Fälle entschieden wurden. Der Korrekturlauf rechnet auf ' +
-              'dessen Lieferung — und die steht in dessen Archivpaket, nicht im Bestand aller Läufe'
+              'dessen Lieferung - und die steht in dessen Archivpaket, nicht im Bestand aller Läufe'
           );
         }
 

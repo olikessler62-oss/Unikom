@@ -84,7 +84,7 @@ export function pruefeFolge(schritte: readonly Folgeschritt[]): Mehrdeutigkeit[]
         art: 'KEIN_VORGAENGER',
         schritt: nummer,
         hinweis:
-          `Schritt ${nummer} (${benennung(schritt, nummer)}) soll übernehmen, was der Schritt davor ablegt — ` +
+          `Schritt ${nummer} (${benennung(schritt, nummer)}) soll übernehmen, was der Schritt davor ablegt - ` +
           (stelle === 0
             ? 'er ist aber der erste. Geben Sie an, aus welchem Verzeichnis er liest'
             : `Schritt ${stelle} legt aber nichts ab. Geben Sie an, wohin Schritt ${stelle} schreibt`),
@@ -105,7 +105,7 @@ export function pruefeFolge(schritte: readonly Folgeschritt[]): Mehrdeutigkeit[]
           anderer: andere + 1,
           hinweis:
             `Schritt ${andere + 1} und Schritt ${nummer} schreiben beide nach „${ziel}". Der spätere ` +
-            'überschreibt den früheren — welches Ergebnis am Ende dasteht, entscheidet damit die Reihenfolge ' +
+            'überschreibt den früheren - welches Ergebnis am Ende dasteht, entscheidet damit die Reihenfolge ' +
             'und nicht die Bedeutung',
         });
       }
@@ -132,7 +132,7 @@ export function pruefeFolge(schritte: readonly Folgeschritt[]): Mehrdeutigkeit[]
           hinweis:
             `Schritt ${stelle + 1} liest aus „${schritt.input.directory}", und Schritt ${spaeter + 1} schreibt ` +
             'erst danach dorthin. Beim ersten Lauf ist das Verzeichnis leer, bei jedem weiteren steht der ' +
-            'Vorlauf darin — das Ergebnis hinge damit am Vortag',
+            'Vorlauf darin - das Ergebnis hinge damit am Vortag',
         });
       }
     }

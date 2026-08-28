@@ -73,7 +73,7 @@ export const STRUKTURFAELLE: readonly Strukturfall[] = [
   {
     name: 'fixed-abgeschnitten',
     format: 'FIXED',
-    zweck: 'Zeilen ohne abschließende Leerzeichen — häufig, harmlos, und trotzdem zu melden',
+    zweck: 'Zeilen ohne abschließende Leerzeichen - häufig, harmlos, und trotzdem zu melden',
     loesbar: true,
     region: DEFAULT_REGION,
     encoding: 'utf-8',
@@ -155,7 +155,7 @@ export const STRUKTURFAELLE: readonly Strukturfall[] = [
   {
     name: 'json-luecken',
     format: 'JSON',
-    zweck: 'Datensätze mit unterschiedlichen Feldern — die Feldliste ist die Vereinigung, nicht der erste Satz',
+    zweck: 'Datensätze mit unterschiedlichen Feldern - die Feldliste ist die Vereinigung, nicht der erste Satz',
     loesbar: true,
     region: DEFAULT_REGION,
     encoding: 'utf-8',
@@ -193,7 +193,7 @@ export const STRUKTURFAELLE: readonly Strukturfall[] = [
   {
     name: 'xml-namensraeume',
     format: 'XML',
-    zweck: 'Zwei Namensräume mit gleichem Elementnamen — sie zusammenzuwerfen wäre Datenverlust',
+    zweck: 'Zwei Namensräume mit gleichem Elementnamen - sie zusammenzuwerfen wäre Datenverlust',
     loesbar: false,
     region: DEFAULT_REGION,
     encoding: 'utf-8',
@@ -225,7 +225,7 @@ export const STRUKTURFAELLE: readonly Strukturfall[] = [
   {
     name: 'xml-ein-datensatz',
     format: 'XML',
-    zweck: 'Eine Datei mit genau einer Bestellung — ein gewöhnlicher Fall und kein Fehler',
+    zweck: 'Eine Datei mit genau einer Bestellung - ein gewöhnlicher Fall und kein Fehler',
     loesbar: true,
     region: DEFAULT_REGION,
     encoding: 'utf-8',
@@ -239,8 +239,8 @@ export const ENDUNG: Record<Format, string> = { FIXED: 'txt', JSON: 'json', XML:
 
 /** Was in diesem Katalog noch fehlt — offen ausgewiesen statt verschwiegen. */
 export const STRUKTUREN_OFFEN: readonly string[] = [
-  'Feste Feldbreiten mit Feldern, die lückenlos aneinanderstoßen — der Vorschlag findet sie nicht',
+  'Feste Feldbreiten mit Feldern, die lückenlos aneinanderstoßen - der Vorschlag findet sie nicht',
   'JSON mit einem Schema zur Prüfung (SPEC-03 §7, „optional")',
   'XML mit XSD-Prüfung (SPEC-03 §8, „optional")',
-  'Schreiben mit festen Feldbreiten — gelesen wird es, geschrieben noch nicht',
+  'Schreiben mit festen Feldbreiten - gelesen wird es, geschrieben noch nicht',
 ];

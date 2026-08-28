@@ -62,7 +62,7 @@ const ART_HINTS: Record<Art, string> = {
   JSON:
     'Verschachtelte Objekte werden flachgelegt: „kunde.adresse.ort", Listen mit Index. Die Typen kommen aus der Datei und werden nicht geraten.',
   XML:
-    'Attribute werden eigene Felder („kunde.@id"). Dateien mit eigenen Entitäten werden abgewiesen — über die wird fremder Inhalt eingeschleust.',
+    'Attribute werden eigene Felder („kunde.@id"). Dateien mit eigenen Entitäten werden abgewiesen - über die wird fremder Inhalt eingeschleust.',
 };
 
 type Zielformat = 'CSV' | 'JSON' | 'XML';
@@ -72,7 +72,7 @@ const ZIEL_LABELS: Record<Zielformat, string> = { CSV: 'CSV', JSON: 'JSON', XML:
 const ZIEL_HINTS: Record<Zielformat, string> = {
   CSV: 'Eine Zeile je Datensatz, Semikolon getrennt.',
   JSON: 'Die Feldnamen bauen die Verschachtelung wieder auf: „kunde.adresse.ort" wird wieder ein Gebilde.',
-  XML: 'Felder mit @ werden Attribute. Namen, die als Element nicht taugen, werden umbenannt — das wird gemeldet.',
+  XML: 'Felder mit @ werden Attribute. Namen, die als Element nicht taugen, werden umbenannt - das wird gemeldet.',
 };
 
 const BEISPIEL = `Sehr geehrte Damen und Herren,
@@ -291,12 +291,12 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
           explain={
             <>
               <p>
-                Eine Beispieldatei dort, wo Unikom läuft — nicht auf Ihrem Arbeitsplatz. Gelesen wird nur
+                Eine Beispieldatei dort, wo Unikom läuft - nicht auf Ihrem Arbeitsplatz. Gelesen wird nur
                 ihr <strong>Anfang</strong>: Aufbau und Typen stehen nach ein paar hundert Zeilen fest, und eine
                 Lieferung von zweihundert Megabyte gehört in keine Textfläche.
               </p>
               <p>
-                Text, CSV, JSON, XML. Eine Excel-Mappe liest Unikom im Lauf, hier noch nicht — speichern Sie
+                Text, CSV, JSON, XML. Eine Excel-Mappe liest Unikom im Lauf, hier noch nicht - speichern Sie
                 das Blatt dafür als CSV.
               </p>
             </>
@@ -305,7 +305,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
             probe && (
               probe.ok ? (
                 <>
-                  „{probe.name}" —{' '}
+                  „{probe.name}" -{' '}
                   {probe.gekuerzt
                     ? `die ersten ${formatSize(probe.gelesen)} von ${formatSize(probe.groesse)}`
                     : `ganz gelesen, ${formatSize(probe.groesse)}`}
@@ -327,7 +327,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
             readOnly
             aria-label="Datei auf dem Server"
             value={beispielpfad}
-            placeholder="keine — oder unten einfügen"
+            placeholder="keine - oder unten einfügen"
             {...titelBeiUeberlauf()}
             onClick={() => setDateiwahlOffen(true)}
           />
@@ -348,7 +348,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
           />
         )}
 
-        <Field label="Inhalt" explain="Bestellung aus einer E-Mail, ein Ausschnitt aus einer Tabelle, eine Liste — Unikom sucht darin die Daten.">
+        <Field label="Inhalt" explain="Bestellung aus einer E-Mail, ein Ausschnitt aus einer Tabelle, eine Liste - Unikom sucht darin die Daten.">
           <textarea
             rows={12}
             value={inhalt}
@@ -392,7 +392,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
       {geschrieben && (
         <Notice kind="info">
           {geschrieben.rows} Datensätze übernommen nach {geschrieben.file}. Ab hier ist es ein gewöhnlicher
-          Datenbestand — Anrede und Grußformel sind nicht mit hineingekommen.
+          Datenbestand - Anrede und Grußformel sind nicht mit hineingekommen.
           {geschrieben.notes?.length ? (
             <ul>
               {geschrieben.notes.map((note) => (
@@ -426,10 +426,10 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
           <ul>
             {antwort.knownStructures.map((bekannt) => (
               <li key={bekannt.id}>
-                <strong>{bekannt.name}</strong> (Version {bekannt.version}) — {Math.round(bekannt.score * 100)} %
+                <strong>{bekannt.name}</strong> (Version {bekannt.version}) - {Math.round(bekannt.score * 100)} %
                 Übereinstimmung
                 {bekannt.abweichungen > 0 ? ` (${bekannt.abweichungen} Abweichung(en))` : ''}
-                {antwort.usedStructure === bekannt.name ? ' — verwendet' : ''}
+                {antwort.usedStructure === bekannt.name ? ' - verwendet' : ''}
               </li>
             ))}
           </ul>
@@ -440,7 +440,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
 
       {antwort && antwort.blocks.length === 0 && (
         <Empty>
-          Keine eindeutige Datenstruktur erkannt. Das ist kein Fehler — in diesem Inhalt steht nichts, was sich
+          Keine eindeutige Datenstruktur erkannt. Das ist kein Fehler - in diesem Inhalt steht nichts, was sich
           zuverlässig als Tabelle lesen lässt.
         </Empty>
       )}
@@ -456,7 +456,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
                 className={index === gewaehlt ? undefined : 'secondary'}
                 onClick={() => setGewaehlt(index)}
               >
-                {kandidat.source ? `${kandidat.source}: ` : ''}Zeilen {kandidat.start}–{kandidat.end} (
+                {kandidat.source ? `${kandidat.source}: ` : ''}Zeilen {kandidat.start}-{kandidat.end} (
                 {kandidat.rows.length} Datensätze)
               </button>
             ))}
@@ -467,7 +467,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
       {block && (
         <section className="card">
           <h2>
-            Datenblock — {block.source ? `${block.source}, ` : ''}Zeilen {block.start} bis {block.end}
+            Datenblock - {block.source ? `${block.source}, ` : ''}Zeilen {block.start} bis {block.end}
           </h2>
 
           <div className="row" style={{ gap: '2rem', flexWrap: 'wrap' }}>
@@ -547,7 +547,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
                 <p>{ZIEL_HINTS[zielformat]}</p>
                 <p>
                   Die Werte gehen als Text hinaus. Aus „1.234,50" eine JSON-Zahl zu machen hieße, sie nach der
-                  Region umzurechnen — das ist eine Frage der Zuordnung und kommt mit dem Mapping, nicht mit dem
+                  Region umzurechnen - das ist eine Frage der Zuordnung und kommt mit dem Mapping, nicht mit dem
                   Schreiben.
                 </p>
               </>
@@ -570,7 +570,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
           <h3>Daten prüfen</h3>
           <p className="muted">
             Normalisieren, in die Zieltypen bringen und gegen die fachlichen Regeln halten. Die Werte bleiben dabei
-            unverändert — was auffällt, wird gemeldet und nicht stillschweigend behoben.
+            unverändert - was auffällt, wird gemeldet und nicht stillschweigend behoben.
           </p>
           <div className="row">
             <button className="secondary" disabled={busy} onClick={() => void pruefen()}>
@@ -581,7 +581,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
           <h3>Als Eingangsprofil speichern</h3>
           <p className="muted">
             Damit erkennt Unikom diese Quelle beim nächsten Mal wieder, statt von vorn zu raten. Gespeichert wird, was
-            Sie hier bestätigen — nicht, was Unikom vermutet hat. Es entsteht Version 1; ändert sich die Quelle
+            Sie hier bestätigen - nicht, was Unikom vermutet hat. Es entsteht Version 1; ändert sich die Quelle
             später, kommt eine Version dazu und die alte bleibt stehen.
           </p>
           <Field label="Name des Profils">
@@ -599,7 +599,7 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
 
           {antwort?.ignoredLines.length ? (
             <p className="muted">
-              Nicht zum Block gehört: Zeile {antwort.ignoredLines.join(', ')} — Anrede, Grußformel und was sonst noch
+              Nicht zum Block gehört: Zeile {antwort.ignoredLines.join(', ')} - Anrede, Grußformel und was sonst noch
               um die Daten herumsteht.
             </p>
           ) : null}
@@ -676,7 +676,7 @@ function Gelesen({ snapshot }: { snapshot: Snapshot }) {
 
       <div className="row" style={{ gap: '2rem', flexWrap: 'wrap' }}>
         <Kennzahl name="Eingangsprofil" wert={snapshot.profileName ?? 'keines'} />
-        <Kennzahl name="Version" wert={snapshot.profileVersion ? String(snapshot.profileVersion) : '—'} />
+        <Kennzahl name="Version" wert={snapshot.profileVersion ? String(snapshot.profileVersion) : '-'} />
         <Kennzahl name="Sprache" wert={snapshot.einstellungen.locale} />
       </div>
 
@@ -814,7 +814,7 @@ function Qualitaet({ bericht }: { bericht: Qualitaetsbericht }) {
                       <span className={SCHWERE_TONE[befund.schwere]}>{SCHWERE_LABELS[befund.schwere]}</span>
                     </td>
                     <td>{befund.zeile === 0 ? <span className="muted">Bestand</span> : befund.zeile}</td>
-                    <td>{befund.feld ?? '—'}</td>
+                    <td>{befund.feld ?? '-'}</td>
                     <td style={{ whiteSpace: 'normal' }}>{befund.ursache}</td>
                     <td style={{ whiteSpace: 'normal' }}>{befund.auswirkung}</td>
                   </tr>

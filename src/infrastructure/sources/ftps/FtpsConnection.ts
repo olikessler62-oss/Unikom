@@ -32,7 +32,7 @@ export async function openFtpsConnection(
   const certificates = config.validateCertificates === false ? 'ungeprüft' : 'geprüft';
   trace?.(
     `Verbindung zu ${config.host}:${ftpsPort(config)} als ` +
-      `„${credentials.username ?? config.username ?? '—'}“ über ${mode}, Zertifikat ${certificates}`
+      `„${credentials.username ?? config.username ?? '-'}“ über ${mode}, Zertifikat ${certificates}`
   );
 
   try {

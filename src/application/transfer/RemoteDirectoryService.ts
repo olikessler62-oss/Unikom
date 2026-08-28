@@ -121,7 +121,7 @@ export class RemoteDirectoryService {
           ok: false,
           // The resolved path travels with the failure: "not found" is only
           // useful next to the path that was actually looked for.
-          message: `Verzeichnis nicht gefunden: ${failures.join(' — ')}`,
+          message: `Verzeichnis nicht gefunden: ${failures.join(' - ')}`,
           path: candidates[0],
           relativePath: resolver.relative(candidates[0]),
           tried: candidates,

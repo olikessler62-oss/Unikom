@@ -24,7 +24,7 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 const ROLE_HINTS: Record<Role, string> = {
-  ADMIN: 'Alles — dazu Benutzer, Zugänge und Schlüssel',
+  ADMIN: 'Alles - dazu Benutzer, Zugänge und Schlüssel',
   STANDARD: 'Workflows anlegen, ändern und starten; keine Zugänge, keine Benutzer',
 };
 
@@ -200,7 +200,7 @@ export function UsersScreen({ ownUserId }: Props) {
 
           <Field
             label="Konfliktdaten"
-            explain="Im Konfliktbestand stehen die ursprünglichen Feldwerte im Klartext. Dieses Recht hängt am Benutzer und folgt nicht aus der Berechtigung — auch ein Administrator hat es nicht von selbst."
+            explain="Im Konfliktbestand stehen die ursprünglichen Feldwerte im Klartext. Dieses Recht hängt am Benutzer und folgt nicht aus der Berechtigung - auch ein Administrator hat es nicht von selbst."
           >
             <label className="check">
               <input
@@ -382,7 +382,7 @@ export function UsersScreen({ ownUserId }: Props) {
                         <RowButton
                           title={
                             user.enabled
-                              ? 'Benutzer sperren — offene Sitzungen enden sofort'
+                              ? 'Benutzer sperren - offene Sitzungen enden sofort'
                               : 'Benutzer wieder freigeben'
                           }
                           disabled={busy}

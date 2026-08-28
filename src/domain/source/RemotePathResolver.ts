@@ -118,7 +118,7 @@ export class RemotePathResolver {
         if (segments.length <= floor) {
           throw new RemotePathError(
             `„${userPath}“ führt aus ${this.workingDirectory} heraus, und dieses Verzeichnis darf diese ` +
-              'Verbindung nicht verlassen. Bitte einen Pfad darin verwenden — oder das Remote-Arbeitsverzeichnis ändern.'
+              'Verbindung nicht verlassen. Bitte einen Pfad darin verwenden - oder das Remote-Arbeitsverzeichnis ändern.'
           );
         }
 
@@ -135,7 +135,7 @@ export class RemotePathResolver {
     if (!this.contains(pathOf(segments))) {
       throw new RemotePathError(
         `„${userPath}“ führt aus ${this.workingDirectory} heraus, und dieses Verzeichnis darf diese ` +
-          'Verbindung nicht verlassen. Bitte einen Pfad darin verwenden — oder das Remote-Arbeitsverzeichnis ändern.'
+          'Verbindung nicht verlassen. Bitte einen Pfad darin verwenden - oder das Remote-Arbeitsverzeichnis ändern.'
       );
     }
 

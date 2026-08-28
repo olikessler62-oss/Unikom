@@ -118,7 +118,7 @@ export const FAELLE: readonly Fall[] = [
   },
   {
     name: '04-windows-1252',
-    zweck: 'Ein Altbestand in Windows-1252 — Umlaute dürfen nicht zu Fragezeichen werden',
+    zweck: 'Ein Altbestand in Windows-1252 - Umlaute dürfen nicht zu Fragezeichen werden',
     loesbar: true,
     region: DE,
     encoding: 'windows-1252',
@@ -135,7 +135,7 @@ export const FAELLE: readonly Fall[] = [
   },
   {
     name: '05-mit-bom',
-    zweck: 'UTF-8 mit Byte Order Mark, wie Excel sie schreibt — das BOM gehört nicht ins erste Feld',
+    zweck: 'UTF-8 mit Byte Order Mark, wie Excel sie schreibt - das BOM gehört nicht ins erste Feld',
     loesbar: true,
     region: DE,
     encoding: 'utf-8-bom',
@@ -147,7 +147,7 @@ export const FAELLE: readonly Fall[] = [
   },
   {
     name: '06-textqualifizierer',
-    zweck: 'Trennzeichen, Zeilenumbruch und Anführungszeichen im Text — alles in Anführungszeichen',
+    zweck: 'Trennzeichen, Zeilenumbruch und Anführungszeichen im Text - alles in Anführungszeichen',
     loesbar: true,
     region: DE,
     encoding: 'utf-8',
@@ -217,7 +217,7 @@ export const FAELLE: readonly Fall[] = [
   },
   {
     name: '11-zwei-zahlenformate',
-    zweck: 'Die Hälfte deutsch, die Hälfte amerikanisch geschrieben — das ist keine Spalte, sondern zwei',
+    zweck: 'Die Hälfte deutsch, die Hälfte amerikanisch geschrieben - das ist keine Spalte, sondern zwei',
     loesbar: false,
     region: DE,
     encoding: 'utf-8',
@@ -251,7 +251,7 @@ export const FAELLE: readonly Fall[] = [
   },
   {
     name: '13-mehrdeutiges-datum',
-    zweck: 'Alle Angaben sind unter beiden Lesarten gültig — lösbar, aber der Mensch muss es wissen',
+    zweck: 'Alle Angaben sind unter beiden Lesarten gültig - lösbar, aber der Mensch muss es wissen',
     loesbar: true,
     region: DE,
     encoding: 'utf-8',
@@ -260,7 +260,7 @@ export const FAELLE: readonly Fall[] = [
   },
   {
     name: '14-trennzeichen-mehrdeutig',
-    zweck: 'Semikolon und Komma trennen beide gleichmäßig — das gehört ins Profil, nicht in eine Vermutung',
+    zweck: 'Semikolon und Komma trennen beide gleichmäßig - das gehört ins Profil, nicht in eine Vermutung',
     loesbar: false,
     region: DE,
     encoding: 'utf-8',
@@ -269,7 +269,7 @@ export const FAELLE: readonly Fall[] = [
   },
   {
     name: '15-uneinheitliche-spalten',
-    zweck: 'Eine Zeile hat ein Feld zu viel — ein Strukturfehler, der nicht stillschweigend verschwindet',
+    zweck: 'Eine Zeile hat ein Feld zu viel - ein Strukturfehler, der nicht stillschweigend verschwindet',
     loesbar: false,
     region: DE,
     encoding: 'utf-8',
@@ -283,7 +283,7 @@ export const FAELLE: readonly Fall[] = [
   },
   {
     name: '16-nur-text',
-    zweck: 'Alle Spalten sind Text — dann ist nicht erkennbar, ob die erste Zeile eine Kopfzeile ist',
+    zweck: 'Alle Spalten sind Text - dann ist nicht erkennbar, ob die erste Zeile eine Kopfzeile ist',
     loesbar: false,
     region: DE,
     encoding: 'utf-8',
@@ -297,14 +297,14 @@ export const FAELLE: readonly Fall[] = [
  * Ticket, weil sie sonst als „getestet" durchgeht.
  */
 export const NOCH_OFFEN: readonly string[] = [
-  'Excel lesen — die Mappen liegen als Fälle bereit (Mappen.ts), der Leser fehlt',
-  'XLS, das alte Binärformat — noch nicht entschieden, siehe Bauplan',
+  'Excel lesen - die Mappen liegen als Fälle bereit (Mappen.ts), der Leser fehlt',
+  'XLS, das alte Binärformat - noch nicht entschieden, siehe Bauplan',
   'Fixed-Width-TXT',
   'JSON und XML',
   'Währungs- und Prozentwerte (SPEC-02, Abschnitt 12 und 13)',
   'Uhrzeit, Datum mit Uhrzeit, Zeitstempel mit Zeitzone',
   'sehr große Dateien (Blockverarbeitung, SPEC-06 Abschnitt 15)',
-  'Dubletten, Zusammenführung, Konflikte — ab Etappe 5',
+  'Dubletten, Zusammenführung, Konflikte - ab Etappe 5',
 ];
 
 /**

@@ -62,7 +62,7 @@ export class FileStabilityService {
         return {
           stable: false,
           performedChecks,
-          message: `${file.name} wird noch geschrieben — beim nächsten Lauf wird erneut geprüft`,
+          message: `${file.name} wird noch geschrieben - beim nächsten Lauf wird erneut geprüft`,
         };
       }
 

@@ -129,5 +129,5 @@ test('ein Leerzeichen mitten im Wert ist keine Feldgrenze', () => {
   const zeilen = ['1 Meier Sohn   Köln', '2 Schulz       Bonn'];
   const felder = feldvorschlag(zeilen);
 
-  assert.equal(felder.length, 3, 'Nummer, Name, Ort — nicht vier');
+  assert.equal(felder.length, 3, 'Nummer, Name, Ort - nicht vier');
 });

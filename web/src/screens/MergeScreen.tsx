@@ -22,15 +22,15 @@ import { Empty, Field, Notice, RowButton, TrashIcon } from '../components/Pieces
  * Datensätze, die so nicht durchgehen.
  */
 const BETRIEBSART_LABELS: Record<Betriebsart, string> = {
-  ANREICHERN: 'Anreichern — eine Datei führt',
-  SAMMELN: 'Sammeln — alle Quellen sind gleichwertig',
+  ANREICHERN: 'Anreichern - eine Datei führt',
+  SAMMELN: 'Sammeln - alle Quellen sind gleichwertig',
 };
 
 const BETRIEBSART_HINTS: Record<Betriebsart, string> = {
   ANREICHERN:
     'Die Hauptdatei liefert die Datensätze, die übrigen ergänzen sie. Ein Datensatz einer Zusatzdatei ohne Bezug zur Hauptdatei wird zum Konflikt.',
   SAMMELN:
-    'Kundenlisten zweier Filialen etwa. Ein fehlender Bezug ist hier kein Konflikt — es gibt keine Datei, auf die er sich beziehen müsste.',
+    'Kundenlisten zweier Filialen etwa. Ein fehlender Bezug ist hier kein Konflikt - es gibt keine Datei, auf die er sich beziehen müsste.',
 };
 
 const ART_LABELS: Record<Konsolidierungsart, string> = {
@@ -53,7 +53,7 @@ const AUSWAHL_LABELS: Record<Dublettenauswahl, string> = {
 };
 
 const MEHRFACH_LABELS: Record<Mehrfachtreffer, string> = {
-  KONFLIKT: 'genau einer erwartet — sonst Konflikt',
+  KONFLIKT: 'genau einer erwartet - sonst Konflikt',
   ALLE: 'alle übernehmen (der Hauptdatensatz vervielfacht sich)',
   FELD: 'ein Feld entscheidet',
 };
@@ -178,7 +178,7 @@ export function MergeScreen({ mandant }: { mandant: string }) {
       <section className="card">
         <h2>Quellen</h2>
         <p className="muted">
-          Jede Quelle bekommt einen Namen und ihren Inhalt. Trennzeichen, Kodierung und Kopfzeile erkennt der Server —
+          Jede Quelle bekommt einen Namen und ihren Inhalt. Trennzeichen, Kodierung und Kopfzeile erkennt der Server -
           im Browser wird nichts zerlegt.
         </p>
 
@@ -186,7 +186,7 @@ export function MergeScreen({ mandant }: { mandant: string }) {
           <div key={quelle.id} className="card card--inner">
             <div className="row row--between">
               <strong>
-                {stelle + 1}. Quelle{prioritaet && stelle === 0 ? ' — die wichtigste' : ''}
+                {stelle + 1}. Quelle{prioritaet && stelle === 0 ? ' - die wichtigste' : ''}
               </strong>
               {quellen.length > 2 && (
                 <RowButton
@@ -252,7 +252,7 @@ export function MergeScreen({ mandant }: { mandant: string }) {
           <>
             <Field label="Hauptdatei" explain="Sie wird nicht erraten. Ohne diese Angabe läuft nichts.">
               <select value={fuehrend} onChange={(event) => setFuehrend(event.target.value)}>
-                <option value="">— bitte wählen —</option>
+                <option value="">- bitte wählen -</option>
                 {gefuellt.map((quelle) => (
                   <option key={quelle.id} value={quelle.id}>
                     {quelle.name.trim() === '' ? quelle.id : quelle.name}
@@ -285,7 +285,7 @@ export function MergeScreen({ mandant }: { mandant: string }) {
             </Field>
 
             {mehrfach === 'FELD' && (
-              <Field label="Dieses Feld entscheidet" explain="Der größte Wert gewinnt — ein Änderungsdatum, eine Versionsnummer, ein Rang.">
+              <Field label="Dieses Feld entscheidet" explain="Der größte Wert gewinnt - ein Änderungsdatum, eine Versionsnummer, ein Rang.">
                 <input
                   value={mehrfachFeld}
                   placeholder="stand"
@@ -308,7 +308,7 @@ export function MergeScreen({ mandant }: { mandant: string }) {
 
         <Field
           label="Schlüsselfelder"
-          explain="Woran zwei Datensätze als derselbe erkannt werden — ein Feld oder mehrere, mit Komma getrennt. Unikom bestimmt ihn nicht selbst."
+          explain="Woran zwei Datensätze als derselbe erkannt werden - ein Feld oder mehrere, mit Komma getrennt. Unikom bestimmt ihn nicht selbst."
         >
           <input
             value={schluessel}
@@ -330,7 +330,7 @@ export function MergeScreen({ mandant }: { mandant: string }) {
         <label className="check">
           <input type="checkbox" checked={prioritaet} onChange={(event) => setPrioritaet(event.target.checked)} />
           <span>
-            Die Reihenfolge der Quellen gilt als Priorität — die erste hat Vorrang. Ohne sie wird jeder Widerspruch ein
+            Die Reihenfolge der Quellen gilt als Priorität - die erste hat Vorrang. Ohne sie wird jeder Widerspruch ein
             Konflikt.
           </span>
         </label>
@@ -339,7 +339,7 @@ export function MergeScreen({ mandant }: { mandant: string }) {
           <input type="checkbox" checked={suchen} onChange={(event) => setSuchen(event.target.checked)} />
           <span>
             Zusätzlich nach <strong>ähnlichen</strong> Datensätzen suchen, die der Schlüssel nicht zusammengebracht hat.
-            Sie werden nie zusammengeführt — es entsteht eine Frage.
+            Sie werden nie zusammengeführt - es entsteht eine Frage.
           </span>
         </label>
 
@@ -347,7 +347,7 @@ export function MergeScreen({ mandant }: { mandant: string }) {
           <>
             <Field
               label="Ähnlichkeit messen an"
-              explain="Ein Feld oder mehrere, mit Komma getrennt. Es zählt das schwächste — zwei gleiche Namen mit verschiedenem Geburtsdatum sind zwei Personen."
+              explain="Ein Feld oder mehrere, mit Komma getrennt. Es zählt das schwächste - zwei gleiche Namen mit verschiedenem Geburtsdatum sind zwei Personen."
             >
               <input
                 value={aehnlichFelder}
@@ -462,7 +462,7 @@ function Bericht({ bericht }: { bericht: Konsolidierungsbericht }) {
                 {bericht.zeilen.map((zeile, stelle) => (
                   <tr key={stelle}>
                     {zeile.werte.map((wert, spalte) => (
-                      <td key={spalte}>{wert === '' ? <span className="muted">—</span> : wert}</td>
+                      <td key={spalte}>{wert === '' ? <span className="muted">-</span> : wert}</td>
                     ))}
                     <td className="muted">
                       {zeile.herkunft.map((herkunft) => `${herkunft.quelle}:${herkunft.zeile}`).join(', ')}
@@ -530,7 +530,7 @@ function Bericht({ bericht }: { bericht: Konsolidierungsbericht }) {
                   {konflikt.quelle ?? 'Der Lauf'}
                   {konflikt.blatt ? `, Blatt „${konflikt.blatt}"` : ''}
                   {konflikt.zeile ? `, Zeile ${konflikt.zeile}` : ''}
-                  {konflikt.feld ? ` — Feld „${konflikt.feld}"` : ''}
+                  {konflikt.feld ? ` - Feld „${konflikt.feld}"` : ''}
                 </strong>
                 {konflikt.schluessel && <span className="muted">Schlüssel {konflikt.schluessel}</span>}
               </div>
@@ -625,7 +625,7 @@ function Bericht({ bericht }: { bericht: Konsolidierungsbericht }) {
           <h2>Verdacht auf Dublette</h2>
           <p className="muted">
             Der Schlüssel hat sie nicht zusammengebracht, die Ähnlichkeitssuche hält sie für möglicherweise identisch.
-            Zusammengeführt wurde nichts — beide Datensätze stehen oben im Ergebnis.
+            Zusammengeführt wurde nichts - beide Datensätze stehen oben im Ergebnis.
           </p>
 
           <table className="table table--compact">
@@ -669,7 +669,7 @@ function Bericht({ bericht }: { bericht: Konsolidierungsbericht }) {
           <ul>
             {bericht.ergaenzungen.map((ergaenzung, stelle) => (
               <li key={`e${stelle}`}>
-                {ergaenzung.quelle}, Zeile {ergaenzung.zeile}: „{ergaenzung.feld}" = „{ergaenzung.wert}" —{' '}
+                {ergaenzung.quelle}, Zeile {ergaenzung.zeile}: „{ergaenzung.feld}" = „{ergaenzung.wert}" -{' '}
                 {ergaenzung.begruendung}
               </li>
             ))}

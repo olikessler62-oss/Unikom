@@ -61,7 +61,7 @@ function aufloesen(text: string): string {
     if (bekannt === undefined) {
       throw new Error(
         `Die Datei verweist auf die Entität „${ganzes}", die dieser Leser nicht kennt. ` +
-          'Eigene Entitäten werden bewusst nicht unterstützt — über sie wird fremder Inhalt eingeschleust'
+          'Eigene Entitäten werden bewusst nicht unterstützt - über sie wird fremder Inhalt eingeschleust'
       );
     }
 

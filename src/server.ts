@@ -40,7 +40,7 @@ const POLL_INTERVAL_MS = 60_000;
  */
 function masterKeyLine(notices: string[]): string {
   if (notices.length > 0) {
-    return notices.join(' — ');
+    return notices.join(' - ');
   }
 
   if (process.env[DEFAULT_MASTER_KEY_VARIABLE]) {
@@ -104,14 +104,14 @@ async function main(): Promise<void> {
   });
   const { host, port } = await server.listen();
 
-  console.log(`Unikom — Oberfläche auf http://${host}:${port}`);
-  console.log(`Unikom — Daten in ${DATA_DIRECTORY}`);
-  console.log(`Unikom — ${masterKeyLine(securityNotices)}`);
-  console.log(`Unikom — Module: ${application.features.enabled().join(', ') || 'nur Grundprodukt'}`);
-  console.log(`Unikom — ${licenceLine(licence)}\n`);
+  console.log(`Unikom - Oberfläche auf http://${host}:${port}`);
+  console.log(`Unikom - Daten in ${DATA_DIRECTORY}`);
+  console.log(`Unikom - ${masterKeyLine(securityNotices)}`);
+  console.log(`Unikom - Module: ${application.features.enabled().join(', ') || 'nur Grundprodukt'}`);
+  console.log(`Unikom - ${licenceLine(licence)}\n`);
 
   const shutdown = async (signal: string): Promise<void> => {
-    console.log(`\nUnikom — ${signal} empfangen, fahre herunter`);
+    console.log(`\nUnikom - ${signal} empfangen, fahre herunter`);
     application.runtime.stopPolling();
     await server.close();
     application.close();
@@ -130,10 +130,10 @@ function licenceLine(status: LicenceStatus): string {
     case 'ACTIVE':
     case 'EXPIRING':
       return `Lizenz: ${status.licence?.customer ?? 'unbekannt'}, bezahlt bis ${
-        status.licence?.validUntil.toISOString().slice(0, 10) ?? '—'
+        status.licence?.validUntil.toISOString().slice(0, 10) ?? '-'
       }${status.state === 'EXPIRING' ? ` (noch ${status.daysRemaining} Tage)` : ''}`;
     default:
-      return `Lizenz: KEINE ÜBERTRAGUNGEN — ${status.problem ?? status.state}`;
+      return `Lizenz: KEINE ÜBERTRAGUNGEN - ${status.problem ?? status.state}`;
   }
 }
 

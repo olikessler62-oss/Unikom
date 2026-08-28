@@ -239,10 +239,10 @@ export function verdaechtigePaare(
       paare: [],
       vergleiche: 0,
       abgebrochen:
-        `Die Ähnlichkeitssuche vergleicht jeden Datensatz mit jedem — bei ${datensaetze.length} Datensätzen ` +
+        `Die Ähnlichkeitssuche vergleicht jeden Datensatz mit jedem - bei ${datensaetze.length} Datensätzen ` +
         `wären das ${Math.round((datensaetze.length * (datensaetze.length - 1)) / 2).toLocaleString('de-DE')} Vergleiche. ` +
-        `Abgebrochen ab ${hoechstens.toLocaleString('de-DE')}. Ein engerer Vorfilter — etwa erst nach Postleitzahl ` +
-        'gruppieren und dann je Gruppe suchen — kommt zum selben Ergebnis in einem Bruchteil der Zeit',
+        `Abgebrochen ab ${hoechstens.toLocaleString('de-DE')}. Ein engerer Vorfilter - etwa erst nach Postleitzahl ` +
+        'gruppieren und dann je Gruppe suchen - kommt zum selben Ergebnis in einem Bruchteil der Zeit',
     };
   }
 

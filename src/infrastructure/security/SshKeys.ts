@@ -58,7 +58,7 @@ export function normalisePrivateKey(material: string, passphrase?: string): Norm
 
   if (trimmed.includes('PUBLIC KEY') || trimmed.startsWith('ssh-') || trimmed.startsWith('ecdsa-')) {
     fail(
-      'Das ist ein öffentlicher Schlüssel. Unikom braucht den privaten — die Datei ohne die Endung .pub. ' +
+      'Das ist ein öffentlicher Schlüssel. Unikom braucht den privaten - die Datei ohne die Endung .pub. ' +
         'Der öffentliche gehört auf den Quellserver, in dessen authorized_keys.'
     );
   }

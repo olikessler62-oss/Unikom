@@ -41,7 +41,7 @@ import type { SourceConfig } from '../../domain/transfer/TransferJob.js';
 
 const configured = loadTestServerConfig().sftp;
 const skip = !configured
-  ? 'kein echter SFTP-Prüfserver eingerichtet — siehe testserver.local.example.json'
+  ? 'kein echter SFTP-Prüfserver eingerichtet - siehe testserver.local.example.json'
   : !configured.password && !configured.privateKeyFile
     ? 'der Prüfserver hat weder Kennwort noch Schlüsseldatei hinterlegt'
     : false;
@@ -318,7 +318,7 @@ test('ein doppeltes Verzeichnis wird gemeldet, nicht geraten', { skip, timeout: 
 
     const mehrdeutig = await szene.application.remoteDirectories.browse(anfrage);
 
-    assert.equal(mehrdeutig.ok, false, 'beide Lesarten gibt es — das darf nicht durchgehen');
+    assert.equal(mehrdeutig.ok, false, 'beide Lesarten gibt es - das darf nicht durchgehen');
     assert.equal(mehrdeutig.ambiguous?.length, 2, JSON.stringify(mehrdeutig));
     assert.match(mehrdeutig.message, /passt auf 2 Verzeichnisse/);
 

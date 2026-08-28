@@ -117,7 +117,7 @@ export class Korrekturdienst {
         409,
         `Zu Lauf ${auftrag.laufId} gibt es kein Archivpaket. Der Korrekturlauf rechnet auf der ` +
           'ursprünglichen Lieferung, und ohne sie gibt es nichts zu rechnen. ' +
-          'Läufe von vor der Archivpflicht haben keines — deren Fälle lassen sich nur von Hand nacharbeiten'
+          'Läufe von vor der Archivpflicht haben keines - deren Fälle lassen sich nur von Hand nacharbeiten'
       );
     }
 

@@ -296,6 +296,6 @@ test('von JSON nach XML und zurück bleibt der Inhalt derselbe', () => {
   assert.deepEqual(
     zurueck.rows.map(texte),
     gelesen.rows.map(texte),
-    'die Werte sind dieselben — nur ihre erklärten Typen kennt XML nicht'
+    'die Werte sind dieselben - nur ihre erklärten Typen kennt XML nicht'
   );
 });

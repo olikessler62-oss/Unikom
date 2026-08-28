@@ -285,7 +285,7 @@ for (const source of SOURCES) {
       if ((source.needsShare || destination.needsShare) && !share) {
         // Kein Fehler: Auf einem Bauplatz ohne Freigabe muss die Prüfung grün
         // bleiben, statt eine fehlende Umgebung als Mangel zu melden.
-        t.skip('keine Windows-Testfreigabe erreichbar — siehe testserver.local.example.json');
+        t.skip('keine Windows-Testfreigabe erreichbar - siehe testserver.local.example.json');
         return;
       }
 

@@ -77,7 +77,7 @@ export class ShareAccessProvider {
     if (credential.type !== 'USERNAME_PASSWORD') {
       throw new Error(
         `Der Zugang „${credential.name}“ ist vom Typ ${credential.type}. Eine Windows-Freigabe verlangt ` +
-          'Benutzername und Kennwort — einen Schlüssel kennt sie nicht.'
+          'Benutzername und Kennwort - einen Schlüssel kennt sie nicht.'
       );
     }
 

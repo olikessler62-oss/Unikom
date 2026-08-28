@@ -69,7 +69,7 @@ export function beurteileMenge(datensaetze: number, grenze: number = HOECHSTMENG
     grund:
       `Der Lauf umfasst ${datensaetze.toLocaleString('de-DE')} Datensätze; diese Installation ist auf ` +
       `${grenze.toLocaleString('de-DE')} eingestellt. Nach der Messung wären das etwa ${geschaetztMb} MB ` +
-      'Arbeitsspeicher allein für die Konsolidierung. Es wurde nichts verarbeitet — ein Lauf, dem unterwegs der ' +
+      'Arbeitsspeicher allein für die Konsolidierung. Es wurde nichts verarbeitet - ein Lauf, dem unterwegs der ' +
       'Speicher ausgeht, endet ohne Protokolleintrag, und dann steht nur da, dass ein Prozess verschwunden ist. ' +
       'Teile die Quellen auf, engere das Dateimuster ein, oder hebe UNIKOM_HOECHSTMENGE, wenn der Rechner es hergibt',
   };

@@ -48,7 +48,7 @@ export function initialAdministratorNotice(administrator: InitialAdministrator):
   return [
     '',
     '  ┌──────────────────────────────────────────────────────────────┐',
-    '  │  Unikom — erster Start                                       │',
+    '  │  Unikom - erster Start                                       │',
     '  ├──────────────────────────────────────────────────────────────┤',
     `  │  Benutzer:  ${administrator.username.padEnd(48)} │`,
     `  │  Passwort:  ${administrator.password.padEnd(48)} │`,

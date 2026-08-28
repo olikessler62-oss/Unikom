@@ -505,7 +505,7 @@ test('die führende Quelle wird über ihren Dateinamen gefunden', async () => {
 
   assert.ok(
     faelle.some((fall) => fall.art === 'FEHLENDER_HAUPTSATZ'),
-    'die 9 aus der Zusatzdatei hat keinen Hauptsatz — das geht nur auf, wenn „Haupt.csv" wirklich führt: ' +
+    'die 9 aus der Zusatzdatei hat keinen Hauptsatz - das geht nur auf, wenn „Haupt.csv" wirklich führt: ' +
       faelle.map((fall) => fall.art).join(', ')
   );
 });
@@ -2196,7 +2196,7 @@ test('das Ergebnis lässt sich mit festen Feldbreiten schreiben', async () => {
   const pfad = bank.ablage.geschrieben.find((eintrag) => eintrag.startsWith('/ergebnis'));
 
   assert.ok(pfad, 'eine Ergebnisdatei ist entstanden');
-  assert.match(pfad, /\.txt$/, 'feste Breiten sind keine CSV — auch nicht der Name');
+  assert.match(pfad, /\.txt$/, 'feste Breiten sind keine CSV - auch nicht der Name');
   assert.match(new TextDecoder().decode(bank.ablage.dateien.get(pfad) ?? new Uint8Array()), /^00042Bonn {6}/);
 });
 

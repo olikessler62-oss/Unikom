@@ -206,6 +206,6 @@ export function previewOf(locale: string, timeZone: string): { sample: string; o
 
     return { sample, order: DATE_ORDER_LABELS[order] };
   } catch {
-    return { sample: '—', order: 'unbekannt' };
+    return { sample: '-', order: 'unbekannt' };
   }
 }

@@ -320,7 +320,7 @@ export function TenantsScreen({ canManage }: Props) {
         <Modal title="Root-Verzeichnis" onClose={() => setExplaining(false)}>
           <p>
             Jeder Job dieses Mandanten darf seine Dateien nur <strong>unterhalb dieses Ordners</strong> ablegen. Ein
-            Zielverzeichnis außerhalb wird beim Speichern abgelehnt — so landen die Daten dieses Kunden auch bei einem
+            Zielverzeichnis außerhalb wird beim Speichern abgelehnt - so landen die Daten dieses Kunden auch bei einem
             Tippfehler nicht beim nächsten.
           </p>
           <p>
@@ -416,7 +416,7 @@ export function TenantsScreen({ canManage }: Props) {
               <div className="field-paar field-paar--rechts-fest">
                 <Field
                   label="Region"
-                  explain={`So schreibt dieser Mandant den 3. April 2026: ${previewOf(draft.locale, draft.timeZone).sample} — ${previewOf(draft.locale, draft.timeZone).order}.`}
+                  explain={`So schreibt dieser Mandant den 3. April 2026: ${previewOf(draft.locale, draft.timeZone).sample} - ${previewOf(draft.locale, draft.timeZone).order}.`}
                 >
                   <select
                     className="input--wahl-lang"
@@ -514,7 +514,7 @@ export function TenantsScreen({ canManage }: Props) {
                   explain={
                     <>
                       <p>
-                        Die Eingangsdateien im Original, verschlüsselt — das, was der Lieferant geschickt hat. Leer
+                        Die Eingangsdateien im Original, verschlüsselt - das, was der Lieferant geschickt hat. Leer
                         heißt 90 Tage; <strong>0 heißt: nie forträumen</strong>, dieselbe Bedeutung wie nebenan.
                       </p>
                       <p>
@@ -764,7 +764,7 @@ function Konfliktumgang({
               </p>
               <p>
                 Ein Fenster, das immer kommt, wird nach der dritten Woche weggeklickt, ohne gelesen zu werden.
-                Deshalb ist die Wiedervorlage voreingestellt — und nicht das lauteste.
+                Deshalb ist die Wiedervorlage voreingestellt - und nicht das lauteste.
               </p>
             </>
           }
@@ -802,18 +802,18 @@ function Konfliktumgang({
         explain={
           <>
             <p>
-              Was geschieht, wenn einzelne Zeilen dem Schema nicht genügen — eine fehlende Kundennummer, ein
+              Was geschieht, wenn einzelne Zeilen dem Schema nicht genügen - eine fehlende Kundennummer, ein
               Datum, das es nicht gibt.
             </p>
             <p>
               <strong>Ganz stehen lassen</strong> verarbeitet die Datei gar nicht; sie wandert vollständig nach
               „Gescheitert". <strong>In Teile zerlegen</strong> lässt die guten Zeilen weiterlaufen und legt die
-              schlechten als eigene Datei nach „Gescheitert" — mit Zeilennummer und Grund, damit sie sich
+              schlechten als eigene Datei nach „Gescheitert" - mit Zeilennummer und Grund, damit sie sich
               korrigieren und zurückgeben lässt.
             </p>
             <p>
               Voreingestellt ist „ganz stehen lassen". Wer aus dreitausend Zeilen 2.983 bekommt und es nicht
-              weiß, bucht einen Monatsabschluss auf unvollständigen Daten — das darf niemandem zustoßen, der
+              weiß, bucht einen Monatsabschluss auf unvollständigen Daten - das darf niemandem zustoßen, der
               nichts eingestellt hat.
             </p>
             <p className="muted">
@@ -839,7 +839,7 @@ function Konfliktumgang({
           <>
             <p>
               „Akzeptieren" heißt: den Konflikt sehenden Auges stehen lassen. Das verschwindet nicht
-              stillschweigend — es steht mit Name, Zeitpunkt und Bemerkung in der Historie des Falls.
+              stillschweigend - es steht mit Name, Zeitpunkt und Bemerkung in der Historie des Falls.
             </p>
             <p>
               Abgeschaltet bleibt jeder Fall offen, bis jemand ihn bereinigt. Genau das ist der Zweck: Wer keinen
@@ -897,7 +897,7 @@ function Meldewege({
         <>
           <CheckField
             label="Auch bei erfolgreichem Lauf schreiben"
-            explain="Ohne Häkchen kommt nur Post, wenn etwas ansteht oder schiefging — für einen Lauf, den niemand beobachtet, lohnt sich das Häkchen."
+            explain="Ohne Häkchen kommt nur Post, wenn etwas ansteht oder schiefging - für einen Lauf, den niemand beobachtet, lohnt sich das Häkchen."
             checked={draft.auchBeiErfolg}
             onChange={(auchBeiErfolg) => onChange({ ...draft, auchBeiErfolg })}
           />
@@ -930,7 +930,7 @@ function Meldewege({
             >
               <option value="STARTTLS">STARTTLS (Port 587)</option>
               <option value="IMPLIZIT">Implizit (Port 465)</option>
-              <option value="KEINE">Keine — nur im eigenen Netz</option>
+              <option value="KEINE">Keine - nur im eigenen Netz</option>
             </select>
           </Field>
 
@@ -944,7 +944,7 @@ function Meldewege({
 
           <Field
             label="Zugang"
-            explain="Benutzer und Kennwort stehen in den Zugängen, nicht hier. Ohne Zugang wird ohne Anmeldung versandt — das geht nur im eigenen Netz."
+            explain="Benutzer und Kennwort stehen in den Zugängen, nicht hier. Ohne Zugang wird ohne Anmeldung versandt - das geht nur im eigenen Netz."
           >
             <select
               value={draft.mailZugangId}
@@ -1057,7 +1057,7 @@ function Konsolidierungseinstellungen({
 
       <Field
         label="Werte, die als „nichts“ gelten"
-        explain="Durch Komma getrennt. Was hier steht, zählt beim Einlesen als leeres Feld — und nicht als Inhalt, der die Vollständigkeitsprüfung bestehen lässt."
+        explain="Durch Komma getrennt. Was hier steht, zählt beim Einlesen als leeres Feld - und nicht als Inhalt, der die Vollständigkeitsprüfung bestehen lässt."
       >
         <input
           value={draft.nullWerte}
@@ -1109,7 +1109,7 @@ function Konsolidierungseinstellungen({
 
       <Field
         label="Mindestkonfidenz"
-        explain="Ab welchem Anteil passender Werte ein Feldtyp als sicher gilt. Sie lockert nur die Typerkennung — ob Unikom einen Wertekonflikt selbst entscheiden darf, bleibt bei 0,97, gleich was hier steht."
+        explain="Ab welchem Anteil passender Werte ein Feldtyp als sicher gilt. Sie lockert nur die Typerkennung - ob Unikom einen Wertekonflikt selbst entscheiden darf, bleibt bei 0,97, gleich was hier steht."
       >
         <input
           value={draft.mindestKonfidenz}

@@ -1002,7 +1002,7 @@ test('eine Referenzquelle lässt sich anlegen, nachsehen und entfernen', async (
   assert.equal(
     (await fs.readFile(path.join(wurzel, 'plz.csv'), 'utf-8')).length > 0,
     true,
-    'die Datei bleibt liegen — der Eintrag war ein Verweis'
+    'die Datei bleibt liegen - der Eintrag war ein Verweis'
   );
 
   await fs.rm(wurzel, { recursive: true, force: true });

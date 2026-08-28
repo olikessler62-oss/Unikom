@@ -85,10 +85,10 @@ const VERBINDLICHKEITEN: readonly { wert: Verbindlichkeit; text: string; erklaer
 const TYPEN: readonly Feldtyp[] = ['STRING', 'INTEGER', 'DECIMAL', 'BOOLEAN', 'DATE', 'DATETIME', 'TIME'];
 
 const SCHWEREGRADE: readonly { wert: Schwere; text: string }[] = [
-  { wert: 'INFO', text: 'Info — fällt auf, ändert nichts' },
-  { wert: 'WARNUNG', text: 'Warnung — ungewöhnlich, aber möglich' },
-  { wert: 'KONFLIKT', text: 'Konflikt — dieser Datensatz geht an einen Menschen' },
-  { wert: 'FEHLER', text: 'Fehler — hier ist nichts sicher zu verarbeiten' },
+  { wert: 'INFO', text: 'Info - fällt auf, ändert nichts' },
+  { wert: 'WARNUNG', text: 'Warnung - ungewöhnlich, aber möglich' },
+  { wert: 'KONFLIKT', text: 'Konflikt - dieser Datensatz geht an einen Menschen' },
+  { wert: 'FEHLER', text: 'Fehler - hier ist nichts sicher zu verarbeiten' },
 ];
 
 const PRUEFARTEN: readonly { wert: Pruefung['art']; text: string }[] = [
@@ -152,11 +152,11 @@ export function SchemataScreen({ mandant }: { mandant: string }) {
         <p className="muted">
           Was Unikom über eine Eingangsquelle dieses Mandanten schon weiß: welche Spalten kommen, wie sie zu
           lesen sind, was ein gültiger Wert ist und woran ein Datensatz zu erkennen ist. Eine Quelle gehört dem
-          Mandanten und nicht einem einzelnen Workflow — dieselbe Quelle liefert für mehrere.
+          Mandanten und nicht einem einzelnen Workflow - dieselbe Quelle liefert für mehrere.
         </p>
 
         <p className="muted">
-          Beschrieben wird sie aus <strong>Beispieldaten</strong> — eingefügt oder aus einer Datei auf dem Server.
+          Beschrieben wird sie aus <strong>Beispieldaten</strong> - eingefügt oder aus einer Datei auf dem Server.
           Unikom erkennt Aufbau und Typen, ein Mensch bestätigt sie. Das geschieht nebenan unter{' '}
           <strong>Beispiel einlesen</strong>; hier wird nachgearbeitet.
         </p>
@@ -470,8 +470,8 @@ function Allgemein({
                 <tr key={version.version}>
                   <td>{version.version}</td>
                   <td className="muted">{formatMoment(version.erstellt)}</td>
-                  <td className="muted">{version.erstelltVonName ?? '—'}</td>
-                  <td className="muted">{version.notiz ?? '—'}</td>
+                  <td className="muted">{version.erstelltVonName ?? '-'}</td>
+                  <td className="muted">{version.notiz ?? '-'}</td>
                   <td className="muted">{version.spalten}</td>
                 </tr>
               ))}
@@ -496,7 +496,7 @@ function Aufbau({
     <>
       <Field
         label="Erwartete Spaltenzahl"
-        explain="Leer heißt: so viele, wie die Erkennung findet. Eine Zahl hier ist eine Aussage über die Quelle — weicht eine Lieferung ab, fällt es auf."
+        explain="Leer heißt: so viele, wie die Erkennung findet. Eine Zahl hier ist eine Aussage über die Quelle - weicht eine Lieferung ab, fällt es auf."
       >
         <input
           type="number"
@@ -523,7 +523,7 @@ function Aufbau({
         explain={
           <>
             <p>
-              Eine Zeile, die diesen Text enthält, ist die letzte vor den Daten — die Kopfzeile also. Alles davor
+              Eine Zeile, die diesen Text enthält, ist die letzte vor den Daten - die Kopfzeile also. Alles davor
               ist Vorspann und kommt nicht mit.
             </p>
             <p>
@@ -567,7 +567,7 @@ function Spalten({
   return (
     <>
       <p className="muted">
-        Was in dieser Quelle steht — und was ein gültiger Wert ist. Die Regeln hängen am{' '}
+        Was in dieser Quelle steht - und was ein gültiger Wert ist. Die Regeln hängen am{' '}
         <strong>Spaltennamen</strong>: So bleiben Struktur und Werte zwei Fragen, und eine umbenannte Spalte nimmt
         ihre Regeln nicht versehentlich mit.
       </p>
@@ -588,7 +588,7 @@ function Spalten({
       {spalten.length > 0 && spalten.some((spalte) => !spalte.name) && (
         <p className="muted">
           Einige Spalten haben <strong>keinen Namen</strong>: Die Beispieldaten trugen keine Kopfzeile, und geraten
-          wird sie nicht. Tragen Sie die Namen hier ein — erst dann lassen sich Regeln daran hängen, und der Lauf
+          wird sie nicht. Tragen Sie die Namen hier ein - erst dann lassen sich Regeln daran hängen, und der Lauf
           legt sie über jede Lieferung, die selbst keine Kopfzeile mitbringt.
         </p>
       )}
@@ -764,7 +764,7 @@ function Regelfenster({
 
       {art === 'FORMAT' && (
         <>
-          <Field label="Muster" explain="Ein regulärer Ausdruck. Er wird sofort geprüft — ein unlesbares Muster wird hier abgewiesen und nicht erst im Nachtlauf.">
+          <Field label="Muster" explain="Ein regulärer Ausdruck. Er wird sofort geprüft - ein unlesbares Muster wird hier abgewiesen und nicht erst im Nachtlauf.">
             <input
               value={muster}
               placeholder="^[0-9]{5}$"
@@ -894,7 +894,7 @@ function Werte({
     <>
       <p className="muted">
         Wie die Werte dieser Quelle zu lesen sind. <strong>Leer heißt: was vom Mandanten kommt.</strong> Ein Profil
-        ist eine Sammlung von Einstellungen und keine übergeordnete Ebene — wer am Mandanten etwas festlegt, hat für
+        ist eine Sammlung von Einstellungen und keine übergeordnete Ebene - wer am Mandanten etwas festlegt, hat für
         diesen Kunden entschieden, und ein Schema darf das nicht aufheben.
       </p>
 
@@ -931,7 +931,7 @@ function Werte({
 
       <Field
         label={'Werte, die als „nichts" gelten'}
-        explain={'Durch Komma getrennt. Leer heißt: was der Mandant vorgibt — üblicherweise ein leeres Feld, ein Strich, „N/A" und „NULL".'}
+        explain={'Durch Komma getrennt. Leer heißt: was der Mandant vorgibt - üblicherweise ein leeres Feld, ein Strich, „N/A" und „NULL".'}
       >
         <input
           className="input--mittel"
@@ -997,12 +997,12 @@ function Schluesselblatt({
   return (
     <>
       <p className="muted">
-        Woran ein Datensatz zu erkennen ist — die Frage, an der alles Weitere hängt:{' '}
+        Woran ein Datensatz zu erkennen ist - die Frage, an der alles Weitere hängt:{' '}
         <strong>Sind das zwei Datensätze oder zweimal derselbe?</strong> Ohne Schlüssel gibt es keine
         Zusammenführung.
       </p>
 
-      {benannt.length === 0 && <Empty>Erst brauchen die Spalten Namen — im Reiter „Spalten".</Empty>}
+      {benannt.length === 0 && <Empty>Erst brauchen die Spalten Namen - im Reiter „Spalten".</Empty>}
 
       {benannt.length > 0 && (
         <div className="field">
@@ -1030,7 +1030,7 @@ function Schluesselblatt({
 
           {felder.length > 1 && (
             <div className="field__hint">
-              Zusammengesetzt aus: {felder.join(' + ')}. Die Reihenfolge zählt — sie ist die, in der Sie angehakt
+              Zusammengesetzt aus: {felder.join(' + ')}. Die Reihenfolge zählt - sie ist die, in der Sie angehakt
               haben.
             </div>
           )}
@@ -1051,7 +1051,7 @@ function Schluesselblatt({
 
           <Hint title="Wie verglichen wird">
             Fachliche Dubletten heißen „Müller GmbH", „Mueller GmbH" und „MÜLLER GMBH". Was hier angehakt ist, wird
-            beim Vergleich gefaltet — die Daten selbst bleiben unangetastet.
+            beim Vergleich gefaltet - die Daten selbst bleiben unangetastet.
           </Hint>
         </div>
 

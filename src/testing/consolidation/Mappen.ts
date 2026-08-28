@@ -76,7 +76,7 @@ export const MAPPEN: readonly Mappe[] = [
   },
   {
     name: '18-blaetter-gleicher-struktur',
-    zweck: 'Drei Blätter mit derselben Struktur — Filialen, die gesammelt werden sollen',
+    zweck: 'Drei Blätter mit derselben Struktur - Filialen, die gesammelt werden sollen',
     loesbar: true,
     region: DE,
     sheets: [
@@ -125,7 +125,7 @@ export const MAPPEN: readonly Mappe[] = [
       },
     ],
     erwartet: {
-      unsicher: ['Wo die Daten beginnen — die ersten Zeilen sind keine Kopfzeile'],
+      unsicher: ['Wo die Daten beginnen - die ersten Zeilen sind keine Kopfzeile'],
     },
   },
   {
@@ -154,7 +154,7 @@ export const MAPPEN: readonly Mappe[] = [
   },
   {
     name: '21-datum-als-text',
-    zweck: 'Datumsangaben, die als Text in der Mappe stehen — der Rückweg aus einem Fremdsystem',
+    zweck: 'Datumsangaben, die als Text in der Mappe stehen - der Rückweg aus einem Fremdsystem',
     loesbar: true,
     region: DE,
     sheets: [

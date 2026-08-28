@@ -210,7 +210,7 @@ export function ordneZu(spalte: Spalte, options: Zuordnungsoptionen = {}): Zuord
      * ist eine Einladung zum Durchwinken.
      */
     konfidenz = Math.min(konfidenz, VORSCHLAG_AB - 0.1);
-    gruende.push('Die Werte passen **nicht** zu diesem Feld — der Name allein entscheidet hier nicht');
+    gruende.push('Die Werte passen **nicht** zu diesem Feld - der Name allein entscheidet hier nicht');
   }
 
   if (gewaehlt.bezeichnung.hinweis) {

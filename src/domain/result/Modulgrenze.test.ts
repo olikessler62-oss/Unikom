@@ -131,7 +131,7 @@ test('geprüft wird überhaupt etwas', async () => {
   // Verzeichnisnamen eines Tages nicht mehr stimmen — und niemand merkte es.
   const dateien = await quelldateien(path.join(WURZEL, 'domain', 'consolidation'));
 
-  assert.ok(dateien.length > 5, `nur ${dateien.length} Dateien gefunden — stimmen die Pfade noch?`);
+  assert.ok(dateien.length > 5, `nur ${dateien.length} Dateien gefunden - stimmen die Pfade noch?`);
 });
 
 /* ---------- Die Tür ---------- */

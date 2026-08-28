@@ -62,7 +62,7 @@ function wann(value?: string): string {
 }
 
 function bestandsabschnitt(bestand: Bestandsauskunft): string[] {
-  const zeilen = [`${bestand.name} — ${bestand.treffer} Fundstelle(n)`, '-'.repeat(72)];
+  const zeilen = [`${bestand.name} - ${bestand.treffer} Fundstelle(n)`, '-'.repeat(72)];
 
   if (bestand.hinweis) {
     zeilen.push(bestand.hinweis, '');
@@ -100,7 +100,7 @@ export function auskunftsdokument(
   angaben: { erstellt: Date; mandant?: string; veranlasser?: string }
 ): string {
   const kopf = [
-    'Unikom — Auskunft über gespeicherte Daten',
+    'Unikom - Auskunft über gespeicherte Daten',
     '',
     `Suchbegriff   ${auskunft.begriff}`,
     `Mandant       ${angaben.mandant ?? 'alle Mandanten dieser Installation'}`,
@@ -109,7 +109,7 @@ export function auskunftsdokument(
     `Fundstellen   ${auskunft.treffer} in ${auskunft.bestaende.filter((bestand) => bestand.treffer > 0).length} von ${auskunft.bestaende.length} Beständen`,
     '',
     'Diese Auskunft wurde aus dem tatsächlichen Zustand dieser Installation erzeugt.',
-    'Sie umfasst jeden Bestand, den Unikom führt — auch die, in denen nichts gefunden wurde.',
+    'Sie umfasst jeden Bestand, den Unikom führt - auch die, in denen nichts gefunden wurde.',
     '',
     '='.repeat(72),
     '',
@@ -122,7 +122,7 @@ export function auskunftsdokument(
     '',
     'Was diese Auskunft nicht abdeckt',
     '',
-    'Unikom transportiert Daten in Ziele, die der Betreiber eingerichtet hat — fremde',
+    'Unikom transportiert Daten in Ziele, die der Betreiber eingerichtet hat - fremde',
     'Server, Verzeichnisse, Datenbanken. Was dort aus den Daten geworden ist, weiß es',
     'nicht und kann es nicht sagen. Für diese Ziele ist gesondert nachzufassen.',
     '',
@@ -150,7 +150,7 @@ export function loeschbelegDokument(bericht: Loeschbericht, angaben: { mandant?:
   const summe = bericht.entfernt.reduce((wert, eintrag) => wert + eintrag.stellen, 0);
 
   const zeilen = [
-    'Unikom — Beleg über einen ausgeführten Löschauftrag',
+    'Unikom - Beleg über einen ausgeführten Löschauftrag',
     '',
     `Suchbegriff   ${bericht.begriff}`,
     `Mandant       ${angaben.mandant ?? 'alle Mandanten dieser Installation'}`,

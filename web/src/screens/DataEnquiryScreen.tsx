@@ -75,7 +75,7 @@ function Fundstellen({ bestand }: { bestand: Bestandsauskunft }) {
   const [offen, setOffen] = useState(false);
 
   if (bestand.treffer === 0) {
-    return <span className="muted">—</span>;
+    return <span className="muted">-</span>;
   }
 
   return (
@@ -99,7 +99,7 @@ function Fundstellen({ bestand }: { bestand: Bestandsauskunft }) {
           {bestand.funde.length < bestand.treffer && (
             <p className="muted">
               Hier stehen {bestand.funde.length} von {bestand.treffer}. Die vollständige Aufstellung steht in der
-              Datei — der Bildschirm kürzt, die Auskunft nicht.
+              Datei - der Bildschirm kürzt, die Auskunft nicht.
             </p>
           )}
         </div>
@@ -211,7 +211,7 @@ export function DataEnquiryScreen() {
               explain={
                 <>
                   <p>
-                    Ein Name, eine Kundennummer, eine E-Mail-Adresse — alles, woran die Person in den Daten zu
+                    Ein Name, eine Kundennummer, eine E-Mail-Adresse - alles, woran die Person in den Daten zu
                     erkennen ist.
                   </p>
                   <p>
@@ -243,7 +243,7 @@ export function DataEnquiryScreen() {
                 <>
                   <p>Ohne Auswahl wird die gesamte Installation durchsucht.</p>
                   <p>
-                    Nicht jeder Bestand lässt sich eingrenzen. Wo es nicht geht, sagt Unikom es beim Ergebnis — und
+                    Nicht jeder Bestand lässt sich eingrenzen. Wo es nicht geht, sagt Unikom es beim Ergebnis - und
                     löscht dort nichts, statt die Zeilen der übrigen Mandanten mitzunehmen.
                   </p>
                 </>
@@ -269,7 +269,7 @@ export function DataEnquiryScreen() {
           {auskunft && auskunft.treffer === 0 && (
             <Empty>
               Zu „{auskunft.begriff}" liegt in dieser Installation nichts vor
-              {mandant ? ` — jedenfalls nicht bei ${mandant}` : ''}. Auch das ist eine Auskunft, und sie lässt sich
+              {mandant ? ` - jedenfalls nicht bei ${mandant}` : ''}. Auch das ist eine Auskunft, und sie lässt sich
               als Datei speichern.
               <div className="row" style={{ marginTop: '1rem' }}>
                 <button className="secondary" disabled={busy} onClick={() => void ausleiten()}>
@@ -358,7 +358,7 @@ export function DataEnquiryScreen() {
               <ul>
                 {zuLoeschen?.map((bestand) => (
                   <li key={bestand.key}>
-                    <strong>{bestand.name}:</strong> {bestand.treffer} Fundstelle(n) — {BEHANDLUNG[bestand.behandlung]}
+                    <strong>{bestand.name}:</strong> {bestand.treffer} Fundstelle(n) - {BEHANDLUNG[bestand.behandlung]}
                   </li>
                 ))}
               </ul>
@@ -366,7 +366,7 @@ export function DataEnquiryScreen() {
               {stehenBleibt?.length ? (
                 <>
                   <p>
-                    Nicht angefasst wird — hier bleibt Arbeit für einen Menschen:
+                    Nicht angefasst wird - hier bleibt Arbeit für einen Menschen:
                   </p>
                   <ul>
                     {stehenBleibt.map((bestand) => (
@@ -409,7 +409,7 @@ export function DataEnquiryScreen() {
 
               <p className="prose">
                 Unkenntlich gemacht heißt: Die Zeile bleibt, der Wert darin geht. Dass eine Verarbeitung
-                stattgefunden hat, muss nachvollziehbar bleiben — der Name darin nicht.
+                stattgefunden hat, muss nachvollziehbar bleiben - der Name darin nicht.
               </p>
 
               {bericht.offen.length > 0 && (
@@ -431,7 +431,7 @@ export function DataEnquiryScreen() {
               </div>
 
               <p className="muted">
-                Der Beleg ist im Augenblick der Löschung entstanden. Später ließe er sich nicht mehr erzeugen — eine
+                Der Beleg ist im Augenblick der Löschung entstanden. Später ließe er sich nicht mehr erzeugen - eine
                 zweite Suche fände nichts mehr und belegte gar nichts.
               </p>
             </section>
@@ -442,7 +442,7 @@ export function DataEnquiryScreen() {
           <section className="card">
             <h2>Bestände</h2>
             <p className="prose">
-              Vollständige Aufstellung dessen, was diese Installation führt — erzeugt aus ihrem tatsächlichen
+              Vollständige Aufstellung dessen, was diese Installation führt - erzeugt aus ihrem tatsächlichen
               Zustand, nicht aus einer Vorlage. Ein Bestand, der hier fehlt, darf nicht entstehen.
             </p>
 
@@ -482,7 +482,7 @@ export function DataEnquiryScreen() {
           <section className="card">
             <h2>Fristen je Mandant</h2>
             <p className="prose">
-              Eingestellt werden sie im jeweiligen Workflow. Hier stehen sie nur zusammen — wer sie beauskunften
+              Eingestellt werden sie im jeweiligen Workflow. Hier stehen sie nur zusammen - wer sie beauskunften
               soll, müsste sie sonst aus jedem Editor einzeln zusammensuchen.
             </p>
 
@@ -492,7 +492,7 @@ export function DataEnquiryScreen() {
                 <Fristenliste fristen={mandantsfristen.fristen} />
 
                 {mandantsfristen.workflows.length === 0 ? (
-                  <p className="muted">Kein Workflow — damit auch keine Fristen aus Workflows.</p>
+                  <p className="muted">Kein Workflow - damit auch keine Fristen aus Workflows.</p>
                 ) : (
                   mandantsfristen.workflows.map((workflow) => (
                     <div key={workflow.jobId} style={{ marginTop: '0.8rem' }}>
@@ -525,13 +525,13 @@ export function DataEnquiryScreen() {
               </p>
               <p>
                 Der Zugriff auf <strong>Konfliktdaten</strong> hängt daneben an einem eigenen Recht, das am einzelnen
-                Benutzer erteilt wird. Dort stehen ursprüngliche Feldwerte im Klartext — der dichteste Personenbezug
+                Benutzer erteilt wird. Dort stehen ursprüngliche Feldwerte im Klartext - der dichteste Personenbezug
                 im ganzen System. Wer ihn sehen darf, soll namentlich feststehen und sich nicht aus einer Stufe
                 ergeben, in der zwanzig Leute sind. Auch ein Administrator bekommt es nicht von selbst.
               </p>
               <p>
                 Jede ändernde Handlung wird mit Benutzerkennung und Anmeldenamen protokolliert, dieser Löschauftrag
-                eingeschlossen — allerdings ohne die gelöschten Werte zu wiederholen.
+                eingeschlossen - allerdings ohne die gelöschten Werte zu wiederholen.
               </p>
             </div>
           </section>

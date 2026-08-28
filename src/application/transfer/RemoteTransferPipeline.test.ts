@@ -39,7 +39,7 @@ async function scenario(files: Record<string, string> = { 'exports/orders/ORDER_
   await application.jobRepository.save(
     createTransferJob({
       id: 'customer-a',
-      name: 'Kunde A – Bestellungen',
+      name: 'Kunde A - Bestellungen',
       sourceType: 'SFTP',
       sourceConfig: {
         type: 'SFTP',

@@ -286,7 +286,7 @@ export class UserService {
 
     if (others.length === 0) {
       throw new Error(
-        `„${user.username}“ ist der letzte aktive Administrator. Bitte zuerst einen weiteren ernennen — ` +
+        `„${user.username}“ ist der letzte aktive Administrator. Bitte zuerst einen weiteren ernennen - ` +
           'sonst kann diese Installation niemand mehr verwalten'
       );
     }

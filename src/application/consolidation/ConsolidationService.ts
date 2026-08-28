@@ -317,7 +317,7 @@ export class ConsolidationService {
         ursache:
           'Ohne vollständigen Konsolidierungsschlüssel lässt sich dieser Datensatz keiner Gruppe zuordnen',
         naechsteSchritte:
-          'Den Wert in der Quelle ergänzen, den Schlüssel anders zusammensetzen — oder den Datensatz einzeln entscheiden',
+          'Den Wert in der Quelle ergänzen, den Schlüssel anders zusammensetzen - oder den Datensatz einzeln entscheiden',
       });
 
       nichtVerarbeitet.push({
@@ -474,7 +474,7 @@ export class ConsolidationService {
               ],
               ursache:
                 'Eine ausdrücklich eingestellte Priorität ist der erklärte Wille des Benutzers und gilt. ' +
-                'Sie ohne Rückfrage zu verwerfen wäre eine stille Entscheidung — sie ohne Hinweis anzuwenden auch',
+                'Sie ohne Rückfrage zu verwerfen wäre eine stille Entscheidung - sie ohne Hinweis anzuwenden auch',
               naechsteSchritte:
                 'Den Wert bestätigen oder die Priorität für dieses Feld ändern. ' +
                 'Der Datensatz ist bereits mit dem priorisierten Wert entstanden',
@@ -560,7 +560,7 @@ export class ConsolidationService {
           ursache:
             'Beim Anreichern liefert die Hauptdatei die Referenzdatensätze. ' +
             'Sie darf nicht erraten werden, sondern muss eingetragen sein (SPEC-02, Abschnitt 27)',
-          naechsteSchritte: 'Im Profil festlegen, welche Quelle führt — oder auf „Sammeln" umstellen',
+          naechsteSchritte: 'Im Profil festlegen, welche Quelle führt - oder auf „Sammeln" umstellen',
         });
       } else if (!gesehen.has(auftrag.fuehrend)) {
         konflikte.push({
@@ -593,7 +593,7 @@ export class ConsolidationService {
         ursache:
           'Ein Merge führt Datensätze anhand eines Schlüssels zusammen. Welche Felder ihn bilden, ' +
           'darf Unikom nicht selbst bestimmen (SPEC-04, Abschnitt 7)',
-        naechsteSchritte: 'Die Schlüsselfelder eintragen — oder „Sammeln ohne Zusammenführen" wählen',
+        naechsteSchritte: 'Die Schlüsselfelder eintragen - oder „Sammeln ohne Zusammenführen" wählen',
       });
     }
 
@@ -607,7 +607,7 @@ export class ConsolidationService {
     if (auftrag.quellen.length < 2) {
       hinweise.push(
         `Dieser Lauf hat ${auftrag.quellen.length === 0 ? 'keine' : 'nur eine'} Quelle. ` +
-          'Konsolidiert wird trotzdem — die Regeln gelten auch innerhalb einer Datei.'
+          'Konsolidiert wird trotzdem - die Regeln gelten auch innerhalb einer Datei.'
       );
     }
   }
@@ -707,7 +707,7 @@ export class ConsolidationService {
         gruppe,
         namen,
         verhalten === 'KONFLIKT'
-          ? `Kein Hauptdatensatz für den Schlüssel „${schluessel}" — der Fall wartet auf eine Entscheidung`
+          ? `Kein Hauptdatensatz für den Schlüssel „${schluessel}" - der Fall wartet auf eine Entscheidung`
           : `Kein Hauptdatensatz für den Schlüssel „${schluessel}"; eingerichtet ist, ihn zu übergehen`
       );
 
@@ -743,7 +743,7 @@ export class ConsolidationService {
             'Eingerichtet ist, dass ein Hauptdatensatz höchstens einen Zusatzdatensatz je Quelle hat ' +
             '(SPEC-02, Abschnitt 29)',
           naechsteSchritte:
-            'Entweder mehrere Treffer zulassen, ein Feld bestimmen, das unter ihnen entscheidet — ' +
+            'Entweder mehrere Treffer zulassen, ein Feld bestimmen, das unter ihnen entscheidet - ' +
             'oder die Zusatzdatei prüfen',
         });
       }
@@ -783,7 +783,7 @@ export class ConsolidationService {
         ursache:
           'Alle Treffer zu übernehmen vervielfacht den Hauptdatensatz. In dieser Größenordnung ist das ' +
           'fast immer ein falsch gewählter Schlüssel und nicht die Absicht',
-        naechsteSchritte: 'Den Zuordnungsschlüssel prüfen — er trifft vermutlich zu viele Datensätze',
+        naechsteSchritte: 'Den Zuordnungsschlüssel prüfen - er trifft vermutlich zu viele Datensätze',
       });
 
       this.vermerke(
@@ -867,7 +867,7 @@ export class ConsolidationService {
                 ursache:
                   'Die Referenz kennt zu diesem Schlüssel einen anderen Wert. Übernommen wird nichts: ' +
                   'Die Referenz ergänzt fehlende Werte und korrigiert keine vorhandenen',
-                naechsteSchritte: 'Entscheiden, welcher Wert gilt — die Daten oder die Referenz',
+                naechsteSchritte: 'Entscheiden, welcher Wert gilt - die Daten oder die Referenz',
               });
               continue;
             }
@@ -1029,7 +1029,7 @@ export class ConsolidationService {
           : 'in allen verglichenen Feldern gleich, aber unter verschiedenen Schlüsseln'),
       ursache:
         'Der Konsolidierungsschlüssel hat sie nicht zusammengebracht, die Ähnlichkeitssuche hält sie für ' +
-        'möglicherweise identisch. Zusammengeführt wurde nichts — Ähnlichkeit allein berechtigt nicht dazu',
+        'möglicherweise identisch. Zusammengeführt wurde nichts - Ähnlichkeit allein berechtigt nicht dazu',
       naechsteSchritte:
         'Entscheiden, ob es dieselben sind. Wenn ja und der Fall wiederkehrt: den Schlüssel anders zusammensetzen ' +
         'oder den Vergleich so einstellen, dass er die Abweichung als Schreibweise behandelt',
@@ -1079,7 +1079,7 @@ export class ConsolidationService {
       })),
       ursache: begruendung,
       naechsteSchritte:
-        'Den richtigen Wert auswählen — oder für dieses Feld eine Quellenpriorität einrichten, ' +
+        'Den richtigen Wert auswählen - oder für dieses Feld eine Quellenpriorität einrichten, ' +
         'damit der Fall beim nächsten Lauf von selbst entschieden wird',
     };
   }
@@ -1100,7 +1100,7 @@ export class ConsolidationService {
         .join(', ')}`,
       ursache: behandlung ?? 'Die Gruppe soll von einem Menschen entschieden werden',
       naechsteSchritte:
-        'Zusammenführen, einen Datensatz übernehmen, einen löschen — oder alle unverändert lassen. ' +
+        'Zusammenführen, einen Datensatz übernehmen, einen löschen - oder alle unverändert lassen. ' +
         'Bis dahin bleiben sie unangetastet',
     };
   }

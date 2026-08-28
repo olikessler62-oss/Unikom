@@ -154,7 +154,7 @@ export function ReferenceScreen({ mandant }: { mandant: string }) {
         <h2>Referenzquellen</h2>
 
         <p className="muted">
-          Ein Nachschlagewerk, gegen das ein Konsolidierungsdurchgang abgleicht — ein Ortsverzeichnis, eine
+          Ein Nachschlagewerk, gegen das ein Konsolidierungsdurchgang abgleicht - ein Ortsverzeichnis, eine
           Kundenliste, ein Artikelstamm. Hier steht der Verweis darauf und nicht die Datenmenge: Die Datei bleibt,
           wo sie ist, und wird zum Lauf gelesen. <strong>Referenzdaten werden dabei nur gelesen</strong> und nie
           verändert.

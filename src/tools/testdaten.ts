@@ -49,7 +49,7 @@ function katalog(): string {
     '# Fallkatalog Konsolidierung',
     '',
     'Erzeugt aus `src/testing/consolidation/Faelle.ts` mit `npm run testdaten`.',
-    'Nicht von Hand ändern — die Testgrundlage ist die Quelldatei.',
+    'Nicht von Hand ändern - die Testgrundlage ist die Quelldatei.',
     '',
     '| Datei | Zeichensatz | Region | Muss UniCom allein lösen | Zweck |',
     '| --- | --- | --- | --- | --- |',
@@ -57,7 +57,7 @@ function katalog(): string {
 
   for (const fall of FAELLE) {
     zeilen.push(
-      `| ${fall.name}.csv | ${fall.encoding} | ${fall.region.locale} | ${fall.loesbar ? 'ja' : 'nein — Prüffall'} | ${fall.zweck} |`
+      `| ${fall.name}.csv | ${fall.encoding} | ${fall.region.locale} | ${fall.loesbar ? 'ja' : 'nein - Prüffall'} | ${fall.zweck} |`
     );
   }
 
@@ -68,7 +68,7 @@ function katalog(): string {
   for (const mappe of MAPPEN) {
     zeilen.push(
       `| ${mappe.name}.xlsx | ${mappe.sheets.map((sheet) => sheet.name).join(', ')} | ${mappe.region.locale} | ` +
-        `${mappe.loesbar ? 'ja' : 'nein — Prüffall'} | ${mappe.zweck} |`
+        `${mappe.loesbar ? 'ja' : 'nein - Prüffall'} | ${mappe.zweck} |`
     );
   }
 
@@ -79,7 +79,7 @@ function katalog(): string {
   for (const fall of STRUKTURFAELLE) {
     zeilen.push(
       `| ${fall.name}.${ENDUNG[fall.format]} | ${fall.format} | ${fall.region.locale} | ` +
-        `${fall.loesbar ? 'ja' : 'nein — Prüffall'} | ${fall.zweck} |`
+        `${fall.loesbar ? 'ja' : 'nein - Prüffall'} | ${fall.zweck} |`
     );
   }
 

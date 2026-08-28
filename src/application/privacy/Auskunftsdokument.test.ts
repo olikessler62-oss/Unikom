@@ -30,8 +30,8 @@ test('die Auskunft führt auch die Bestände auf, in denen nichts gefunden wurde
     { erstellt: ERSTELLT }
   );
 
-  assert.match(text, /Laufprotokoll — 0 Fundstelle/);
-  assert.match(text, /Konfliktbestand — 0 Fundstelle/);
+  assert.match(text, /Laufprotokoll - 0 Fundstelle/);
+  assert.match(text, /Konfliktbestand - 0 Fundstelle/);
   assert.match(text, /Keine Fundstelle/);
 });
 

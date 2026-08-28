@@ -170,7 +170,7 @@ export function ergaenze(datensaetze: readonly Datensatz[], regel: Ergaenzungsre
           feld,
           werte: [...new Set(belege)],
           begruendung:
-            `„${feld}" fehlt. Nur ${belege.length} vergleichbarer Datensatz (${merkmale}) trägt „${belege[0]}" — ` +
+            `„${feld}" fehlt. Nur ${belege.length} vergleichbarer Datensatz (${merkmale}) trägt „${belege[0]}" - ` +
             `ergänzt wird ab ${mindestens}. Ein Einzelfall ist keine Konsistenz`,
         });
         continue;

@@ -143,7 +143,7 @@ function ausMappe(datei: Eingangsdatei, wunsch: Lesewunsch, stand: Quelle['stand
       quellen: [],
       hinweise: [
         `„${datei.name}" hat ${namen.length} Tabellenblätter (${namen.join(', ')}) und es ist keines ausgewählt. ` +
-          'Trage das Blatt am Konsolidierungsschritt ein — ersatzweise eines zu nehmen, ergäbe einen Bericht, ' +
+          'Trage das Blatt am Konsolidierungsschritt ein - ersatzweise eines zu nehmen, ergäbe einen Bericht, ' +
           'der richtig aussieht und es nicht ist',
       ],
     };

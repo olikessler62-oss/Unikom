@@ -603,7 +603,7 @@ export class TransferExecutionService {
         file.name,
         knownSourceFile.duplicate
           ? `Schon übernommen: ${knownSourceFile.message}`
-          : `Noch nicht übernommen — ${file.name} in ${sourcePath}`
+          : `Noch nicht übernommen - ${file.name} in ${sourcePath}`
       );
       if (knownSourceFile.duplicate) {
         await this.transferFileRepository.save(record(FileTransferStatus.SKIPPED, { resolution: 'DUPLICATE' }));
@@ -705,7 +705,7 @@ export class TransferExecutionService {
       // content is compared and before anything is locked again: from here on
       // the run works with the content, not with somebody else's envelope.
       if (job.sourceEncryption?.enabled) {
-        this.event('FILE_DECRYPTING', runId, job, file.name, `${file.name} wird geöffnet — die Quelle hat sie verschlüsselt geliefert`);
+        this.event('FILE_DECRYPTING', runId, job, file.name, `${file.name} wird geöffnet - die Quelle hat sie verschlüsselt geliefert`);
         const opened = await this.openIncomingFile(file, job, stagedPath, finalFilename);
 
         stagedPath = opened.path;
@@ -827,7 +827,7 @@ export class TransferExecutionService {
           runId,
           job,
           file.name,
-          `${finalFilename} liegt dort schon — abgelegt wird unter ${context.destination.nameOf(destination.path)}`
+          `${finalFilename} liegt dort schon - abgelegt wird unter ${context.destination.nameOf(destination.path)}`
         );
       }
 
@@ -949,7 +949,7 @@ export class TransferExecutionService {
 
       this.event('PROCESSING_STAGE_FAILED', runId, job, file.name, message, { stage });
 
-      return `— die Weiterverarbeitung scheiterte in Schritt „${stage}“`;
+      return `- die Weiterverarbeitung scheiterte in Schritt „${stage}“`;
     }
   }
 

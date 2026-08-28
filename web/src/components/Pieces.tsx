@@ -275,7 +275,7 @@ export function RunBadge({ status }: { status: RunStatus }) {
 
 export function formatMoment(iso?: string): string {
   if (!iso) {
-    return '—';
+    return '-';
   }
 
   return new Date(iso).toLocaleString(locale(), {
@@ -300,7 +300,7 @@ export function formatMoment(iso?: string): string {
  */
 export function formatSize(bytes?: number): string {
   if (bytes === undefined) {
-    return '—';
+    return '-';
   }
 
   if (bytes < 1024) {
@@ -321,7 +321,7 @@ export function formatSize(bytes?: number): string {
 
 export function formatDuration(milliseconds?: number): string {
   if (milliseconds === undefined) {
-    return '—';
+    return '-';
   }
 
   if (milliseconds < 1000) {

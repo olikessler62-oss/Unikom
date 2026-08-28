@@ -133,7 +133,7 @@ export function befundzeilen(name: string, berichte: readonly Quellenaufteilung[
     fehlend.length === 0
       ? []
       : [
-          `„${name}": Das Schema hat Regeln für ${fehlend.map((feld) => `„${feld}"`).join(', ')} — ` +
+          `„${name}": Das Schema hat Regeln für ${fehlend.map((feld) => `„${feld}"`).join(', ')} - ` +
             'diese Spalten gibt es in der Datei nicht. Die Regeln blieben außen vor. ' +
             'Häufigster Grund: Die Kopfzeile wurde nicht erkannt, weil alle Spalten Text sind',
         ];
@@ -147,7 +147,7 @@ export function befundzeilen(name: string, berichte: readonly Quellenaufteilung[
   }
 
   const kopf =
-    `„${name}": ${gesamt} Zeilen gegen das Schema geprüft — ${verarbeitbar} verarbeitbar, ` +
+    `„${name}": ${gesamt} Zeilen gegen das Schema geprüft - ${verarbeitbar} verarbeitbar, ` +
     `${gescheitert.length} gescheitert, ${pruefbedarf.length} zur Prüfung durch einen Menschen`;
 
   /* Nach Zeilennummer, damit die Auswahl nicht davon abhängt, welche Regel zuerst stand. */

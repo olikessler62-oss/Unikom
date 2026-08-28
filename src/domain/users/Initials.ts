@@ -82,7 +82,7 @@ export function chooseInitials(
   const candidates = initialsCandidates(name.firstName, name.lastName);
 
   if (candidates.length === 0) {
-    throw new Error('Aus diesem Namen lässt sich kein Kürzel bilden — er enthält keinen einzigen Buchstaben');
+    throw new Error('Aus diesem Namen lässt sich kein Kürzel bilden - er enthält keinen einzigen Buchstaben');
   }
 
   const bisher = keep?.toUpperCase();

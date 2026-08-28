@@ -58,7 +58,7 @@ export function pruefeEinstellungen(einstellungen: Mandanteneinstellungen): Eins
         fehler.push({
           name: 'nullWerte',
           grund:
-            'Ein leerer Eintrag in der Liste der Nullwerte hat keine Wirkung — ein leeres Feld gilt ohnehin als ' +
+            'Ein leerer Eintrag in der Liste der Nullwerte hat keine Wirkung - ein leeres Feld gilt ohnehin als ' +
             'nichts. Er stünde nur da und ließe vermuten, es sei etwas eingestellt',
         });
         break;
@@ -103,7 +103,7 @@ export function pruefeEinstellungen(einstellungen: Mandanteneinstellungen): Eins
         name: 'stichprobeGrenze',
         grund:
           `Die Obergrenze (${stichprobeGrenze}) liegt unter der Stichprobe (${stichprobe}). Sie ist das, worauf ` +
-          'erweitert wird, wenn die Stichprobe nicht ausreicht — darunter würde aus der Erweiterung eine Kürzung',
+          'erweitert wird, wenn die Stichprobe nicht ausreicht - darunter würde aus der Erweiterung eine Kürzung',
       });
     }
   }

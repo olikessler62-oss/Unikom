@@ -123,7 +123,7 @@ export function ResultScreen() {
 
       setMeldung(
         `Der Stand ist als neuer Ergebnisstand angelegt und wartet auf eine Freigabe. ` +
-          `Der alte bleibt, wie er war — auch der, der dazwischen verworfen wurde.`
+          `Der alte bleibt, wie er war - auch der, der dazwischen verworfen wurde.`
       );
       await laden();
       await oeffnen(neu.id);
@@ -150,7 +150,7 @@ export function ResultScreen() {
       <section className="card">
         <h2>Ergebnisstände</h2>
         <p className="muted">
-          Jeder Lauf legt einen eigenen an. Keiner wird verändert und keiner gelöscht — auch der nicht, den jemand
+          Jeder Lauf legt einen eigenen an. Keiner wird verändert und keiner gelöscht - auch der nicht, den jemand
           verworfen hat.
         </p>
 
@@ -200,7 +200,7 @@ export function ResultScreen() {
                         ? stand.freigabe.art === 'AUTOMATISCH'
                           ? 'automatisch'
                           : (stand.freigabe.benutzerName ?? stand.freigabe.benutzer)
-                        : '—'}
+                        : '-'}
                     </td>
                     <td className="muted">{stand.entstanden}</td>
                   </tr>
@@ -336,7 +336,7 @@ function Stand({
           <>
             <p className="muted">
               {stand.pruefung.blockiert
-                ? 'Die Prüfung hat einen blockierenden Fehler gefunden. Dieses Ergebnis lässt sich nicht freigeben — ' +
+                ? 'Die Prüfung hat einen blockierenden Fehler gefunden. Dieses Ergebnis lässt sich nicht freigeben - ' +
                   'nicht einmal mit einer Begründung, weil niemand sagen könnte, was genau freigegeben würde.'
                 : 'Wer über die offenen Punkte hinweggeht, sagt warum. Der Satz steht danach im Vermerk.'}
             </p>
@@ -358,7 +358,7 @@ function Stand({
         ) : (
           <>
             <p className="muted">
-              Dieses Ergebnis gilt. Es lässt sich als Ausgangspunkt wiederherstellen — dabei entsteht ein neuer Stand,
+              Dieses Ergebnis gilt. Es lässt sich als Ausgangspunkt wiederherstellen - dabei entsteht ein neuer Stand,
               und der jetzige bleibt unverändert stehen.
             </p>
             <button className="secondary" disabled={busy} onClick={onWiederherstellen}>
@@ -384,7 +384,7 @@ function Stand({
                 {stand.zeilen.slice(0, 50).map((zeile, stelle) => (
                   <tr key={stelle}>
                     {zeile.map((wert, spalte) => (
-                      <td key={spalte}>{wert === '' ? <span className="muted">—</span> : wert}</td>
+                      <td key={spalte}>{wert === '' ? <span className="muted">-</span> : wert}</td>
                     ))}
                   </tr>
                 ))}
@@ -412,7 +412,7 @@ function Befund({ befund }: { befund: Pruefbefund }) {
       </div>
 
       <Notice kind={SCHWERE_TON[befund.schwere]}>
-        {befund.ursache} — {befund.auswirkung}
+        {befund.ursache} - {befund.auswirkung}
       </Notice>
 
       {befund.beispiele && befund.beispiele.length > 0 && (

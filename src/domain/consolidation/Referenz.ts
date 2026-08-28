@@ -194,7 +194,7 @@ export function gleicheAb(datensatz: Datensatz, index: Referenzindex): Abgleich 
         (nah.length > 0
           ? `Am nächsten liegt ${nah
               .map((eintrag) => `„${eintrag.wert}" (${Math.round(eintrag.aehnlichkeit * 100)} %)`)
-              .join(', ')} — übernommen wird davon nichts, denn Ähnlichkeit ist keine Gleichheit. `
+              .join(', ')} - übernommen wird davon nichts, denn Ähnlichkeit ist keine Gleichheit. `
           : '') +
         (folge === 'KONFLIKT'
           ? 'Für diese Referenz ist eingerichtet, dass ein fehlender Treffer den Datensatz zur Prüfung gibt'
@@ -211,7 +211,7 @@ export function gleicheAb(datensatz: Datensatz, index: Referenzindex): Abgleich 
       gesucht,
       meldung:
         `„${gesucht}" trifft in „${index.bestand.name}" auf ${gefunden.length} Einträge ` +
-        `(Zeile ${gefunden.join(', ')}). Mehrere plausible Treffer sind nicht automatisch entscheidbar — ` +
+        `(Zeile ${gefunden.join(', ')}). Mehrere plausible Treffer sind nicht automatisch entscheidbar - ` +
         'sonst entschiede die Reihenfolge in der Referenzdatei',
     };
   }

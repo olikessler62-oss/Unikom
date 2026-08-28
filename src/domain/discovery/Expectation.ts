@@ -169,7 +169,7 @@ export function combine(
         (vorgabe.verbindlichkeit === 'HINWEIS'
           ? 'die Daten haben den Vorrang, weil die Angabe ein Hinweis ist'
           : 'es gilt die hinterlegte Struktur') +
-        ' — bitte prüfen'
+        ' - bitte prüfen'
     );
   }
 

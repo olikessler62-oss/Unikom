@@ -64,7 +64,7 @@ export function wiedereinstieg(stand: Bearbeitungsstand | undefined, liste: read
   return {
     gilt: false,
     grund:
-      `Der zuletzt bearbeitete Fall ${stand.zuletzt.slice(0, 8)} steht nicht mehr in dieser Liste — ` +
+      `Der zuletzt bearbeitete Fall ${stand.zuletzt.slice(0, 8)} steht nicht mehr in dieser Liste - ` +
       'entweder ist er inzwischen erledigt, oder der gespeicherte Filter lässt ihn nicht mehr durch. ' +
       'Die Liste beginnt deshalb oben',
   };

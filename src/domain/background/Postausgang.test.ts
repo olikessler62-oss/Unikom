@@ -109,7 +109,7 @@ test('eine lange Kopfzeile wird zerlegt, ohne einen Umlaut zu zerreißen', () =>
    * in einem Umlaut endet, ergibt beim Empfänger zwei kaputte Zeichen — und das
    * trifft ausgerechnet die Sprache, für die die Kodierung da ist.
    */
-  const lang = 'Verarbeitung für Müller & Söhne über Nacht abgebrochen — bitte prüfen, ob die Änderungen ankamen';
+  const lang = 'Verarbeitung für Müller & Söhne über Nacht abgebrochen - bitte prüfen, ob die Änderungen ankamen';
   const kodiert = kodiereKopfzeile(lang);
   const stuecke = kodiert.split(String.fromCharCode(13) + String.fromCharCode(10) + ' ');
 

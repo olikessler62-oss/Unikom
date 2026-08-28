@@ -55,7 +55,7 @@ export async function checkDirectory(
         writable: false,
         message:
           `${target} gibt es, aber es ist nicht beschreibbar. Bei einer Freigabe braucht das Konto, unter dem ` +
-          'Unikom läuft, dort Schreibrecht — nicht die Person, die hier angemeldet ist.',
+          'Unikom läuft, dort Schreibrecht - nicht die Person, die hier angemeldet ist.',
       };
 }
 
@@ -99,7 +99,7 @@ async function missingDirectory(
       ok: false,
       exists: false,
       writable: false,
-      message: `${target} gibt es nicht, und ${parent} auch nicht — es lässt sich also auch nicht anlegen.`,
+      message: `${target} gibt es nicht, und ${parent} auch nicht - es lässt sich also auch nicht anlegen.`,
     };
   }
 
@@ -109,7 +109,7 @@ async function missingDirectory(
         exists: false,
         writable: true,
         wouldBeCreated: true,
-        message: `${target} gibt es noch nicht — es wird beim ersten Lauf angelegt.`,
+        message: `${target} gibt es noch nicht - es wird beim ersten Lauf angelegt.`,
       }
     : {
         ok: false,

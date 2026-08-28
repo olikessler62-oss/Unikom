@@ -284,7 +284,7 @@ export class ResultService {
       throw new ErgebnisFehler(
         422,
         'Nur ein freigegebener Ergebnisstand lässt sich wiederherstellen. ' +
-          'Dieser wartet noch auf eine Freigabe — und was nicht gültig war, wird es durch eine Kopie nicht'
+          'Dieser wartet noch auf eine Freigabe - und was nicht gültig war, wird es durch eine Kopie nicht'
       );
     }
 

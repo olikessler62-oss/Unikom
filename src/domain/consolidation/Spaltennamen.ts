@@ -116,7 +116,7 @@ export function benenneNach(
        */
       hinweise.push(
         `Das Schema nennt Spalte ${spalte.position} „${name}", die Datei nennt sie „${benannt[stelle]}". ` +
-          `Es gilt der Name aus der Datei — eine Regel für „${name}" greift hier nicht`
+          `Es gilt der Name aus der Datei - eine Regel für „${name}" greift hier nicht`
       );
     }
   }

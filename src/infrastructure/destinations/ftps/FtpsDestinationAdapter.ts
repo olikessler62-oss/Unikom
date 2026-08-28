@@ -99,7 +99,7 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
       }
 
       this.trace?.(
-        `Liegengebliebene Arbeitsdatei ${entry.name} wird entfernt — ` +
+        `Liegengebliebene Arbeitsdatei ${entry.name} wird entfernt - ` +
           `abgelegt am ${modified?.toISOString()}, älter als einen Tag`
       );
       await client.remove(stale).catch((error: unknown) =>
@@ -118,7 +118,7 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
       return await client.lastMod(fullPath);
     } catch (error) {
       this.trace?.(
-        `Für ${entry.name} nennt der Server keine Änderungszeit (${beschreibe(error)}) — ` +
+        `Für ${entry.name} nennt der Server keine Änderungszeit (${beschreibe(error)}) - ` +
           'die Datei bleibt vorsichtshalber liegen'
       );
       return undefined;
@@ -155,7 +155,7 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
       this.trace?.(`Hochladen fehlgeschlagen, ${working} wird entfernt`);
       await client.remove(working).catch((problem: unknown) =>
         this.trace?.(
-          `${working} konnte nach dem gescheiterten Hochladen nicht entfernt werden: ${beschreibe(problem)} — ` +
+          `${working} konnte nach dem gescheiterten Hochladen nicht entfernt werden: ${beschreibe(problem)} - ` +
             'sie bleibt für den Kehraus des nächsten Laufs liegen'
         )
       );
@@ -192,7 +192,7 @@ export class FtpsDestinationAdapter implements DestinationAdapter {
   }
 
   describe(): string {
-    return `FTPS ${this.config.host ?? '—'}:${ftpsPort(this.config)}`;
+    return `FTPS ${this.config.host ?? '-'}:${ftpsPort(this.config)}`;
   }
 
   async dispose(): Promise<void> {

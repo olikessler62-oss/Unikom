@@ -156,7 +156,7 @@ export function JobsScreen({ canRun }: Props) {
         {canRun && active.length > 0 && (
           <div className="field__hint" style={{ marginTop: '0.8rem' }}>
             Angehalten und abgebrochen wird zwischen zwei Dateien. Eine Datei, die gerade übertragen wird, läuft zu
-            Ende — halb im Ziel darf keine liegen.
+            Ende - halb im Ziel darf keine liegen.
           </div>
         )}
       </section>

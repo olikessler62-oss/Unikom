@@ -67,7 +67,7 @@ function verifyHostKey(
     accepted: false,
     problem:
       `Für ${config.host} ist kein SSH-Hostkey-Fingerabdruck hinterlegt. ` +
-      `Der Server zeigt ${actual}. Diesen Wert nach einer Prüfung als Fingerabdruck eintragen — ` +
+      `Der Server zeigt ${actual}. Diesen Wert nach einer Prüfung als Fingerabdruck eintragen - ` +
       'oder ausdrücklich erlauben, dass ein unbekannter Hostkey angenommen wird.',
   };
 }
@@ -93,7 +93,7 @@ export async function openSftpConnection(
   const method = credentials.privateKey ? 'Schlüsseldatei' : credentials.password ? 'Passwort' : 'ohne Anmeldedaten';
   trace?.(
     `Verbindung zu ${config.host}:${config.port ?? 22} als ` +
-      `„${credentials.username ?? config.username ?? '—'}“ über ${method}`
+      `„${credentials.username ?? config.username ?? '-'}“ über ${method}`
   );
 
   try {

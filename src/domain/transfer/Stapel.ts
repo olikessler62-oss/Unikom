@@ -368,7 +368,7 @@ function schluesselAusNamen(
 
     if (urteil.schluessel === undefined) {
       maengel.add(
-        `Platz „${platz.name}": Im Muster „${platz.muster}" fehlt ${STAPELMARKE} — ` +
+        `Platz „${platz.name}": Im Muster „${platz.muster}" fehlt ${STAPELMARKE} - ` +
           'ohne die Marke ist nicht zu sagen, zu welchem Stapel eine Lieferung gehört'
       );
 

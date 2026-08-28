@@ -71,7 +71,7 @@ export class SmtpPostbote implements Postbote {
 
     if (ausgang.zugangId && !anmeldung) {
       throw new Error(
-        `Der Postausgang verweist auf den Zugang „${ausgang.zugangId}", den es nicht gibt — es wurde nichts versandt`
+        `Der Postausgang verweist auf den Zugang „${ausgang.zugangId}", den es nicht gibt - es wurde nichts versandt`
       );
     }
 

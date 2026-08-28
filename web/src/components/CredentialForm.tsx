@@ -20,8 +20,8 @@ import { Field, Notice } from './Pieces.js';
 const FREIGABE_BEISPIEL = String.fromCharCode(92, 92) + 'SERVER01' + String.fromCharCode(92) + 'Austausch';
 
 export const CREDENTIAL_TYPE_LABELS: Record<Credential['type'], string> = {
-  USERNAME_PASSWORD: 'Anmeldung am Quellserver — Passwort (SFTP/FTPS)',
-  SSH_PRIVATE_KEY: 'Anmeldung am Quellserver — SSH-Schlüssel (SFTP)',
+  USERNAME_PASSWORD: 'Anmeldung am Quellserver - Passwort (SFTP/FTPS)',
+  SSH_PRIVATE_KEY: 'Anmeldung am Quellserver - SSH-Schlüssel (SFTP)',
   ENCRYPTION_KEY: 'Schlüssel zum Verschlüsseln von Dateien',
 };
 
@@ -214,12 +214,12 @@ export function CredentialForm({
           explain={
             <>
               <p>
-                Der UNC-Pfad, für den dieser Zugang gilt — etwa <code>{FREIGABE_BEISPIEL}</code>. Wer später ein
+                Der UNC-Pfad, für den dieser Zugang gilt - etwa <code>{FREIGABE_BEISPIEL}</code>. Wer später ein
                 Verzeichnis darunter aussucht, bekommt diesen Zugang von selbst eingetragen.
               </p>
               <p>
                 Leer lassen ist in Ordnung: Dann wird der Zugang wie bisher am Workflow ausgesucht. Gibt es zwei
-                Zugänge auf demselben Server, gewinnt der genauere — der mit dem längeren Pfad.
+                Zugänge auf demselben Server, gewinnt der genauere - der mit dem längeren Pfad.
               </p>
             </>
           }
@@ -275,7 +275,7 @@ export function CredentialForm({
             </label>
             <div className="field__hint">
               Für den Fall, dass es noch keinen Schlüssel gibt. Unikom behält den privaten Teil und zeigt
-              anschließend den öffentlichen — der wird beim Betreiber des Quellservers hinterlegt.
+              anschließend den öffentlichen - der wird beim Betreiber des Quellservers hinterlegt.
             </div>
           </div>
 
@@ -316,7 +316,7 @@ export function CredentialForm({
 
               <Field
                 label="Passphrase der Datei"
-                explain="Nur falls der Schlüssel eine hat. Sie öffnet die Datei einmal und wird nicht gespeichert — der Eintrag selbst liegt ohnehin verschlüsselt."
+                explain="Nur falls der Schlüssel eine hat. Sie öffnet die Datei einmal und wird nicht gespeichert - der Eintrag selbst liegt ohnehin verschlüsselt."
               >
                 <input
                   type="password"

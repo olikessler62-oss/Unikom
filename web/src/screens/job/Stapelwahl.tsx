@@ -280,7 +280,7 @@ export function Stapelwahl({
                 Lieferung, die niemand erwartet hat.
               </p>
               <p>
-                Weniger Dateien als Plätze kann nicht aufgehen — jeder Platz will besetzt sein. Der Punkt neben der
+                Weniger Dateien als Plätze kann nicht aufgehen - jeder Platz will besetzt sein. Der Punkt neben der
                 Überschrift steht dann auf rot.
               </p>
             </>
@@ -329,7 +329,7 @@ export function Stapelwahl({
 
         <Field
           label="Primär-Datei"
-          explain="Woran die Primär-Datei zu erkennen ist — am Dateinamen, an einem Teil davon, oder ausgesucht."
+          explain="Woran die Primär-Datei zu erkennen ist - am Dateinamen, an einem Teil davon, oder ausgesucht."
         >
           <Dateikennungszeile
             beispiel="Bestellung_*.csv"
@@ -361,7 +361,7 @@ export function Stapelwahl({
                 niemand merkt es. Das ist die schlechtere Hälfte des Wartens.
               </p>
               <p>
-                Ab der ersten Datei und nicht ab einer Uhrzeit — wer um 22:00 liefert und wer um 03:00 liefert,
+                Ab der ersten Datei und nicht ab einer Uhrzeit - wer um 22:00 liefert und wer um 03:00 liefert,
                 bekommt dieselbe Spanne. Ist sie um, wird der Stapel gemeldet und nach „Gescheitert" geräumt,
                 damit das Abholverzeichnis für den nächsten frei ist.
               </p>
@@ -415,7 +415,7 @@ export function Stapelwahl({
             </FieldButton>
 
             <Hint title="Zu verarbeitende Datei(en)">
-              Welche Dateien aus dem Abholverzeichnis mitkommen — am Namen, an einem Teil davon, oder ausgesucht.
+              Welche Dateien aus dem Abholverzeichnis mitkommen - am Namen, an einem Teil davon, oder ausgesucht.
               Das Plus fügt eine Zeile hinzu; es genügt, wenn eine davon trifft.
             </Hint>
           </div>
@@ -450,7 +450,7 @@ export function Stapelwahl({
           explain={
             <>
               <p>
-                Wer eine große Datei hineinkopiert, legt ihren endgültigen Namen sofort an — sichtbar ist sie da, aber
+                Wer eine große Datei hineinkopiert, legt ihren endgültigen Namen sofort an - sichtbar ist sie da, aber
                 noch nicht vollständig.
               </p>
               <p>
@@ -920,7 +920,7 @@ function Sekundaerdateien({
         </FieldButton>
 
         <Hint title="Sekundär-Datei(en)">
-          Die weiteren Dateien, die zum selben Stapel gehören. Das Plus fügt eine Zeile hinzu — so viele, wie neben
+          Die weiteren Dateien, die zum selben Stapel gehören. Das Plus fügt eine Zeile hinzu - so viele, wie neben
           der Primär-Datei erwartet werden.
         </Hint>
       </div>
@@ -1013,7 +1013,7 @@ function Ablageorte({
               AES-256 eingeschlagen.
             </p>
             <p>
-              Das Archiv ist mehr als eine Vorsichtsmaßnahme — es ist der Grund, aus dem das Arbeitsverzeichnis
+              Das Archiv ist mehr als eine Vorsichtsmaßnahme - es ist der Grund, aus dem das Arbeitsverzeichnis
               hinterher überhaupt geräumt werden darf. Was nicht archiviert ist, wird nicht gelöscht.
             </p>
           </>
@@ -1038,7 +1038,7 @@ function Ablageorte({
             </p>
             <p>
               Pflicht, solange dieser Durchgang selbst abholt. Ohne dieses Verzeichnis müsste aus dem
-              Abholverzeichnis gelesen werden — und eine Datei, die mitten im Lauf ankommt, ließe sich dann nicht
+              Abholverzeichnis gelesen werden - und eine Datei, die mitten im Lauf ankommt, ließe sich dann nicht
               sicher ausschließen. Der Lauf fängt deshalb ohne es gar nicht erst an.
             </p>
           </>
@@ -1242,7 +1242,7 @@ function Vorschau({
               <tr>
                 <td>
                   {stand.mit.length === 0 ? (
-                    <em className="muted">nichts — der Filter trifft keine Datei</em>
+                    <em className="muted">nichts - der Filter trifft keine Datei</em>
                   ) : (
                     stand.mit.map((name) => <div key={name}>{name}</div>)
                   )}

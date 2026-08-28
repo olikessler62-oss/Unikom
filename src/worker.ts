@@ -71,7 +71,7 @@ async function main(): Promise<void> {
   const abgebrochene = await hintergrund.markiereAbgebrochene('default');
 
   if (abgebrochene.length > 0) {
-    console.log(`Unikom Worker — ${abgebrochene.length} unterbrochene(r) Lauf/Läufe erkannt und geschlossen`);
+    console.log(`Unikom Worker - ${abgebrochene.length} unterbrochene(r) Lauf/Läufe erkannt und geschlossen`);
   }
 
   hintergrund.beginneHerzschlag(prozess);
@@ -80,9 +80,9 @@ async function main(): Promise<void> {
   await application.runtime.bootstrap.reconstructSchedules(new Date());
   application.runtime.startPolling(POLL_INTERVAL_MS);
 
-  console.log(`Unikom Worker — läuft als ${prozess.id} (PID ${prozess.pid})`);
-  console.log(`Unikom Worker — Daten in ${DATA_DIRECTORY}`);
-  console.log(`Unikom Worker — sieht alle ${Math.round(POLL_INTERVAL_MS / 1000)} Sekunden nach fälligen Workflows`);
+  console.log(`Unikom Worker - läuft als ${prozess.id} (PID ${prozess.pid})`);
+  console.log(`Unikom Worker - Daten in ${DATA_DIRECTORY}`);
+  console.log(`Unikom Worker - sieht alle ${Math.round(POLL_INTERVAL_MS / 1000)} Sekunden nach fälligen Workflows`);
 
   /**
    * Ein ordentliches Ende.
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
    * Hochfahren wäre eine falsche.
    */
   const verabschieden = (signal: string): void => {
-    console.log(`Unikom Worker — ${signal}, beende mich`);
+    console.log(`Unikom Worker - ${signal}, beende mich`);
 
     void hintergrund
       .beendeHerzschlag(prozess)

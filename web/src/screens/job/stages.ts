@@ -23,7 +23,7 @@ export const STAGE_DESCRIPTIONS: Record<StageId, string> = {
   TRANSFER: 'Dateien aus einer Quelle abholen und in einem Zielverzeichnis ablegen.',
   CONSOLIDATE: 'Werte ermitteln, prüfen, korrigieren, zusammenführen usw.',
   DELIVER:
-    'Das Ergebnis hinausgeben: entweder in eine Datenbank importieren oder als Datei exportieren — ' +
+    'Das Ergebnis hinausgeben: entweder in eine Datenbank importieren oder als Datei exportieren - ' +
     'diese wahlweise vorher in ein anderes Format konvertiert.',
 };
 

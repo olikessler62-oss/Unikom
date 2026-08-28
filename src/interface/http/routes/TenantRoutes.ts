@@ -271,7 +271,7 @@ function konfliktverhaltenAus(wert: unknown): Konfliktverhalten | null | undefin
   const vorlage = eintrag.vorlage;
 
   if (vorlage !== undefined && !VORLAGEARTEN.includes(vorlage as Vorlageart)) {
-    throw new ApiError(400, `Die Vorlage muss ${VORLAGEARTEN.join(', ')} sein — nicht „${String(vorlage)}"`);
+    throw new ApiError(400, `Die Vorlage muss ${VORLAGEARTEN.join(', ')} sein - nicht „${String(vorlage)}"`);
   }
 
   const stunden = zahl(eintrag.wiedervorlageStunden);
@@ -290,7 +290,7 @@ function konfliktverhaltenAus(wert: unknown): Konfliktverhalten | null | undefin
   if (auslieferung !== undefined && !AUSLIEFERUNGSARTEN.includes(auslieferung as Auslieferungsart)) {
     throw new ApiError(
       400,
-      `Die Auslieferung muss ${AUSLIEFERUNGSARTEN.join(' oder ')} sein — nicht „${String(auslieferung)}"`
+      `Die Auslieferung muss ${AUSLIEFERUNGSARTEN.join(' oder ')} sein - nicht „${String(auslieferung)}"`
     );
   }
 

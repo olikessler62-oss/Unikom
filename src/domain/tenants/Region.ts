@@ -115,7 +115,7 @@ export function assertRegionIsUsable(region: Region): void {
   if (bedient.length === 0) {
     throw new Error(
       `„${locale}“ ist zwar richtig geschrieben, wird von dieser Installation aber nicht bedient. Datumsangaben ` +
-        'würden dann nach der Einstellung des Rechners gelesen statt nach der eingestellten Region — auf einem ' +
+        'würden dann nach der Einstellung des Rechners gelesen statt nach der eingestellten Region - auf einem ' +
         'anderen Server also anders. Deshalb wird die Angabe abgelehnt.'
     );
   }

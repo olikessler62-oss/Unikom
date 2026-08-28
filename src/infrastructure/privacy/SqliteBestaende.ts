@@ -141,7 +141,7 @@ export function laufprotokollBestand(database: DatabaseSync, jobsOfTenant?: Jobs
         behandlung: 'SCHWAERZEN',
         funde,
         hinweis:
-          'Die Zeilen bleiben erhalten und werden nur an der betroffenen Stelle unkenntlich gemacht — ' +
+          'Die Zeilen bleiben erhalten und werden nur an der betroffenen Stelle unkenntlich gemacht - ' +
           'sonst verschwände mit dem Namen auch die Tatsache, dass etwas verarbeitet wurde',
       };
     },

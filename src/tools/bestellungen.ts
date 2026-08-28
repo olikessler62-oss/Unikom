@@ -79,7 +79,7 @@ const BESTELLUNGEN: Bestellung[] = [
     datei: 'Bestellung_4711_2026-03-02.xlsx',
     blatt: 'Bestellung',
     kopf: [
-      'Muster & Partner GmbH — Zentraler Einkauf',
+      'Muster & Partner GmbH - Zentraler Einkauf',
       'Bestellung Nr. 4711',
       'Bestelldatum: 02.03.2026',
     ],
@@ -129,10 +129,10 @@ const BESTELLUNGEN: Bestellung[] = [
     ],
     zweiter: [
       pos('P-6003', 15, 'Flanschdichtung DN 50, Klingersil'),
-      pos('P-6019', 3, 'Manometer 0–16 bar, Anschluss unten'),
+      pos('P-6019', 3, 'Manometer 0-16 bar, Anschluss unten'),
       pos('P-6027', 40, 'Reduziernippel 1" auf 3/4", Edelstahl'),
       pos('Q-7010', 5, 'Absperrklappe DN 80, mit Handhebel'),
-      pos('Q-7055', 24, 'Schlauchklemme 40–60 mm'),
+      pos('Q-7055', 24, 'Schlauchklemme 40-60 mm'),
     ],
     // Hier die vierte — damit die beiden Dateien nicht denselben Fehler an
     // derselben Stelle tragen und jemand ihn nach der Zeilennummer sucht.
@@ -182,7 +182,7 @@ function beschreibung(): string {
   const zeilen = [
     '# Bestellungen zum Ausprobieren',
     '',
-    'Zwei Excel-Blätter, wie sie aus einem Einkauf kommen — **nicht** wie eine',
+    'Zwei Excel-Blätter, wie sie aus einem Einkauf kommen - **nicht** wie eine',
     'Tabelle gebaut. Alle Häuser, Nummern und Artikel sind erfunden.',
     '',
     'Erzeugt mit `npm run bestellungen`. Geändert wird in',
@@ -191,14 +191,14 @@ function beschreibung(): string {
     '## Der Aufbau beider Blätter',
     '',
     '```text',
-    'Zeile  1–3    Briefkopf: Haus, Bestellnummer, Datum — je in Spalte A',
+    'Zeile  1-3    Briefkopf: Haus, Bestellnummer, Datum - je in Spalte A',
     'Zeile  4      leer',
-    'Zeile  5–6    zwei Sätze in Spalte A: Lieferbedingungen, Hinweise',
+    'Zeile  5-6    zwei Sätze in Spalte A: Lieferbedingungen, Hinweise',
     'Zeile  7      Spaltenüberschriften',
-    'Zeile  8–10   drei Bestellzeilen',
+    'Zeile  8-10   drei Bestellzeilen',
     'Zeile 11      leer',
-    'Zeile 12–16   fünf Bestellzeilen, eine davon um eine Spalte versetzt',
-    'Zeile 17–19   drei Zeilen Fußtext in den ersten drei Spalten',
+    'Zeile 12-16   fünf Bestellzeilen, eine davon um eine Spalte versetzt',
+    'Zeile 17-19   drei Zeilen Fußtext in den ersten drei Spalten',
     '```',
     '',
     '## Was daran schwierig ist',
@@ -207,7 +207,7 @@ function beschreibung(): string {
     '  lassen. Für das Auge eine Bestellzeile wie jede andere; für eine',
     '  Spaltenzuordnung steht die Artikelnummer in der Spalte „Anzahl", und die',
     '  Anzahl ist Text. In `4711` ist es die zweite Zeile des unteren Blocks, in',
-    '  `4712` die vierte — damit niemand den Fehler nach der Zeilennummer sucht.',
+    '  `4712` die vierte - damit niemand den Fehler nach der Zeilennummer sucht.',
     '* **Der Fußtext sieht aus wie ein Datensatz.** „Zahlungsziel · 30 Tage netto ·',
     '  2 % Skonto" steht in denselben drei Spalten wie eine Position. Wer zählt,',
     '  wie viele Zeilen drei gefüllte Zellen haben, bekommt drei Positionen zu',
@@ -215,7 +215,7 @@ function beschreibung(): string {
     '* **Zwei leere Zeilen mittendrin.** Ein Block endet nicht dort, wo die Daten',
     '  aufhören.',
     '* **Zwei Häuser, zwei Überschriften.** `Artikelnummer / Anzahl` gegen',
-    '  `Art.-Nr. / Menge` — dieselbe Spalte, ein anderes Wort.',
+    '  `Art.-Nr. / Menge` - dieselbe Spalte, ein anderes Wort.',
     '',
     '## Die Blätter im Überblick',
     '',
@@ -248,7 +248,7 @@ function main(argv: string[]): void {
   fs.writeFileSync(path.join(ziel, 'LIESMICH_Bestellungen.md'), beschreibung(), 'utf-8');
 
   console.log(`${BESTELLUNGEN.length} Bestellungen geschrieben nach ${ziel}`);
-  console.log('Je 19 Zeilen, davon 8 Positionen — eine davon um eine Spalte versetzt.');
+  console.log('Je 19 Zeilen, davon 8 Positionen - eine davon um eine Spalte versetzt.');
 }
 
 main(process.argv.slice(2));

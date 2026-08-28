@@ -91,5 +91,5 @@ test('die Vorschau zeigt, wie dieser Mandant ein Datum schreibt', () => {
 
 test('eine unbrauchbare Kennung bringt die Vorschau nicht um', () => {
   // Am Mandanten kann etwas stehen, das dieser Browser nicht kennt.
-  assert.equal(previewOf('kein-locale', 'Europe/Berlin').sample, '—');
+  assert.equal(previewOf('kein-locale', 'Europe/Berlin').sample, '-');
 });

@@ -468,7 +468,7 @@ export function ConflictScreen() {
                     <td>{fall.art}</td>
                     <td>{KRITIKALITAET_LABELS[fall.kritikalitaet]}</td>
                     <td>{STATUS_LABELS[fall.status]}</td>
-                    <td className="muted">{fall.sperre?.benutzerName ?? fall.sperre?.benutzer ?? '—'}</td>
+                    <td className="muted">{fall.sperre?.benutzerName ?? fall.sperre?.benutzer ?? '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -481,7 +481,7 @@ export function ConflictScreen() {
         <section className="card">
           <h2>{markiert.length} Fälle gemeinsam bearbeiten</h2>
           <p className="muted">
-            Vor der Ausführung wird gezeigt, was geschieht — und mit welchen Fällen es nicht geht. Jede Änderung trägt
+            Vor der Ausführung wird gezeigt, was geschieht - und mit welchen Fällen es nicht geht. Jede Änderung trägt
             danach dieselbe Vorgangskennung.
           </p>
 
@@ -517,7 +517,7 @@ export function ConflictScreen() {
                   <tr key={eintrag.id}>
                     <td>{eintrag.datensatz}</td>
                     <td>{eintrag.zulaessig ? 'ja' : 'nein'}</td>
-                    <td className="muted">{eintrag.grund ?? '—'}</td>
+                    <td className="muted">{eintrag.grund ?? '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -610,7 +610,7 @@ function Ausleitungen({ mandant }: { mandant: string }) {
 
       <p className="muted">
         Eine Konfliktdatei ist eine Abschrift zum Weitergeben. Sie trägt die Kennungen der Fälle und wird nach
-        Ablauf der Aufbewahrungsfrist fortgeräumt — Fälle, Entscheidungen und Historie bleiben davon unberührt.
+        Ablauf der Aufbewahrungsfrist fortgeräumt - Fälle, Entscheidungen und Historie bleiben davon unberührt.
       </p>
 
       <div className="row">
@@ -719,7 +719,7 @@ function Freigabe({
         <>
           <Notice kind="info">
             Es wartet kein Fall mehr auf eine Entscheidung. Der Korrekturlauf rechnet die ursprüngliche Lieferung
-            noch einmal — diesmal mit den getroffenen Entscheidungen. Er bekommt eine eigene Verarbeitungs-ID und
+            noch einmal - diesmal mit den getroffenen Entscheidungen. Er bekommt eine eigene Verarbeitungs-ID und
             verweist auf den ursprünglichen Lauf; sein Ergebnis ersetzt das zurückgehaltene.
           </Notice>
 
@@ -755,7 +755,7 @@ function Freigabe({
               {stand.hindernisse.slice(0, 5).map((hindernis) => (
                 <li key={hindernis.id}>
                   <strong>{hindernis.datensatz}</strong> ({KRITIKALITAET_LABELS[hindernis.kritikalitaet]},{' '}
-                  {STATUS_LABELS[hindernis.status]}) — {hindernis.ursache}
+                  {STATUS_LABELS[hindernis.status]}) - {hindernis.ursache}
                 </li>
               ))}
               {stand.hindernisse.length > 5 && <li className="muted">… und {stand.hindernisse.length - 5} weitere</li>}
@@ -812,7 +812,7 @@ function Fall({
         <dt>Nächste Schritte</dt>
         <dd>{fall.naechsteSchritte}</dd>
         <dt>Quellen</dt>
-        <dd>{fall.quellen.join(', ') || '—'}</dd>
+        <dd>{fall.quellen.join(', ') || '-'}</dd>
       </dl>
 
       {fall.felder.map((feld) => (
@@ -828,7 +828,7 @@ function Fall({
                 <dt>{eintrag.feld}</dt>
                 <dd>
                   {eintrag.wert === '' ? <span className="muted">leer</span> : eintrag.wert}{' '}
-                  <span className="muted">— {eintrag.begruendung}</span>
+                  <span className="muted">- {eintrag.begruendung}</span>
                 </dd>
               </div>
             ))}
@@ -836,7 +836,7 @@ function Fall({
 
           {vorschau.befunde.map((befund, stelle) => (
             <Notice key={stelle} kind={befund.schwere === 'INFO' ? 'info' : 'error'}>
-              {befund.ursache} — {befund.auswirkung}
+              {befund.ursache} - {befund.auswirkung}
             </Notice>
           ))}
 

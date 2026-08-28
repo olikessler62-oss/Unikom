@@ -184,7 +184,7 @@ function pruefhinweisFuer(gewaehlt: Angebot, juenger: Angebot): string {
     `Die eingestellte Priorität wählt „${gewaehlt.wert}" aus ${gewaehlt.quelle}, ` +
     `aber ${juenger.quelle} hat mit „${juenger.wert}" den jüngeren Datenstand ` +
     `(${juenger.stand?.geaendert ?? juenger.stand?.erstellt} gegenüber ${gewaehlt.stand?.geaendert ?? gewaehlt.stand?.erstellt}). ` +
-    'Die Priorität gilt, weil sie ausdrücklich eingestellt ist — der Fall geht trotzdem zur Prüfung'
+    'Die Priorität gilt, weil sie ausdrücklich eingestellt ist - der Fall geht trotzdem zur Prüfung'
   );
 }
 

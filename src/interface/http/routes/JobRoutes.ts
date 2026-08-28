@@ -508,7 +508,7 @@ export function jobRoutes(application: UnikomApplication): Route[] {
           return ok({
             ok: false,
             message:
-              `„${folder}“ lässt sich nicht als Ordnername verwenden. Es muss ein einfacher Name sein — ohne ` +
+              `„${folder}“ lässt sich nicht als Ordnername verwenden. Es muss ein einfacher Name sein - ohne ` +
               'Pfad und ohne Zeichen, die das Dateisystem ablehnt.',
           });
         }

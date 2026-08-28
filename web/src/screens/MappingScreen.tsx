@@ -48,7 +48,7 @@ function Zustand({ regel }: { regel: Mappingregel }) {
 
   if (regel.vorlaeufig) {
     return (
-      <span className="badge badge--warn" title="Einmal beobachtet — wirkt noch nicht">
+      <span className="badge badge--warn" title="Einmal beobachtet - wirkt noch nicht">
         vorgemerkt
       </span>
     );
@@ -124,12 +124,12 @@ export function MappingScreen({ mandant }: { mandant: string }) {
 
         <div className="prose">
           <p>
-            <strong>Wertmappings</strong> ordnen einem Wert seinen fachlichen Wert zu — „FFm" wird „Frankfurt am
+            <strong>Wertmappings</strong> ordnen einem Wert seinen fachlichen Wert zu - „FFm" wird „Frankfurt am
             Main". Unikom lernt sie selbst und wendet sie ohne Freigabe an; sie treffen einen Wert, den man im
             Datensatz sieht.
           </p>
           <p>
-            <strong>Feldmappings</strong> ordnen eine Spalte einem internen Feld zu — „Kunden-Nr." wird
+            <strong>Feldmappings</strong> ordnen eine Spalte einem internen Feld zu - „Kunden-Nr." wird
             „Kundennummer". Sie wirken <strong>erst mit Ihrer Bestätigung</strong>: Ein falsches Feldmapping leitet
             eine ganze Spalte still ins falsche Zielfeld, und das fällt auf, wenn die Daten längst woanders sind.
           </p>
@@ -161,7 +161,7 @@ export function MappingScreen({ mandant }: { mandant: string }) {
       ) : (
         <section className="card">
           <h2>
-            {regeln.length} Regel(n) — {regeln.filter((regel) => regel.wirkt).length} davon in Kraft
+            {regeln.length} Regel(n) - {regeln.filter((regel) => regel.wirkt).length} davon in Kraft
           </h2>
 
           <div className="table-wrap">
@@ -203,7 +203,7 @@ export function MappingScreen({ mandant }: { mandant: string }) {
                           title={
                             regel.zurueckgenommen
                               ? 'Wieder in Kraft setzen'
-                              : 'Zurücknehmen — die Regel bleibt im Bestand und wirkt nicht mehr'
+                              : 'Zurücknehmen - die Regel bleibt im Bestand und wirkt nicht mehr'
                           }
                           tone={regel.zurueckgenommen ? undefined : 'bad'}
                           disabled={busy}
@@ -220,7 +220,7 @@ export function MappingScreen({ mandant }: { mandant: string }) {
           </div>
 
           <p className="muted">
-            Zurückgenommene Regeln bleiben stehen und werden nicht gelöscht — sonst ließe sich später nicht mehr
+            Zurückgenommene Regeln bleiben stehen und werden nicht gelöscht - sonst ließe sich später nicht mehr
             erklären, warum ein alter Lauf etwas zugeordnet hat.
           </p>
         </section>

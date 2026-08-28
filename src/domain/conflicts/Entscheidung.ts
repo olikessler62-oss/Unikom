@@ -126,7 +126,7 @@ function werteAus(
   wahl: Feldwahl
 ): { wert: string; quelle: string; begruendung: string; fehlt?: string } {
   if (wahl.art === 'LEER') {
-    return { wert: '', quelle: '—', begruendung: 'ausdrücklich leer gelassen' };
+    return { wert: '', quelle: '-', begruendung: 'ausdrücklich leer gelassen' };
   }
 
   if (wahl.art === 'EINGABE') {

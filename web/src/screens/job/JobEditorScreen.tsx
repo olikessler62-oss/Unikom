@@ -390,7 +390,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
    * eine zweite Regel, die dasselbe sagt.
    */
   const basicsReady = Boolean(job.tenantId) && job.name.trim() !== '';
-  const locked = 'Bitte zuerst die Grunddaten ausfüllen — Mandant und Name.';
+  const locked = 'Bitte zuerst die Grunddaten ausfüllen - Mandant und Name.';
   /*
    * Zwei Fragen, die früher eine waren.
    *
@@ -723,7 +723,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               autoFocus={!job.tenantId}
               onChange={(event) => change({ tenantId: event.target.value })}
             >
-              {!job.tenantId && <option value="">— bitte wählen —</option>}
+              {!job.tenantId && <option value="">- bitte wählen -</option>}
               {tenants.data?.map((entry) => (
                 <option key={entry.id} value={entry.id}>
                   {entry.name}
@@ -793,7 +793,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
             <Hint kind="warn" title="Grunddaten zuerst">
               Der Mandant bestimmt, welche Zugänge zur Verfügung stehen und wohin geliefert werden darf. Der Name
               ist das, woran dieser Workflow später in der Liste und in der Historie zu erkennen ist. Solange
-              beides fehlt, bleiben die übrigen Schritte gesperrt — man würde Felder ausfüllen, deren Auswahl
+              beides fehlt, bleiben die übrigen Schritte gesperrt - man würde Felder ausfüllen, deren Auswahl
               sich danach noch ändert.
             </Hint>
           </div>
@@ -925,7 +925,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     label={share ? 'Anmeldung an der Freigabe' : 'Anmeldung am Quellserver'}
                     explain={
                       share
-                        ? 'Pflicht. Ohne Zugang würde die Freigabe mit dem Konto erreicht, unter dem der Dienst läuft — und das ist nicht Ihres.'
+                        ? 'Pflicht. Ohne Zugang würde die Freigabe mit dem Konto erreicht, unter dem der Dienst läuft - und das ist nicht Ihres.'
                         : 'Nur für SFTP und FTPS nötig.'
                     }
                   >
@@ -940,7 +940,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                         value={job.credentialId ?? ''}
                         onChange={(event) => change({ credentialId: event.target.value || undefined })}
                       >
-                        <option value="">{share ? '— bitte wählen —' : '— keine —'}</option>
+                        <option value="">{share ? '- bitte wählen -' : '- keine -'}</option>
                         {usable
                           .filter((credential) => credential.type !== 'ENCRYPTION_KEY')
                           .map((credential) => (
@@ -973,7 +973,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 <>
                   <Field
                     label="Fingerabdruck des Host-Keys"
-                    explain="So wie OpenSSH ihn ausgibt: SHA256:… — ohne ihn wird die Verbindung abgelehnt."
+                    explain="So wie OpenSSH ihn ausgibt: SHA256:… - ohne ihn wird die Verbindung abgelehnt."
                   >
                     <input
                       value={job.sourceConfig.hostKeyFingerprint ?? ''}
@@ -1022,19 +1022,19 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   explain={
                     <>
                       <p>
-                        Wo diese Verbindung auf dem Server beginnt — meist das Verzeichnis des Kunden, etwa{' '}
+                        Wo diese Verbindung auf dem Server beginnt - meist das Verzeichnis des Kunden, etwa{' '}
                         <code>/customer123</code>. Leer lassen heißt: dort, wo der Server das Konto nach der Anmeldung
                         hinstellt.
                       </p>
                       <p>
                         Alles darunter wird von hier aus gelesen. Wer <code>orders/incoming</code> einträgt, meint
-                        dann <code>/customer123/orders/incoming</code> — den physikalischen Pfad des Servers muss
+                        dann <code>/customer123/orders/incoming</code> - den physikalischen Pfad des Servers muss
                         niemand kennen.
                       </p>
                       <p>
                         Es ist zugleich die Grenze: Ein Pfad mit <code>..</code> kann nicht aus diesem Verzeichnis
                         herausführen. Beim Nachbarn <code>/customer1234</code> hilft ihm auch der gleiche Anfang
-                        nicht — verglichen wird Verzeichnis für Verzeichnis, nicht Zeichen für Zeichen.
+                        nicht - verglichen wird Verzeichnis für Verzeichnis, nicht Zeichen für Zeichen.
                       </p>
                     </>
                   }
@@ -1071,7 +1071,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   ) : (
                     <>
                       <p>
-                        Der Pfad zum Verzeichnis, aus dem geholt wird — gelesen vom Remote-Arbeitsverzeichnis aus.
+                        Der Pfad zum Verzeichnis, aus dem geholt wird - gelesen vom Remote-Arbeitsverzeichnis aus.
                       </p>
                       <p>
                         Die Schreibweise ist gleichgültig. Alle diese Eingaben meinen dasselbe Verzeichnis:
@@ -1185,7 +1185,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                           })
                         }
                       >
-                        <option value="">— bitte wählen —</option>
+                        <option value="">- bitte wählen -</option>
                         {usable
                           .filter((credential) => credential.type === 'ENCRYPTION_KEY')
                           .map((credential) => (
@@ -1202,7 +1202,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
 
                   <CheckField
                     label="Unverschlüsselte Dateien annehmen"
-                    explain="Aus: Eine Datei ohne Verschlüsselung wird abgelehnt statt weitergereicht — sie sollte verschlüsselt sein, und dass sie es nicht ist, gehört gemeldet. An: nur für Quellen, die absichtlich beides liefern."
+                    explain="Aus: Eine Datei ohne Verschlüsselung wird abgelehnt statt weitergereicht - sie sollte verschlüsselt sein, und dass sie es nicht ist, gehört gemeldet. An: nur für Quellen, die absichtlich beides liefern."
                     checked={job.sourceEncryption.acceptPlaintext ?? false}
                     onChange={(acceptPlaintext) =>
                       change({
@@ -1234,11 +1234,11 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                       </p>
                       <p>
                         Möglich bei allen Quellen: lokales Verzeichnis, SFTP und FTPS. Was nicht geht, ist eine
-                        Verschlüsselung <em>auf</em> einem fremden Server — dort läuft unsere Software nicht. Diese
+                        Verschlüsselung <em>auf</em> einem fremden Server - dort läuft unsere Software nicht. Diese
                         erste Strecke schützt SSH beziehungsweise TLS.
                       </p>
                       <p>
-                        Was danach im Ziel liegt, entscheidet der Haken im Panel „Ziel" — verschlüsselt, oder wieder
+                        Was danach im Ziel liegt, entscheidet der Haken im Panel „Ziel" - verschlüsselt, oder wieder
                         geöffnet, weil ein weiterer Schritt oder ein fremdes Programm damit arbeiten soll.
                       </p>
                     </>
@@ -1267,7 +1267,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   <p style={{ margin: 0 }}>
                     {zeichen(test.result.ok)}{' '}
                     {test.result.message}
-                    {test.result.filesFound !== undefined && ` — ${test.result.filesFound} Datei(en) gefunden.`}
+                    {test.result.filesFound !== undefined && ` - ${test.result.filesFound} Datei(en) gefunden.`}
                     {/*
                       * Die Schritte in der Reihenfolge, in der sie geschahen.
                       * Eine gescheiterte Verbindung ist sonst ein Satz über
@@ -1365,7 +1365,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
 
               <Endungsfeld
                 label="Endungen unfertiger Uploads"
-                explain="Dateien mit diesen Endungen werden nie übernommen — sie werden gerade erst geschrieben."
+                explain="Dateien mit diesen Endungen werden nie übernommen - sie werden gerade erst geschrieben."
                 platzhalter=".part, .tmp"
                 vorschlaege={UNFERTIGE_ENDUNGEN}
                 werte={job.ignoredTemporaryExtensions}
@@ -1444,8 +1444,8 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     label={shareTarget ? 'Anmeldung an der Freigabe' : 'Anmeldung am Zielserver'}
                     explain={
                       shareTarget
-                        ? 'Pflicht — und ein eigener Zugang, auch wenn Quelle und Ziel dasselbe Haus sind. Zwei Richtungen, zwei Berechtigungen: Wer irgendwo lesen darf, soll nicht anderswo schreiben können.'
-                        : 'Ein eigener Zugang, auch wenn Quelle und Ziel dasselbe Haus sind. Zwei Richtungen, zwei Berechtigungen — wer irgendwo lesen darf, soll nicht anderswo schreiben können.'
+                        ? 'Pflicht - und ein eigener Zugang, auch wenn Quelle und Ziel dasselbe Haus sind. Zwei Richtungen, zwei Berechtigungen: Wer irgendwo lesen darf, soll nicht anderswo schreiben können.'
+                        : 'Ein eigener Zugang, auch wenn Quelle und Ziel dasselbe Haus sind. Zwei Richtungen, zwei Berechtigungen - wer irgendwo lesen darf, soll nicht anderswo schreiben können.'
                     }
                   >
                     <div className="field__row">
@@ -1456,7 +1456,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                           change({ destinationCredentialId: event.target.value || undefined })
                         }
                       >
-                        <option value="">{shareTarget ? '— bitte wählen —' : '— keine —'}</option>
+                        <option value="">{shareTarget ? '- bitte wählen -' : '- keine -'}</option>
                         {usable
                           .filter((credential) => credential.type !== 'ENCRYPTION_KEY')
                           .map((credential) => (
@@ -1483,7 +1483,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               {job.destinationType === 'SFTP' && (
                 <Field
                   label="Fingerabdruck des Host-Keys"
-                  explain="So wie OpenSSH ihn ausgibt: SHA256:… — ohne ihn wird die Verbindung abgelehnt."
+                  explain="So wie OpenSSH ihn ausgibt: SHA256:… - ohne ihn wird die Verbindung abgelehnt."
                 >
                   <input
                     value={job.destinationConfig?.hostKeyFingerprint ?? ''}
@@ -1592,11 +1592,11 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 explain={
                   <>
                     <p>
-                      <strong>Überspringen</strong> — die Datei bleibt in der Quelle liegen und wird im Protokoll als
+                      <strong>Überspringen</strong> - die Datei bleibt in der Quelle liegen und wird im Protokoll als
                       übersprungen geführt. Nichts im Ziel wird angefasst.
                     </p>
                     <p>
-                      <strong>Dateinamen mit Zeitstempel versehen</strong> — beide Dateien bleiben erhalten. Die neue
+                      <strong>Dateinamen mit Zeitstempel versehen</strong> - beide Dateien bleiben erhalten. Die neue
                       bekommt den Zeitpunkt ihres Laufs an den Namen gehängt:
                     </p>
                     <ul className="samples">
@@ -1610,16 +1610,16 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                       </li>
                     </ul>
                     <p>
-                      Die Schreibweise folgt der Sprache, in der der Workflow angelegt wurde — Tag zuerst im Deutschen
+                      Die Schreibweise folgt der Sprache, in der der Workflow angelegt wurde - Tag zuerst im Deutschen
                       und Spanischen, Monat zuerst im Englischen. Sie bleibt danach, wie sie ist: Die Dateien eines
                       Workflows dürfen nicht im Januar anders heißen als im Juni.
                     </p>
                     <p>
-                      <strong>Unter neuem Namen anlegen</strong> — die neue Datei bekommt den Namen, den Sie darunter
+                      <strong>Unter neuem Namen anlegen</strong> - die neue Datei bekommt den Namen, den Sie darunter
                       eintragen. Trifft dieser Name selbst auf eine Datei, wird durchnummeriert.
                     </p>
                     <p>
-                      <strong>Überschreiben</strong> — die vorhandene Datei wird ersetzt. Ihr Inhalt ist danach fort.
+                      <strong>Überschreiben</strong> - die vorhandene Datei wird ersetzt. Ihr Inhalt ist danach fort.
                     </p>
                   </>
                 }
@@ -1669,21 +1669,21 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     <>
                       <p>
                         Die Datei kommt verschlüsselt hier an. <strong>An:</strong> Sie wird im Arbeitsbereich
-                        geöffnet und liegt lesbar im Ziel — nötig, wenn ein weiterer Schritt oder ein fremdes
+                        geöffnet und liegt lesbar im Ziel - nötig, wenn ein weiterer Schritt oder ein fremdes
                         Programm mit den Datensätzen arbeiten soll.
                       </p>
                       <p>
                         <strong>Aus:</strong> Sie bleibt verschlossen{' '}
                         {job.sourceEncryption?.enabled
-                          ? '— geöffnet und mit Ihrem Schlüssel neu verschlossen, nicht mit dem des Absenders.'
-                          : '— so, wie sie beim Abholen verschlüsselt wurde.'}{' '}
+                          ? '- geöffnet und mit Ihrem Schlüssel neu verschlossen, nicht mit dem des Absenders.'
+                          : '- so, wie sie beim Abholen verschlüsselt wurde.'}{' '}
                         Im Ziel liegt dann kein Klartext.
                       </p>
                       {onPickup(job) && (
                         <p>
                           Was das Öffnen kostet, offen gesagt: Auf dem Weg hierher gab es keine lesbare Kopie, und
                           beim Holen entsteht keine. Ab dem Öffnen liegt sie im Arbeitsbereich, bis sie ins Ziel
-                          verschoben ist — kurz, und in unserem eigenen Verzeichnis, das nach dem Lauf geleert wird.
+                          verschoben ist - kurz, und in unserem eigenen Verzeichnis, das nach dem Lauf geleert wird.
                         </p>
                       )}
                     </>
@@ -1713,7 +1713,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 // Warnung mehr, sondern ein Hindernis.
                 <div className="notice notice--warn">
                   Hinter dem Übertragen steht „{followingOf(job, 'TRANSFER')}". Dieser Schritt liest, was hier abgelegt
-                  wird — und eine verschlüsselte Datei gibt keine Datensätze her. Für die Weiterverarbeitung muss die
+                  wird - und eine verschlüsselte Datei gibt keine Datensätze her. Für die Weiterverarbeitung muss die
                   Ablage lesbar sein.
                 </div>
               )}
@@ -1724,7 +1724,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   explain={
                     job.sourceEncryption?.enabled
                       ? 'Ihr eigener Schlüssel, nicht der des Absenders: Die Datei wird geöffnet und für das Ziel neu verschlossen.'
-                      : 'Mit ihm wird die Datei verschlossen — und, wenn sie entschlüsselt abgelegt wird, wieder geöffnet.'
+                      : 'Mit ihm wird die Datei verschlossen - und, wenn sie entschlüsselt abgelegt wird, wieder geöffnet.'
                   }
                 >
                   <div className="field__row">
@@ -1740,7 +1740,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                         change(withEncryption(job, { keyCredentialId: event.target.value || undefined }))
                       }
                     >
-                      <option value="">— bitte wählen —</option>
+                      <option value="">- bitte wählen -</option>
                       {usable
                         .filter((credential) => credential.type === 'ENCRYPTION_KEY')
                         .map((credential) => (
@@ -1781,13 +1781,13 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                       <>
                         <p>
                           Das Archiv liegt <strong>auf der Quelle</strong>, nicht hier und nicht beim Ziel. Die Datei
-                          wird dort verschoben, wo sie liegt — sie kommt kein zweites Mal über die Leitung.
+                          wird dort verschoben, wo sie liegt - sie kommt kein zweites Mal über die Leitung.
                         </p>
                         {remote ? (
                           <p>
                             Die Quelle ist ein {job.sourceType}-Server. Also ein Pfad <em>auf diesem Server</em>, am
                             besten absolut: <code>/exports/archiv</code>. Das Konto, mit dem Unikom sich dort anmeldet,
-                            braucht Schreibrecht — es muss die Datei umbenennen und das Verzeichnis anlegen dürfen.
+                            braucht Schreibrecht - es muss die Datei umbenennen und das Verzeichnis anlegen dürfen.
                           </p>
                         ) : (
                           <p>
@@ -2164,7 +2164,7 @@ function StageModule({
                   <div className="field__row">
                     <span className="field__note">Wird mit dem Modul eingerichtet.</span>
                     <Hint title="Datenbankverbindung">
-                      Die Verbindung gehört zu diesem Modul und wird mit ihm eingerichtet — sie steht später hier,
+                      Die Verbindung gehört zu diesem Modul und wird mit ihm eingerichtet - sie steht später hier,
                       nicht bei den Zugängen: eine Zieltabelle ist kein Zugang, den ein anderer Job mitbenutzt.
                     </Hint>
                   </div>
@@ -2176,7 +2176,7 @@ function StageModule({
                   <span className="field__note">Verarbeitung wird noch gebaut.</span>
                   <Hint kind="warn" title="Noch nicht ausführbar">
                     Die Verkettung wird gespeichert, die Verarbeitung selbst wird noch gebaut. Ein Workflow mit
-                    eingeschaltetem Glied „{STAGE_LABELS[stage]}“ startet deshalb noch nicht — er bricht mit einem
+                    eingeschaltetem Glied „{STAGE_LABELS[stage]}“ startet deshalb noch nicht - er bricht mit einem
                     Hinweis ab, statt die übrigen Glieder allein auszuführen und unverarbeitete Daten weiterzugeben.
                   </Hint>
                 </div>
@@ -2307,7 +2307,7 @@ function Konsolidierungsquelle({
     <Klappkarte titel="Quelle" stand={eingangStand(value)}>
       {verwaist && (
         <Notice kind="warn">
-          Dieser Schritt soll übernehmen, was der Schritt davor ablegt — aber davor liegt keiner mehr. Bitte ein
+          Dieser Schritt soll übernehmen, was der Schritt davor ablegt - aber davor liegt keiner mehr. Bitte ein
           Quellverzeichnis angeben.
         </Notice>
       )}
@@ -2323,12 +2323,12 @@ function Konsolidierungsquelle({
             {vorbelegung && (
               <p>
                 „Ein eigenes Verzeichnis" bekommt beim Umschalten <strong>einmalig</strong> Verzeichnis und Zugang
-                aus dem Ziel des Übertragens eingetragen — als Startwert, nicht als Verbindung. Ändert sich das
+                aus dem Ziel des Übertragens eingetragen - als Startwert, nicht als Verbindung. Ändert sich das
                 Übertragen später, ändert sich dieser Pfad nicht mit.
               </p>
             )}
             <p>
-              Übernommen wird dabei <strong>die Liste dieses Laufs</strong> — nicht alles, was gerade im
+              Übernommen wird dabei <strong>die Liste dieses Laufs</strong> - nicht alles, was gerade im
               Zielverzeichnis liegt. Sonst käme der Bestand von gestern jede Nacht wieder mit.
             </p>
           </>
@@ -2358,7 +2358,7 @@ function Konsolidierungsquelle({
           label="Das ist zurzeit"
           explain="Nur zur Ansicht. Geändert wird es dort, wo der Schritt davor sein Ziel festlegt."
         >
-          <input value={preceding.path || '— noch nicht festgelegt —'} readOnly className="input--derived" />
+          <input value={preceding.path || '- noch nicht festgelegt -'} readOnly className="input--derived" />
         </Field>
       ) : (
         <>
@@ -2369,7 +2369,7 @@ function Konsolidierungsquelle({
                 <p>Wo die zu verarbeitenden Dateien liegen.</p>
                 <p>
                   SFTP und FTPS stehen hier nicht: Das Konsolidieren liest auf dem Dateisystem dieses Rechners. Wer
-                  von einem fremden Server verarbeiten will, schaltet „Daten übertragen" davor — das holt ab, und
+                  von einem fremden Server verarbeiten will, schaltet „Daten übertragen" davor - das holt ab, und
                   diese Quelle übernimmt dann, was es ablegt.
                 </p>
               </>
@@ -2395,7 +2395,7 @@ function Konsolidierungsquelle({
           {freigabe && (
             <Field
               label="Anmeldung an der Freigabe"
-              explain="Pflicht. Ohne Zugang würde die Freigabe mit dem Konto erreicht, unter dem der Dienst läuft — und das ist nicht Ihres."
+              explain="Pflicht. Ohne Zugang würde die Freigabe mit dem Konto erreicht, unter dem der Dienst läuft - und das ist nicht Ihres."
             >
               <div className="field__row">
                 {/*
@@ -2408,7 +2408,7 @@ function Konsolidierungsquelle({
                   value={zugang ?? ''}
                   onChange={(event) => eigenesAendern({ credentialId: event.target.value || undefined })}
                 >
-                  <option value="">— bitte wählen —</option>
+                  <option value="">- bitte wählen -</option>
                   {credentials
                     .filter((credential) => credential.type !== 'ENCRYPTION_KEY')
                     .map((credential) => (
@@ -2474,7 +2474,7 @@ function Konsolidierungsquelle({
             </p>
             <p>
               An heißt: Es werden <strong>mehrere benannte Lieferungen</strong> erwartet, und der Durchgang beginnt
-              erst, wenn sie vollständig sind. Fehlt eine, entstünde sonst ein Ergebnis, dem sie fehlt — und das
+              erst, wenn sie vollständig sind. Fehlt eine, entstünde sonst ein Ergebnis, dem sie fehlt - und das
               sieht vollständig aus.
             </p>
             <p>
@@ -2514,7 +2514,7 @@ function StageSource({
     <>
       {orphaned && (
         <Notice kind="warn">
-          Dieser Schritt soll übernehmen, was der Schritt davor ablegt — aber davor liegt keiner mehr. Bitte ein
+          Dieser Schritt soll übernehmen, was der Schritt davor ablegt - aber davor liegt keiner mehr. Bitte ein
           Quellverzeichnis angeben.
         </Notice>
       )}
@@ -2535,7 +2535,7 @@ function StageSource({
 
       {preceding && value.from === 'PRECEDING' ? (
         <Field label="Das ist zurzeit">
-          <input value={preceding.path || '— noch nicht festgelegt —'} readOnly className="input--derived" />
+          <input value={preceding.path || '- noch nicht festgelegt -'} readOnly className="input--derived" />
         </Field>
       ) : (
         <Field label="Quellverzeichnis">
@@ -2585,7 +2585,7 @@ function StageDestination({
       {(!following || value.to === 'DIRECTORY') && (
         <Field
           label="Zielverzeichnis"
-          explain="Wohin das Ergebnis gelegt wird. Es steht zusätzlich im Ergebnisbestand — dort führt Unikom seine eigene Buchführung mit Prüfung und Freigabe; hierher kommt es für den Kunden."
+          explain="Wohin das Ergebnis gelegt wird. Es steht zusätzlich im Ergebnisbestand - dort führt Unikom seine eigene Buchführung mit Prüfung und Freigabe; hierher kommt es für den Kunden."
         >
           <input
             value={value.to === 'DIRECTORY' ? value.directory : ''}
@@ -2631,7 +2631,7 @@ function PublicKeyOf({ credential }: { credential?: Credential }) {
       </div>
 
       {state.open && (
-        <Modal title={`Öffentlicher Schlüssel — ${credential.name}`} onClose={() => setState({ open: false })}>
+        <Modal title={`Öffentlicher Schlüssel - ${credential.name}`} onClose={() => setState({ open: false })}>
           {!state.publicKey && !state.problem ? (
             <Loading />
           ) : (
@@ -2732,15 +2732,15 @@ function Konsolidierungsregeln({
             setzeRegeln({ betriebsart, fuehrend: betriebsart === 'SAMMELN' ? undefined : regeln.fuehrend });
           }}
         >
-          <option value="SAMMELN">Sammeln — alle Quellen sind gleichwertig</option>
-          <option value="ANREICHERN">Anreichern — eine Datei führt</option>
+          <option value="SAMMELN">Sammeln - alle Quellen sind gleichwertig</option>
+          <option value="ANREICHERN">Anreichern - eine Datei führt</option>
         </select>
       </Field>
 
       {regeln.betriebsart === 'ANREICHERN' && (
         <Field
           label="Führende Datei"
-          explain="Ihr Dateiname, so wie er im Verzeichnis steht. Findet der Lauf sie nicht, meldet er das als fehlende Hauptdatei — er sucht sich keine Ersatzdatei."
+          explain="Ihr Dateiname, so wie er im Verzeichnis steht. Findet der Lauf sie nicht, meldet er das als fehlende Hauptdatei - er sucht sich keine Ersatzdatei."
         >
           <input
             value={regeln.fuehrend ?? ''}
@@ -2752,14 +2752,14 @@ function Konsolidierungsregeln({
 
       <Field label="Was mit den Datensätzen geschieht">
         <select value={regeln.art} onChange={(event) => setzeRegeln({ art: event.target.value as Art })}>
-          <option value="APPEND">Aneinander — die Datensätze stehen nebeneinander</option>
-          <option value="MERGE">Ineinander — gleiche Datensätze werden verschmolzen</option>
+          <option value="APPEND">Aneinander - die Datensätze stehen nebeneinander</option>
+          <option value="MERGE">Ineinander - gleiche Datensätze werden verschmolzen</option>
         </select>
       </Field>
 
       <Field
         label="Schlüsselfelder"
-        explain="Die Felder, an denen zwei Datensätze als derselbe erkannt werden — durch Komma getrennt, etwa: kdnr oder name, plz. Ohne Schlüssel wird nichts verschmolzen und nichts als Dublette erkannt; geraten wird er nicht."
+        explain="Die Felder, an denen zwei Datensätze als derselbe erkannt werden - durch Komma getrennt, etwa: kdnr oder name, plz. Ohne Schlüssel wird nichts verschmolzen und nichts als Dublette erkannt; geraten wird er nicht."
       >
         <input
           value={felder.join(', ')}
@@ -2791,7 +2791,7 @@ function Konsolidierungsregeln({
               })
             }
           >
-            <option value="ENTSCHEIDEN">Ein Mensch entscheidet — sie werden zu Konfliktfällen</option>
+            <option value="ENTSCHEIDEN">Ein Mensch entscheidet - sie werden zu Konfliktfällen</option>
             <option value="ERSTER">Den ersten behalten</option>
             <option value="LETZTER">Den letzten behalten</option>
             <option value="ZUSAMMENFUEHREN">Zusammenführen</option>
@@ -2834,8 +2834,8 @@ function Konsolidierungsregeln({
               });
             }}
           >
-            <option value="KONFLIKT">Als Konflikt melden — genau einer wird erwartet</option>
-            <option value="ALLE">Alle übernehmen — aus einem Satz werden mehrere</option>
+            <option value="KONFLIKT">Als Konflikt melden - genau einer wird erwartet</option>
+            <option value="ALLE">Alle übernehmen - aus einem Satz werden mehrere</option>
             <option value="FELD">Ein Feld entscheidet</option>
           </select>
         </Field>
@@ -2845,7 +2845,7 @@ function Konsolidierungsregeln({
         <>
           <Field
             label="Entscheidendes Feld"
-            explain="Ein Änderungsdatum, eine Versionsnummer, ein Statusrang — das Feld der Zusatzdatei, an dem sich entscheidet, welcher Satz gilt."
+            explain="Ein Änderungsdatum, eine Versionsnummer, ein Statusrang - das Feld der Zusatzdatei, an dem sich entscheidet, welcher Satz gilt."
           >
             <input
               value={regeln.mehrfachtreffer.feld}
@@ -2871,7 +2871,7 @@ function Konsolidierungsregeln({
                 })
               }
             >
-              <option value="GROESSTER">Der größte — das jüngste Datum, die höchste Version</option>
+              <option value="GROESSTER">Der größte - das jüngste Datum, die höchste Version</option>
               <option value="KLEINSTER">Der kleinste</option>
             </select>
           </Field>
@@ -2932,13 +2932,13 @@ function Referenzen({
       <div className="field__row">
         <span className="field__note">
           {quellen.data && quellen.data.length === 0
-            ? 'Noch keine Referenzquelle eingetragen — unter „Daten konsolidieren → Referenzen".'
+            ? 'Noch keine Referenzquelle eingetragen - unter „Daten konsolidieren → Referenzen".'
             : 'Nachschlagen gegen ein Verzeichnis, eine Kundenliste, einen Artikelstamm.'}
         </span>
         <Hint title="Was der Abgleich tut">
           Er beantwortet zwei Fragen: <em>Kennt die Referenz diesen Wert?</em> und, wenn Sie es ausdrücklich
           einstellen, <em>was weiß sie sonst noch darüber?</em> Ein Treffer darf übernommen werden, kein Treffer
-          wird gemeldet — und <strong>mehrere Treffer niemals automatisch</strong>: Zwei plausible Treffer sind
+          wird gemeldet - und <strong>mehrere Treffer niemals automatisch</strong>: Zwei plausible Treffer sind
           keine Auswahl, sondern eine Frage. Referenzdaten werden dabei nur gelesen und nie verändert.
         </Hint>
       </div>
@@ -2959,7 +2959,7 @@ function Referenzen({
                 setze(ersetze(verweise, stelle, { ...verweis, quelleId: event.target.value }))
               }
             >
-              <option value="">— wählen —</option>
+              <option value="">- wählen -</option>
               {(quellen.data ?? []).map((quelle) => (
                 <option key={quelle.id} value={quelle.id}>
                   {quelle.name}
@@ -3001,7 +3001,7 @@ function Referenzen({
 
           <Field
             label="Übernehmen"
-            explain="Zielfeld = Referenzfeld, mit Komma getrennt — etwa ort = ort. Leer heißt: nur prüfen, nichts schreiben."
+            explain="Zielfeld = Referenzfeld, mit Komma getrennt - etwa ort = ort. Leer heißt: nur prüfen, nichts schreiben."
           >
             <input
               value={(verweis.uebernehmen ?? []).map((eintrag) => `${eintrag.feld} = ${eintrag.aus}`).join(', ')}
@@ -3032,7 +3032,7 @@ function Referenzen({
                 )
               }
             >
-              <option value="WARNUNG">Warnen — der Datensatz läuft weiter</option>
+              <option value="WARNUNG">Warnen - der Datensatz läuft weiter</option>
               <option value="KONFLIKT">Als Prüffall vorlegen</option>
               <option value="IGNORIEREN">Nichts tun</option>
             </select>
@@ -3112,7 +3112,7 @@ function Ergebnisformat({
         <span className="field__note">Vor der Verarbeitung und nicht danach.</span>
         <Hint title="Warum vorher">
           „Kritische Fehler … müssen vor Beginn der Verarbeitung erkannt … werden.“ Eine Prüfung hinterher sagt,
-          dass ein Ergebnis auf schlechten Daten beruht — da liegt es aber schon im Zielverzeichnis.
+          dass ein Ergebnis auf schlechten Daten beruht - da liegt es aber schon im Zielverzeichnis.
         </Hint>
       </div>
 
@@ -3130,7 +3130,7 @@ function Ergebnisformat({
           <>
             <p>
               Wogegen die Eingangsdateien geprüft werden: eines der Schemata dieses Mandanten. Gepflegt werden
-              sie unter <strong>Schemata</strong> — ein Schema beschreibt eine Quelle und gilt für alle
+              sie unter <strong>Schemata</strong> - ein Schema beschreibt eine Quelle und gilt für alle
               Workflows, die von dort lesen.
             </p>
             <p>Ohne Schema wird nicht geprüft, sondern nur gelesen.</p>
@@ -3221,7 +3221,7 @@ function Ergebnisformat({
             <span className="field__note">Ohne Feldbeschreibung wird keine Datei geschrieben.</span>
             <Hint title="Warum nicht einfach CSV">
               Ein Empfänger, der eine Datei fester Breite erwartet und eine CSV bekommt, liest sie als eine
-              einzige, sehr breite Spalte — das sieht nach kaputten Daten aus und nicht nach einer falschen
+              einzige, sehr breite Spalte - das sieht nach kaputten Daten aus und nicht nach einer falschen
               Einstellung. Werte, die nicht ins Feld passen, werden <strong>nicht gekürzt</strong>: Sie fehlen
               in der Datei und stehen im Protokoll.
             </Hint>
@@ -3237,7 +3237,7 @@ function Ergebnisformat({
             <section className="card card--nested" key={`breite-${stelle}`}>
               <div className="row row--between">
                 <strong>
-                  Stelle {feld.start}–{feld.start + feld.laenge - 1}
+                  Stelle {feld.start}-{feld.start + feld.laenge - 1}
                 </strong>
                 <button type="button" className="secondary" onClick={() => setzeFelder(ohne(felder, stelle))}>
                   Entfernen
@@ -3311,7 +3311,7 @@ function Ergebnisformat({
 
               <CheckField
                 label="Zu lange Werte kürzen"
-                explain="Ohne Häkchen bleibt das Feld leer und der Wert steht im Protokoll — ein gekürzter Wert sähe für den Empfänger wie ein vollständiger aus."
+                explain="Ohne Häkchen bleibt das Feld leer und der Wert steht im Protokoll - ein gekürzter Wert sähe für den Empfänger wie ein vollständiger aus."
                 checked={feld.kuerzen === true}
                 onChange={(ein) => setzeFelder(ersetze(felder, stelle, { ...feld, kuerzen: ein || undefined }))}
               />
@@ -3400,7 +3400,7 @@ function WeitereDurchgaenge({
         <span className="field__note">Laufen nacheinander, in dieser Reihenfolge.</span>
         <Hint title="Wozu">
           Erst die Filialdateien zusammenlegen, dann das Ergebnis gegen die Kundenliste anreichern. Die
-          Reihenfolge steht so, wie sie hier steht — Unikom ordnet sie nicht um, denn das wäre eine fachliche
+          Reihenfolge steht so, wie sie hier steht - Unikom ordnet sie nicht um, denn das wäre eine fachliche
           Entscheidung. Was daran mehrdeutig ist, meldet der Lauf vorher: zwei Durchgänge auf dasselbe Ziel,
           oder einer, der aus einem Verzeichnis liest, in das ein späterer erst schreibt.
         </Hint>
@@ -3461,7 +3461,7 @@ function WeitereDurchgaenge({
 
           <Verzeichnisfeld
             label="Schreibt nach"
-            explain="Leer heißt: Dieser Durchgang legt nichts ab — dann kann der nächste nichts übernehmen."
+            explain="Leer heißt: Dieser Durchgang legt nichts ab - dann kann der nächste nichts übernehmen."
             titel={`Ziel von Durchgang ${stelle + 2} wählen`}
             wert={durchgang.output?.to === 'DIRECTORY' ? durchgang.output.directory : ''}
             lies={durchsehen}
@@ -3576,10 +3576,10 @@ function Zuordnung({ tenantId, config }: { tenantId: string; config: Konsolidier
           {stand.busy ? 'Wird geholt …' : 'Spalten zuordnen'}
         </button>
         <Hint title="Was das ist">
-          Unikom erkennt, welchem internen Feld eine Spalte entspricht — „Kd-Nr.“, „KdNr“ und
+          Unikom erkennt, welchem internen Feld eine Spalte entspricht - „Kd-Nr.“, „KdNr“ und
           „Kundennummer“ meinen dasselbe. Sicheres wird übernommen, Unsicheres nur vorgeschlagen, und
           Mehrdeutiges bleibt liegen: Ein falsches Feldmapping leitet eine ganze Spalte still ins falsche
-          Zielfeld. Was Sie hier merken, gilt ab dann für diesen Mandanten — derselbe Lieferant wird beim
+          Zielfeld. Was Sie hier merken, gilt ab dann für diesen Mandanten - derselbe Lieferant wird beim
           nächsten Mal nicht wieder gefragt.
         </Hint>
       </div>
@@ -3695,7 +3695,7 @@ function Zuordnungszeile({
       </td>
       <td>
         <select value={gewaehlt} disabled={busy} onChange={(event) => onWahl(event.target.value)}>
-          <option value="">— keins —</option>
+          <option value="">- keins -</option>
           {felder.map((feld) => (
             <option key={feld.intern} value={feld.intern}>
               {feld.label}
@@ -3796,7 +3796,7 @@ function Umformungen({
         <span className="field__note">Läuft vor dem Konsolidieren.</span>
         <Hint title="Warum vorher">
           Ein Schlüssel über „ Meier" und „Meier" findet zwei Kunden, wo einer ist. Was hier eingestellt wird,
-          wirkt deshalb, bevor gruppiert und zusammengeführt wird — sonst fände die Zusammenführung gar nicht
+          wirkt deshalb, bevor gruppiert und zusammengeführt wird - sonst fände die Zusammenführung gar nicht
           erst statt. Die Reihenfolge steht fest: putzen, aufteilen, zusammenführen.
         </Hint>
       </div>
@@ -3923,7 +3923,7 @@ function Vorschau({ tenantId, config }: { tenantId: string; config: Konsolidieru
       <div className="field__row">
         <span className="field__note">Vorschau nur bei einem eigenen Verzeichnis.</span>
         <Hint title="Warum">
-          Dieser Schritt übernimmt, was der Schritt davor ablegt — und das entsteht erst, wenn der Workflow läuft.
+          Dieser Schritt übernimmt, was der Schritt davor ablegt - und das entsteht erst, wenn der Workflow läuft.
           Zum Ausprobieren lässt sich vorübergehend ein Verzeichnis eintragen.
         </Hint>
       </div>
@@ -3959,7 +3959,7 @@ function Vorschautabelle({ daten }: { daten: Umformungsvorschau }) {
 
       {daten.pruefaelle.length > 0 && (
         <Notice kind="warn">
-          {daten.pruefaelle.length} Zeile(n) gehen so nicht durch — der Lauf legt sie als Konflikt vor und
+          {daten.pruefaelle.length} Zeile(n) gehen so nicht durch - der Lauf legt sie als Konflikt vor und
           übernimmt nichts davon. Gefunden über die ganze Datei, nicht nur über die gezeigten Zeilen.
         </Notice>
       )}
@@ -4013,7 +4013,7 @@ function Vorschautabelle({ daten }: { daten: Umformungsvorschau }) {
           <ul>
             {daten.pruefaelle.slice(0, 10).map((fall) => (
               <li key={`${fall.zeile}-${fall.feld}`}>
-                <strong>Zeile {fall.zeile}</strong>, {fall.feld}: „{fall.wert}" — {fall.hinweis}
+                <strong>Zeile {fall.zeile}</strong>, {fall.feld}: „{fall.wert}" - {fall.hinweis}
               </li>
             ))}
           </ul>
@@ -4086,7 +4086,7 @@ function Feldputz({
       {art === 'ANFANGSGROSS' && (
         <CheckField
           label="Namenspartikel klein lassen"
-          explain="von, van, de, der, du, di, zu … — „BERT VON DER HEIDE“ wird damit „Bert von der Heide“ und nicht „Bert Von Der Heide“. Für Felder ohne Namen abschalten."
+          explain="von, van, de, der, du, di, zu … - „BERT VON DER HEIDE“ wird damit „Bert von der Heide“ und nicht „Bert Von Der Heide“. Für Felder ohne Namen abschalten."
           checked={partikelKlein}
           onChange={(ein) =>
             onChange({ ...eintrag, schritte: [{ art: 'ANFANGSGROSS', ...(ein ? {} : { partikel: [] }) }] })
@@ -4128,7 +4128,7 @@ function Feldaufteilung({
         />
       </Field>
 
-      <Field label="Trennzeichen" explain="Woran der Wert zerfällt — ein Komma, ein Leerzeichen, ein Schrägstrich.">
+      <Field label="Trennzeichen" explain="Woran der Wert zerfällt - ein Komma, ein Leerzeichen, ein Schrägstrich.">
         <input
           value={eintrag.trennung.art === 'ZEICHEN' ? eintrag.trennung.zeichen : ''}
           placeholder=","
@@ -4154,7 +4154,7 @@ function Feldaufteilung({
           value={eintrag.ueberschuss ?? 'PRUEFFALL'}
           onChange={(event) => onChange({ ...eintrag, ueberschuss: event.target.value as Ueberschuss })}
         >
-          <option value="PRUEFFALL">Als Prüffall vorlegen — nichts übernehmen</option>
+          <option value="PRUEFFALL">Als Prüffall vorlegen - nichts übernehmen</option>
           <option value="AN_LETZTES">Den Rest ans letzte Zielfeld</option>
         </select>
       </Field>
@@ -4195,7 +4195,7 @@ function Feldzusammenfuehrung({
 
       <Field
         label="Dazwischen"
-        explain="Ein leeres Feld zieht keinen Trenner nach sich — aus einem fehlenden Vornamen wird nicht „ Meier“."
+        explain="Ein leeres Feld zieht keinen Trenner nach sich - aus einem fehlenden Vornamen wird nicht „ Meier“."
       >
         <input
           value={eintrag.trenner}
@@ -4247,7 +4247,7 @@ function Prioritaeten({ regeln, onChange }: { regeln: Regeln; onChange(next: Par
 
       <CheckField
         label="Eine Rangfolge festlegen"
-        explain="Ohne sie entscheidet Unikom nur, wo sich alle Quellen einig sind — alles andere wird ein Konfliktfall."
+        explain="Ohne sie entscheidet Unikom nur, wo sich alle Quellen einig sind - alles andere wird ein Konfliktfall."
         checked={an}
         onChange={(ein) => onChange({ entscheidung: ein ? {} : undefined })}
       />
@@ -4256,7 +4256,7 @@ function Prioritaeten({ regeln, onChange }: { regeln: Regeln; onChange(next: Par
         <>
           <Field
             label="Quellen, beste zuerst"
-            explain="Dateinamen durch Komma getrennt. Was hier nicht steht, kommt danach — in der Reihenfolge, in der die Dateien gelesen wurden."
+            explain="Dateinamen durch Komma getrennt. Was hier nicht steht, kommt danach - in der Reihenfolge, in der die Dateien gelesen wurden."
           >
             <input
               value={(entscheidung.quellen ?? []).join(', ')}
@@ -4267,7 +4267,7 @@ function Prioritaeten({ regeln, onChange }: { regeln: Regeln; onChange(next: Par
 
           <CheckField
             label="Bei Gleichstand entscheidet das neuere Änderungsdatum"
-            explain="Nur, wo die Rangfolge nichts hergibt. Steht eine Quelle ausdrücklich vorn, gewinnt sie auch mit dem älteren Datum — und der Lauf vermerkt, dass etwas dagegen sprach."
+            explain="Nur, wo die Rangfolge nichts hergibt. Steht eine Quelle ausdrücklich vorn, gewinnt sie auch mit dem älteren Datum - und der Lauf vermerkt, dass etwas dagegen sprach."
             checked={entscheidung.aktualitaet === true}
             onChange={(aktualitaet) => setze({ aktualitaet })}
           />
@@ -4320,7 +4320,7 @@ function Ergaenzung({ regeln, onChange }: { regeln: Regeln; onChange(next: Parti
 
       <CheckField
         label="Aus vergleichbaren Datensätzen ergänzen"
-        explain="Beispiel: Alle Sätze mit derselben Postleitzahl tragen denselben Ort — dann bekommt der Satz ohne Ort ihn dazu."
+        explain="Beispiel: Alle Sätze mit derselben Postleitzahl tragen denselben Ort - dann bekommt der Satz ohne Ort ihn dazu."
         checked={ergaenzung !== undefined}
         onChange={(ein) => onChange({ ergaenzung: ein ? { vergleichbarAn: [], felder: [] } : undefined })}
       />
@@ -4383,7 +4383,7 @@ function Aehnlichkeit({ regeln, onChange }: { regeln: Regeln; onChange(next: Par
 
       <CheckField
         label="Verdächtig ähnliche Sätze melden"
-        explain="Sie verändert nichts: Beide Sätze bleiben stehen, und daneben entsteht eine Frage — „Meier GmbH“ und „Meyer GmbH“ etwa."
+        explain="Sie verändert nichts: Beide Sätze bleiben stehen, und daneben entsteht eine Frage - „Meier GmbH“ und „Meyer GmbH“ etwa."
         checked={aehnlich !== undefined}
         onChange={(ein) => onChange({ aehnlichkeit: ein ? { felder: [] } : undefined })}
       />
@@ -4392,7 +4392,7 @@ function Aehnlichkeit({ regeln, onChange }: { regeln: Regeln; onChange(next: Par
         <>
           <Field
             label="Verglichene Felder"
-            explain="Das erste Feld trägt die Vorauswahl — dort sollte etwas Aussagekräftiges stehen, ein Name oder eine Firma."
+            explain="Das erste Feld trägt die Vorauswahl - dort sollte etwas Aussagekräftiges stehen, ein Name oder eine Firma."
           >
             <input
               value={aehnlich.felder.join(', ')}
@@ -4403,7 +4403,7 @@ function Aehnlichkeit({ regeln, onChange }: { regeln: Regeln; onChange(next: Par
 
           <Field
             label="Ab welcher Ähnlichkeit"
-            explain="0 bis 1; leer heißt 0,85. Bei kurzen Werten wie einer Postleitzahl ist 0,85 zu hoch — dort lässt sie rechnerisch keine einzige Abweichung zu."
+            explain="0 bis 1; leer heißt 0,85. Bei kurzen Werten wie einer Postleitzahl ist 0,85 zu hoch - dort lässt sie rechnerisch keine einzige Abweichung zu."
           >
             <input
               value={aehnlich.schwelle === undefined ? '' : String(aehnlich.schwelle)}
@@ -4449,7 +4449,7 @@ function Lieferzweig({
     <>
       <Field
         label="Wohin"
-        explain="Entweder, oder. Wer beides braucht, baut zwei Workflows — sonst wäre unklar, was gilt, wenn eines davon misslingt."
+        explain="Entweder, oder. Wer beides braucht, baut zwei Workflows - sonst wäre unklar, was gilt, wenn eines davon misslingt."
       >
         <select
           value={ziel}

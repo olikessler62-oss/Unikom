@@ -99,7 +99,7 @@ export function pruefeFelder(felder: readonly Schreibfeld[]): string[] {
 
     if (jetzt.start < vorher.start + vorher.laenge) {
       maengel.push(
-        `„${vorher.name}" (${vorher.start}–${vorher.start + vorher.laenge - 1}) und „${jetzt.name}" ` +
+        `„${vorher.name}" (${vorher.start}-${vorher.start + vorher.laenge - 1}) und „${jetzt.name}" ` +
           `(ab ${jetzt.start}) überlappen einander`
       );
     }

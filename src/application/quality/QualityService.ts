@@ -113,7 +113,7 @@ export class QualityService {
         ursache: `Das Pflichtfeld „${feld}" kommt in diesem Bestand nicht vor`,
         auswirkung:
           'Entweder fehlt die Spalte in der Quelle, oder sie ist noch keinem internen Feld zugeordnet. ' +
-          'Gemeldet wird es einmal und nicht je Zeile — es ist eine Frage der Struktur',
+          'Gemeldet wird es einmal und nicht je Zeile - es ist eine Frage der Struktur',
         regel: 'Pflichtfeld',
       });
     }

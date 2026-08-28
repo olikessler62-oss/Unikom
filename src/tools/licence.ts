@@ -38,10 +38,10 @@ function main(argv: string[]): void {
 function printKeys(): void {
   const pair = generateLicenceKeyPair();
 
-  console.log('\nÖffentlicher Schlüssel — gehört in BUILT_IN_LICENCE_PUBLIC_KEY');
+  console.log('\nÖffentlicher Schlüssel - gehört in BUILT_IN_LICENCE_PUBLIC_KEY');
   console.log('(src/infrastructure/licensing/LicencePublicKey.ts) des Auslieferungs-Builds:\n');
   console.log(`  ${pair.publicKey}\n`);
-  console.log('Privater Schlüssel — bleibt beim Hersteller, nie in eine Kundeninstallation:\n');
+  console.log('Privater Schlüssel - bleibt beim Hersteller, nie in eine Kundeninstallation:\n');
   console.log(`  ${pair.privateKey}\n`);
   console.log('Ohne ihn lässt sich keine Lizenz mehr ausstellen, und mit ihm jede.');
   console.log('Ein Wechsel des Schlüssels macht alle bereits ausgestellten Lizenzen ungültig.\n');
@@ -99,7 +99,7 @@ function show(source: string | undefined, options: Map<string, string>): void {
     describe(licence);
 
     const status = evaluateLicence(licence, new Date());
-    console.log(`Zustand:   ${status.state}${status.problem ? ` — ${status.problem}` : ''}`);
+    console.log(`Zustand:   ${status.state}${status.problem ? ` - ${status.problem}` : ''}`);
     console.log(`Läuft:     ${status.mayRun ? 'ja' : 'nein'}\n`);
   } catch (error) {
     console.error(`Ungültig: ${error instanceof Error ? error.message : String(error)}`);
@@ -147,7 +147,7 @@ function parseFeatures(value: string | undefined): Feature[] {
 
   if (unknown.length > 0) {
     console.error(`Unbekannte Module: ${unknown.join(', ')}`);
-    console.error(`Möglich sind: ${FEATURES.join(', ')} — oder "all".`);
+    console.error(`Möglich sind: ${FEATURES.join(', ')} - oder "all".`);
     process.exit(1);
   }
 
@@ -209,7 +209,7 @@ function parseOptions(argv: string[]): Map<string, string> {
 
 function printUsage(): void {
   console.log(`
-Unikom — Lizenzen
+Unikom - Lizenzen
 
   npm run licence -- keys
       Erzeugt ein Schlüsselpaar. Einmal pro Produkt, nicht pro Kunde.

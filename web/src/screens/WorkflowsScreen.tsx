@@ -168,7 +168,7 @@ export function WorkflowsScreen({ canManage, canRun, onEdit, onShowHistory }: Pr
                         <span className="badge badge--muted">Ruht</span>
                       )}
                     </td>
-                    <td>{job.enabled && !blocked ? formatMoment(job.nextExecutionAt) : '—'}</td>
+                    <td>{job.enabled && !blocked ? formatMoment(job.nextExecutionAt) : '-'}</td>
                     <td>
                       <div className="row" style={{ justifyContent: 'flex-end' }}>
                         <RowActions

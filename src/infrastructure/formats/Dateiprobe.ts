@@ -95,13 +95,13 @@ export function warumKeinText(signatur: Signatur | undefined, name: string): str
   switch (signatur) {
     case 'ZIP':
       return (
-        `„${name}" ist ein gepacktes Archiv — eine Excel-Mappe (.xlsx) ist auch eines. ` +
+        `„${name}" ist ein gepacktes Archiv - eine Excel-Mappe (.xlsx) ist auch eines. ` +
         'Unikom liest Tabellenblätter im Lauf; für die Erkennung hier speichern Sie das Blatt bitte als CSV.'
       );
     case 'OLE2':
       return (
         `„${name}" ist im alten Office-Format gespeichert (.xls, .doc). ` +
-        'Speichern Sie das Blatt als CSV — das alte Format liest Unikom an keiner Stelle.'
+        'Speichern Sie das Blatt als CSV - das alte Format liest Unikom an keiner Stelle.'
       );
     case 'PDF':
       return (
@@ -110,7 +110,7 @@ export function warumKeinText(signatur: Signatur | undefined, name: string): str
       );
     case 'UTF-16':
       return (
-        `„${name}" ist als UTF-16 gespeichert. Unikom liest UTF-8 und Windows-1252 — ` +
+        `„${name}" ist als UTF-16 gespeichert. Unikom liest UTF-8 und Windows-1252 - ` +
         'speichern Sie die Datei in einer der beiden.'
       );
     default:

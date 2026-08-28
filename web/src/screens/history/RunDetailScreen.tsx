@@ -142,7 +142,7 @@ export function RunDetailScreen({ runId, onBack }: Props) {
                     )}
                   </td>
                   <td className="numeric">{formatSize(file.destinationSize ?? file.sourceSize)}</td>
-                  <td>{file.destinationFilename ?? '—'}</td>
+                  <td>{file.destinationFilename ?? '-'}</td>
                   <td className="muted">{file.errorMessage ?? ''}</td>
                 </tr>
               ))}

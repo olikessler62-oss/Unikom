@@ -11,7 +11,7 @@ import { isWholeNumber, parseNumber, separatorsOf, type Separators } from './Num
 export type FieldType = 'STRING' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN' | 'DATE' | 'TIME' | 'DATETIME' | 'BINARY' | 'NULL';
 
 /** Was als „nicht ausgefüllt" gilt (SPEC-02, Abschnitt 14). Je Profil änderbar. */
-export const DEFAULT_NULL_VALUES: readonly string[] = ['', '-', '—', 'N/A', 'n/a', 'NULL', 'null'];
+export const DEFAULT_NULL_VALUES: readonly string[] = ['', '-', '-', 'N/A', 'n/a', 'NULL', 'null'];
 
 /**
  * Wahrheitswerte. Absichtlich **ohne** 1 und 0: Eine Spalte aus Einsen und

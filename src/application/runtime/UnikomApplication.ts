@@ -524,7 +524,7 @@ function assemble(wiring: Wiring, options: ApplicationOptions, defaultStagingRoo
     new WorkflowExecutionService(
       {
         execute: () => {
-          throw new Error('Ein Korrekturlauf überträgt nicht — er rechnet auf dem Archivpaket');
+          throw new Error('Ein Korrekturlauf überträgt nicht - er rechnet auf dem Archivpaket');
         },
       },
       konsolidierung

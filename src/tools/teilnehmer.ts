@@ -415,7 +415,7 @@ function beschreibung(): string {
   const zeilen = [
     '# Teilnehmerlisten zum Ausprobieren',
     '',
-    'Fünf Lieferungen desselben Stapels, wie sie aus fünf Häusern kämen —',
+    'Fünf Lieferungen desselben Stapels, wie sie aus fünf Häusern kämen -',
     'je 30 Teilnehmer. **Alle Personen sind erfunden.**',
     '',
     'Erzeugt mit `npm run teilnehmer`. Geändert wird nicht hier, sondern in',
@@ -423,7 +423,7 @@ function beschreibung(): string {
     '',
     '## Was die Listen unterscheidet',
     '',
-    '| Datei | Trenner | Spalten 1–4 | Datum | Nationalität |',
+    '| Datei | Trenner | Spalten 1-4 | Datum | Nationalität |',
     '| --- | --- | --- | --- | --- |',
   ];
 
@@ -444,7 +444,7 @@ function beschreibung(): string {
     '  Dieselbe Person schriebe sich in zwei Häusern verschieden.',
     '* **`03/12/1985` gegen `12/03/1985`.** London schreibt Monat zuerst, Paris den',
     '  Tag. Ohne die Herkunft der Datei ist nicht zu entscheiden, welcher Tag',
-    '  gemeint ist — und beide Schreibweisen sind für sich genommen gültig.',
+    '  gemeint ist - und beide Schreibweisen sind für sich genommen gültig.',
     '* **Drei Arten, die Herkunft zu sagen.** `deutsch`, `DE`, `España`: Wort,',
     '  Kürzel, Landesname.',
     '* **Nachname an wechselnder Stelle.** Berlin führt ihn als vierte Spalte,',

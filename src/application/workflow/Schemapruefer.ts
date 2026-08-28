@@ -148,8 +148,8 @@ function saetze(name: string, urteil: Schemapruefung, bei: BeiVerstoss): string[
   if (urteil.verstoesse.length > 0) {
     hinweise.push(
       bei === 'ABBRECHEN'
-        ? `„${name}" wird nicht verarbeitet — so eingestellt`
-        : `„${name}" wird trotzdem verarbeitet — so eingestellt`
+        ? `„${name}" wird nicht verarbeitet - so eingestellt`
+        : `„${name}" wird trotzdem verarbeitet - so eingestellt`
     );
   }
 

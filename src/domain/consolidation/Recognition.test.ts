@@ -79,7 +79,7 @@ test('eine Zahlenspalte in der fremden Schreibweise ist schlicht Text', () => {
   const alsText = recogniseField('Betrag', amerikanisch56, deutsch);
 
   assert.equal(alsText.type, 'STRING');
-  assert.equal(alsText.certain, true, 'und zwar ohne jeden Zweifel — das ist das Tückische');
+  assert.equal(alsText.certain, true, 'und zwar ohne jeden Zweifel - das ist das Tückische');
   assert.equal(recogniseField('Betrag', amerikanisch56, amerikanisch).type, 'DECIMAL');
 
   assert.equal(recogniseField('Betrag', deutsch56, amerikanisch).type, 'STRING');

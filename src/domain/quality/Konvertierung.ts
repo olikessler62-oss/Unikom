@@ -107,7 +107,7 @@ function alsGanzzahl(text: string, options: Konvertierungsoptionen): Konvertieru
     return konflikt(
       'VERLUST',
       `„${text}" hat Nachkommastellen`,
-      'Sie abzuschneiden wäre ein Datenverlust — aus 1.234,56 würde 1.234. Unikom tut das nicht von selbst'
+      'Sie abzuschneiden wäre ein Datenverlust - aus 1.234,56 würde 1.234. Unikom tut das nicht von selbst'
     );
   }
 

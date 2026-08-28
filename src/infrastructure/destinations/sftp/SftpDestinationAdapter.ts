@@ -100,7 +100,7 @@ export class SftpDestinationAdapter implements DestinationAdapter {
 
       const stale = this.paths.join(directory, entry.name);
       this.trace?.(
-        `Liegengebliebene Arbeitsdatei ${entry.name} wird entfernt — ` +
+        `Liegengebliebene Arbeitsdatei ${entry.name} wird entfernt - ` +
           `abgelegt am ${modified?.toISOString()}, älter als einen Tag`
       );
       await client.delete(stale).catch((error: unknown) =>
@@ -133,7 +133,7 @@ export class SftpDestinationAdapter implements DestinationAdapter {
       this.trace?.(`Hochladen fehlgeschlagen, ${working} wird entfernt`);
       await client.delete(working).catch((problem: unknown) =>
         this.trace?.(
-          `${working} konnte nach dem gescheiterten Hochladen nicht entfernt werden: ${beschreibe(problem)} — ` +
+          `${working} konnte nach dem gescheiterten Hochladen nicht entfernt werden: ${beschreibe(problem)} - ` +
             'sie bleibt für den Kehraus des nächsten Laufs liegen'
         )
       );
@@ -177,7 +177,7 @@ export class SftpDestinationAdapter implements DestinationAdapter {
   }
 
   describe(): string {
-    return `SFTP ${this.config.host ?? '—'}:${this.config.port ?? 22}`;
+    return `SFTP ${this.config.host ?? '-'}:${this.config.port ?? 22}`;
   }
 
   async dispose(): Promise<void> {

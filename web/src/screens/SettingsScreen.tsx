@@ -96,23 +96,23 @@ export function SettingsScreen({ canManage, onLicenceChanged }: Props) {
         {status.state === 'UNLICENSED' ? (
           <div className="prose">
             <p>
-              Diese Installation prüft keinen Zeitraum. Sie läuft mit allen Modulen — der Zustand einer
+              Diese Installation prüft keinen Zeitraum. Sie läuft mit allen Modulen - der Zustand einer
               Entwicklungs- oder Demo-Installation.
             </p>
           </div>
         ) : (
           <div>
-            <Line label="Kunde">{status.customer ?? '—'}</Line>
+            <Line label="Kunde">{status.customer ?? '-'}</Line>
             <Line label="Bezahlt bis">{formatDay(status.validUntil)}</Line>
             <Line label="Verbleibend">
               {status.daysRemaining === undefined
-                ? '—'
+                ? '-'
                 : status.daysRemaining >= 0
                   ? `${status.daysRemaining} Tage`
                   : `seit ${Math.abs(status.daysRemaining)} Tagen abgelaufen`}
             </Line>
             <Line label="Übertragungen">{status.mayRun ? 'laufen' : 'gestoppt'}</Line>
-            <Line label="Lizenznummer">{status.licenceId ?? '—'}</Line>
+            <Line label="Lizenznummer">{status.licenceId ?? '-'}</Line>
             <Line label="Module">
               {status.features && status.features.length > 0
                 ? status.features.map((feature) => FEATURE_LABELS[feature] ?? feature).join(', ')
@@ -160,7 +160,7 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
 
 function formatDay(iso?: string): string {
   if (!iso) {
-    return '—';
+    return '-';
   }
 
   return new Date(iso).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: 'numeric' });

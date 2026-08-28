@@ -81,12 +81,12 @@ export function protocolFilename(run: RunDetail): string {
 
 export function protocolDocument(run: RunDetail, entries: LogEntry[]): string {
   const head = [
-    'Unikom — Laufprotokoll',
+    'Unikom - Laufprotokoll',
     '',
     `Workflow    ${run.jobName ?? run.jobId}`,
     `Lauf        ${run.runId}`,
     `Beginn      ${moment(run.startedAt)}`,
-    run.completedAt ? `Ende        ${moment(run.completedAt)}` : 'Ende        — (noch nicht beendet)',
+    run.completedAt ? `Ende        ${moment(run.completedAt)}` : 'Ende        - (noch nicht beendet)',
     run.durationMs !== undefined ? `Dauer       ${(run.durationMs / 1000).toFixed(1)} s` : undefined,
     `Ergebnis    ${STATUS_TEXTS[run.status] ?? run.status}`,
     `Dateien     ${run.filesFound} gesichtet, ${run.filesSucceeded} übernommen, ` +

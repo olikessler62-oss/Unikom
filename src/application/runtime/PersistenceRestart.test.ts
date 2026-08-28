@@ -268,7 +268,7 @@ test('wer eine Änderung veranlasst hat, steht nach dem Neustart noch da', async
     level: 'INFO',
     userId: 'benutzer-4711',
     username: 'anna',
-    message: 'PUT /api/tenants/default — geändert von anna',
+    message: 'PUT /api/tenants/default - geändert von anna',
   });
   first.close();
 

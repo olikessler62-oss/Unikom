@@ -25,7 +25,7 @@ function demoJob(): TransferJob {
   return {
     id: 'job-demo-001',
     tenantId: DEFAULT_TENANT_ID,
-    name: 'Kunde A – Bestellungen',
+    name: 'Kunde A - Bestellungen',
     description: 'Beispiel-Job gemäß Spec Abschnitt 3',
     enabled: true,
     sourceType: 'LOCAL',
@@ -73,7 +73,7 @@ async function seedSourceDirectory(): Promise<void> {
 }
 
 function formatDuration(milliseconds: number | undefined): string {
-  return milliseconds === undefined ? '—' : `${(milliseconds / 1000).toFixed(1)}s`;
+  return milliseconds === undefined ? '-' : `${(milliseconds / 1000).toFixed(1)}s`;
 }
 
 async function bootstrap(): Promise<void> {
@@ -91,9 +91,9 @@ async function bootstrap(): Promise<void> {
     await application.jobRepository.save(demoJob());
   }
 
-  console.log(`Unikom — Quelle: ${SOURCE_DIRECTORY}`);
-  console.log(`Unikom — Ziel:   ${DESTINATION_DIRECTORY}`);
-  console.log(`Unikom — Log-Level: ${LOG_LEVEL} (mit UNIKOM_LOG_LEVEL=DEBUG mehr Details)\n`);
+  console.log(`Unikom - Quelle: ${SOURCE_DIRECTORY}`);
+  console.log(`Unikom - Ziel:   ${DESTINATION_DIRECTORY}`);
+  console.log(`Unikom - Log-Level: ${LOG_LEVEL} (mit UNIKOM_LOG_LEVEL=DEBUG mehr Details)\n`);
 
   await application.runtime.bootstrap.reconstructSchedules(new Date());
   await application.runtime.orchestrator.runJobNow('job-demo-001');

@@ -501,7 +501,7 @@ export class ConflictService {
       const fall = await this.bestand.byId(id);
 
       if (!fall) {
-        betroffen.push({ id, datensatz: '—', zulaessig: false, werte: {}, grund: 'Diesen Fall gibt es nicht' });
+        betroffen.push({ id, datensatz: '-', zulaessig: false, werte: {}, grund: 'Diesen Fall gibt es nicht' });
         continue;
       }
 

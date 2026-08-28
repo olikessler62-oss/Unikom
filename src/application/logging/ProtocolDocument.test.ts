@@ -22,7 +22,7 @@ function entry(runId: string, message: string, level: LogLevel = 'INFO'): LogEnt
 const RUN: RunDetail = {
   runId: 'TR-8f2c',
   jobId: 'kunde-a',
-  jobName: 'Kunde A – Bestellungen',
+  jobName: 'Kunde A - Bestellungen',
   status: TransferRunStatus.COMPLETED_WITH_ERRORS,
   startedAt: new Date('2026-08-17T03:45:00.000Z'),
   completedAt: new Date('2026-08-17T03:45:12.500Z'),
@@ -42,8 +42,8 @@ test('das gespeicherte Protokoll trägt Kopf, Verlauf und die Fehler noch einmal
     { ...entry('TR-8f2c', 'ORDER_002.csv konnte nicht verschlüsselt werden', 'ERROR'), filename: 'ORDER_002.csv' },
   ]);
 
-  assert.match(text, /Unikom — Laufprotokoll/);
-  assert.match(text, /Workflow {4}Kunde A – Bestellungen/);
+  assert.match(text, /Unikom - Laufprotokoll/);
+  assert.match(text, /Workflow {4}Kunde A - Bestellungen/);
   assert.match(text, /Ergebnis {4}mit Fehlern beendet/);
   assert.match(text, /3 gesichtet, 2 übernommen, 0 übersprungen, 1 fehlgeschlagen/);
   assert.match(text, /2 Zeilen/);

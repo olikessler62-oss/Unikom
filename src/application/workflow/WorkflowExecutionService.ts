@@ -363,7 +363,7 @@ export class WorkflowExecutionService implements JobExecutor {
       return {
         ...uebertragen,
         status: TransferRunStatus.COMPLETED_WITH_ERRORS,
-        message: `${uebertragen.message} — Konsolidierung fehlgeschlagen: ${grund}`,
+        message: `${uebertragen.message} - Konsolidierung fehlgeschlagen: ${grund}`,
       };
     }
   }
@@ -401,7 +401,7 @@ export class WorkflowExecutionService implements JobExecutor {
       return {
         ...uebertragen,
         status: TransferRunStatus.COMPLETED_WITH_ERRORS,
-        message: `${uebertragen.message} — fehlgeschlagen: ${grund}`,
+        message: `${uebertragen.message} - fehlgeschlagen: ${grund}`,
       };
     }
   }
@@ -559,7 +559,7 @@ export class WorkflowExecutionService implements JobExecutor {
         lage.laufId,
         'WARNING',
         `Der Durchgang liest die Freigabe „${eingang.directory}" ohne hinterlegten Zugang. Erreicht wird sie ` +
-          'mit dem Konto, unter dem Unikom läuft — beim Kunden selten das gewünschte.'
+          'mit dem Konto, unter dem Unikom läuft - beim Kunden selten das gewünschte.'
       );
     }
 
@@ -823,7 +823,7 @@ export class WorkflowExecutionService implements JobExecutor {
         ...uebertragen,
         status: erfolgsstatus(uebertragen),
         message:
-          `${uebertragen.message} — ${lage.von <= 1 ? 'konsolidiert' : benennung}: ` +
+          `${uebertragen.message} - ${lage.von <= 1 ? 'konsolidiert' : benennung}: ` +
           `${bericht.zeilen.length} Datensatz/Datensätze` +
           (faelle.length > 0 ? `, ${faelle.length} Konfliktfall/-fälle` : '') +
           (urteil.frei ? ', freigegeben' : ', wartet auf Freigabe'),
@@ -1289,7 +1289,7 @@ export class WorkflowExecutionService implements JobExecutor {
       if (!stand.abgelaufen) {
         // Kein Fehler: Der Stapel ist noch im Entstehen. Beim nächsten Blick
         // des Workers sieht es anders aus.
-        hinweise.push(`Der Stapel ist noch nicht vollständig — ${meldung}. Es wird gewartet.`);
+        hinweise.push(`Der Stapel ist noch nicht vollständig - ${meldung}. Es wird gewartet.`);
 
         return { dateien: [] };
       }
@@ -1304,7 +1304,7 @@ export class WorkflowExecutionService implements JobExecutor {
         job,
         laufId,
         'ERROR',
-        `Der Stapel in „${verzeichnis}" ist nach Ablauf der Frist unvollständig — ${meldung}. ` +
+        `Der Stapel in „${verzeichnis}" ist nach Ablauf der Frist unvollständig - ${meldung}. ` +
           'Er wird verworfen und nicht verarbeitet.'
       );
 
@@ -1799,7 +1799,7 @@ export class WorkflowExecutionService implements JobExecutor {
     if (job.destinationType === 'SFTP' || job.destinationType === 'FTPS') {
       hinweise.push(
         `Der vorangehende Schritt legt seine Dateien auf einem entfernten Server ab (${job.destinationType}). ` +
-          'Die Konsolidierung liest örtlich — trage ihr ein Verzeichnis ein, statt sie an den Schritt davor zu hängen'
+          'Die Konsolidierung liest örtlich - trage ihr ein Verzeichnis ein, statt sie an den Schritt davor zu hängen'
       );
 
       return { dateien: [] };
@@ -1860,7 +1860,7 @@ export class WorkflowExecutionService implements JobExecutor {
         job,
         laufId,
         'WARNING',
-        'Für die Ausgabe mit festen Feldbreiten fehlt die Feldbeschreibung. Es wurde keine Datei geschrieben — ' +
+        'Für die Ausgabe mit festen Feldbreiten fehlt die Feldbeschreibung. Es wurde keine Datei geschrieben - ' +
           'das Ergebnis liegt im Ergebnisstand und lässt sich von dort holen'
       );
 
@@ -1974,7 +1974,7 @@ export class WorkflowExecutionService implements JobExecutor {
     return {
       ...uebertragen,
       status: TransferRunStatus.COMPLETED_WITH_ERRORS,
-      message: `${uebertragen.message} — ${grund}`,
+      message: `${uebertragen.message} - ${grund}`,
     };
   }
 
@@ -1997,7 +1997,7 @@ export class WorkflowExecutionService implements JobExecutor {
       ...uebertragen,
       status:
         uebertragen.status === TransferRunStatus.FAILED ? uebertragen.status : TransferRunStatus.SUCCESS_NO_FILES,
-      message: `${uebertragen.message} — konsolidiert wurde nichts: keine lesbare Quelle${
+      message: `${uebertragen.message} - konsolidiert wurde nichts: keine lesbare Quelle${
         hinweise.length > 0 ? ` (${hinweise[0]})` : ''
       }`,
     };
@@ -2209,7 +2209,7 @@ export function schluesselFuer(
     abbrechen: true,
     hinweise: [
       `Die Dateien lassen sich nicht zusammenführen: ${fund.grund}. ` +
-        'Sie werden nicht verarbeitet. Abhilfe: einen Schlüssel am Durchgang einrichten — ' +
+        'Sie werden nicht verarbeitet. Abhilfe: einen Schlüssel am Durchgang einrichten - ' +
         'oder ein Schema, das ihn nennt',
     ],
   };
@@ -2315,7 +2315,7 @@ function alsKonflikt(fall: Umformungspruefall): Konsolidierungsbericht['konflikt
     ursache: fall.hinweis,
     naechsteSchritte:
       'Die Umformungsregel am Konsolidierungsschritt anpassen oder den Wert in der Quelle berichtigen. ' +
-      'Übernommen wurde nichts — abgeschnitten sähe das Ergebnis untadelig aus und wäre falsch',
+      'Übernommen wurde nichts - abgeschnitten sähe das Ergebnis untadelig aus und wäre falsch',
   };
 }
 

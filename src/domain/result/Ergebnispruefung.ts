@@ -190,7 +190,7 @@ export function pruefeErgebnis(auftrag: Pruefauftrag): Ergebnispruefung {
     befunde.push({
       art: 'ANZAHL',
       schwere: 'WARNUNG',
-      ursache: `Aus ${eingang} Datensätzen sind ${ergebnis} geworden — ein Rückgang um ${prozent(1 - ergebnis / eingang)}`,
+      ursache: `Aus ${eingang} Datensätzen sind ${ergebnis} geworden - ein Rückgang um ${prozent(1 - ergebnis / eingang)}`,
       auswirkung:
         'Bei einer Zusammenführung ist das zu erwarten; bei einem reinen Aneinanderhängen nicht. ' +
         `Gewarnt wird ab ${prozent(anzahlToleranz)}`,
@@ -398,7 +398,7 @@ export function pruefeErgebnis(auftrag: Pruefauftrag): Ergebnispruefung {
         feld,
         ursache: `„${feld}" war im Eingang zu ${prozent(vorher)} gefüllt, im Ergebnis nur noch zu ${prozent(nachher)}`,
         auswirkung:
-          'Kein einzelner Wert muss falsch sein — die Werte, die da sind, können alle stimmen. ' +
+          'Kein einzelner Wert muss falsch sein - die Werte, die da sind, können alle stimmen. ' +
           'Verloren gegangen ist etwas trotzdem: meist eine Zuordnung, die nicht mehr passt',
         zahlen: { vorher, nachher },
       });

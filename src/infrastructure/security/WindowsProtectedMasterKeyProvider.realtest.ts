@@ -65,7 +65,7 @@ const ort = await verzeichnis();
 const erster = new WindowsProtectedMasterKeyProvider(ort).getMasterKey();
 const zweiter = new WindowsProtectedMasterKeyProvider(ort).getMasterKey();
 
-assert.equal(erster.equals(zweiter), true, 'zwei Starts, zwei Schlüssel — das wäre Datenverlust');
+assert.equal(erster.equals(zweiter), true, 'zwei Starts, zwei Schlüssel - das wäre Datenverlust');
 });
 
 test('eine beschädigte Schlüsseldatei wird gemeldet, nicht überschrieben', { skip, timeout: 60_000 }, async () => {

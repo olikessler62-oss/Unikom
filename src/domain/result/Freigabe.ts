@@ -141,7 +141,7 @@ export function beurteileFreigabe(lage: Freigabelage): Freigabeurteil {
       zahlen.WARNUNG === 0,
       zahlen.WARNUNG === 0
         ? 'Die Prüfung hat nichts angemerkt'
-        : `${zahlen.WARNUNG} Warnungen — für diesen Mandanten halten sie die Freigabe auf`
+        : `${zahlen.WARNUNG} Warnungen - für diesen Mandanten halten sie die Freigabe auf`
     );
   }
 
@@ -241,7 +241,7 @@ export function darfManuellFreigeben(urteil: Freigabeurteil, pruefung: Ergebnisp
     return {
       erlaubt: false,
       grund:
-        'Die Ergebnisprüfung hat einen blockierenden Fehler gefunden — Datensätze ohne Verbleib oder eine ' +
+        'Die Ergebnisprüfung hat einen blockierenden Fehler gefunden - Datensätze ohne Verbleib oder eine ' +
         'verfehlte Zielstruktur. Das lässt sich nicht mit einer Begründung freigeben, weil niemand sagen kann, ' +
         'was genau freigegeben würde',
     };

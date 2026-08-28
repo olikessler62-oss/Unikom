@@ -95,7 +95,7 @@ export class WindowsProtectedMasterKeyProvider implements MasterKeyProvider {
     } catch (error) {
       throw new ProtectedMasterKeyError(
         `Der Hauptschlüssel in ${this.keyFile} lässt sich auf diesem Rechner nicht öffnen. ` +
-          'Windows gibt ihn nur dort wieder heraus, wo er erzeugt wurde — nach einem Umzug auf einen anderen ' +
+          'Windows gibt ihn nur dort wieder heraus, wo er erzeugt wurde - nach einem Umzug auf einen anderen ' +
           'Rechner oder einer Neuinstallation von Windows ist das erwartbar. Gespeicherte Zugänge müssen dann ' +
           'neu eingetragen werden. Ist der Schlüssel anderswo gesichert, kann er über die Umgebungsvariable ' +
           'UNIKOM_MASTER_KEY vorgegeben werden.',

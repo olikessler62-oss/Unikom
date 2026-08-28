@@ -122,7 +122,7 @@ export class TenantService {
       const fehler = pruefeEinstellungen(changes.consolidation);
 
       if (fehler.length > 0) {
-        throw new Error(fehler.map((eintrag) => eintrag.grund).join(' — '));
+        throw new Error(fehler.map((eintrag) => eintrag.grund).join(' - '));
       }
     }
 
@@ -178,7 +178,7 @@ export class TenantService {
     if (jobs.length > 0) {
       const tenant = await this.require(id);
       throw new Error(
-        `„${tenant.name}“ hat noch ${jobs.length} Workflow(s). Diese bitte zuerst löschen oder umhängen — ` +
+        `„${tenant.name}“ hat noch ${jobs.length} Workflow(s). Diese bitte zuerst löschen oder umhängen - ` +
           'deleting the client would either take a running schedule with it or hand its jobs to somebody else.'
       );
     }

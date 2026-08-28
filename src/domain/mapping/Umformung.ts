@@ -401,7 +401,7 @@ export function teileAuf(wert: string, regel: Aufteilung): Aufgeteilt {
         schritte: [],
         pruefhinweis:
           `„${wert}" zerfällt in ${teile.length} Teile (${teile.map((teil) => `„${teil}"`).join(', ')}), ` +
-          `es gibt aber nur ${regel.ziele.length} Zielfeld(er). Nichts wurde übernommen — abgeschnitten sähe ` +
+          `es gibt aber nur ${regel.ziele.length} Zielfeld(er). Nichts wurde übernommen - abgeschnitten sähe ` +
           'das Ergebnis untadelig aus und wäre falsch',
       };
     }

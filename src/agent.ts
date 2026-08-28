@@ -127,15 +127,15 @@ async function nachVorn(): Promise<boolean> {
 
 async function main(): Promise<void> {
   if (process.platform !== 'win32') {
-    console.error('Unikom Agent — Desktop-Benachrichtigungen gibt es nur unter Windows. Der Agent beendet sich.');
+    console.error('Unikom Agent - Desktop-Benachrichtigungen gibt es nur unter Windows. Der Agent beendet sich.');
     process.exit(0);
   }
 
   const application = createPersistentApplication(DATA_DIRECTORY, { logger: undefined });
   const hintergrund = application.backgroundService;
 
-  console.log(`Unikom Agent — läuft in der Sitzung von ${process.env.USERNAME ?? 'unbekannt'} (PID ${process.pid})`);
-  console.log(`Unikom Agent — Daten in ${DATA_DIRECTORY}, Oberfläche ${OBERFLAECHE}`);
+  console.log(`Unikom Agent - läuft in der Sitzung von ${process.env.USERNAME ?? 'unbekannt'} (PID ${process.pid})`);
+  console.log(`Unikom Agent - Daten in ${DATA_DIRECTORY}, Oberfläche ${OBERFLAECHE}`);
 
   /*
    * Beim Start das Offene noch einmal — auch, was schon gesehen wurde.
@@ -148,7 +148,7 @@ async function main(): Promise<void> {
   const nachzuholen = await hintergrund.nachzuholen(TENANT_ID);
 
   if (nachzuholen.length > 0) {
-    console.log(`Unikom Agent — ${nachzuholen.length} offene Meldung(en) vom letzten Mal`);
+    console.log(`Unikom Agent - ${nachzuholen.length} offene Meldung(en) vom letzten Mal`);
   }
 
   const gezeigt = new Set<string>();
@@ -167,11 +167,11 @@ async function main(): Promise<void> {
          * drei auf einem Rechner, an dem niemand sitzt.
          */
         if (holtFensterNachVorn(meldung) && !(await nachVorn())) {
-          console.log(`Unikom Agent — kein Fenster „${FENSTER}" offen, nur die Blase gezeigt`);
+          console.log(`Unikom Agent - kein Fenster „${FENSTER}" offen, nur die Blase gezeigt`);
         }
       } catch (fehler) {
         console.error(
-          `Unikom Agent — „${meldung.titel}" ließ sich nicht anzeigen:`,
+          `Unikom Agent - „${meldung.titel}" ließ sich nicht anzeigen:`,
           fehler instanceof Error ? fehler.message : fehler
         );
       }
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
         )
       );
     } catch (fehler) {
-      console.error('Unikom Agent — Nachsehen misslungen:', fehler instanceof Error ? fehler.message : fehler);
+      console.error('Unikom Agent - Nachsehen misslungen:', fehler instanceof Error ? fehler.message : fehler);
     }
   };
 
@@ -204,7 +204,7 @@ async function main(): Promise<void> {
   const takt = setInterval(() => void nachsehen(), NACHSEHEN_ALLE_MS);
 
   const verabschieden = (signal: string): void => {
-    console.log(`Unikom Agent — ${signal}, beende mich`);
+    console.log(`Unikom Agent - ${signal}, beende mich`);
     clearInterval(takt);
     application.close?.();
     process.exit(0);

@@ -220,7 +220,7 @@ export class LocalDirectoryService {
     }
 
     if (stats.size === 0) {
-      return { ok: false, message: `„${path.basename(resolved)}" ist leer — darin ist nichts zu erkennen.` };
+      return { ok: false, message: `„${path.basename(resolved)}" ist leer - darin ist nichts zu erkennen.` };
     }
 
     const gekuerzt = stats.size > PROBE_BYTES;

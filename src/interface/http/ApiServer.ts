@@ -349,7 +349,7 @@ export class ApiServer {
       level: 'INFO',
       userId: session.user.id,
       username: session.user.username,
-      message: `${route.method} ${url.pathname} — geändert von ${session.user.username}`,
+      message: `${route.method} ${url.pathname} - geändert von ${session.user.username}`,
     });
   }
 

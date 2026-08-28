@@ -80,6 +80,6 @@ export function assertDataDirectoryIsLocal(directory: string, kind: DirectoryKin
     `Das Datenverzeichnis „${directory}“ liegt ${wo}. Die Datenbank von Unikom muss auf einer lokalen Platte ` +
       'liegen, weil Dateisperren über das Netz unzuverlässig sind und die Datenbank dabei stillschweigend ' +
       'beschädigt werden kann. Bitte UNIKOM_DATA_DIRECTORY auf ein lokales Verzeichnis setzen. ' +
-      'Quellen und Ziele der Übertragung dürfen weiterhin im Netz liegen — nur die Datenbank nicht.'
+      'Quellen und Ziele der Übertragung dürfen weiterhin im Netz liegen - nur die Datenbank nicht.'
   );
 }

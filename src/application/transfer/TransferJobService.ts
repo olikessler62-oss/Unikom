@@ -125,7 +125,7 @@ export function assertEncryptionIsCoherent(job: TransferJob): void {
     throw new Error(
       'Eine Quelle, die verschlüsselte Dateien liefert, kann nicht zusätzlich beim Abholen verschlüsselt werden: ' +
         'Die Datei bekäme eine zweite Hülle, und ihr Inhalt bliebe verschlossen. Stattdessen vor der Ablage ' +
-        'verschlüsseln — die Datei wird dann im Arbeitsbereich geöffnet und mit dem Schlüssel des Ziels wieder ' +
+        'verschlüsseln - die Datei wird dann im Arbeitsbereich geöffnet und mit dem Schlüssel des Ziels wieder ' +
         'verschlossen.'
     );
   }
@@ -185,7 +185,7 @@ export function assertRemoteConnectionsAreComplete(job: TransferJob): void {
     if (!(credentialId ?? '').trim()) {
       throw new Error(
         `${was} ist als Freigabe eingestellt, es ist aber kein Zugang hinterlegt. Eine Freigabe wird mit ` +
-          'Benutzername und Kennwort verbunden — ohne beides würde sie mit dem Konto erreicht, unter dem der ' +
+          'Benutzername und Kennwort verbunden - ohne beides würde sie mit dem Konto erreicht, unter dem der ' +
           'Dienst gerade läuft, und das ist nicht Ihres.'
       );
     }
@@ -242,7 +242,7 @@ export function assertConflictNameIsUsable(job: TransferJob): void {
 
   if (!isSafeFilename(chosen)) {
     throw new Error(
-      `„${chosen}“ lässt sich nicht als Dateiname verwenden. Es muss ein einfacher Name sein — ohne Pfad und ` +
+      `„${chosen}“ lässt sich nicht als Dateiname verwenden. Es muss ein einfacher Name sein - ohne Pfad und ` +
         'ohne Zeichen, die das Dateisystem ablehnt.'
     );
   }
@@ -287,7 +287,7 @@ export function assertStagesAreCoherent(job: TransferJob): void {
       // Nothing to inherit from means the link has to be told a directory.
       if (!precedingStage(stage, job)) {
         throw new Error(
-          `${label} soll übernehmen, was der Schritt davor ablegt — es gibt aber keinen Schritt davor. ` +
+          `${label} soll übernehmen, was der Schritt davor ablegt - es gibt aber keinen Schritt davor. ` +
             'Entweder ein eigenes Verzeichnis angeben oder einen Schritt davorschalten.'
         );
       }
@@ -298,7 +298,7 @@ export function assertStagesAreCoherent(job: TransferJob): void {
     if (config.output?.to === 'FOLLOWING') {
       if (!followingStage(stage, job)) {
         throw new Error(
-          `${label} soll sein Ergebnis weiterreichen — es folgt aber kein Schritt. Entweder einen Schritt ` +
+          `${label} soll sein Ergebnis weiterreichen - es folgt aber kein Schritt. Entweder einen Schritt ` +
             'dahinterschalten oder ein eigenes Zielverzeichnis angeben; sonst hätte das Ergebnis keinen Platz.'
         );
       }

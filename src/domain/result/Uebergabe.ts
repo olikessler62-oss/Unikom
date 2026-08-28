@@ -122,7 +122,7 @@ function modulDreiBereit(zugang: Modulzugang): { bereit: boolean; grund?: string
       grund:
         'Diese Installation enthält keines der Module, die Daten hinausgeben: ' +
         `${MODUL_DREI.map((feature) => `„${FEATURE_LABELS[feature]}"`).join(' oder ')}. ` +
-        'Einrichten, prüfen und entscheiden geht ohne sie — die Daten ausliefern nicht',
+        'Einrichten, prüfen und entscheiden geht ohne sie - die Daten ausliefern nicht',
     };
   }
 

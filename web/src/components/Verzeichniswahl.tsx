@@ -606,7 +606,7 @@ export function Verzeichnisfenster({
                 <input
                   value={pfadentwurf ?? gewaehlterPfad}
                   spellCheck={false}
-                  aria-label="Pfad — Enter springt dorthin"
+                  aria-label="Pfad - Enter springt dorthin"
                   title="Pfad eingeben oder einfügen, dann Enter"
                   onChange={(event) => setPfadentwurf(event.target.value)}
                   onKeyDown={(event) => {

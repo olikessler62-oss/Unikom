@@ -157,7 +157,7 @@ export function waehleBlatt(vorhanden: readonly string[], wahl: Blattwahl): Blat
         ok: false,
         meldung:
           `Diese Mappe hat kein ${wahl.position}. Tabellenblatt, sondern ${vorhanden.length}. ` +
-          'Eine Auswahl über die Position verschiebt sich, sobald jemand ein Blatt einfügt — ' +
+          'Eine Auswahl über die Position verschiebt sich, sobald jemand ein Blatt einfügt - ' +
           'der Name ist die stabilere Angabe',
         vorhanden,
       };

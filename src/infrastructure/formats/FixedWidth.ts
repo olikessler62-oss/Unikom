@@ -122,7 +122,7 @@ export function readFixedWidth(bytes: Uint8Array, options: FixedWidthOptions): G
 
   if (mehrbytig) {
     notes.push(
-      'Die Datei enthält Zeichen, die mehr als ein Byte belegen. Gezählt wurde in Zeichen — ' +
+      'Die Datei enthält Zeichen, die mehr als ein Byte belegen. Gezählt wurde in Zeichen - ' +
         'wurden die Positionen in Bytes festgelegt, verschieben sich die Felder ab dem ersten solchen Zeichen'
     );
   }

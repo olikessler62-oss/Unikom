@@ -227,7 +227,7 @@ test('die Konfliktzieldatei nimmt die Zeilen, wie sie kommen', async () => {
   assert.equal(
     (await bestand.list('t1'))[0].status,
     'OFFEN',
-    'der Bestand bleibt unberührt — den Status wechselt der ConflictService'
+    'der Bestand bleibt unberührt - den Status wechselt der ConflictService'
   );
 });
 

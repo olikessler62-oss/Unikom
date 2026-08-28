@@ -95,7 +95,7 @@ export function pruefeFassung(fall: Konfliktfall, fassung: number | undefined): 
     ok: false,
     grund:
       `Dieser Fall ist inzwischen in Fassung ${fall.fassung}; die Entscheidung beruht auf Fassung ${fassung}. ` +
-      'Jemand anderes war schneller. Bitte den Fall neu ansehen — sonst überschriebe die Entscheidung eine, ' +
+      'Jemand anderes war schneller. Bitte den Fall neu ansehen - sonst überschriebe die Entscheidung eine, ' +
       'die niemand gesehen hat',
   };
 }

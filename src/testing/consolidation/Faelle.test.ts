@@ -28,11 +28,11 @@ for (const fall of FAELLE) {
     }
 
     if (erwartet.delimiterCertain !== undefined) {
-      assert.equal(table.delimiterCertain, erwartet.delimiterCertain, `Trennzeichen sicher — ${table.notes.join(' / ')}`);
+      assert.equal(table.delimiterCertain, erwartet.delimiterCertain, `Trennzeichen sicher - ${table.notes.join(' / ')}`);
     }
 
     if (erwartet.header !== undefined) {
-      assert.equal(table.header, erwartet.header, `Kopfzeile — ${table.notes.join(' / ')}`);
+      assert.equal(table.header, erwartet.header, `Kopfzeile - ${table.notes.join(' / ')}`);
     }
 
     if (erwartet.fields) {

@@ -60,7 +60,7 @@ export function ChangePasswordScreen({ forced = false, displayName, askForUser =
             ist.
           </div>
         ) : (
-          <p className="muted">Nach der Änderung müssen Sie sich neu anmelden — auch in anderen Browsern.</p>
+          <p className="muted">Nach der Änderung müssen Sie sich neu anmelden - auch in anderen Browsern.</p>
         )}
 
         {error && <div className="notice notice--error">{error}</div>}
@@ -103,7 +103,7 @@ export function ChangePasswordScreen({ forced = false, displayName, askForUser =
             required
           />
           <div className="field__hint">
-            {tooShort ? `Noch zu kurz — mindestens ${MINIMUM_LENGTH} Zeichen.` : `Mindestens ${MINIMUM_LENGTH} Zeichen.`}
+            {tooShort ? `Noch zu kurz - mindestens ${MINIMUM_LENGTH} Zeichen.` : `Mindestens ${MINIMUM_LENGTH} Zeichen.`}
           </div>
         </div>
 

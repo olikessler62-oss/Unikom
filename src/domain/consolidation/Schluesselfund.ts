@@ -64,7 +64,7 @@ export interface Fundoptionen {
  */
 export function findeSchluessel(quellen: readonly Quelle[], optionen: Fundoptionen = {}): Schluesselfund {
   if (quellen.length < 2) {
-    return { art: 'KEINER', grund: 'Es gibt nur eine Quelle — zusammenzuführen ist nichts' };
+    return { art: 'KEINER', grund: 'Es gibt nur eine Quelle - zusammenzuführen ist nichts' };
   }
 
   const gemeinsame = gemeinsameFelder(quellen);
@@ -72,7 +72,7 @@ export function findeSchluessel(quellen: readonly Quelle[], optionen: Fundoption
   if (gemeinsame.length === 0) {
     return {
       art: 'KEINER',
-      grund: 'Kein Feld kommt in allen Quellen vor — sie haben keine Spalte gemeinsam',
+      grund: 'Kein Feld kommt in allen Quellen vor - sie haben keine Spalte gemeinsam',
     };
   }
 
@@ -100,7 +100,7 @@ export function findeSchluessel(quellen: readonly Quelle[], optionen: Fundoption
       kandidaten,
       grund:
         `Mehrere Felder kämen als Schlüssel infrage (${kandidaten.join(', ')}), und sie führen zu ` +
-        `verschiedenen Zuordnungen — „${kandidaten[0]}" und „${abweichend[0]}" paaren nicht dieselben Zeilen`,
+        `verschiedenen Zuordnungen - „${kandidaten[0]}" und „${abweichend[0]}" paaren nicht dieselben Zeilen`,
     };
   }
 

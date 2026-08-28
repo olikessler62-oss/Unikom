@@ -176,8 +176,8 @@ export function HistoryScreen({ initialJobId }: Props) {
                   // und ohne ihn sähe niemand, dass hier etwas zu öffnen ist.
                   <tr key={run.runId} className="row--opens" onClick={() => setRunId(run.runId)}>
                     <td>
-                      <div>{tenant?.name ?? '—'}</div>
-                      <div className="cell__sub">{job?.name ?? '—'}</div>
+                      <div>{tenant?.name ?? '-'}</div>
+                      <div className="cell__sub">{job?.name ?? '-'}</div>
                     </td>
                     <td>
                       <div>{formatMoment(run.startedAt)}</div>
@@ -267,7 +267,7 @@ function FailureList({ resource }: { resource: ReturnType<typeof useResource<Tra
                 <div className="cell__sub">{file.sourcePath}</div>
               </td>
               <td className="cell--moment">{formatMoment(file.startedAt)}</td>
-              <td>{file.errorMessage ?? file.errorCode ?? '—'}</td>
+              <td>{file.errorMessage ?? file.errorCode ?? '-'}</td>
             </tr>
           ))}
         </tbody>

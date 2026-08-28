@@ -91,7 +91,7 @@ export function fristenEines(job: TransferJob, voreinstellung = DEFAULT_LOG_RETE
           job.sourceSuccessAction === 'KEEP'
             ? 'Eine Eingangsdatei, die liegen bleibt, ist ein Bestand, den niemand verwaltet (FR_009, Abschnitt 4)'
             : job.sourceSuccessAction === 'MOVE'
-              ? `Verschoben nach ${job.sourceArchiveDirectory ?? '— kein Verzeichnis eingetragen'}; dort gilt keine Frist`
+              ? `Verschoben nach ${job.sourceArchiveDirectory ?? '- kein Verzeichnis eingetragen'}; dort gilt keine Frist`
               : undefined,
       },
     ],

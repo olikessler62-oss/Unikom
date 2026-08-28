@@ -133,7 +133,7 @@ function satz(benennung: string, verzeichnis: string, fehlend: readonly Ablageor
   return (
     `${benennung} liest aus „${verzeichnis}". ` +
     `${namen.length === 1 ? 'Es fehlt das Verzeichnis' : 'Es fehlen die Verzeichnisse'} ${aufzaehlung(namen)}. ` +
-    'Der Durchgang läuft deshalb nicht — die Lieferung bleibt unangetastet liegen. ' +
+    'Der Durchgang läuft deshalb nicht - die Lieferung bleibt unangetastet liegen. ' +
     'Einzutragen sind sie am Durchgang unter „Verzeichnisse".'
   );
 }

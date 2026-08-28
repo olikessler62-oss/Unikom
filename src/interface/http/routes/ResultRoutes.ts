@@ -41,7 +41,7 @@ export function resultRoutes(application: UnikomApplication): Route[] {
     const bericht = requireObject(eingabe.report, 'Der Konsolidierungsbericht');
 
     if (!Array.isArray(bericht.zeilen) || !Array.isArray(bericht.felder)) {
-      throw new ApiError(400, 'Der Bericht braucht Felder und Zeilen — er kommt aus dem Prüflauf');
+      throw new ApiError(400, 'Der Bericht braucht Felder und Zeilen - er kommt aus dem Prüflauf');
     }
 
     const eingang = requireObject(eingabe.input, 'Der Eingangsbestand');

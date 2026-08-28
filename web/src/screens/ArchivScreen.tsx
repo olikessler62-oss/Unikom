@@ -166,7 +166,7 @@ export function ArchivScreen({ mandant }: { mandant: string }) {
       <section className="card">
         <h2>Archiv</h2>
         <p className="muted">
-          Die Eingangsdateien, wie sie ankamen — verschlüsselt abgelegt, bevor der Lauf sie angefasst hat.
+          Die Eingangsdateien, wie sie ankamen - verschlüsselt abgelegt, bevor der Lauf sie angefasst hat.
         </p>
 
         {orte.length === 0 ? (
@@ -177,12 +177,12 @@ export function ArchivScreen({ mandant }: { mandant: string }) {
         ) : (
           <Field
             label="Archivverzeichnis"
-            explain="Die Verzeichnisse, die an den Workflows dieses Mandanten stehen. Getippt wird hier nichts — ein Tippfehler führte in ein leeres Verzeichnis, ohne dass jemand merkt, dass er am falschen Ort sucht."
+            explain="Die Verzeichnisse, die an den Workflows dieses Mandanten stehen. Getippt wird hier nichts - ein Tippfehler führte in ein leeres Verzeichnis, ohne dass jemand merkt, dass er am falschen Ort sucht."
           >
             <select className="input--wahl" value={gewaehlt ?? ''} onChange={(event) => setOrt(event.target.value)}>
               {orte.map((eintrag) => (
                 <option key={eintrag.verzeichnis} value={eintrag.verzeichnis}>
-                  {eintrag.verzeichnis} — {eintrag.workflow}
+                  {eintrag.verzeichnis} - {eintrag.workflow}
                   {eintrag.durchgang ? ` / ${eintrag.durchgang}` : ''}
                 </option>
               ))}
@@ -213,7 +213,7 @@ export function ArchivScreen({ mandant }: { mandant: string }) {
                   {pakete.map((paket) => (
                     <tr key={paket.pfad} className={inhalt?.pfad === paket.pfad ? 'row--selected' : undefined}>
                       <td>{paket.name}</td>
-                      <td className="muted">{paket.geaendert ?? '—'}</td>
+                      <td className="muted">{paket.geaendert ?? '-'}</td>
                       <td>
                         <div className="row" style={{ justifyContent: 'flex-end' }}>
                           <button className="secondary" disabled={busy} onClick={() => void oeffne(paket)}>

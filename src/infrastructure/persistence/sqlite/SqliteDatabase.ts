@@ -325,7 +325,7 @@ CREATE TABLE IF NOT EXISTS worker_heartbeats (
 );
 
 -- Benachrichtigungen (SPEC-01, Abschnitt 19 bis 22). Sie duerfen nicht verloren
--- gehen, nur weil jemand ein Popup geschlossen hat — deshalb liegen sie hier
+-- gehen, nur weil jemand ein Popup geschlossen hat - deshalb liegen sie hier
 -- und nicht im Arbeitsspeicher der Oberflaeche.
 CREATE TABLE IF NOT EXISTS notifications (
   id             TEXT PRIMARY KEY,
@@ -590,7 +590,7 @@ function migrateUsers(database: DatabaseSync, notice: (message: string) => void)
       notice(
         `Benutzer „${row.username}" hatte die Stufe ${row.role}; es gibt nur noch Administrator und Normal, ` +
           'daher steht das Konto jetzt auf Normal' +
-          (row.role === 'VIEWER' ? ' — es darf damit Workflows ändern und starten, vorher nur ansehen' : '')
+          (row.role === 'VIEWER' ? ' - es darf damit Workflows ändern und starten, vorher nur ansehen' : '')
       );
     }
   }
