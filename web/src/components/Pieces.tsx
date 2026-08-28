@@ -173,6 +173,7 @@ export function Modal({
   tone,
   ownActions = false,
   schmal = false,
+  breit = false,
   geteilt = false,
   onClose,
   children,
@@ -198,6 +199,15 @@ export function Modal({
    * eigentlichen Inhalt herum.
    */
   schmal?: boolean;
+  /**
+   * Ob das Fenster die Breite eines Bildschirms nimmt.
+   *
+   * Für Fenster, die selbst ein Bildschirm sind - der Mandant etwa, der neun
+   * Blätter trägt und darunter Tabellen. Die gewöhnliche Breite ist für Text
+   * und Formulare gemessen; eine Tabelle mit sechs Spalten fängt darin an, sich
+   * zu winden.
+   */
+  breit?: boolean;
   /**
    * Ob Kopf und Knopfleiste stehen bleiben und nur die Mitte rollt.
    *
@@ -231,6 +241,7 @@ export function Modal({
           'modal__box',
           tone ? `modal__box--${tone}` : '',
           schmal ? 'modal__box--schmal' : '',
+          breit ? 'modal__box--breit' : '',
           geteilt ? 'modal__box--geteilt' : '',
         ].join(' ')}
         role={tone === 'error' || tone === 'warn' ? 'alertdialog' : 'dialog'}
@@ -974,6 +985,29 @@ export function titelBeiUeberlaufWahl(): { onMouseEnter(event: MouseEvent<HTMLSe
  * currentColor` setzen: Ein Pfad, der auf `stroke` baut, käme hier als
  * schwarzer Klecks an.
  */
+/**
+ * Läuft oder ruht - zwei Zeichen, die man auch ohne Farbe unterscheidet.
+ *
+ * Der Haken und das Kreuz tragen zwar Grün und Rot, aber die Form sagt es schon
+ * allein. Wer Rot und Grün schlecht unterscheidet, sieht sonst zwei gleich
+ * helle Punkte untereinander und liest daraus gar nichts.
+ */
+export function HakenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 12.5 10 17.5 19 7" />
+    </svg>
+  );
+}
+
+export function KreuzIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 6 18 18M18 6 6 18" />
+    </svg>
+  );
+}
+
 export function ChevronIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">

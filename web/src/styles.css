@@ -570,140 +570,6 @@ code {
   box-shadow: 0 0 11px rgba(var(--accent), 0.9);
 }
 
-/* ---------- Untermenüs ---------- */
-
-/*
- * Eine Gruppe im Menü: der Punkt und darunter, was zu ihm gehört.
- *
- * Der Abstand steht hier und nicht am Menü: Die Gruppe ist für das Menü *ein*
- * Kind, ihre Teile stehen enger beieinander als zwei Menüpunkte. Ohne das läge
- * zwischen „Mandanten" und „Übersicht" derselbe Abstand wie zwischen zwei
- * Bereichen - und dann sähe der Unterpunkt aus wie ein weiterer Bereich.
- */
-.sidebar__gruppe {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-/*
- * Der Pfeil am Zeilenende. Er dreht sich, statt zu wechseln: Ein Zeichen, das
- * sich dreht, ist erkennbar dasselbe - zwei verschiedene Zeichen wären zwei
- * Aussagen, und man muss sich merken, welche welche ist.
- */
-.sidebar__pfeil {
-  margin-left: auto;
-  display: inline-flex;
-  opacity: 0.65;
-  transition: transform 200ms ease;
-}
-
-.sidebar__pfeil svg {
-  width: 12px;
-  height: 12px;
-  fill: currentColor;
-}
-
-.sidebar__pfeil--offen {
-  transform: rotate(90deg);
-}
-
-/*
- * Das Aufklappen läuft über die Zeilenhöhe des Rasters.
- *
- * Eine Höhe von `auto` lässt sich nicht überblenden - der Browser kennt das
- * Ziel nicht, also springt es. `0fr` nach `1fr` kennt er, und der Inhalt behält
- * dabei seine eigene Höhe und wird nur abgeschnitten. Das Abschneiden besorgt
- * der innere Kasten; stünde `overflow` außen, wäre der Rahmen des offenen
- * Unterpunkts an seiner Kante gekappt.
- */
-.sidebar__unter {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 200ms ease;
-}
-
-.sidebar__unter--offen {
-  grid-template-rows: 1fr;
-}
-
-.sidebar__unter__inhalt {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  overflow: hidden;
-}
-
-/*
- * Ein Unterpunkt.
- *
- * Er ist eingerückt bis unter das Wort des Punktes darüber, nicht bis unter
- * dessen Symbol: So bilden die Wörter eine Kante, und das Symbol steht allein
- * davor - daran sieht man, welche Ebene welche ist.
- *
- * Kleinere Schrift und gewöhnliche Schreibung statt Versalien: zwei Ebenen, zwei
- * Handschriften. Der Punkt darüber trägt Versalien und ein Symbol, der
- * Unterpunkt weder noch.
- */
-.sidebar__unterlink {
-  position: relative;
-  display: block;
-  width: 100%;
-  padding: 0.34rem 0.85rem 0.34rem 2.15rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-small);
-  background: none;
-  box-shadow: none;
-  font: inherit;
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
-  text-align: left;
-  text-transform: none;
-  color: var(--text-soft);
-  cursor: pointer;
-  transition: color 180ms ease, background 180ms ease;
-}
-
-.sidebar__unterlink:hover {
-  color: var(--text);
-  background: var(--g-3);
-}
-
-.sidebar__unterlink--active,
-.sidebar__unterlink--active:hover {
-  color: var(--text-loud);
-  font-weight: 600;
-  background: var(--g-4);
-}
-
-/*
- * Dieselbe Kante wie am aktiven Menüpunkt, nur schmaler und weiter innen.
- * Sie steht auf der Höhe der Einrückung: Der Strich sagt „hier", und er sagt es
- * an der Linie, an der die Unterpunkte beginnen.
- */
-.sidebar__unterlink--active::before {
-  content: '';
-  position: absolute;
-  left: 1.15rem;
-  top: 25%;
-  bottom: 25%;
-  width: 2px;
-  border-radius: 2px;
-  background: rgb(var(--accent));
-}
-
-/*
- * Eine Linie zwischen zwei Arten von Blättern - nicht zwischen zwei Punkten.
- *
- * Sie beginnt erst bei der Einrückung. Über die volle Breite gezogen sähe sie
- * aus wie der Schnitt zwischen zwei Bereichen, und der ist eine Ebene höher.
- */
-.sidebar__unter__trenner {
-  height: 1px;
-  margin: 0.4rem 0.85rem 0.4rem 2.15rem;
-  background: var(--rule);
-}
-
 /* Ein Atemzug innerhalb eines Bereichs — er trennt, ohne einen Schnitt zu machen. */
 .sidebar__space {
   height: 0.55rem;
@@ -3729,6 +3595,19 @@ svg.icon--strich {
 }
 
 /*
+ * Ein Fenster, das selbst ein Bildschirm ist.
+ *
+ * Der Mandant trägt neun Blätter und darunter Tabellen mit sechs Spalten. In
+ * 44 rem fängt so etwas an, sich zu winden: Spalten brechen um, und aus einer
+ * Zeile werden drei. Die gewöhnliche Breite ist für Text und Formulare
+ * gemessen, nicht für einen Bildschirm im Fenster.
+ */
+.modal__box--breit {
+  max-width: 78rem;
+  max-height: 88vh;
+}
+
+/*
  * Ein Fenster mit festem Kopf und fester Knopfleiste.
  *
  * Nur die Mitte rollt. Wer in einer langen Liste unten sucht, verlöre sonst
@@ -3826,6 +3705,18 @@ svg.icon--strich {
 }
 
 /*
+ * Eine Handlung links, die Entscheidung rechts.
+ *
+ * „Neuer Mandant" ist keine Antwort auf die Frage des Fensters, sondern ein
+ * Eingriff in die Liste darüber. Rechts neben OK stünde er wie eine dritte
+ * Möglichkeit, das Fenster zu verlassen - und wer schnell liest, drückt ihn
+ * statt OK.
+ */
+.modal__actions--verteilt {
+  justify-content: space-between;
+}
+
+/*
  * Warum der Knopf daneben nicht kann.
  *
  * Links vom Knopf und nicht darunter: Der Blick ist beim Drücken schon dort,
@@ -3882,7 +3773,6 @@ button {
  * trägt ihn hier ein.
  */
 .sidebar__link,
-.sidebar__unterlink,
 .subnav__tab,
 .reiter__blatt,
 .chain__step,
@@ -4885,4 +4775,191 @@ button.secondary::after {
   color: rgb(var(--caution));
   font-size: 0.9rem;
   align-self: center;
+}
+
+/* ===================================================================
+ * Die zwei Fenster des Mandanten
+ *
+ * Erst die Liste: wer da ist, wer davon läuft. Dann der aufgeschlagene
+ * Mandant: links seine Blätter, rechts das offene.
+ *
+ * Sie sind zwei Fenster und nicht eines mit zwei Zuständen. Ein Fenster, das
+ * seinen Inhalt austauscht, behält seine Größe - und die Liste bräuchte dann
+ * die Breite des Mandanten, obwohl sie drei Spalten hat.
+ * =================================================================== */
+
+/*
+ * Läuft oder ruht - ein Zeichen, keine Spalte Text.
+ *
+ * Es steht vorn und nicht hinten: Die Frage „welche laufen überhaupt?" beantwortet
+ * man, indem man eine Kante entlangsieht. Am Zeilenende müsste man dafür jede
+ * Zeile bis zu ihrem Ende lesen.
+ *
+ * Form **und** Farbe. Der Haken und das Kreuz unterscheiden sich schon im
+ * Umriss; wer Rot und Grün schlecht auseinanderhält, sähe sonst zwei gleich
+ * helle Punkte untereinander und läse daraus nichts.
+ */
+.laeuft {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.laeuft svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.laeuft--an {
+  color: rgb(var(--dot-gut));
+}
+
+.laeuft--aus {
+  color: rgb(var(--alarm));
+}
+
+/* Die Spalte des Zeichens ist so breit wie das Zeichen und nicht breiter. */
+.mandantenliste__zeichen {
+  width: 1%;
+  padding-right: 0.4rem;
+  text-align: center;
+}
+
+/*
+ * Eine Zeile ist anklickbar, also sagt sie es auch.
+ *
+ * Der Zeiger wechselt auf der ganzen Zeile und nicht nur auf dem Namen: Was man
+ * auswählt, ist der Mandant, und der ist die Zeile.
+ */
+.mandantenliste__zeile {
+  cursor: pointer;
+}
+
+/*
+ * Die ausgesuchte Zeile - dieselbe Sprache wie überall, wo etwas gewählt ist:
+ * eine ruhige Fläche und ein Strich an der Kante. Die Fläche allein reichte
+ * nicht: In einer Liste mit Überfahren-Hervorhebung sähen beide gleich aus, und
+ * dann wüsste man beim Loslassen der Maus nicht mehr, was ausgesucht ist.
+ */
+.mandantenliste__zeile--an > td {
+  background: var(--pick);
+  color: var(--pick-text);
+}
+
+.mandantenliste__zeile--an > td:first-child {
+  box-shadow: inset 3px 0 0 rgb(var(--accent));
+}
+
+/* Der Nachsatz unter dem Namen bleibt lesbar, auch auf der hellen Fläche. */
+.mandantenliste__zeile--an .muted {
+  color: var(--pick-text);
+  opacity: 0.75;
+}
+
+/*
+ * Der aufgeschlagene Mandant: Blätter links, das offene rechts.
+ *
+ * Dieselbe Anordnung wie Menü und Inhalt eine Ebene höher. Das ist kein Zufall,
+ * sondern der Grund, warum man sich hier sofort zurechtfindet: Wer schon weiß,
+ * dass links steht, was man wählen kann, muss es nicht zweimal lernen.
+ */
+.mandant {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: 1.4rem;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/*
+ * Nur die rechte Spalte rollt.
+ *
+ * Die Blätter links sind neun kurze Zeilen und passen immer; was rollt, ist das
+ * offene Blatt. Rollte stattdessen beides zusammen, wanderte die Liste der
+ * Blätter aus dem Bild, sobald jemand in einer Tabelle nach unten sieht - und
+ * mit ihr der Weg zum nächsten.
+ */
+.mandant__blatt {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.4rem;
+}
+
+/* Das letzte Stück trägt seinen Nachlauf nicht in den Rand des Fensters. */
+.mandant__blatt > *:last-child {
+  margin-bottom: 0;
+}
+
+.blattwahl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  align-content: start;
+  border-right: 1px solid var(--rule);
+  padding-right: 0.9rem;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.blattwahl__punkt {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+  text-align: left;
+  text-transform: none;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+
+.blattwahl__punkt:hover {
+  color: var(--text);
+  background: var(--g-4);
+}
+
+.blattwahl__punkt--an,
+.blattwahl__punkt--an:hover {
+  color: var(--text);
+  font-weight: 600;
+  background: var(--g-4);
+  border-color: var(--rule);
+}
+
+/* Derselbe Strich wie am aktiven Menüpunkt - dieselbe Aussage, dieselbe Form. */
+.blattwahl__punkt--an::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 22%;
+  bottom: 22%;
+  width: 2px;
+  border-radius: 2px;
+  background: rgb(var(--accent));
+}
+
+/*
+ * Die Linie zwischen „wer er ist" und „was er liefert".
+ *
+ * Sie trennt zwei Arten von Blättern und nicht zwei Punkte, deshalb hat sie
+ * Luft nach oben und unten - ein Strich unmittelbar zwischen zwei Zeilen sähe
+ * aus wie ein Rahmen, den eine der beiden verloren hat.
+ */
+.blattwahl__trenner {
+  height: 1px;
+  margin: 0.5rem 0.7rem;
+  background: var(--rule);
 }

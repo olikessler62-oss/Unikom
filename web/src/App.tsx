@@ -16,20 +16,14 @@ import { JobEditorScreen } from './screens/job/JobEditorScreen.js';
 import { LoginScreen } from './screens/LoginScreen.js';
 import { PrivacyScreen } from './screens/PrivacyScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
-import {
-  DATENBLAETTER,
-  NEUER_MANDANT,
-  STAMMBLAETTER,
-  TenantsScreen,
-  type Blatt,
-} from './screens/TenantsScreen.js';
+import { TenantsScreen, type Blatt, type Mandantenfenster } from './screens/TenantsScreen.js';
 import { UsersScreen } from './screens/UsersScreen.js';
 import { DataEnquiryScreen } from './screens/DataEnquiryScreen.js';
 import { ConsolidationScreen } from './screens/ConsolidationScreen.js';
 import { WorkflowsScreen } from './screens/WorkflowsScreen.js';
 import { Sprachwahl } from './components/Sprachwahl.js';
 import { useSession } from './session/useSession.js';
-import { ChevronIcon, FOOTER_ACTIONS, HEADER_ACTIONS, Notice } from './components/Pieces.js';
+import { FOOTER_ACTIONS, HEADER_ACTIONS, Notice } from './components/Pieces.js';
 import type { Handlungsbedarf, Licence, Permission } from './api/types.js';
 
 /**
@@ -107,23 +101,6 @@ const BLOCKS: Area[][] = [
     { id: 'settings', label: 'nav.settings', permission: 'MANAGE_USERS' },
   ],
 ];
-
-/**
- * Ein Punkt unterhalb eines Menüpunkts.
- *
- * Er trägt seinen Text mit und keinen Schlüssel: Was hier steht, sind die
- * Blätter eines Mandanten, und die haben ihre Namen dort, wo sie gebaut werden.
- * Ein zweiter Wortbestand für dieselben neun Wörter wäre die Stelle, an der
- * eines Tages zwei verschiedene Namen für dieselbe Sache stehen.
- */
-interface Unterpunkt {
-  id: string;
-  text: string;
-  /** Eine Linie davor - sie trennt zwei Arten von Blättern, nicht zwei Punkte. */
-  trennerDavor?: boolean;
-  aktiv: boolean;
-  waehlen(): void;
-}
 
 /** Steht ganz unten, gehört zu keinem Bereich und verlangt kein Recht. */
 const PAGES: { id: string; label: TextKey }[] = [
@@ -215,29 +192,6 @@ function useHandlungsbedarf(): Handlungsbedarf | undefined {
 /** Which screen is open. Deliberately plain state, not a routing library. */
 type View = { area: string; editingJob?: string; historyJob?: string };
 
-/**
- * Aufklappen ja, Zuklappen nein.
- *
- * Wird ein Bereich angewählt, klappt seine Gruppe auf - sonst stünde man in
- * einem Unterpunkt, dessen Menü zu ist, und sähe nicht, wo man ist. Verlässt
- * man ihn wieder, bleibt sie so, wie sie ist: Wer eine Gruppe von Hand
- * zugeklappt hat, will sie nicht beim nächsten Blick wieder offen finden.
- *
- * Als eigene Funktion, weil sie eine Regel ist und keine Zeile: Sie gilt für
- * jede Gruppe, die noch dazukommt.
- */
-function aufklappenBeiAnwahl(
-  stand: Record<string, boolean>,
-  gruppe: string,
-  angewaehlt: boolean
-): Record<string, boolean> {
-  if (!angewaehlt || stand[gruppe]) {
-    return stand;
-  }
-
-  return { ...stand, [gruppe]: true };
-}
-
 export function App() {
   /*
    * Eine offene Auswahlliste schließt sich, sobald der Zeiger fortgeht — für
@@ -251,25 +205,19 @@ export function App() {
   const t = useText();
   const [view, setView] = useState<View>({ area: 'dashboard' });
   /**
-   * Welcher Mandant offen ist und welches seiner Blätter.
+   * Welches Mandantenfenster offen ist - und welches Blatt darin.
    *
-   * Beides steht hier und nicht im Bildschirm: Es ist Navigation, und die
-   * Navigation steht in der Seitenleiste. Nur wer weiß, ob ein Mandant offen
-   * ist, kann seine Blätter als Unterpunkte zeigen.
+   * Beides steht hier und nicht im Bildschirm: Aufgeschlagen wird aus dem
+   * Hauptmenü heraus, und das Menü steht hier. `undefined` heißt geschlossen;
+   * dann ist der Mandantenbildschirm gar nicht erst da.
    */
-  const [mandant, setMandant] = useState<string>();
+  const [fenster, setFenster] = useState<Mandantenfenster>();
   const [blatt, setBlatt] = useState<Blatt>('grunddaten');
-  /** Welche Gruppen im Menü aufgeklappt sind. */
-  const [aufgeklappt, setAufgeklappt] = useState<Record<string, boolean>>({});
   const body = useRef<HTMLDivElement>(null);
   const bodyScrolls = useOverflowing(body);
   const bedarf = useHandlungsbedarf();
   const area = view.area;
   const setArea = (next: string): void => setView({ area: next });
-
-  useEffect(() => {
-    setAufgeklappt((stand) => aufklappenBeiAnwahl(stand, 'tenants', area === 'tenants'));
-  }, [area]);
 
   if (session.state.status === 'loading') {
     return <div className="empty">Wird geladen …</div>;
@@ -304,46 +252,14 @@ export function App() {
   const canManageCredentials = session.may('MANAGE_CREDENTIALS');
 
   /**
-   * Was unter „Mandanten" steht.
+   * „Mandanten" führt nicht auf eine Seite, sondern schlägt ein Fenster auf.
    *
-   * Die Übersicht immer, die Blätter nur, wenn einer offen ist. Ein Untermenü,
-   * das „Zuordnungen" anbietet, ohne dass jemand gesagt hat, wessen Zuordnungen
-   * gemeint sind, greift beim ersten Klick ins Leere.
-   *
-   * Bei einem Mandanten, den es noch nicht gibt, stehen nur die Stammblätter.
-   * Eine Eingangsquelle gehört einem Mandanten, und einem ohne Kennung kann
-   * nichts gehören - dieselbe Regel, die auch im Bildschirm selbst gilt, und
-   * sie steht deshalb nur einmal da: in `DATENBLAETTER`.
+   * Ein Mandant ist nichts, was man ansieht - er ist etwas, das man aufschlägt:
+   * heraussuchen, daran arbeiten, wieder weglegen. Deshalb bleibt der
+   * Bildschirm dahinter stehen, und der Punkt bleibt hervorgehoben, solange das
+   * Fenster offen ist.
    */
-  const blaetter = mandant === undefined
-    ? []
-    : mandant === NEUER_MANDANT
-      ? STAMMBLAETTER
-      : [...STAMMBLAETTER, ...DATENBLAETTER];
-
-  const mandantenpunkte: Unterpunkt[] = [
-    {
-      id: 'uebersicht',
-      text: 'Übersicht',
-      aktiv: area === 'tenants' && mandant === undefined,
-      waehlen: () => {
-        setArea('tenants');
-        setMandant(undefined);
-      },
-    },
-    ...blaetter.map((eintrag) => ({
-      id: eintrag.id,
-      text: eintrag.text,
-      trennerDavor: eintrag.trennerDavor,
-      aktiv: area === 'tenants' && mandant !== undefined && blatt === eintrag.id,
-      waehlen: () => {
-        setArea('tenants');
-        setBlatt(eintrag.id);
-      },
-    })),
-  ];
-
-  const untermenues: Record<string, Unterpunkt[]> = { tenants: mandantenpunkte };
+  const oeffnetFenster = (id: string): boolean => id === 'tenants';
 
   return (
     <div className="shell">
@@ -363,27 +279,13 @@ export function App() {
             <Fragment key={entries[0].id}>
               {index > 0 && <div className="sidebar__break" aria-hidden="true" />}
               {entries.map((entry) => {
-                const unter = untermenues[entry.id];
-                const offen = aufgeklappt[entry.id] ?? false;
+                const aktiv = oeffnetFenster(entry.id) ? fenster !== undefined : entry.id === current?.id;
 
-                const kopf = (
+                return (
                   <button
                     key={entry.id}
-                    className={entry.id === current?.id ? 'sidebar__link sidebar__link--active' : 'sidebar__link'}
-                    aria-expanded={unter ? offen : undefined}
-                    onClick={() => {
-                      setArea(entry.id);
-
-                      /*
-                       * Ein zweiter Klick auf denselben Punkt klappt zu. Das ist
-                       * der einzige Weg dorthin: Ein eigener Pfeilknopf müsste
-                       * in diesem Knopf sitzen, und ein Knopf im Knopf ist kein
-                       * gültiges Markup.
-                       */
-                      if (unter) {
-                        setAufgeklappt((stand) => ({ ...stand, [entry.id]: !stand[entry.id] }));
-                      }
-                    }}
+                    className={aktiv ? 'sidebar__link sidebar__link--active' : 'sidebar__link'}
+                    onClick={() => (oeffnetFenster(entry.id) ? setFenster({ art: 'liste' }) : setArea(entry.id))}
                   >
                     <MenuIcon name={entry.id} />
                     {/*
@@ -394,49 +296,7 @@ export function App() {
                       * später zu ändern vergisst, widerspricht dann dem anderen.
                       */}
                     {t(entry.label)}
-                    {unter && (
-                      <span
-                        className={offen ? 'sidebar__pfeil sidebar__pfeil--offen' : 'sidebar__pfeil'}
-                        aria-hidden="true"
-                      >
-                        <ChevronIcon />
-                      </span>
-                    )}
                   </button>
-                );
-
-                if (!unter) {
-                  return kopf;
-                }
-
-                return (
-                  <div key={entry.id} className="sidebar__gruppe">
-                    {kopf}
-
-                    {/*
-                      * Aufgeklappt wird über die Zeilenhöhe des Rasters, nicht
-                      * über die Höhe des Kastens: Eine Höhe von `auto` lässt sich
-                      * nicht überblenden, `0fr` nach `1fr` schon. Der Inhalt
-                      * behält dabei seine eigene Höhe und wird nur abgeschnitten.
-                      */}
-                    <div className={offen ? 'sidebar__unter sidebar__unter--offen' : 'sidebar__unter'}>
-                      <div className="sidebar__unter__inhalt">
-                        {unter.map((punkt) => (
-                          <Fragment key={punkt.id}>
-                            {punkt.trennerDavor && <div className="sidebar__unter__trenner" aria-hidden="true" />}
-                            <button
-                              className={
-                                punkt.aktiv ? 'sidebar__unterlink sidebar__unterlink--active' : 'sidebar__unterlink'
-                              }
-                              onClick={punkt.waehlen}
-                            >
-                              {punkt.text}
-                            </button>
-                          </Fragment>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
                 );
               })}
             </Fragment>
@@ -568,14 +428,6 @@ export function App() {
             <ConsolidationScreen />
           ) : current?.id === 'history' ? (
             <HistoryScreen key={view.historyJob ?? 'all'} initialJobId={view.historyJob} />
-          ) : current?.id === 'tenants' ? (
-            <TenantsScreen
-              canManage={canManageCredentials}
-              mandant={mandant}
-              blatt={blatt}
-              onMandant={setMandant}
-              onBlatt={setBlatt}
-            />
           ) : current?.id === 'users' ? (
             <UsersScreen ownUserId={identity.user.id} />
           ) : current?.id === 'enquiry' ? (
@@ -612,6 +464,28 @@ export function App() {
           */}
         <div id={FOOTER_ACTIONS} className="main__footer" />
       </main>
+
+      {/*
+        * Der Mandant liegt über allem und in keinem Bereich.
+        *
+        * Er stand einmal als eigener Bildschirm im Inhalt. Das hieß: hingehen,
+        * etwas tun, wieder zurückgehen - und „zurück" war der nächste Menüpunkt,
+        * irgendeiner. Ein Fenster legt sich über das, was man gerade tut, und
+        * gibt es unverändert zurück.
+        *
+        * Es hängt hier und nicht im Inhaltsbereich: Der Bildschirm dahinter soll
+        * stehen bleiben, auch wenn er gerade rollt oder ein Formular hält.
+        * Solange nichts offen ist, ist der Bildschirm gar nicht erst gebaut.
+        */}
+      {fenster && (
+        <TenantsScreen
+          canManage={canManageCredentials}
+          fenster={fenster}
+          blatt={blatt}
+          onFenster={setFenster}
+          onBlatt={setBlatt}
+        />
+      )}
     </div>
   );
 }

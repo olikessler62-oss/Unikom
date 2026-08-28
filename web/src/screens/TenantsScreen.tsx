@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
@@ -8,8 +8,9 @@ import {
   CheckField,
   Empty,
   Field,
-  FooterAction,
+  HakenIcon,
   InfoButton,
+  KreuzIcon,
   Loading,
   Memofeld,
   Modal,
@@ -228,6 +229,20 @@ export const NEUER_MANDANT = 'neu';
  * Umrechnungen für dieselbe Sache wären zwei Gelegenheiten, ein Feld zu
  * vergessen - und vergessen hieße hier: still leer statt still falsch.
  */
+/**
+ * Die Region eines Mandanten als eine Zeile.
+ *
+ * Sprache und Zeitzone stehen nebeneinander, getrennt durch einen Punkt: Es ist
+ * eine Angabe aus zwei Teilen und nicht zwei Angaben. Zwei Spalten dafür wären
+ * in einer Liste, die auf einen Blick gelesen werden soll, eine zu viel.
+ */
+function regionVon(tenant: Tenant): string {
+  const sprache = tenant.region?.locale ?? EMPTY.locale;
+  const zone = tenant.region?.timeZone ?? EMPTY.timeZone;
+
+  return `${sprache} · ${zone}`;
+}
+
 function entwurfAus(tenant: Tenant): Draft {
   return {
     id: tenant.id,
@@ -247,24 +262,32 @@ function entwurfAus(tenant: Tenant): Draft {
   };
 }
 
+/**
+ * Welches der beiden Fenster offen steht - oder keines.
+ *
+ * Nie beide. Zwei Fenster übereinander legen zwei abgedunkelte Flächen
+ * übereinander, und die zweite macht aus dem Grund dahinter Schwarz. Wer einen
+ * Mandanten aufschlägt, schließt damit die Liste; wer ihn zuklappt, bekommt sie
+ * zurück.
+ */
+export type Mandantenfenster = { art: 'liste' } | { art: 'mandant'; id: string };
+
 interface Props {
   canManage: boolean;
   /**
-   * Welcher Mandant offen ist - `undefined` heißt: die Übersicht.
+   * Welches Fenster offen ist.
    *
-   * Die Wahl steht über diesem Bildschirm und nicht in ihm. Sie ist Navigation,
-   * und die Navigation steht in der Seitenleiste: Dort hängen die Unterpunkte
-   * dieses Mandanten, und die kann nur zeigen, wer weiß, ob überhaupt einer
-   * offen ist.
+   * Die Wahl steht über diesem Bildschirm und nicht in ihm: Aufgeschlagen wird
+   * aus dem Hauptmenü heraus, und das Menü steht eine Ebene höher.
    */
-  mandant?: string;
-  /** Welches Blatt offen steht - aus demselben Grund von außen. */
+  fenster: Mandantenfenster;
+  /** Welches Blatt des Mandanten offen steht - aus demselben Grund von außen. */
   blatt: Blatt;
-  onMandant(id: string | undefined): void;
+  onFenster(fenster: Mandantenfenster | undefined): void;
   onBlatt(blatt: Blatt): void;
 }
 
-export function TenantsScreen({ canManage, mandant, blatt, onMandant, onBlatt }: Props) {
+export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }: Props) {
   const tenants = useResource<Tenant[]>('/api/tenants');
   /* Für den Postausgang: Das Kennwort steht in einem Zugang, nicht im Formular. */
   const credentials = useResource<Credential[]>('/api/credentials');
@@ -283,6 +306,28 @@ export function TenantsScreen({ canManage, mandant, blatt, onMandant, onBlatt }:
    * ist ein Grund, von vorn zu beginnen.
    */
   const umgesetzt = useRef<string>(undefined);
+  /**
+   * Welche Zeile der Liste hervorgehoben ist.
+   *
+   * Sie bleibt hier und geht nicht nach oben: Ausgesucht ist noch nicht
+   * aufgeschlagen. Wer die Liste mit „Abbrechen" verlässt, hat nichts getan -
+   * und eine Wahl, die das überdauerte, wäre eine Entscheidung, die niemand
+   * getroffen hat.
+   */
+  const [gewaehlt, setGewaehlt] = useState<string>();
+
+  /** Welcher Mandant aufgeschlagen ist - `undefined`, solange die Liste steht. */
+  const mandant = fenster.art === 'mandant' ? fenster.id : undefined;
+
+  function oeffne(id: string): void {
+    onBlatt('grunddaten');
+    onFenster({ art: 'mandant', id });
+  }
+
+  function zurueckZurListe(): void {
+    onBlatt('grunddaten');
+    onFenster({ art: 'liste' });
+  }
 
   /*
    * Aus der Wahl wird ein Entwurf.
@@ -382,8 +427,7 @@ export function TenantsScreen({ canManage, mandant, blatt, onMandant, onBlatt }:
         await api.post('/api/tenants', payload);
       }
 
-      onMandant(undefined);
-      onBlatt('grunddaten');
+      zurueckZurListe();
       await tenants.reload();
     } catch (failure) {
       // Overlapping directories and jobs left outside are reported by the
@@ -407,48 +451,205 @@ export function TenantsScreen({ canManage, mandant, blatt, onMandant, onBlatt }:
     }
   }
 
-  if (tenants.error) {
-    return <Notice kind="error">{tenants.error}</Notice>;
-  }
-
-  if (!tenants.data) {
-    return <Loading />;
-  }
-
   return (
     <>
-      {explaining && (
-        <Modal title="Root-Verzeichnis" onClose={() => setExplaining(false)}>
-          <p>
-            Jeder Job dieses Mandanten darf seine Dateien nur <strong>unterhalb dieses Ordners</strong> ablegen. Ein
-            Zielverzeichnis außerhalb wird beim Speichern abgelehnt - so landen die Daten dieses Kunden auch bei einem
-            Tippfehler nicht beim nächsten.
-          </p>
-          <p>
-            Leer lassen, wenn Sie nur eigene Daten verarbeiten. Dann gibt es niemanden, mit dem etwas verwechselt werden
-            könnte.
-          </p>
+      {/*
+        * Die Liste: wer da ist, und wer davon läuft.
+        *
+        * Sie steht in einem Fenster und nicht auf einer Seite. Ein Mandant ist
+        * nichts, was man ansieht - er ist etwas, das man aufschlägt: Man sucht
+        * einen heraus, arbeitet an ihm und legt ihn wieder weg. Genau das tut
+        * ein Fenster mit OK und Abbrechen.
+        */}
+      {fenster.art === 'liste' && (
+        <Modal
+          title="Mandanten"
+          // Das Fenster bringt OK und Abbrechen mit; ein „Schließen" daneben
+          // wäre ein dritter Knopf für das, was der zweite schon tut.
+          ownActions
+          // Kopf und Knopfleiste stehen fest, nur die Liste rollt.
+          geteilt
+          onClose={() => onFenster(undefined)}
+        >
+          {error && <Notice kind="error">{error}</Notice>}
+
+          {/*
+            * Laden und Scheitern stehen im Fenster und nicht davor.
+            *
+            * Vorher gab dieser Bildschirm bei beidem eine Zeile aus und sonst
+            * nichts. Als Fenster ginge das nicht mehr auf: Wer „Mandanten"
+            * anklickt, bekäme nichts - keinen Rahmen, keinen Titel, keinen
+            * Ausgang, und keine Auskunft darüber, dass überhaupt etwas läuft.
+            */}
+          <div className="fenster__mitte">
+            {tenants.error ? (
+              <Notice kind="error">{tenants.error}</Notice>
+            ) : !tenants.data ? (
+              <Loading />
+            ) : tenants.data.length === 0 ? (
+              <Empty>Es ist kein Mandant angelegt.</Empty>
+            ) : (
+              <div className="table-wrap">
+                <table className="mandantenliste">
+                  <thead>
+                    <tr>
+                      {/*
+                        * Die Spalte des Zeichens trägt keine Überschrift.
+                        *
+                        * „Status" darüber wäre ein Wort für etwas, das man
+                        * ohnehin auf einen Blick sieht - und es wäre breiter als
+                        * die Spalte selbst.
+                        */}
+                      <th className="mandantenliste__zeichen" aria-label="Läuft" />
+                      <th>Mandant</th>
+                      <th>Region</th>
+                      {canManage && <th />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tenants.data.map((tenant) => (
+                      <tr
+                        key={tenant.id}
+                        className={
+                          tenant.id === gewaehlt ? 'mandantenliste__zeile mandantenliste__zeile--an' : 'mandantenliste__zeile'
+                        }
+                        onClick={() => setGewaehlt(tenant.id)}
+                        /*
+                         * Ein Doppelklick öffnet gleich. Das ist kein zweiter
+                         * Weg neben OK, sondern derselbe: Wer eine Zeile zweimal
+                         * anklickt, hat sich entschieden, und ihn danach noch
+                         * einmal nach unten rechts zu schicken wäre ein Schritt
+                         * ohne Frage.
+                         */
+                        onDoubleClick={() => oeffne(tenant.id)}
+                      >
+                        <td className="mandantenliste__zeichen">
+                          {tenant.enabled ? (
+                            <span className="laeuft laeuft--an" title="Aktiv">
+                              <HakenIcon />
+                            </span>
+                          ) : (
+                            <span className="laeuft laeuft--aus" title="Ruht">
+                              <KreuzIcon />
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{tenant.name}</div>
+                          {/*
+                            * Auch hier nur die erste Zeile: In HTML wird aus
+                            * einem Umbruch ein Leerzeichen, und aus drei Zeilen
+                            * wird eine, in der „Handels AG Ansprechpartner: Frau
+                            * Ohlsen" hintereinander steht. Der ganze Text hängt
+                            * als Merkzettel daran.
+                            */}
+                          {tenant.description && (
+                            <div className="muted" title={tenant.description}>
+                              {alsEineZeile(tenant.description)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="muted">{regionVon(tenant)}</td>
+                        {canManage && (
+                          <td>
+                            <div className="row" style={{ justifyContent: 'flex-end' }}>
+                              <button
+                                className="secondary"
+                                onClick={(event) => {
+                                  // Sonst wählte der Klick die Zeile gleich mit
+                                  // aus - und die Rückfrage stünde über einer
+                                  // Zeile, die sich gerade hervorgehoben hat.
+                                  event.stopPropagation();
+                                  void remove(tenant);
+                                }}
+                              >
+                                Löschen
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/*
+            * Links das Anlegen, rechts die Entscheidung über das Fenster.
+            *
+            * „Neuer Mandant" ist keine Antwort auf die Frage des Fensters - es
+            * ist eine Handlung an der Liste. Rechts neben OK stünde es wie eine
+            * dritte Möglichkeit, das Fenster zu verlassen.
+            */}
+          <div className="row modal__actions modal__actions--verteilt">
+            {canManage ? (
+              <button className="secondary" onClick={() => oeffne(NEUER_MANDANT)}>
+                Neuer Mandant
+              </button>
+            ) : (
+              <span />
+            )}
+
+            <div className="row">
+              <button disabled={!gewaehlt} onClick={() => gewaehlt && oeffne(gewaehlt)}>
+                OK
+              </button>
+              <button className="secondary" onClick={() => onFenster(undefined)}>
+                Abbrechen
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 
-      {error && <Notice kind="error">{error}</Notice>}
+      {/*
+        * Der aufgeschlagene Mandant.
+        *
+        * Ein eigenes Fenster und nicht dieselbe Fläche: Was hier steht, sind
+        * neun Blätter mit Tabellen darin. Links stehen sie zur Wahl, rechts
+        * steht das offene - dieselbe Anordnung wie Menü und Inhalt eine Ebene
+        * höher, nur innerhalb des Fensters.
+        */}
+      {fenster.art === 'mandant' && draft && (
+        <Modal
+          title={draft.id ? draft.name.trim() || 'Mandant ohne Namen' : 'Neuer Mandant'}
+          ownActions
+          geteilt
+          breit
+          onClose={zurueckZurListe}
+        >
+          {error && <Notice kind="error">{error}</Notice>}
 
-      {draft ? (
-        <>
-          {/*
-            * Wer bearbeitet wird - der Name, und sonst nichts.
-            *
-            * Hier stand ein Streifen mit neun Reitern. Er steht jetzt als
-            * Untermenü in der Seitenleiste: Ein Reiterstreifen ist Navigation,
-            * und Navigation gehört an einen Ort. Beides nebeneinander hieße,
-            * dieselben neun Wörter zweimal auf einem Bildschirm zu haben.
-            *
-            * Der Name bleibt. Wer auf dem Blatt „Archiv" steht, sähe sonst eine
-            * Dateiliste ohne die Auskunft, wessen Dateien das sind.
-            */}
-          <section className="card">
-            <h2>{draft.id ? draft.name.trim() || 'Mandant ohne Namen' : 'Neuer Mandant'}</h2>
-          </section>
+          <div className="fenster__mitte">
+            <div className="mandant">
+              {/*
+                * Die Blätter zur Wahl.
+                *
+                * Sie standen zuletzt als Unterpunkte in der Seitenleiste. Dort
+                * war es eine Ebene zu hoch: Sie gehören zu *einem* Mandanten,
+                * und die Seitenleiste gilt für die ganze Anwendung. Wer sie dort
+                * sah, sah eine Navigation, die sich änderte, je nachdem was er
+                * zuletzt aufgeschlagen hatte.
+                */}
+              <nav className="blattwahl">
+                {(draft.id ? [...STAMMBLAETTER, ...DATENBLAETTER] : STAMMBLAETTER).map((eintrag) => (
+                  <Fragment key={eintrag.id}>
+                    {eintrag.trennerDavor && <div className="blattwahl__trenner" aria-hidden="true" />}
+                    <button
+                      className={
+                        blatt === eintrag.id ? 'blattwahl__punkt blattwahl__punkt--an' : 'blattwahl__punkt'
+                      }
+                      onClick={() => onBlatt(eintrag.id)}
+                    >
+                      {eintrag.text}
+                    </button>
+                  </Fragment>
+                ))}
+              </nav>
+
+              <div className="mandant__blatt">
 
           {/*
             * Drei Blätter für den Mandanten selbst — sie beantworten drei Fragen:
@@ -691,126 +892,57 @@ export function TenantsScreen({ canManage, mandant, blatt, onMandant, onBlatt }:
           {draft.id && blatt === 'probe' && <MergeScreen mandant={draft.id} />}
           {draft.id && blatt === 'archiv' && <ArchivScreen mandant={draft.id} />}
 
+              </div>
+            </div>
+          </div>
+
           {/*
             * Die Knöpfe stehen unter allen Blättern und in keinem: Sie speichern
-            * den **Mandanten** — Name, Einstellungen, Meldewege. Was auf den
+            * den **Mandanten** - Name, Einstellungen, Meldewege. Was auf den
             * übrigen Blättern steht, sind eigene Bestände mit eigenen Knöpfen;
             * eine Eingangsquelle ist gespeichert, sobald man sie speichert.
             *
             * Sie bleiben trotzdem auf jedem Blatt stehen. Ein Fuß, der beim
-            * Reiterwechsel verschwände, warf die Frage auf, was aus dem
-            * wird, was man oben getippt hat — der Entwurf überlebt den Wechsel, und
-            * der Fuß sagt genau das.
+            * Blattwechsel verschwände, warf die Frage auf, was aus dem wird, was
+            * man oben getippt hat - der Entwurf überlebt den Wechsel, und der
+            * Fuß sagt genau das.
+            *
+            * „Speichern" und nicht „OK": Der Knopf schreibt etwas fort. OK
+            * beantwortet eine Frage, und die Frage dieses Fensters ist nicht,
+            * ob man es gesehen hat.
             */}
-          <FooterAction>
+          <div className="row modal__actions">
             <button disabled={saving || !draft.name} onClick={() => void save()}>
               {saving ? 'Wird gespeichert …' : 'Speichern'}
             </button>
-            <button
-              className="secondary"
-              onClick={() => {
-                onMandant(undefined);
-                onBlatt('grunddaten');
-              }}
-            >
+            <button className="secondary" onClick={zurueckZurListe}>
               Abbrechen
             </button>
-          </FooterAction>
-        </>
-      ) : (
-        /*
-         * Entweder bearbeiten oder aussuchen — nicht beides.
-         *
-         * Die Liste stand vorher auch unter dem geöffneten Formular. Wer
-         * einen Mandanten bearbeitete, sah darunter denselben Mandanten noch
-         * einmal in einer Zeile, mit einem Knopf „Bearbeiten" daneben — und
-         * musste raten, ob das dasselbe ist, was er gerade tut.
-         *
-         * Geöffnet ist das Formular deshalb die ganze Fläche. Es endet mit
-         * Speichern oder Abbrechen, und danach ist die Liste wieder da.
-         */
-        <>
-          {canManage && (
-            <div className="row">
-              <button
-                onClick={() => {
-                  onBlatt('grunddaten');
-                  onMandant(NEUER_MANDANT);
-                }}
-              >
-                Neuer Mandant
-              </button>
-            </div>
-          )}
+          </div>
+        </Modal>
+      )}
 
-          {tenants.data.length === 0 ? (
-            <Empty>Es ist kein Mandant angelegt.</Empty>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Mandant</th>
-                    <th>Root-Verzeichnis</th>
-                    <th className="numeric">Jobs</th>
-                    <th>Status</th>
-                    {canManage && <th />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tenants.data.map((tenant) => (
-                    <tr key={tenant.id}>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{tenant.name}</div>
-                        {/*
-                          * Auch hier nur die erste Zeile: In HTML wird aus
-                          * einem Umbruch ein Leerzeichen, und aus drei Zeilen
-                          * wird eine, in der „Handels AG Ansprechpartner: Frau
-                          * Ohlsen" hintereinander steht. Der ganze Text hängt
-                          * als Merkzettel daran.
-                          */}
-                        {tenant.description && (
-                          <div className="muted" title={tenant.description}>
-                            {alsEineZeile(tenant.description)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="muted">
-                        {tenant.rootDirectory ?? <span className="badge badge--muted">nicht eingegrenzt</span>}
-                      </td>
-                      <td className="numeric">{tenant.jobCount ?? 0}</td>
-                      <td>
-                        {tenant.enabled ? (
-                          <span className="badge badge--good">Aktiv</span>
-                        ) : (
-                          <span className="badge badge--muted">Ruht</span>
-                        )}
-                      </td>
-                      {canManage && (
-                        <td>
-                          <div className="row" style={{ justifyContent: 'flex-end' }}>
-                            <button
-                              className="secondary"
-                              onClick={() => {
-                                onBlatt('grunddaten');
-                                onMandant(tenant.id);
-                              }}
-                            >
-                              Bearbeiten
-                            </button>
-                            <button className="secondary" onClick={() => void remove(tenant)}>
-                              Löschen
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
+      {/*
+        * Die Erklärung steht zuletzt, und das ist keine Willkür.
+        *
+        * Sie öffnet sich aus dem Mandantenfenster heraus und muss deshalb über
+        * ihm liegen. Beide tragen denselben z-Wert; bei gleichem Wert gewinnt,
+        * was später im Dokument steht. Stünde sie oben - wo sie war, solange
+        * der Mandant noch eine Seite war -, klappte der Info-Knopf etwas auf,
+        * das hinter dem Fenster verschwindet.
+        */}
+      {explaining && (
+        <Modal title="Root-Verzeichnis" onClose={() => setExplaining(false)}>
+          <p>
+            Jeder Job dieses Mandanten darf seine Dateien nur <strong>unterhalb dieses Ordners</strong> ablegen. Ein
+            Zielverzeichnis außerhalb wird beim Speichern abgelehnt - so landen die Daten dieses Kunden auch bei einem
+            Tippfehler nicht beim nächsten.
+          </p>
+          <p>
+            Leer lassen, wenn Sie nur eigene Daten verarbeiten. Dann gibt es niemanden, mit dem etwas verwechselt werden
+            könnte.
+          </p>
+        </Modal>
       )}
     </>
   );
