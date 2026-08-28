@@ -5,19 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Unikom</title>
     <!--
-      Das Erscheinungsbild wird gesetzt, bevor irgendetwas gezeichnet wird.
-      Täte das erst die Anwendung, sähe man bei jedem Laden einen Sekundenbruchteil
-      lang das andere Design aufblitzen. Dieses Stück Code muss deshalb hier stehen
-      und nicht im Bündel - und es fällt still aus, wenn der Speicher gesperrt ist.
+      Die Sprache wird gesetzt, bevor irgendetwas gezeichnet wird. Täte das erst
+      die Anwendung, stünde das Dokument bis zum ersten Bild in der falschen
+      Sprache da. Dieses Stück Code muss deshalb hier stehen und nicht im Bündel
+      - und es fällt still aus, wenn der Speicher gesperrt ist.
     -->
     <script>
       try {
-        var t = window.localStorage.getItem('unikom.theme');
-        document.documentElement.dataset.theme = t === 'spring' ? 'spring' : 'autumn';
         var l = window.localStorage.getItem('unikom.language');
         if (l) document.documentElement.lang = l;
       } catch (e) {
-        document.documentElement.dataset.theme = 'autumn';
+        /* Ohne Speicher bleibt die Sprache aus dem Markup stehen. */
       }
     </script>
   </head>

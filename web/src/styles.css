@@ -1,226 +1,155 @@
 /*
- * Unikom — interface styling.
+ * Unikom - die Oberfläche.
  *
- * Eine Skala aus Grautönen, Orange als einzige Farbe.
+ * Ein tiefes Blau trägt den Rahmen, der Inhalt steht hell darunter.
  *
- * Die Tiefe kommt hier nicht aus Farbe, sondern aus echten Stufen: Grund,
- * Fläche, gehobene Fläche, Bedienelement — jede Ebene ist einen sichtbaren
- * Schritt heller als die darunter. Orange trägt nur, was Aufmerksamkeit
- * verdient: den aktiven Punkt, den Fokus, die Hauptaktion, den Lichtrand
- * einer Fläche. Sparsam eingesetzt wirkt eine Farbe stärker als überall
- * verteilt.
+ * Seitenleiste und Kopfband sind ein Stück: dieselbe Farbfamilie, dieselbe
+ * Bandhöhe, dieselbe Linie darunter. Was dazwischen liegt - Flächen, Listen,
+ * Fenster - ist beinahe weiß und bekommt seine Tiefe aus echten Stufen: Grund,
+ * Fläche, gehobene Fläche, Bedienelement. Das Blau trägt nur, was
+ * Aufmerksamkeit verdient: den aktiven Punkt, den Fokus, die Hauptaktion.
  *
- * Bewegung bleibt: ein weites Licht wandert langsam über den Grund, Knöpfe
- * bekommen beim Überfahren einen Lichtstreifen, laufende Vorgänge pulsen.
+ * Bewegung bleibt, und sie ist kurz.
  *
- * Fonts come from the machine. This runs on the customer's own server, often
- * without an internet connection, so a webfont from a CDN would be a
- * dependency that fails exactly when it must not.
+ * Die Schriften kommen von der Maschine. Das hier läuft auf dem Server des
+ * Kunden, oft ohne Verbindung nach außen - eine Schrift von einem fremden
+ * Rechner wäre eine Abhängigkeit, die genau dann ausfällt, wenn sie es nicht
+ * darf.
  *
- * Alles, was nicht überall unterstützt wird — background-clip: text,
- * backdrop-filter — steht hinter @supports oder ist so gebaut, dass ohne
+ * Alles, was nicht überall unterstützt wird - background-clip: text,
+ * backdrop-filter - steht hinter @supports oder ist so gebaut, dass ohne
  * Unterstützung nichts verschwindet.
  */
 
 /*
- * Zwei Erscheinungsbilder, ein Regelwerk.
+ * Ein Erscheinungsbild, ein Regelwerk.
  *
- * Alles, was die beiden unterscheidet, steht in genau zwei Blöcken: die Farben
- * und Formen hier, die wenigen baulichen Abweichungen ganz am Ende unter
- * `[data-theme='spring']`. Dazwischen kommt keine Farbe mehr vor — sonst hätte
- * ein zweites Erscheinungsbild zweihundert Fundstellen statt einer.
+ * Die Farben stehen in genau einem Block: in dem hier. Weiter unten kommt keine
+ * Farbe mehr vor - wer eine braucht, nimmt eine Marke von hier, statt einen
+ * Wert danebenzuschreiben. Sonst hätte die nächste Änderung an der Palette
+ * zweihundert Fundstellen statt einer.
  *
  * Das gilt auch für die Form: Radien, Knopfform und Schattenfarbe sind Marken,
- * keine festen Werte. Spring ist nicht das hellere Autumn, sondern eine andere
- * Handschrift — ruhiger, mit Violett statt Orange und schwarzen Knöpfen statt
- * leuchtender Kanten.
+ * keine festen Werte.
  *
- * Die **Form** unterscheidet die beiden nicht: Fünf Pixel Radius gelten hier wie
- * dort. Ein Thema, das auch die Ecken anders fügt, wäre nicht mehr dieselbe
- * Oberfläche in anderer Farbe, sondern eine zweite.
+ * Hier standen einmal zwei Erscheinungsbilder nebeneinander, ein dunkles und
+ * ein helles. Zwei zu pflegen hieß, jede Farbregel zweimal zu schreiben - und
+ * bei jeder neuen Fläche an beide zu denken. Geblieben ist eines.
  */
 :root {
   --sans: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
   --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', 'Liberation Mono', monospace;
 
   --step: 1.5rem;
-}
 
-/*
- * Autumn — die Werkbank. Tiefe kommt nicht aus Farbe, sondern aus echten
- * Stufen: Grund, Fläche, gehobene Fläche, Bedienelement. Orange trägt nur, was
- * Aufmerksamkeit verdient. Ohne Angabe gilt dieses.
- */
-:root,
-[data-theme='autumn'] {
-  --g-ground: #0d0e10;
-  --g-1: #141618;
-  --g-2: #1b1d20;
-  --g-3: #232629;
-  --g-4: #2c2f33;
-  --g-5: #383c41;
+  /*
+   * Der Rahmen: Seitenleiste und Kopfband.
+   *
+   * Eine Grundfarbe und zwei Verwandte daraus. Der Verlauf läuft in der
+   * Seitenleiste von oben nach unten und im Kopfband von links nach rechts.
+   * Beide beginnen dunkel und enden hell, damit die zwei Bänder an ihrer
+   * gemeinsamen Ecke denselben Ton tragen und als ein Stück gelesen werden.
+   */
+  --rahmen: #14476e;
+  --rahmen-dunkel: #0b2c47;
+  --rahmen-hell: #2a6ea6;
 
-  --text: #e9ebed;
-  --text-soft: #a2a8ae;
-  --text-faint: #757b82;
+  /*
+   * Der Inhalt: sechs Stufen vom Grund bis zum Bedienelement.
+   *
+   * Auf hellem Grund hebt sich eine Fläche nicht durch mehr Licht, sondern
+   * durch weniger Farbe - der Grund ist der graueste Ton, eine Fläche ist weiß.
+   * Die beiden obersten Stufen kehren die Richtung um: Was man anfassen kann,
+   * bekommt wieder etwas Grau, denn Weiß auf Weiß hätte keine Kante.
+   */
+  --g-ground: #eaeff4;
+  --g-1: #f3f6fa;
+  --g-2: #f9fbfc;
+  --g-3: #ffffff;
+  /* Bedienelement in Ruhe und beim Überfahren. */
+  --g-4: #f1f5f9;
+  --g-5: #e2e8f0;
+
+  --text: #0f172a;
+  --text-soft: #475569;
+  --text-faint: #64748b;
   /* Text auf einer Fläche in der Akzentfarbe. */
   --text-loud: #ffffff;
 
-  --rule: rgba(255, 255, 255, 0.09);
-  --rule-strong: rgba(255, 255, 255, 0.17);
-  /* Die Farbe, aus der Glanzkanten gemacht sind — hell auf dunklem Grund. */
-  --sheen: 255, 255, 255;
+  --rule: rgba(15, 23, 42, 0.1);
+  --rule-strong: rgba(15, 23, 42, 0.18);
+  /*
+   * Die Farbe, aus der Kanten und Griffe gemacht sind.
+   *
+   * Auf dunklem Grund war das Weiß: Eine Fläche hebt sich, indem sie Licht
+   * fängt. Hier ist der Grund hell, und dieselbe Kante muss dunkel sein - sonst
+   * wäre sie unsichtbar, und mit ihr der Griff jeder Bildlaufleiste.
+   */
+  --sheen: 15, 23, 42;
 
-  --accent: 255, 138, 60;
-  --accent-deep: 240, 106, 32;
-  --accent-light: 255, 179, 122;
-  /* Der Schriftzug. In Autumn ein gebranntes Kupfer. */
-  --brand: #c17b4d;
+  --accent: 15, 53, 88;
+  --accent-deep: 10, 40, 68;
+  --accent-light: 74, 114, 148;
+  /* Der Schriftzug. Er steht auf dem blauen Band. */
+  --brand: #ffffff;
   /*
    * Die aufgeklappte Liste einer Combobox.
    *
-   * Der hervorgehobene Eintrag liegt auf Hellbraun, die ruhenden tragen ein
-   * dunkles Orange. Nicht die Akzentfarbe: Die gehört der einen Hauptaktion je
-   * Ansicht, und eine Liste, in der jede Zeile leuchtet, hebt nichts mehr
-   * hervor. Das Braun ist der ruhige Verwandte des Akzents — erkennbar
-   * derselben Familie, aber ohne Anspruch.
+   * Weiß mit schwarzer Schrift, und der eine hervorgehobene Eintrag liegt auf
+   * einem blassen Blau. Nicht auf der Akzentfarbe: Die gehört der einen
+   * Hauptaktion je Ansicht, und eine Liste, in der jede Zeile leuchtet, hebt
+   * nichts mehr hervor.
    */
-  --pick: #c69163;
-  --pick-text: #000000;
-  --option-text: #cc7722;
-  --picker-fill: var(--g-2);
-  --picker-edge: var(--rule-strong);
-  --picker-shadow: 0 20px 46px -20px rgba(0, 0, 0, 0.95);
+  --pick: #dbe7f3;
+  --pick-text: #0f172a;
+  --option-text: #0f172a;
+  --picker-fill: #ffffff;
+  --picker-edge: rgba(15, 23, 42, 0.12);
+  --picker-shadow: 0 20px 46px -20px rgba(15, 23, 42, 0.35);
 
-  --live: 95, 191, 148;
+  --live: 5, 150, 105;
   /*
-   * Das Grün des Statuspunktes — kräftiger als `--live`.
+   * Das Grün des Statuspunktes - kräftiger als `--live`.
    *
-   * `--live` ist für Flächen gemacht: Abzeichen, Streifen, Hintergründe, wo
-   * ein sattes Grün schreien würde. Ein Punkt von fünf Pixeln hat diese Fläche
-   * nicht — gedämpft wird er auf dunklem Grund zu einem grauen Fleck, und
-   * genau die Auskunft „hier ist alles in Ordnung" geht verloren.
+   * `--live` ist für Flächen gemacht: Abzeichen, Streifen, Hintergründe, wo ein
+   * sattes Grün schreien würde. Ein Punkt von fünf Pixeln hat diese Fläche
+   * nicht - gedämpft wird er zu einem grauen Fleck, und genau die Auskunft
+   * "hier ist alles in Ordnung" geht verloren.
    *
    * Nur das Grün. Gelb und Rot sind von sich aus laut genug; ein Punkt, der
    * überall schreit, sagt so wenig wie einer, der überall flüstert.
    */
-  --dot-gut: 54, 214, 116;
-  --caution: 217, 164, 65;
-  --alarm: 226, 99, 92;
+  --dot-gut: 21, 128, 61;
+  --caution: 180, 83, 9;
+  --alarm: 185, 28, 28;
 
   /*
    * Der Name des Workflows, während er entsteht. Ein Blau, das weit ins Graue
-   * gezogen ist — es soll sich absetzen, ohne sich neben Grau und Orange als
-   * dritte Farbe aufzuspielen.
-   *
-   * Auf Autumns fast schwarzem Grund muss es hell sein, sonst ist es nicht zu
-   * lesen; in Spring dunkel. Derselbe Ton, von zwei Seiten.
+   * gezogen ist - es soll sich absetzen, ohne sich neben Grau und dem Akzent
+   * als dritte Farbe aufzuspielen.
    */
-  --draft-name: #a6b6c9;
+  --draft-name: #33425b;
 
   /*
    * Ein Radius für alles, und er ist klein.
    *
-   * Zwölf Pixel an einer Fläche, acht an einem Knopf, eine Kapsel an jeder Pille
-   * und ein Kreis an jedem kleinen Knopf — das waren vier Formensprachen auf
-   * einem Bildschirm. Fassen sie eine Ecke unterschiedlich stark, liest das Auge
-   * daraus eine Ordnung, die es nicht gibt: Eine runde Pille wirkt neben einer
-   * eckigen Fläche wie etwas anderes, obwohl sie dasselbe ist — eine
+   * Zwölf Pixel an einer Fläche, acht an einem Knopf, eine Kapsel an jeder
+   * Pille und ein Kreis an jedem kleinen Knopf - das waren vier Formensprachen
+   * auf einem Bildschirm. Fassen sie eine Ecke unterschiedlich stark, liest das
+   * Auge daraus eine Ordnung, die es nicht gibt: Eine runde Pille wirkt neben
+   * einer eckigen Fläche wie etwas anderes, obwohl sie dasselbe ist - eine
    * Beschriftung.
    *
-   * Fünf Pixel nehmen der Kante die Härte und sonst nichts. Die Gliederung tragen
-   * jetzt Fläche, Farbe und Abstand; die Form sagt nichts mehr dazu.
+   * Fünf Pixel nehmen der Kante die Härte und sonst nichts. Die Gliederung
+   * tragen Fläche, Farbe und Abstand; die Form sagt nichts mehr dazu.
    */
   --radius: 5px;
   --radius-small: 5px;
   --radius-button: 5px;
   /* Die Farbe, aus der Schatten gemacht sind. */
-  --shade: 0, 0, 0;
-  /* Der Fuß der Seitenleiste, wo sie in den Grund übergeht. */
-  --sidebar-foot: rgba(13, 14, 16, 0.9);
-
-  color-scheme: dark;
-}
-
-/*
- * Spring — die festgelegte Palette.
- *
- * Diese Werte sind Regel, nicht Vorschlag. Sie stehen hier einmal und nirgends
- * sonst; wer eine Farbe braucht, nimmt eine Marke von hier, statt einen Wert
- * danebenzuschreiben.
- *
- *   Grund              Verlauf #e7ebef → #b6c2ce, von links nach rechts
- *   Flächen            Verlauf #dee2ea → #f1f3f5, weißer Rahmen, 10 px
- *   Schrift            schwarz
- *   Überschriften      schwarz, fett
- *   Platzhalter        dunkelgrau, kursiv
- *   Hauptmenü          schwarz, halbfett, Symbol davor
- *   Menü hervorgehoben #e8eaec, ohne Rahmen
- *   Knopf hervorgehoben schwarz, weiße Schrift, 10 px
- *   Knopf sonst        schwarzer Rahmen, schwarze Schrift, 10 px
- *
- * Es gibt keine Akzentfarbe. Was in Autumn Orange trägt, trägt hier Schwarz —
- * deshalb ist `--accent` bewusst kein Bunt, sondern dasselbe Schwarz. So kann
- * keine Regel, die ich hier übersehe, plötzlich eine fremde Farbe hereinholen.
- */
-[data-theme='spring'] {
-  /*
-   * Der Grund ist ein Verlauf. `--g-ground` bleibt daneben stehen und trägt den
-   * hellen Anfang: Ein paar Stellen brauchen eine einzelne Farbe statt eines
-   * Verlaufs, und die soll dann zum Rand passen, an dem sie steht.
-   */
-  --g-ground: #e7ebef;
-  --ground-fill: linear-gradient(90deg, #e7ebef 0%, #b6c2ce 100%);
-  --g-1: #e8eaec;
-  --g-2: #e8eaec;
-  --g-3: #dfe1e4;
-  --g-4: #d5d8dd;
-  --g-5: #c6cad0;
-
-  --text: #000000;
-  --text-soft: #3c4048;
-  --text-faint: #5c616a;
-  --text-loud: #000000;
-
-  --rule: rgba(0, 0, 0, 0.08);
-  --rule-strong: rgba(0, 0, 0, 0.5);
-  --sheen: 0, 0, 0;
-
-  --accent: 0, 0, 0;
-  --accent-deep: 0, 0, 0;
-  --accent-light: 60, 60, 66;
-  --brand: #000000;
-
-  --live: 30, 130, 95;
-  /* Auf hellem Grund trägt ein dunkles Grün — siehe `--dot-gut` oben. */
-  --dot-gut: 21, 128, 61;
-  --caution: 165, 115, 20;
-  --alarm: 190, 55, 50;
-
-  --draft-name: #33425b;
-
-  /* Derselbe Radius wie in Autumn — die Form unterscheidet die Themen nicht. */
-  --radius: 5px;
-  --radius-small: 5px;
-  --radius-button: 5px;
-  --shade: 0, 0, 0;
-  --sidebar-foot: transparent;
-
-  --pick: #8999b3;
-  --pick-text: #000000;
-  --option-text: #000000;
-  --picker-fill: #ffffff;
-  --picker-edge: rgba(0, 0, 0, 0.14);
-  --picker-shadow: none;
-
-  /* Der Rahmen einer Fläche — weiß und dünn. */
-  --panel-edge: #ffffff;
-  /*
-   * Die Füllung einer Fläche: ein Verlauf von links nach rechts. Die beiden
-   * Töne liegen dicht beieinander — man sieht keinen Verlauf, sondern nur, dass
-   * die Fläche nicht ganz flach ist.
-   */
-  --panel-fill: linear-gradient(90deg, #dee2ea 0%, #f1f3f5 100%);
+  --shade: 15, 23, 42;
+  /* Der Fuß der Seitenleiste, wo sie am hellsten ist. */
+  --sidebar-foot: var(--rahmen-hell);
 
   color-scheme: light;
 }
@@ -249,9 +178,9 @@
  * Das Blau des Betriebssystems.
  *
  * Kästchen, Schalter und Fortschritt zeichnet der Browser in seiner eigenen
- * Farbe — auf jedem Rechner dieselbe, und in keinem der beiden Erscheinungsbilder
- * vorgesehen. `accent-color` übergibt ihm unsere: in Autumn das Orange, in
- * Spring das Schwarz. Eine Zeile für alle Bauteile, die wir nicht selbst malen.
+ * Farbe - auf jedem Rechner dieselbe, und in unserem Erscheinungsbild nicht
+ * vorgesehen. `accent-color` übergibt ihm unsere. Eine Zeile für alle Bauteile,
+ * die wir nicht selbst malen.
  */
 * {
   accent-color: rgb(var(--accent));
@@ -374,8 +303,8 @@
 }
 
 ::selection {
-  background: rgba(var(--accent), 0.32);
-  color: var(--text-loud);
+  background: rgba(var(--accent), 0.16);
+  color: var(--text);
 }
 
 body {
@@ -412,47 +341,11 @@ select,
 }
 
 /*
- * Ein weites, warmes Licht wandert langsam über den Grund. Es ist so schwach,
- * dass man es nicht als Farbe liest — es nimmt dem Grau nur das Flache.
+ * Hier lagen einmal ein wanderndes Licht und ein feines Raster über dem Grund.
+ * Beide leben von Dunkelheit: Sie nahmen einem fast schwarzen Grund das Flache.
+ * Auf einem hellen Grund gibt es nichts aufzuhellen - was bliebe, wäre ein
+ * Schleier, der sich langsam bewegt, ohne etwas zu sagen.
  */
-body::before {
-  content: '';
-  position: fixed;
-  inset: -30%;
-  z-index: -2;
-  pointer-events: none;
-  background:
-    radial-gradient(40% 44% at 24% 22%, rgba(var(--accent), 0.11) 0%, transparent 68%),
-    radial-gradient(36% 40% at 76% 72%, rgba(var(--sheen), 0.05) 0%, transparent 66%);
-  filter: blur(34px);
-  animation: drift 58s ease-in-out infinite alternate;
-}
-
-/* Ein feines Raster, damit das Licht eine Fläche hat, auf der es liegt. */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    repeating-linear-gradient(0deg, rgba(var(--sheen), 0.024) 0 1px, transparent 1px 52px),
-    repeating-linear-gradient(90deg, rgba(var(--sheen), 0.024) 0 1px, transparent 1px 52px);
-  -webkit-mask-image: radial-gradient(82% 72% at 38% 18%, #000 0%, transparent 86%);
-  mask-image: radial-gradient(82% 72% at 38% 18%, #000 0%, transparent 86%);
-}
-
-@keyframes drift {
-  0% {
-    transform: translate3d(-3%, -2%, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(4%, 3%, 0) scale(1.1);
-  }
-  100% {
-    transform: translate3d(-2%, 4%, 0) scale(1.03);
-  }
-}
 
 h1,
 h2,
@@ -465,7 +358,7 @@ h3 {
 
 h1 {
   font-size: 1.75rem;
-  color: var(--text-loud);
+  color: var(--text);
 }
 
 h2 {
@@ -484,7 +377,7 @@ code {
   border: 1px solid var(--rule);
   border-radius: 5px;
   padding: 0.1em 0.4em;
-  color: #e2d5c9;
+  color: var(--text);
 }
 
 /* ---------- Layout ---------- */
@@ -501,20 +394,52 @@ code {
   overflow: hidden;
 }
 
+/*
+ * Die Seitenleiste trägt den Rahmen: ein Verlauf von oben nach unten, dunkel
+ * beginnend, hell endend.
+ *
+ * Sie setzt dabei ihre eigenen Marken um, und daran hängt das Ganze. Alles, was
+ * in ihr steht - Menüpunkte, Symbole, Linien, Trenner -, holt seine Farbe aus
+ * denselben Marken wie überall sonst und wird hell, ohne selbst davon zu
+ * wissen. Ohne diesen Umschlag müsste jeder Baustein zweimal eingefärbt werden,
+ * einmal für den hellen Inhalt und einmal für die dunkle Leiste - und der
+ * nächste, den jemand hinzufügt, stünde wieder in Schwarz auf Blau da.
+ */
 .sidebar {
+  --text: #ffffff;
+  --text-soft: rgba(255, 255, 255, 0.78);
+  --text-faint: rgba(255, 255, 255, 0.55);
+  --text-loud: #ffffff;
+  --rule: rgba(255, 255, 255, 0.14);
+  --rule-strong: rgba(255, 255, 255, 0.24);
+  --sheen: 255, 255, 255;
+  /*
+   * In der Leiste ist der Akzent Weiß.
+   *
+   * Das Blau des Akzents ist die Farbe dieser Fläche selbst - eine Markierung
+   * darin wäre unsichtbar. Was hier hervorhebt, ist Licht.
+   */
+  --accent: 255, 255, 255;
+  --g-3: rgba(255, 255, 255, 0.1);
+  --g-4: rgba(255, 255, 255, 0.16);
+
   position: relative;
   padding: 1.9rem 0 1.25rem;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, var(--g-2) 0%, var(--g-1) 60%, var(--sidebar-foot) 100%);
-  backdrop-filter: blur(20px) saturate(120%);
-  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  background: linear-gradient(
+    180deg,
+    var(--rahmen-dunkel) 0%,
+    var(--rahmen) 60%,
+    var(--sidebar-foot) 100%
+  );
+  color: var(--text);
   /* Nur für den Notfall: auf einem sehr flachen Fenster wäre sonst der letzte
      Menüpunkt unerreichbar. Im Normalfall entsteht hier keine Leiste. */
   overflow-y: auto;
 }
 
-/* Die Kante der Seitenleiste ist eine Lichtquelle, oben am hellsten. */
+/* Die Kante zum Inhalt - eine Linie, kein Leuchten. */
 .sidebar::after {
   content: '';
   position: absolute;
@@ -522,13 +447,7 @@ code {
   bottom: 0;
   right: 0;
   width: 1px;
-  background: linear-gradient(
-    180deg,
-    rgba(var(--accent), 0.8) 0%,
-    rgba(var(--sheen), 0.18) 26%,
-    rgba(var(--sheen), 0.05) 100%
-  );
-  box-shadow: 0 0 20px rgba(var(--accent), 0.22);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .sidebar__brand {
@@ -843,7 +762,7 @@ code {
   filter: none;
   background: var(--g-4);
   border-color: var(--rule-strong);
-  color: var(--text-loud);
+  color: var(--text);
   box-shadow: none;
 }
 
@@ -851,7 +770,7 @@ code {
 .subnav__tab--active:hover:not(:disabled) {
   background: linear-gradient(100deg, var(--g-5) 0%, var(--g-4) 100%);
   border-color: rgba(var(--accent), 0.42);
-  color: var(--text-loud);
+  color: var(--text);
   box-shadow: 0 0 22px -12px rgba(var(--accent), 0.9), inset 0 1px 0 rgba(var(--sheen), 0.08);
 }
 
@@ -860,24 +779,17 @@ code {
 /*
  * Die Innenluft einer Fläche als Marke — und nicht als Zahl an jeder Regel.
  *
- * Spring gibt einer Fläche mehr Luft als Autumn. Solange das als eigene
- * `padding`-Regel im Spring-Block stand, schlug es alles, was weiter oben über
- * Flächen entschieden wird: Eine zugeklappte Karte behielt im Spring die volle
- * Höhe, obwohl die Regel dagegen längst dastand — sie kam nur früher in der
- * Datei. Über eine Marke fällt die zweite Regel fort. Das Erscheinungsbild
- * setzt das Maß, die Zustände rechnen damit.
+ * Die Luft stand einmal als eigene `padding`-Regel weiter unten und schlug
+ * damit alles, was weiter oben über Flächen entschieden wird: Eine zugeklappte
+ * Karte behielt die volle Höhe, obwohl die Regel dagegen längst dastand - sie
+ * kam nur früher in der Datei. Über eine Marke fällt die zweite Regel fort. Der
+ * Wert steht oben, die Zustände rechnen damit.
  */
 :root {
   --karte-luft-y: 1.5rem;
   --karte-luft-x: 1.6rem;
   /* Der Abstand von der Pille zum ersten Feld darunter. */
   --pille-nachlauf: 1.3rem;
-}
-
-[data-theme='spring'] {
-  --karte-luft-y: 2.4rem;
-  --karte-luft-x: 2.4rem;
-  --pille-nachlauf: 1rem;
 }
 
 /*
@@ -971,7 +883,7 @@ code {
   font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: #e4e6e8;
+  color: var(--text);
 }
 
 .card h2:first-child::before {
@@ -1038,10 +950,9 @@ code {
    * fehlt nur die Strecke bis hinter den Pfeil. Um seine volle Breite zu rücken
    * wäre eine Lücke, die niemand erklärt.
    *
-   * Im Spring ist der Innenabstand größer als der Weg des Pfeils; die Strecke
-   * wird dann negativ und zieht die Zeile ein Stück nach links. Das ist keine
-   * Ausnahme, sondern dieselbe Rechnung — deshalb steht hier die Marke und
-   * keine Zahl.
+   * Ist der Innenabstand größer als der Weg des Pfeils, wird die Strecke
+   * negativ und zieht die Zeile ein Stück nach links. Das ist keine Ausnahme,
+   * sondern dieselbe Rechnung - deshalb steht hier die Marke und keine Zahl.
    */
   margin-left: calc(var(--klapp-rand) + var(--klapp-pfeil) + 0.5rem - var(--karte-luft-x));
 }
@@ -1052,10 +963,9 @@ code {
  * ## Warum die Hälfte der Fläche und nicht die Hälfte der Überschrift
  *
  * Hier stand einmal eine Rechnung: halbe Pillenhöhe minus halbe Pfeilhöhe, und
- * die Pillenhöhe kam aus ihren eigenen Marken. Das galt für die Pille des
- * Autumn — im Spring trägt die Überschrift keinen Kasten, sondern ist eine
- * Textzeile, und dieselbe Rechnung hing an einer Höhe, die es dort nicht gibt.
- * Der Pfeil saß über der Mitte des Wortes.
+ * die Pillenhöhe kam aus ihren eigenen Marken. Sie hing damit an einer Höhe,
+ * die es nicht immer gibt - trägt die Überschrift keinen Kasten, sondern ist
+ * eine Textzeile, saß der Pfeil über der Mitte des Wortes.
  *
  * Eine zugeklappte Fläche enthält nichts als ihre Überschrift, und ihre beiden
  * Innenabstände sind gleich. Ihre Mitte *ist* deshalb die Mitte der Überschrift
@@ -1292,7 +1202,7 @@ code {
   line-height: 1;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  color: var(--text-loud);
+  color: var(--text);
   text-shadow: 0 0 26px rgba(var(--accent), 0.4);
 }
 
@@ -1418,7 +1328,7 @@ code {
   padding: 0 0.25rem;
   border-radius: 5px;
   background: rgb(var(--alarm));
-  color: #fff;
+  color: var(--text-loud);
   font-size: 0.68rem;
   line-height: 1.05rem;
   text-align: center;
@@ -1574,8 +1484,8 @@ th.numeric {
  * Die kleinere Größe gilt dem Wert, nicht der Überschrift darüber.
  *
  * Beides stand vorher in einer Regel, und `th.numeric` wog damit schwerer als
- * `th`: In Autumn standen „GEFUNDEN" bis „FEHLER" in 13 Pixeln, während
- * „MANDANT UND GEGENSTAND" daneben 10 hatte — eine Kopfzeile mit zwei Größen.
+ * `th`: "GEFUNDEN" bis "FEHLER" standen in 13 Pixeln, während "MANDANT UND
+ * GEGENSTAND" daneben 10 hatte - eine Kopfzeile mit zwei Größen.
  * Eine Überschrift ist eine Überschrift, gleich was unter ihr steht.
  */
 td.numeric {
@@ -1619,7 +1529,7 @@ td.numeric {
  *
  * Überschriften brechen sonst nie um — bei einem Wort ist das richtig. „Mandant
  * und Gegenstand" ist aber ein Satz, und als eine Zeile bestimmte er die
- * Mindestbreite der Tabelle: In Spring lief sie um 52 Pixel über, obwohl der
+ * Mindestbreite der Tabelle: Gemessen lief sie um 52 Pixel über, obwohl der
  * Inhalt darunter viel schmaler kann. Zwei Zeilen im Kopf kosten nichts; die
  * Zeile darunter ist ohnehin zweizeilig.
  */
@@ -1633,8 +1543,8 @@ td.numeric {
  *
  * Silbentrennung sähe besser aus („Bauunterneh-mung" statt „Bauunterne|hmung"),
  * aber `hyphens: auto` verlangt, dass `overflow-wrap: anywhere` hier nicht gilt,
- * und dann fordert die Spalte mindestens eine ganze Silbe. Gemessen: In Spring
- * lief die Tabelle damit um 32 Pixel über und bekam wieder eine Bildlaufleiste.
+ * und dann fordert die Spalte mindestens eine ganze Silbe. Gemessen: Die
+ * Tabelle lief damit um 32 Pixel über und bekam wieder eine Bildlaufleiste.
  *
  * Eine Bildlaufleiste ist der schlimmere Fehler. Sobald die Inhaltsspalte breiter
  * ist als die heutigen 830 Pixel, ist der Platz da und die Regel kann zurück auf
@@ -1713,7 +1623,7 @@ th.cell--open {
 .row--opens:hover .open-button,
 .open-button:hover,
 .open-button:focus-visible {
-  color: var(--text-loud);
+  color: var(--text);
   border-color: var(--rule);
   background: var(--g-4);
 }
@@ -2005,7 +1915,7 @@ textarea:hover {
  *
  * Aus der Marke und nicht als eigener Wert: `#6b7178` stand hier fest
  * eingetragen und wäre bei der nächsten Änderung an der Palette still
- * danebengelaufen. Spring trägt dieselbe Regel weiter unten.
+ * danebengelaufen.
  */
 input::placeholder,
 textarea::placeholder {
@@ -2241,8 +2151,8 @@ option:checked {
 }
 
 /*
- * Beschriftung über der Combobox. Als Spalte und nicht als Block: In Autumn ist
- * eine Beschriftung eine Pille, und die soll ihren Text umschließen, nicht die
+ * Beschriftung über der Combobox. Als Spalte und nicht als Block: Eine
+ * Beschriftung ist eine Pille, und die soll ihren Text umschließen, nicht die
  * Breite des Feldes darunter annehmen.
  */
 .filters__field {
@@ -2470,7 +2380,7 @@ option:checked {
 .chain__step--active {
   background: linear-gradient(100deg, var(--g-4) 0%, var(--g-3) 70%);
   border-color: rgba(var(--accent), 0.45);
-  color: var(--text-loud);
+  color: var(--text);
   font-weight: 600;
   box-shadow: 0 0 22px -12px rgba(var(--accent), 0.8);
 }
@@ -2584,12 +2494,12 @@ option:checked {
 
 .run-log__line--WARNING .run-log__level,
 .run-log__line--WARNING .run-log__message {
-  color: #e2cfa4;
+  color: rgb(var(--caution));
 }
 
 .run-log__line--ERROR .run-log__level,
 .run-log__line--ERROR .run-log__message {
-  color: #e8a99b;
+  color: rgb(var(--alarm));
 }
 
 /*
@@ -3000,16 +2910,11 @@ svg.icon--strich {
 /*
  * Die Schrift der Pille steht als Marke und nicht als Zahl in der Regel.
  *
- * Das Autumn-Warmweiß auf dem hellen Grund des Spring wäre kaum zu lesen. Über
- * eine Marke entscheidet das Erscheinungsbild, statt weiter unten eine zweite
+ * Über eine Marke entscheidet die Palette, statt weiter unten eine zweite
  * Regel nachzureichen, die dieselbe Eigenschaft noch einmal setzt.
  */
 :root {
-  --endung-text: #e2d5c9;
-}
-
-[data-theme='spring'] {
-  --endung-text: #000000;
+  --endung-text: var(--text);
 }
 
 /*
@@ -3077,11 +2982,10 @@ svg.icon--strich {
  * ## Die Schrift gehört zum Grund
  *
  * `color` steht hier, weil `background` hier steht — und daran ist es
- * vorbeigelaufen: Eine Zeile der Dateiliste trägt `tree__name`, dieselbe
- * Klasse wie eine Baumzeile. In Spring färbt sich eine Baumzeile beim
- * Überfahren fast weiß, weil ihr Grund dort fast schwarz wird. Dieser Grund
- * hier wird aber **hell**, und weiß auf hell ist eine Zeile, die genau in dem
- * Moment verschwindet, in dem man sie liest.
+ * vorbeigelaufen: Eine Zeile der Dateiliste trug `tree__name`, dieselbe
+ * Klasse wie eine Baumzeile - und für die galt eine eigene Farbe beim
+ * Überfahren. Sie färbte die Schrift in die Farbe dieses Grundes, und das ist
+ * eine Zeile, die genau in dem Moment verschwindet, in dem man sie liest.
  *
  * Wer den Grund einer Zeile bestimmt, bestimmt auch ihre Schrift. Die eine
  * Regel ohne die andere zu lassen hieß, dass zwei Stellen sich über dieselbe
@@ -3097,7 +3001,7 @@ svg.icon--strich {
 /* Das Kästchen der Endung hebt sich mit — eine Stufe heller als im Ruhezustand. */
 .browse li > button.pick__row--an .pick__ext {
   border-color: rgba(var(--accent), 0.4);
-  color: var(--text-loud);
+  color: var(--text);
 }
 
 .browse__up {
@@ -3158,7 +3062,7 @@ svg.icon--strich {
 
 .browse__crumb:hover,
 .browse__crumb:focus-visible {
-  color: var(--text-loud);
+  color: var(--text);
   background: var(--g-3);
 }
 
@@ -3381,7 +3285,7 @@ svg.icon--strich {
 }
 
 .tree__row--chosen .tree__name {
-  color: var(--text-loud);
+  color: var(--text);
   font-weight: 500;
 }
 
@@ -3604,7 +3508,7 @@ button {
   border: 1px solid rgba(var(--accent-deep), 0.7);
   border-radius: var(--radius-button);
   background: linear-gradient(180deg, rgb(var(--accent)) 0%, rgb(var(--accent-deep)) 100%);
-  color: #241206;
+  color: var(--text-loud);
   font-family: var(--mono);
   font-size: 0.74rem;
   font-weight: 700;
@@ -3656,10 +3560,8 @@ button::after {
  * `.reiter__blatt`) — wer eines vergisst, bekommt das Flackern zurück, und
  * genau das ist beim Menüpunkt und im Verzeichnisbrowser passiert.
  *
- * Spring läuft ohnehin ohne jede Knopfbewegung (`transform: none !important`,
- * weiter unten) — dort ist nie jemandem etwas abgegangen. Was der Knopf beim
- * Überfahren sagt, sagt er über Helligkeit und Licht; beides ändert nicht die
- * Fläche, auf der die Maus steht.
+ * Was der Knopf beim Überfahren sagt, sagt er über Helligkeit und Licht;
+ * beides ändert nicht die Fläche, auf der die Maus steht.
  */
 button:hover:not(:disabled) {
   filter: brightness(1.09);
@@ -3698,7 +3600,7 @@ button.secondary {
 button.secondary:hover:not(:disabled) {
   background: var(--g-5);
   border-color: rgba(var(--sheen), 0.3);
-  color: var(--text-loud);
+  color: var(--text);
   filter: none;
   box-shadow: none;
 }
@@ -3736,7 +3638,7 @@ button.secondary::after {
 }
 
 .notice--error {
-  color: #ffc9c4;
+  color: rgb(var(--alarm));
   border-color: rgba(var(--alarm), 0.28);
   background: linear-gradient(100deg, rgba(var(--alarm), 0.12), var(--g-2) 72%);
 }
@@ -3747,7 +3649,7 @@ button.secondary::after {
 }
 
 .notice--warn {
-  color: #f6dfb2;
+  color: rgb(var(--caution));
   border-color: rgba(var(--caution), 0.28);
   background: linear-gradient(100deg, rgba(var(--caution), 0.12), var(--g-2) 72%);
 }
@@ -3897,7 +3799,7 @@ button.secondary::after {
   border-radius: var(--radius-small);
   background: rgba(var(--caution), 0.07);
   font-size: 0.86rem;
-  color: #e2cfa4;
+  color: rgb(var(--caution));
 }
 
 /* Welcher Stand läuft hier gerade — die Antwort steht auf dem Bildschirm. */
@@ -3979,7 +3881,7 @@ button.secondary::after {
   letter-spacing: 0.3em;
   text-transform: uppercase;
   line-height: 1;
-  color: var(--text-loud);
+  color: var(--text);
 }
 
 @supports (background-clip: text) or (-webkit-background-clip: text) {
@@ -4187,415 +4089,6 @@ button.secondary::after {
   }
 }
 
-/* ===================================================================
- * Spring — was anders gebaut ist, nicht nur anders gefärbt
- *
- * Jede Regel hier steht in `:where(…)`. Das ist kein Schmuck, sondern der
- * Grund, warum das Ganze überhaupt trägt: `:where()` zählt bei der Spezifität
- * nicht mit. Eine Spring-Regel wiegt damit genau so viel wie ihr Gegenstück in
- * Autumn — nicht mehr.
- *
- * Aus demselben Grund steht auch `:not(:disabled)` in `:where(…)`: Ein `:not()`
- * zählt bei der Spezifität wie eine Klasse, und `button:hover:not(:disabled)`
- * wog damit schwerer als `.sidebar__link:hover` — der Menüpunkt wurde beim
- * Überfahren schwarz, obwohl seine eigene Regel etwas anderes sagte.
- *
- * Ohne das schlug `[data-theme='spring'] button` die Regel `.sidebar__link`,
- * und jeder Menüpunkt wurde zum schwarzen Knopf. Dasselbe hätte jede
- * Auswahlkachel und jedes Kettenglied getroffen: alles, was ein `<button>` ist
- * und eine eigene Gestalt hat. Mit `:where()` gewinnt die Klasse wieder, so wie
- * in Autumn auch.
- *
- * Die Werte stehen oben; hier steht, wo Autumn etwas hinzufügt, das Spring
- * nicht hat. Fast alles ist Wegnehmen: kein wanderndes Licht, keine
- * Leuchtkanten, keine Versalien in Monospace, kein Lichtstreifen im Knopf.
- * =================================================================== */
-
-/*
- * Der Grund: ein Verlauf von links nach rechts, festgehalten am Fenster. Ohne
- * `fixed` liefe er mit dem Inhalt mit, und in einer langen Liste stünde die
- * dunkle Seite plötzlich oben.
- */
-:where([data-theme='spring']) body {
-  background-image: var(--ground-fill);
-  background-attachment: fixed;
-}
-
-/* Kein wanderndes Licht und kein Raster: beide leben von Dunkelheit. */
-:where([data-theme='spring']) body::before,
-:where([data-theme='spring']) body::after {
-  display: none;
-}
-
-/*
- * Der Überblendstreifen unter dem Seitenkopf verschwindet mit. Er ist in einer
- * einzelnen Farbe gezeichnet und läge als sichtbares Band quer über dem
- * Verlauf. Gebraucht wird er hier auch nicht: Der Kopf ist eine deckende
- * Fläche, hinter der der Inhalt sauber verschwindet.
- */
-:where([data-theme='spring']) .main__header::before {
-  display: none;
-}
-
-/* Die Seitenleiste liegt im Grund und hat keine eigene Fläche. */
-:where([data-theme='spring']) .sidebar {
-  background: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-:where([data-theme='spring']) .sidebar::after {
-  display: none;
-}
-
-:where([data-theme='spring']) .sidebar__brand {
-  color: var(--brand);
-}
-
-:where([data-theme='spring']) .sidebar__brand::after {
-  background: #000000;
-  box-shadow: none;
-  opacity: 0.85;
-}
-
-/*
- * Hauptmenü: Text mit einem Symbol davor, schwarz und halbfett. Der aktive
- * Punkt ist eine ruhige Fläche in der Flächenfarbe — ohne Rahmen, ohne Strich,
- * ohne Licht. Er hebt sich durch Fläche allein, und das genügt auf hellem Grund.
- */
-:where([data-theme='spring']) .sidebar__link {
-  color: #000000;
-  font-size: 1.13rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  border-color: transparent;
-}
-
-/* Das Symbol wächst mit der Schrift, sonst sackt es neben ihr ab. */
-:where([data-theme='spring']) .sidebar__icon {
-  width: 20px;
-  height: 20px;
-}
-
-/*
- * Die Maus zeigt dasselbe, was die Auswahl zeigt: dieselbe helle Fläche. Ein
- * eigener Überfahrton wäre eine dritte Aussage neben „hier stehst du" und
- * „hier stehst du nicht" — und die gibt es nicht.
- */
-:where([data-theme='spring']) .sidebar__link:hover {
-  background: #e8eaec;
-  border-color: transparent;
-  color: #000000;
-  transform: none;
-}
-
-:where([data-theme='spring']) .sidebar__link--active,
-:where([data-theme='spring']) .sidebar__link--active:hover {
-  background: #e8eaec;
-  border-color: transparent;
-  box-shadow: none;
-  color: #000000;
-}
-
-:where([data-theme='spring']) .sidebar__link--active::before {
-  display: none;
-}
-
-/* Flächen: die Panelfarbe, ein dünner weißer Rahmen, 10 px rund. */
-:where([data-theme='spring']) .card,
-:where([data-theme='spring']) .modal__box,
-:where([data-theme='spring']) .main__header,
-:where([data-theme='spring']) .table-wrap,
-:where([data-theme='spring']) .editor__head,
-:where([data-theme='spring']) .editor__foot,
-:where([data-theme='spring']) .main__footer {
-  background: var(--panel-fill);
-  border: 1px solid var(--panel-edge);
-  border-radius: var(--radius);
-}
-
-/*
- * Eine Kachelreihe ist **eine** Fläche, keine Reihe kleiner Flächen.
- *
- * Trug jede Kachel den Verlauf selbst, begann er in jeder von vorn — vier
- * Kacheln ergaben vier Verläufe und damit ein Streifenmuster. Jetzt liegt der
- * Verlauf einmal unter der ganzen Reihe, die Kacheln sind durchsichtig, und
- * getrennt werden sie durch eine Linie statt durch eine eigene Farbe.
- */
-:where([data-theme='spring']) .cards {
-  gap: 0;
-  background: var(--panel-fill);
-  border: 1px solid var(--panel-edge);
-  border-radius: var(--radius);
-}
-
-:where([data-theme='spring']) .cards > * {
-  background: none;
-  border-left: 1px solid var(--panel-edge);
-}
-
-:where([data-theme='spring']) .cards > *:first-child {
-  border-left: none;
-}
-
-/* Beim Überfahren hellt sich die Kachel auf, ohne den Verlauf zu verdecken. */
-:where([data-theme='spring']) .cards > *:hover {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-/*
- * Der Kopf ist in Spring eine Fläche wie jede andere: rundum gerundet, und die
- * Überschrift rückt ein, statt an der Kante zu kleben. In Autumn ist er eine
- * Kante mit einer Linie darunter — dort wäre beides falsch.
- */
-:where([data-theme='spring']) .main__header {
-  /* Rechts genau 15 px bis zur Kante — dort steht der Knopf. Links bleibt die
-     Einrückung der Überschrift, wie sie war. */
-  padding: 0.9rem 15px 0.9rem 1.2rem;
-}
-
-/* Die Linie unter dem Kopf gehört zu einer Kante, nicht zu einer Fläche. */
-:where([data-theme='spring']) .main__header::after {
-  display: none;
-}
-
-:where([data-theme='spring']) .card::before,
-:where([data-theme='spring']) .card h2:first-child::before {
-  display: none;
-}
-
-:where([data-theme='spring']) .card:hover {
-  border-color: var(--panel-edge);
-  box-shadow: none;
-}
-
-/*
- * Überschriften in Flächen: schwarz und fett, kein Typenschild.
- *
- * Der Nachlauf nach unten steht als Marke weiter oben. Hier wäre er eine
- * Kurzschrift (`margin`), die auch den linken Abstand mitsetzt — und damit die
- * zugeklappte Zeile wieder unter den Pfeil schöbe, statt neben ihn.
- */
-:where([data-theme='spring']) .card h2:first-child {
-  padding: 0;
-  border: none;
-  background: none;
-  box-shadow: none;
-  font-family: var(--sans);
-  /*
-   * Eine Stufe unter der Seitenüberschrift, auf der Leiter, die dieses
-   * Erscheinungsbild ohnehin geht: 1.6 für den Namen der Seite, 1.35 hier,
-   * 1.13 für das Hauptmenü. Auf 1.6 stand der Name einer Fläche so groß wie
-   * der Name der ganzen Seite — zwei Ränge, eine Größe, und damit keine
-   * Rangfolge.
-   */
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  text-transform: none;
-  color: #000000;
-}
-
-:where([data-theme='spring']) h1,
-:where([data-theme='spring']) h2,
-:where([data-theme='spring']) h3 {
-  color: #000000;
-  font-weight: 700;
-}
-
-:where([data-theme='spring']) h1 {
-  font-size: 1.6rem;
-}
-
-/*
- * Die Hauptaktion: schwarz mit weißer Schrift — und auf demselben Maß wie
- * Comboboxen und Optionen. Was in einer Zeile nebeneinandersteht, ist gleich
- * hoch; das ist der Unterschied zwischen „zusammengestellt" und „gewachsen".
- */
-:where([data-theme='spring']) button {
-  min-height: 38px;
-  padding: 0.42rem 1.3rem;
-  border: 1px solid #000000;
-  background: #000000;
-  color: #ffffff;
-  font-family: var(--sans);
-  font-size: 0.92rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  box-shadow: none;
-}
-
-/* Kein Lichtstreifen — der gehört zu einer Fläche, die selbst leuchtet. */
-:where([data-theme='spring']) button::after {
-  display: none;
-}
-
-:where([data-theme='spring']) button:hover:where(:not(:disabled)) {
-  background: #23262b;
-  border-color: #23262b;
-  filter: none;
-  transform: none;
-  box-shadow: none;
-}
-
-/*
- * Jede andere Aktion: eine weiße Fläche mit Haarlinie.
- *
- * In Spring heißt Weiß „das kannst du anfassen" — Eingabefelder, Comboboxen und
- * der gewählte Menüpunkt sagen es bereits. Ein schwarzer Umriss war die einzige
- * harte Linie im ganzen Bild und las sich deshalb wie ein Platzhalter neben
- * einem fertigen Knopf.
- *
- * So bleiben genau zwei Aussagen: schwarz gefüllt ist *die eine* Hauptaktion,
- * weiß ist alles andere. Die Linie ist da, damit der Knopf auf einer weißen
- * Fläche nicht verschwindet — mehr braucht sie nicht zu leisten.
- */
-:where([data-theme='spring']) button.secondary {
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  color: #000000;
-}
-
-:where([data-theme='spring']) button.secondary:hover:where(:not(:disabled)) {
-  background: #f2f4f6;
-  border-color: rgba(0, 0, 0, 0.22);
-  color: #000000;
-}
-
-/*
- * Die überfahrene Zeile im Verzeichnisbaum, in Spring.
- *
- * Ein Knopf färbt sich hier beim Überfahren fast schwarz (`#23262b`) — richtig
- * für „Speichern", und die Baumzeilen erben es, weil sie Knöpfe sind. Ihre
- * Schrift bleibt dabei schwarz, und schwarz auf fast schwarz ist genau die
- * Zeile, auf die man gerade zeigt: unlesbar in dem Moment, in dem man sie
- * liest.
- *
- * Deshalb hier hell — Schrift und Ordnerzeichen zusammen. Nur beim Überfahren:
- * Die ruhende Zeile steht auf hellem Grund und braucht ihre schwarze Schrift.
- *
- * ## Nur **im Baum**, und das ist der Punkt
- *
- * Die Regel hing lange an `.tree__name` allein. Ein `tree__name` gibt es aber
- * auch außerhalb eines Baums — die Dateiliste im selben Fenster trug ihn —, und
- * dort ist der Grund beim Überfahren `--g-2`. Das ist in Spring `#e8eaec`, also
- * genau diese Farbe: Schrift gleich Grund, die Zeile verschwand in dem Moment,
- * in dem man auf sie zeigte.
- *
- * Die Zeile darunter mit `color` zu heilen half nicht — `.browse li > button
- * :hover` bringt zwei Klassen weniger mit und verliert. Geheilt wird deshalb
- * hier: Die Aufhellung gilt, wo der dunkle Grund gilt, und nirgends sonst. Im
- * Baum steht jeder Name in einer `.tree__row`; anderswo nicht.
- */
-:where([data-theme='spring']) .tree__toggle:hover:not(:disabled),
-:where([data-theme='spring']) .tree__row:hover .tree__name:not(:disabled) {
-  color: #e8eaec;
-}
-
-:where([data-theme='spring']) .tree__row:hover .tree__name:not(:disabled) svg {
-  fill: #e8eaec;
-}
-
-:where([data-theme='spring']) button:focus-visible {
-  outline: 2px solid #000000;
-  outline-offset: 2px;
-}
-
-/*
- * Der Pfeil am Zeilenende ist kein Knopf im Sinne der 38-Pixel-Regel: Er trägt
- * kein Wort, steht in einer Tabellenzeile und würde sie höher machen als ihren
- * Inhalt. Das Maß gilt für Bedienelemente, die nebeneinander in einer Zeile
- * stehen — hier steht er allein.
- */
-:where([data-theme='spring']) .open-button {
-  min-height: 0;
-}
-
-/* Eingabefelder heben sich durch Weiß vom Grund ab, statt einzusinken. */
-:where([data-theme='spring']) input,
-:where([data-theme='spring']) select,
-:where([data-theme='spring']) textarea {
-  background: #ffffff;
-  border-color: rgba(0, 0, 0, 0.18);
-  color: #000000;
-  box-shadow: none;
-}
-
-/*
- * Der Fokus wird gezeichnet, nicht geworfen. In Autumn ist er ein Lichtkranz
- * aus `box-shadow`, und die native Umrandung ist dafür abgeschaltet — ohne
- * Ersatz wäre in Spring gar nicht mehr zu sehen, wo man gerade tippt.
- */
-:where([data-theme='spring']) input:focus,
-:where([data-theme='spring']) textarea:focus {
-  border-color: #000000;
-  outline: 2px solid #000000;
-  outline-offset: 1px;
-}
-
-/* Beispieltexte: dunkelgrau und kursiv. */
-:where([data-theme='spring']) input::placeholder,
-:where([data-theme='spring']) textarea::placeholder {
-  color: var(--text-faint);
-  font-style: italic;
-  opacity: 1;
-}
-
-:where([data-theme='spring']) .field__preset {
-  color: var(--text-faint);
-}
-
-/* Anzeigewerte ohne Leuchten: die Zahl trägt sich selbst. */
-:where([data-theme='spring']) .figure__value {
-  background: none;
-  -webkit-background-clip: border-box;
-  background-clip: border-box;
-  color: #000000;
-  text-shadow: none;
-  filter: none;
-}
-
-:where([data-theme='spring']) code {
-  background: #ffffff;
-  border-color: rgba(0, 0, 0, 0.12);
-  color: #000000;
-}
-
-/* Auch die Kette gibt ihr Leuchten ab. */
-:where([data-theme='spring']) .chain__step--active {
-  background: #e8eaec;
-  border-color: #000000;
-  box-shadow: none;
-  color: #000000;
-}
-
-:where([data-theme='spring']) .editor__tenant {
-  background: #e8eaec;
-  border-color: #000000;
-  box-shadow: none;
-  color: #000000;
-}
-
-:where([data-theme='spring']) .editor__tenant--wanted {
-  animation: none;
-}
-
-/*
- * Eine überfahrene Zeile hebt sich nicht mehr hervor.
- *
- * Sie tat es, solange die Handlungen als Knöpfe in der Zeile standen — dann war
- * die ganze Zeile ein Ziel. Seit sie in einer Auswahl stecken, ist das Ziel das
- * Auswahlfeld, und eine mitwandernde helle Bahn quer durch die Fläche verspricht
- * eine Handlung, die es dort nicht gibt.
- *
- * Der Strich in der ersten Spalte fällt damit weg — er war ohnehin ein Schatten,
- * und Schatten gibt es in Spring nicht.
- */
-:where([data-theme='spring']) tbody tr:hover td {
-  background: none;
-}
-
 /*
  * Kacheln zum Auswählen — Erscheinungsbild, Sprache.
  *
@@ -4660,157 +4153,6 @@ button.secondary::after {
 }
 
 /*
- * Spring wirft keine Schatten. Nirgends.
- *
- * Als eine Regel statt als sechsundfünfzig Einzelabschaltungen: Ein Schatten,
- * den morgen jemand irgendwo ergänzt, wäre sonst wieder da, ohne dass es
- * jemandem auffällt. Das `!important` ist hier kein Notnagel, sondern genau
- * sein Zweck — eine Aussage über das ganze Erscheinungsbild, die jede einzelne
- * Komponentenregel überstimmen soll.
- *
- * Nicht betroffen ist `outline`: Das ist eine gezeichnete Linie und kein
- * Schatten, und der Fokus hängt daran.
- */
-:where([data-theme='spring']) *,
-:where([data-theme='spring']) *::before,
-:where([data-theme='spring']) *::after {
-  box-shadow: none !important;
-  text-shadow: none !important;
-}
-
-/* `drop-shadow` ist ein Filter und fiele durch das Raster oben. */
-:where([data-theme='spring']) .figure__value,
-:where([data-theme='spring']) .figure__value--bad {
-  filter: none;
-}
-
-/*
- * Spring bewegt sich nicht. Nirgends.
- *
- * Dieselbe Form wie das Schattenverbot darüber und wie die Regel für alle, die
- * Bewegung im Betriebssystem abgeschaltet haben — Spring ist die ruhige
- * Fassung, und das ist dieselbe Aussage.
- *
- * Nichts geht dabei verloren: Der Puls am „läuft"-Abzeichen ist ein Schatten,
- * den Spring ohnehin nicht zeichnet, und der Zustand steht daneben als Wort.
- * Auch die Bewegungen beim Überfahren sind hier schon abgestellt — was bliebe,
- * wäre ein Sprung statt eines Übergangs, und der ist unruhiger als beides.
- *
- * Ruhig heißt nicht karg: Farbe, Fläche, Rundung und Rahmen bleiben. Es fällt
- * nur weg, was sich von selbst verändert.
- *
- * `transform` steht bewusst *nicht* hier. Die zwei Bewegungen beim Überfahren
- * sind an ihrer Stelle schon abgestellt, und ein pauschaler Bann träfe eines
- * Tages ein Element, das mit `translate` zentriert wird — dann läge es in der
- * Ecke, und niemand suchte den Grund in einer Regel über Animationen.
- */
-:where([data-theme='spring']) *,
-:where([data-theme='spring']) *::before,
-:where([data-theme='spring']) *::after {
-  transition: none !important;
-  animation: none !important;
-}
-
-/* ===================================================================
- * Spring — Maße und Ausrichtung
- *
- * Am Vorbild gemessen: Der ganze Block steht zentriert und hört bei 1200 px
- * auf, statt bis an den Fensterrand zu laufen. Die Seitenleiste ist 260 breit,
- * die Inhaltsspalte 900 — eine Zeile bleibt damit lesbar lang, auch auf einem
- * sehr breiten Bildschirm.
- *
- * Autumn läuft weiter über die volle Breite. Das ist kein Versäumnis: Eine
- * Werkbank zeigt Tabellen, und eine Tabelle will jeden Pixel, den sie bekommt.
- * =================================================================== */
-
-:where([data-theme='spring']) .shell {
-  max-width: 1200px;
-  margin: 0 auto;
-  grid-template-columns: 260px 1fr;
-}
-
-:where([data-theme='spring']) .main > * {
-  max-width: 900px;
-}
-
-/* Außen deutlich getrennt — am Vorbild gemessen. Innen über `--karte-luft-*`. */
-:where([data-theme='spring']) .card {
-  margin-bottom: 2.6rem;
-}
-
-/* Der Fließtext ist einen Schritt größer als in der Werkbank. */
-:where([data-theme='spring']) body {
-  font-size: 16px;
-}
-
-
-/*
- * Der Kopf einer Tabelle war eine dunklere Stufe — in Spring wäre er ein
- * grauer Streifen quer durch eine Fläche, die überall sonst gleich aussieht.
- * Er trägt jetzt dieselbe Füllung und trennt sich nur durch eine Linie.
- */
-:where([data-theme='spring']) th {
-  background: none;
-  font-family: var(--sans);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text-soft);
-  border-bottom-color: rgba(0, 0, 0, 0.14);
-}
-
-/*
- * Auch über einer Zahlenspalte. Die Regel darüber greift dort nicht von selbst:
- * `th.numeric` wiegt eine Klasse mehr und holte die Schreibmaschinenschrift
- * zurück — in Spring standen deshalb vier Überschriften in Monospace zwischen
- * lauter gewöhnlichen. Die Zahlen darunter bleiben Monospace: Dort hält sie die
- * Ziffern untereinander, und genau dafür ist sie da.
- */
-:where([data-theme='spring']) th.numeric {
-  font-family: var(--sans);
-  font-size: 0.85rem;
-}
-
-/*
- * Nur in Spring: Über den Zahlenspalten der Historie steht die Überschrift eine
- * Stufe kleiner.
- *
- * „Gefunden", „Übernommen", „Übersprungen" sind lange Wörter über einstelligen
- * Zahlen — sie bestimmen die Breite der Spalte, nicht ihr Inhalt. Kleiner
- * geschrieben passen sie ausgeschrieben dorthin, wo vorher nur „GF." Platz
- * hatte. In Autumn ist die Inhaltsspalte breit genug; dort wäre es eine
- * Verkleinerung ohne Anlass.
- */
-:where([data-theme='spring']) .table--runs th.numeric {
-  font-size: 0.74rem;
-}
-
-/*
- * Beim Überfahren ändert sich die Farbe, sonst nichts — bei jedem Bedienelement.
- *
- * Menüpunkte, Auswahlkacheln, Kettenglieder und der Info-Knopf sind alle
- * `<button>`; eine Regel auf `button` und seine Zustände erwischt sie deshalb
- * zusammen, statt sie einzeln aufzuzählen und beim nächsten Baustein wieder
- * einen zu vergessen.
- *
- * `!important` bleibt hier stehen: Die Bewegung kommt aus einer Grundregel, und
- * ich habe schon zweimal erlebt, dass eine Regel mit mehr Gewicht sie
- * zurückholt. Bedienelemente werden in dieser Anwendung nirgends per
- * `transform` platziert — es ist also nichts zu verlieren.
- */
-:where([data-theme='spring']) button,
-:where([data-theme='spring']) button:hover,
-:where([data-theme='spring']) button:active,
-:where([data-theme='spring']) button:focus,
-:where([data-theme='spring']) select,
-:where([data-theme='spring']) select:hover,
-:where([data-theme='spring']) a,
-:where([data-theme='spring']) a:hover {
-  transform: none !important;
-}
-
-/*
  * Die Auswahl in einer Tabellenzeile.
  *
  * Flacher als ein Eingabefeld: Sie steht in einer Zeile neben Text und soll die
@@ -4823,217 +4165,6 @@ button.secondary::after {
   padding-top: 0.3rem;
   padding-bottom: 0.3rem;
   font-size: 0.88rem;
-}
-
-/*
- * Kopf und Fußleiste des Workflow-Editors sind Flächen, keine Kanten.
- *
- * In Autumn sind sie Streifen mit einer Trennlinie — dort trägt die Linie die
- * Aussage „hier hört der Inhalt auf". In Spring gibt es keine solchen Linien,
- * also müssen sie dasselbe sein wie alles andere: eine gerundete Fläche mit
- * Luft zum Rand.
- */
-:where([data-theme='spring']) .editor__head {
-  padding: 1.5rem 1.7rem;
-  border-bottom: none;
-}
-
-:where([data-theme='spring']) .editor__foot,
-:where([data-theme='spring']) .main__footer {
-  padding: 1rem 1.7rem;
-  border-top: none;
-}
-
-/*
- * Feldbeschriftungen sind in Autumn kleine Pillen in Monospace-Versalien — die
- * Beschriftung eines Geräts. In Spring ist eine Beschriftung schlicht eine
- * Zeile Text über dem Feld, sonst steht mitten im Formular ein grauer Balken.
- */
-:where([data-theme='spring']) label,
-:where([data-theme='spring']) .figure__label {
-  display: block;
-  padding: 0;
-  border: none;
-  background: none;
-  font-family: var(--sans);
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text);
-}
-
-/* Der Haken bleibt eine Zeile mit dem Kästchen davor. */
-:where([data-theme='spring']) label.check {
-  display: flex;
-}
-
-/*
- * Meldungen tragen in Autumn helle Schrift für dunklen Grund. Auf Spring stünde
- * blasses Bernstein auf hellem Sand — lesbar ist das nicht.
- */
-:where([data-theme='spring']) .notice {
-  background: var(--panel-fill);
-  border-color: var(--panel-edge);
-  color: var(--text);
-}
-
-:where([data-theme='spring']) .notice--warn {
-  background: linear-gradient(90deg, rgba(var(--caution), 0.12) 0%, rgba(var(--caution), 0.05) 100%);
-  border-color: rgba(var(--caution), 0.35);
-  color: #4a3608;
-}
-
-:where([data-theme='spring']) .notice--error {
-  background: linear-gradient(90deg, rgba(var(--alarm), 0.12) 0%, rgba(var(--alarm), 0.05) 100%);
-  border-color: rgba(var(--alarm), 0.35);
-  color: #5a1512;
-}
-
-:where([data-theme='spring']) .notice--info {
-  color: var(--text);
-}
-
-/*
- * In einer Tabellenzeile steht alles auf einer Linie.
- *
- * Die Zellen richten sich oben aus — richtig, solange eine Zelle mehrere Zeilen
- * tragen kann. In einer Zeile mit Knöpfen ist es falsch: Der Knopf ist das
- * höchste Element, alles andere klebt an dessen Oberkante, und aus einer Zeile
- * werden optisch drei Ebenen.
- */
-:where([data-theme='spring']) td {
-  vertical-align: middle;
-}
-
-/* ===================================================================
- * Spring — Optionen und Auswahlfelder auf einem Maß
- *
- * Eine Option ist ohne Wahl unsichtbar: keine Fläche, kein Rahmen, nur das
- * Wort. Gewählt ist sie weiß und gerundet. Damit trägt allein die weiße Fläche
- * die Aussage „hier stehst du" — es gibt keine zweite Stufe daneben, die sie
- * abschwächen könnte.
- *
- * 38 px gilt für beides, Optionen wie Auswahlfelder: Was in einer Zeile
- * nebeneinander steht, soll gleich hoch sein.
- * =================================================================== */
-
-:where([data-theme='spring']) .sidebar__link,
-:where([data-theme='spring']) .choice {
-  min-height: 38px;
-  padding-top: 0;
-  padding-bottom: 0;
-  border: none;
-  background: none;
-  border-radius: var(--radius-small);
-}
-
-/* Die Kachel trug zwei Zeilen; jetzt ist es eine, und sie steht mittig. */
-:where([data-theme='spring']) .choice {
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding-left: 1.1rem;
-  padding-right: 1.1rem;
-}
-
-/*
- * Gewählt — und beim Überfahren dasselbe, wie du es festgelegt hast. Beides
- * zeigt „das hier ist gemeint"; eine dritte Stufe dazwischen wäre eine Aussage
- * mehr, als es Zustände gibt.
- */
-:where([data-theme='spring']) .sidebar__link:hover,
-:where([data-theme='spring']) .sidebar__link--active,
-:where([data-theme='spring']) .sidebar__link--active:hover,
-:where([data-theme='spring']) .choice:hover,
-:where([data-theme='spring']) .choice--picked,
-:where([data-theme='spring']) .choice--picked:hover {
-  background: #ffffff;
-  border: none;
-  color: #000000;
-}
-
-/*
- * Auswahlfelder: 38 px hoch und ohne Rahmen. Sie stehen als weiße Fläche auf
- * dem Verlauf und brauchen keine Linie, um sich abzuheben.
- */
-:where([data-theme='spring']) select,
-:where([data-theme='spring']) .row-actions {
-  height: 38px;
-  padding-top: 0;
-  padding-bottom: 0;
-  border: none;
-}
-
-/*
- * In einer Spalte aus Feldern aber so hoch wie ein Eingabefeld.
- *
- * Die flachen 38 Pixel sind für Leisten gedacht — Filter über einer Tabelle,
- * Knöpfe in einer Zeile. Untereinander mit Eingabefeldern gestellt fehlen ihnen
- * gemessene 6,5 Pixel, und eine Spalte, in der ein Element aus der Reihe fällt,
- * sieht falsch aus, ohne dass man gleich sagen kann, warum.
- */
-:where([data-theme='spring']) .field select {
-  height: var(--field-size);
-}
-
-/* ===================================================================
- * Spring — Lesbarkeit dort, wo Fläche und Schrift dieselbe Marke tragen
- *
- * In Spring sind `--accent` und `--text-loud` beide Schwarz. Überall, wo eine
- * Regel Schrift in der einen auf eine Fläche in der anderen setzt, ergibt das
- * Schwarz auf Schwarz. Genau das ist beim gewählten Eintrag einer Liste
- * passiert — hier stehen die drei Stellen, an denen es vorkommt.
- * =================================================================== */
-
-/*
- * Die Liste einer Combobox stand hier einmal mit eigenen Farben. Sie steht jetzt
- * bei den Marken oben — `--picker-fill`, `--option-text`, `--pick` —, weil beide
- * Erscheinungsbilder dieselbe Regel benutzen. Zwei Fundstellen für eine Farbe
- * heißt: Eine davon wird irgendwann vergessen.
- */
-
-/* Markierter Text: eine helle Bahn, nicht ein schwarzer Block. */
-:where([data-theme='spring'])::selection {
-  background: rgba(0, 0, 0, 0.13);
-  color: #000000;
-}
-
-/*
- * Der Schriftzug auf der Anmeldeseite läuft in einen Verlauf aus. In Autumn
- * geht er von Weiß nach Orange; in Spring liefe er von Weiß nach Schwarz, und
- * die erste Hälfte wäre auf hellem Grund nicht zu sehen.
- */
-:where([data-theme='spring']) .login__brand {
-  background: none;
-  -webkit-background-clip: border-box;
-  background-clip: border-box;
-  color: #000000;
-}
-
-/*
- * Comboboxen tragen keinen Rahmen — in keinem Zustand.
- *
- * Auch nicht im Fokus: Dort stand bisher die Umrandung, die ich als Ersatz für
- * den verbotenen Schatten eingebaut hatte. Sie ist bei einem Feld, in das man
- * tippt, nötig — bei einem, aus dem man wählt, sagt schon die aufgeklappte
- * Liste, dass es gemeint ist.
- *
- * Damit der Tastaturweg trotzdem sichtbar bleibt, hellt sich die Fläche auf.
- * Das ist eine Farbänderung, kein Rahmen.
- */
-:where([data-theme='spring']) select,
-:where([data-theme='spring']) select:hover,
-:where([data-theme='spring']) select:focus,
-:where([data-theme='spring']) select:focus-visible,
-:where([data-theme='spring']) select:active {
-  border: none;
-  outline: none;
-}
-
-:where([data-theme='spring']) select:focus-visible {
-  background: #f2f4f6;
 }
 
 /* ===================================================================
@@ -5098,43 +4229,6 @@ button.secondary::after {
   color: rgb(var(--alarm));
 }
 
-/*
- * Autumn: ein Rand, der nach außen leuchtet — dieselbe Sprache wie der aktive
- * Menüpunkt und die Hauptaktion.
- */
-:where([data-theme='autumn']) .modal__box {
-  border-color: rgba(var(--accent), 0.45);
-  box-shadow: 0 0 0 1px rgba(var(--accent), 0.18), 0 0 90px -18px rgba(var(--accent), 0.9),
-    0 40px 90px -50px rgba(var(--shade), 1);
-}
-
-:where([data-theme='autumn']) .modal__box--warn {
-  border-color: rgba(var(--caution), 0.5);
-  box-shadow: 0 0 0 1px rgba(var(--caution), 0.18), 0 0 90px -18px rgba(var(--caution), 0.9);
-}
-
-:where([data-theme='autumn']) .modal__box--error {
-  border-color: rgba(var(--alarm), 0.55);
-  box-shadow: 0 0 0 1px rgba(var(--alarm), 0.2), 0 0 90px -18px rgba(var(--alarm), 0.95);
-}
-
-/*
- * Spring: ein leichter Schlagschatten. Die einzige Ausnahme vom Schattenverbot,
- * und sie ist ausdrücklich gewollt — ein Fenster über der Seite braucht den
- * Abstand zur Seite, sonst klebt es darauf.
- */
-:where([data-theme='spring']) .modal__box {
-  box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.35) !important;
-}
-
-:where([data-theme='spring']) .modal__box--warn {
-  border-color: rgba(var(--caution), 0.45);
-}
-
-:where([data-theme='spring']) .modal__box--error {
-  border-color: rgba(var(--alarm), 0.45);
-}
-
 /* ===================================================================
  * Die aufgeklappte Liste einer Combobox
  *
@@ -5147,9 +4241,7 @@ button.secondary::after {
  * die Grundform des neuen Bauteils, eine Pille mit großem Pfeil. Deshalb steht
  * hier beides.
  *
- * Der Block galt zuerst nur für Spring — und deshalb blieb in Autumn das Blau
- * des Systems stehen. Dieselbe Ursache, nur unbemerkt. Jetzt gilt er für beide;
- * was die beiden unterscheidet, steht in den Marken ganz oben und nicht hier.
+ * Farben stehen auch hier nicht: Sie kommen aus den Marken ganz oben.
  *
  * In `@supports` gekapselt. Wo es das nicht gibt, bleibt das Bauteil des
  * Systems samt seinem Blau — das ist die Grenze, und sie liegt nicht bei uns.
@@ -5176,10 +4268,7 @@ button.secondary::after {
     text-align: left;
   }
 
-  /* In Spring ist das Feld flacher, der Text sitzt deshalb enger am Rand. */
-  :where([data-theme='spring']) select {
-    padding: 0 0.7rem 0 0.85rem;
-  }
+  
 
   /* Der Pfeil ist ein Zeichen, kein Bedienelement — klein und ruhig. */
   select::picker-icon {
@@ -5240,68 +4329,6 @@ button.secondary::after {
   }
 }
 
-/*
- * „Hier ist nichts" ist ein Satz, kein Typenschild. In Autumn steht er in
- * Monospace-Versalien und gehört dort zur Werkbank; in Spring liest er sich
- * als Fehlermeldung in einer Maschinensprache.
- */
-:where([data-theme='spring']) .empty {
-  font-family: var(--sans);
-  font-size: 0.95rem;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text-soft);
-}
-
-/* ===================================================================
- * Spring — Zeichen in Farbe
- *
- * Schwarz auf hellgrau ist lesbar, aber ein Zeichen ist kein Text: Es hat
- * keine Wortform, an der das Auge es wiedererkennt, sondern nur seinen Umriss.
- * In Schwarz steht es da wie ein Stück Interpunktion; in einem ruhigen Blau
- * liest es sich als „hier kann man etwas tun".
- *
- * Und beim Überfahren wird der Knopf dunkel — dann muss das Zeichen hell
- * werden, sonst verschwindet es in seiner eigenen Fläche. Das ist derselbe
- * Gedanke wie bei einer Schrift auf dunklem Grund, nur für einen Umriss.
- *
- * Die Pfeile im Verzeichnisbaum und an den Klappflächen bleiben außen vor: Sie
- * sind keine Handlung, sondern zeigen eine Richtung.
- * =================================================================== */
-
-[data-theme='spring'] {
-  --icon: #1f6fb2;
-  --icon-hell: #cfe6ff;
-}
-
-:where([data-theme='spring']) .field-button,
-:where([data-theme='spring']) .open-button,
-:where([data-theme='spring']) .row-button,
-:where([data-theme='spring']) .info-button,
-:where([data-theme='spring']) .hint-button {
-  color: var(--icon);
-}
-
-/*
- * Diese Knöpfe tragen ihr eigenes Maß und bleiben klein.
- *
- * Der Klapp-Pfeil steht mit hier: Er ist als Quadrat aus `--klapp-pfeil`
- * angelegt, und die 38 Pixel machten daraus im Spring ein Hochformat von 18
- * auf 38. Sichtbar wurde es nicht als zu großer Knopf — er ist durchsichtig —,
- * sondern daran, dass sein Zeichen in dieser Fläche mittig sitzt und damit
- * neben der Überschrift stand statt auf ihrer Höhe.
- */
-:where([data-theme='spring']) .info-button,
-:where([data-theme='spring']) .hint-button,
-:where([data-theme='spring']) .klapp {
-  min-height: 0;
-}
-
-/* Auch die Kettenglieder stehen auf der gemeinsamen Höhe. */
-:where([data-theme='spring']) .chain__step {
-  min-height: 38px;
-}
-
 /* ---------- Knöpfe in einer Tabellenzeile ---------- */
 
 /*
@@ -5348,7 +4375,7 @@ button.secondary::after {
   filter: none;
   border-color: var(--rule-strong);
   background: var(--g-4);
-  color: var(--text-loud);
+  color: var(--text);
 }
 
 /*
@@ -5392,31 +4419,6 @@ button.secondary::after {
 
 .table--compact .badge {
   font-size: 0.58rem;
-}
-
-/* ===================================================================
- * Spring — Zeichenknöpfe beim Überfahren
- *
- * Dunkler Grund, helles Zeichen — und beides zusammen, sonst geht eines von
- * beiden verloren. Genau das war der Fall: Das Zeichen wurde hell, der Grund
- * blieb es auch, und im Knopf stand ein leerer Kreis.
- *
- * Der Grund für die Panne liegt in der Reihenfolge: Vier dieser fünf Knöpfe
- * bringen eine eigene Hover-Regel mit, die sie **hell** lässt — nur der
- * Feldknopf fällt auf die gemeinsame Regel für Knöpfe zurück und wurde dunkel.
- * Deshalb steht dieser Block ganz am Ende: `.row-button:hover` kommt sonst
- * danach und setzt seinen hellen Grund wieder ein.
- * =================================================================== */
-
-:where([data-theme='spring']) .field-button:hover:not(:disabled),
-:where([data-theme='spring']) .open-button:hover:not(:disabled),
-:where([data-theme='spring']) .row-button:hover:not(:disabled),
-:where([data-theme='spring']) .info-button:hover:not(:disabled),
-:where([data-theme='spring']) .hint-button:hover:not(:disabled) {
-  background: #23262b;
-  border-color: #23262b;
-  box-shadow: none;
-  color: var(--icon-hell);
 }
 
 /* ===================================================================

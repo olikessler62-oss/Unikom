@@ -5,13 +5,7 @@ import { messageOf, useResource } from '../api/useResource.js';
 import type { Feature, Licence, LicenceState } from '../api/types.js';
 import { Field, Loading, Notice } from '../components/Pieces.js';
 import { useLanguage } from '../i18n/useText.js';
-import {
-  LANGUAGES,
-  saveTheme,
-  storedTheme,
-  THEMES,
-  type Theme,
-} from '../settings/preferences.js';
+import { LANGUAGES } from '../settings/preferences.js';
 import { locale } from '../i18n/texts.js';
 
 const FEATURE_LABELS: Record<Feature, string> = {
@@ -167,40 +161,21 @@ function formatDay(iso?: string): string {
 }
 
 /**
- * Erscheinungsbild und Sprache.
+ * Die Sprache.
  *
- * Beides sind Kacheln zum Anklicken und keine Auswahlliste: Ein Design wählt
- * man danach, wie es aussieht, und der Unterschied gehört daneben geschrieben,
- * nicht in ein Klappmenü versteckt. Die Wirkung tritt sofort ein — es gibt
+ * Kacheln zum Anklicken und keine Auswahlliste: Die drei stehen nebeneinander
+ * und sind mit einem Griff erreichbar. Die Wirkung tritt sofort ein - es gibt
  * nichts zu speichern, was man vergessen könnte.
+ *
+ * Hier stand daneben einmal die Wahl des Erscheinungsbilds. Es gibt nur noch
+ * eines, und damit nichts mehr zu wählen.
  */
 function AppearanceCard() {
   const { language, setLanguage, t } = useLanguage();
-  const [theme, setTheme] = useState<Theme>(() => storedTheme());
-
-  function chooseTheme(next: Theme): void {
-    saveTheme(next);
-    setTheme(next);
-  }
 
   return (
     <section className="card">
-      <h2>{t('settings.appearance')}</h2>
-
-      <Field label={t('settings.appearance')}>
-        <div className="choices">
-          {THEMES.map((entry) => (
-            <button
-              key={entry}
-              type="button"
-              className={`choice choice--narrow${entry === theme ? ' choice--picked' : ''}`}
-              onClick={() => chooseTheme(entry)}
-            >
-              <span className="choice__name">{t(`settings.theme.${entry}`)}</span>
-            </button>
-          ))}
-        </div>
-      </Field>
+      <h2>{t('settings.language')}</h2>
 
       <Field label={t('settings.language')}>
         <div className="choices">

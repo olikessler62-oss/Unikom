@@ -61,10 +61,7 @@ export const TEXTS = {
 
   // ---- Einstellungen ----
   'settings.title': { de: 'Einstellungen', en: 'Settings', es: 'Ajustes' },
-  'settings.appearance': { de: 'Erscheinungsbild', en: 'Appearance', es: 'Apariencia' },
   // Die Namen bleiben in jeder Sprache gleich: Sie sind Namen, keine Wörter.
-  'settings.theme.autumn': { de: 'Autumn', en: 'Autumn', es: 'Autumn' },
-  'settings.theme.spring': { de: 'Spring', en: 'Spring', es: 'Spring' },
   'settings.language': { de: 'Sprache', en: 'Language', es: 'Idioma' },
   'settings.language.de': { de: 'Deutsch', en: 'German', es: 'Alemán' },
   'settings.language.en': { de: 'Englisch', en: 'English', es: 'Inglés' },
