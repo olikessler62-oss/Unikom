@@ -85,6 +85,97 @@ test('a database from an earlier version gains the retention column', async () =
   reopened.close();
 });
 
+test('eine Datenbank von früher bekommt die Spalte für den Workflow eines Ergebnisses', async () => {
+  /*
+   * `CREATE TABLE IF NOT EXISTS` überspringt eine vorhandene Tabelle ganz. Eine
+   * Spalte, die später ins Schema kam, entsteht damit **nur** in neuen
+   * Datenbanken — in allen älteren fehlt sie, ohne dass etwas davon berichtet.
+   *
+   * Genau das war passiert: Jede Abfrage der Ergebnisse endete auf einer
+   * bestehenden Installation mit „no such column: job_id", und die Freigaben
+   * waren dort nicht zu öffnen.
+   */
+  const { directory, db } = await database();
+
+  db.exec('DROP TABLE results');
+  db.exec(
+    `CREATE TABLE results (
+       id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, run_id TEXT NOT NULL,
+       from_run TEXT, restored_from TEXT, fields TEXT NOT NULL, rows_json TEXT NOT NULL,
+       validation TEXT NOT NULL, status TEXT NOT NULL, release_note TEXT,
+       created_at TEXT NOT NULL)`
+  );
+  db.prepare(
+    `INSERT INTO results (id, tenant_id, run_id, fields, rows_json, validation, status, created_at)
+     VALUES (?, 'default', 'lauf-1', '[]', '[]', '{}', 'WAITING_FOR_RELEASE', '2026-01-15T08:00:00.000Z')`
+  ).run('stand-1');
+  db.close();
+
+  const migriert = openDatabase(directory);
+
+  // Lesbar — und das ist die eigentliche Zusicherung: vorher warf genau das.
+  const zeile = migriert.prepare('SELECT id, job_id FROM results WHERE id = ?').get('stand-1') as {
+    id: string;
+    job_id: string;
+  };
+
+  assert.equal(zeile.id, 'stand-1', 'der Stand von damals ist noch da');
+  assert.equal(zeile.job_id, '', 'aus welchem Workflow er kam, steht nirgends — und das gibt er zu');
+  migriert.close();
+});
+
+test('kein Schema-Feld fehlt in einer Datenbank, die schon bestand', async () => {
+  /*
+   * Die Wache über der Klasse von Fehlern, nicht über dem einen.
+   *
+   * Verglichen wird, was das Schema in der Quelle verspricht, mit dem, was in
+   * einer geöffneten Datenbank steht. Wer eine Spalte ins `CREATE TABLE`
+   * schreibt und die Wanderung dazu vergisst, bekommt es hier gesagt — und
+   * nicht ein halbes Jahr später aus einem Protokoll beim Kunden.
+   */
+  const { directory, db } = await database();
+  db.close();
+
+  const quelle = await fs.readFile(
+    new URL('./SqliteDatabase.ts', import.meta.url),
+    'utf8'
+  );
+
+  const geöffnet = openDatabase(directory);
+  const fehlend: string[] = [];
+
+  /*
+   * Das Muster wird zusammengesetzt statt hingeschrieben: Ein Zeilenumbruch in
+   * einem Regex-Literal ist keiner, sondern das Ende des Literals.
+   */
+  const UMBRUCH = String.fromCharCode(10);
+  const tabellen = new RegExp('CREATE TABLE IF NOT EXISTS (\\w+) \\(([^;]*?)' + UMBRUCH + '\\)', 'g');
+
+  for (const treffer of quelle.matchAll(tabellen)) {
+    const tabelle = treffer[1];
+    const versprochen = treffer[2]
+      .split(String.fromCharCode(10))
+      .map((zeile) => zeile.trim())
+      .filter((zeile) => zeile !== '' && !zeile.startsWith('--'))
+      .map((zeile) => zeile.split(/\s+/)[0].replace(/,$/, ''))
+      .filter((name) => /^[a-z_]+$/.test(name));
+
+    const vorhanden = (
+      geöffnet.prepare(`PRAGMA table_info(${tabelle})`).all() as { name: string }[]
+    ).map((spalte) => spalte.name);
+
+    if (vorhanden.length === 0) {
+      continue;
+    }
+
+    fehlend.push(...versprochen.filter((name) => !vorhanden.includes(name)).map((name) => `${tabelle}.${name}`));
+  }
+
+  geöffnet.close();
+
+  assert.deepEqual(fehlend, [], 'diese Spalten stehen im Schema, aber in keiner Wanderung');
+});
+
 test('the retention delete uses an index instead of scanning', async () => {
   const { db } = await database();
 

@@ -259,6 +259,34 @@ export function Verzeichnisfenster({
   // Sobald sich die Auswahl bewegt, ist der Entwurf überholt.
   useEffect(() => setPfadentwurf(undefined), [gewaehlterPfad]);
 
+  /**
+   * Was „OK" übernimmt — das Angeklickte, sonst das Getippte, sonst der Ort.
+   *
+   * ## Warum das Getippte zählt
+   *
+   * Das Pfadfeld lädt ausdrücklich zum Einfügen ein: „Pfad eingeben oder
+   * einfügen, dann Enter". Wer statt Enter auf „OK" drückt, tut das
+   * Naheliegende — und bekam bisher nichts: Ohne Enter blieb die Auswahl leer,
+   * und der Knopf war still abgeschaltet. Zwei Wege in dasselbe Feld, von denen
+   * einer ins Nichts führt, sind einer zu viel.
+   *
+   * ## Warum eine Datei nicht auf den Ort zurückfällt
+   *
+   * Wer ein **Verzeichnis** sucht, hat mit dem Ort, an dem das Fenster steht,
+   * schon eine gültige Antwort — er ist selbst ein Verzeichnis. Wer eine
+   * **Datei** sucht, hat sie nicht: Ein Ordner ist keine Datei, und ihn
+   * ersatzweise zu übernehmen hieße, dem Feld etwas einzutragen, das dort nie
+   * stehen darf. Dann gibt es nichts zu übernehmen, und der Knopf sagt es.
+   */
+  const getippt = (pfadentwurf ?? '').trim();
+  const uebernahme: Verzeichniswahl | undefined = chosen
+    ? { pfad: chosen.path, relativ: chosen.relativePath }
+    : getippt !== ''
+      ? { pfad: getippt, relativ: getippt }
+      : waehle === 'DATEI'
+        ? undefined
+        : { pfad: stand.at?.path ?? '', relativ: stand.at?.relativePath ?? '' };
+
   /** Der Knoten, der die Tastatur hat. */
   const [fokus, setFokus] = useState<string>();
 
@@ -748,30 +776,21 @@ export function Verzeichnisfenster({
                 * der Ausgang sah aus, als gehörte er nicht dazu.
                 */}
               <div className="row modal__actions">
+                {/*
+                  * Ein Knopf, der nichts tut, sagt nicht warum.
+                  *
+                  * Ohne Auswahl war „OK" abgeschaltet und sonst nichts — und
+                  * abgeschaltet sieht einem Knopf man nicht zuverlässig an. Wer
+                  * im Feld einen Pfad stehen sah und drückte, bekam keine
+                  * Reaktion und keinen Grund. Der Satz steht dort, wo der Blick
+                  * ohnehin ist: neben dem Knopf.
+                  */}
+                {!uebernahme && <span className="modal__grund">Erst eine Datei aussuchen</span>}
+
                 <button
                   type="button"
-                  disabled={waehle === 'DATEI' && !chosen}
-                  onClick={() => {
-                    // Der Pfad des Servers, in der Schreibweise des Feldes —
-                    // und zwar der hervorgehobene, nicht der, in dem das
-                    // Fenster gerade steht. Beides ist beim Öffnen dasselbe;
-                    // sobald jemand im Baum etwas anklickt, ist es das nicht
-                    // mehr, und dann zählt, was er angeklickt hat.
-                    /*
-                     * Der Pfad des Servers, in der Schreibweise des Feldes —
-                     * und zwar der hervorgehobene, nicht der, in dem das
-                     * Fenster gerade steht. Beides ist beim Öffnen dasselbe;
-                     * sobald jemand im Baum etwas anklickt, ist es das nicht
-                     * mehr, und dann zählt, was er angeklickt hat.
-                     */
-                    onWaehlen(
-                      {
-                        pfad: chosen?.path ?? stand.at!.path ?? '',
-                        relativ: chosen?.relativePath ?? stand.at!.relativePath ?? '',
-                      },
-                      stand.at!
-                    );
-                  }}
+                  disabled={!uebernahme}
+                  onClick={() => uebernahme && onWaehlen(uebernahme, stand.at!)}
                 >
                   OK
                 </button>

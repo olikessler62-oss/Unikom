@@ -3066,18 +3066,30 @@ svg.icon--strich {
  * `:focus-visible` gehört dazu, seit die Pfeiltasten den Fokus bewegen: Ohne
  * ihn wanderte er unsichtbar durch die Liste, und die Tastaturbedienung wäre
  * ein Blindflug.
- */
-/*
- * Die hervorgehobene Zeile — dieselbe Sprache wie im Verzeichnisbaum daneben.
  *
- * Vorher lag hier ein kräftiges Braun mit schwarzer Schrift. Neben einem Baum,
- * dessen Zeilen sich beim Überfahren nur eine Stufe aufhellen, sah dieselbe
- * Handlung nach zwei verschiedenen Dingen aus. Eine Hervorhebung soll sagen
- * „hier steht der Zeiger" und nicht „hier ist etwas passiert".
+ * Dieselbe Sprache wie im Verzeichnisbaum daneben. Vorher lag hier ein
+ * kräftiges Braun mit schwarzer Schrift; neben einem Baum, dessen Zeilen sich
+ * beim Überfahren nur eine Stufe aufhellen, sah dieselbe Handlung nach zwei
+ * verschiedenen Dingen aus. Eine Hervorhebung soll sagen „hier steht der
+ * Zeiger" und nicht „hier ist etwas passiert".
+ *
+ * ## Die Schrift gehört zum Grund
+ *
+ * `color` steht hier, weil `background` hier steht — und daran ist es
+ * vorbeigelaufen: Eine Zeile der Dateiliste trägt `tree__name`, dieselbe
+ * Klasse wie eine Baumzeile. In Spring färbt sich eine Baumzeile beim
+ * Überfahren fast weiß, weil ihr Grund dort fast schwarz wird. Dieser Grund
+ * hier wird aber **hell**, und weiß auf hell ist eine Zeile, die genau in dem
+ * Moment verschwindet, in dem man sie liest.
+ *
+ * Wer den Grund einer Zeile bestimmt, bestimmt auch ihre Schrift. Die eine
+ * Regel ohne die andere zu lassen hieß, dass zwei Stellen sich über dieselbe
+ * Zeile uneins sind.
  */
 .browse li > button:hover,
 .browse li > button:focus-visible {
   background: var(--g-2);
+  color: var(--text);
   outline: none;
 }
 
@@ -3558,6 +3570,20 @@ svg.icon--strich {
 .modal__actions {
   justify-content: flex-end;
   margin-top: 1.2rem;
+}
+
+/*
+ * Warum der Knopf daneben nicht kann.
+ *
+ * Links vom Knopf und nicht darunter: Der Blick ist beim Drücken schon dort,
+ * und eine Zeile darunter erschiene unter der Kante, an der das Fenster endet.
+ * Zurückhaltend im Ton - es ist kein Fehler, sondern ein noch nicht getaner
+ * Schritt.
+ */
+.modal__grund {
+  margin-right: auto;
+  font-size: 0.84rem;
+  color: var(--text-soft);
 }
 
 button {

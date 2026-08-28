@@ -525,6 +525,27 @@ function migrate(database: DatabaseSync, notice: (message: string) => void): voi
   if (!hasColumn(database, 'tenants', 'archive_days')) {
     database.exec('ALTER TABLE tenants ADD COLUMN archive_days INTEGER');
   }
+
+  /*
+   * Aus welchem Workflow ein Ergebnisstand stammt.
+   *
+   * Die Spalte steht seit ihrer Einführung im Schema — und fehlte trotzdem in
+   * jeder Datenbank, die es vorher schon gab: `CREATE TABLE IF NOT EXISTS`
+   * überspringt eine vorhandene Tabelle **ganz**. Es entsteht keine Spalte, es
+   * entsteht keine Meldung, und der Fehler zeigt sich erst beim Lesen: „no such
+   * column: job_id", jedes Mal, wenn jemand die Freigaben öffnet.
+   *
+   * Genau dafür steht dieser Abschnitt hier. Jede später hinzugekommene Spalte
+   * braucht ihn — im Schema allein ist sie eine Zusage an neue Installationen
+   * und an sonst niemanden.
+   *
+   * Leer für die alten Zeilen, und das ist ehrlich: Aus welchem Workflow ein
+   * Stand von damals kam, steht nirgends. Die Übergabe an Modul 3 sagt dann,
+   * dass der Workflow nicht mehr auffindbar ist, statt einen falschen zu nehmen.
+   */
+  if (!hasColumn(database, 'results', 'job_id')) {
+    database.exec("ALTER TABLE results ADD COLUMN job_id TEXT NOT NULL DEFAULT ''");
+  }
 }
 
 /**
