@@ -216,3 +216,148 @@ test('die Grenze des Mandanten gilt auch für die Schreibprobe', async () => {
   assert.equal(antwort.ok, false);
   assert.deepEqual(await fs.readdir(fremd), [], 'im fremden Verzeichnis wurde nichts angelegt');
 });
+
+/* ---------- Den Anfang einer Beispieldatei ansehen ---------- */
+
+const UMBRUCH = String.fromCharCode(10);
+
+/** Ein Mandant mit eigenem Verzeichnis, in dem Dateien liegen dürfen. */
+async function probenbühne(): Promise<{ kunde: string; fremd: string; dienst: LocalDirectoryService }> {
+  const wurzel = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-lesen-'));
+  const kunde = path.join(wurzel, 'kunde-a');
+  const fremd = path.join(wurzel, 'kunde-b');
+
+  await fs.mkdir(kunde, { recursive: true });
+  await fs.mkdir(fremd, { recursive: true });
+
+  const mandanten = new InMemoryTenantRepository();
+  await mandanten.save(mandant(kunde));
+
+  return { kunde, fremd, dienst: new LocalDirectoryService(mandanten) };
+}
+
+test('eine kleine Datei kommt ganz zurück', async () => {
+  const b = await probenbühne();
+  const datei = path.join(b.kunde, 'bestellungen.csv');
+  const inhalt = ['kdnr;name;ort', '4711;Meier;Bonn'].join(UMBRUCH);
+
+  await fs.writeFile(datei, inhalt);
+
+  const probe = await b.dienst.leseProbe({ tenantId: 'kunde-a', datei });
+
+  assert.equal(probe.ok, true, probe.message);
+  assert.equal(probe.text, inhalt);
+  assert.equal(probe.name, 'bestellungen.csv');
+  assert.equal(probe.gekuerzt, false);
+  assert.equal(probe.kodierung, 'utf-8');
+});
+
+test('von einer großen Datei kommt nur der Anfang — und zwar bis zu einer ganzen Zeile', async () => {
+  const b = await probenbühne();
+  const datei = path.join(b.kunde, 'lieferung.csv');
+  const zeile = `4711;Meier;Bonn;${'x'.repeat(60)}${UMBRUCH}`;
+
+  await fs.writeFile(datei, zeile.repeat(3000));
+
+  const probe = await b.dienst.leseProbe({ tenantId: 'kunde-a', datei });
+
+  assert.equal(probe.ok, true, probe.message);
+  assert.equal(probe.gekuerzt, true);
+  assert.ok((probe.gelesen ?? 0) <= 65536, `${probe.gelesen} Bytes sind mehr als die Probe`);
+  assert.ok(probe.text?.endsWith(UMBRUCH), 'die Probe endet mitten in einer Zeile');
+});
+
+test('gelesen wird wirklich nur der Anfang und nicht die ganze Datei', async () => {
+  /*
+   * Der Beweis, nicht die Behauptung: Hinter der Probe steht ein Nullbyte.
+   * Wer die Datei ganz einliest, findet es und weist sie als „kein Text" ab.
+   * Wer nur den Anfang ansieht, sieht es nie.
+   *
+   * Damit hängt mehr als eine Meldung: Eine Lieferung von zweihundert Megabyte
+   * ginge sonst vollständig in den Speicher des Servers, für eine Frage, die
+   * nach hundert Zeilen beantwortet ist.
+   */
+  const b = await probenbühne();
+  const datei = path.join(b.kunde, 'lang.csv');
+  const kopf = Buffer.from(`kdnr;name${UMBRUCH}`.repeat(8000));
+
+  await fs.writeFile(datei, Buffer.concat([kopf, Buffer.from([0x00, 0x00])]));
+
+  const probe = await b.dienst.leseProbe({ tenantId: 'kunde-a', datei });
+
+  assert.equal(probe.ok, true, probe.message);
+});
+
+test('die Grenze des Mandanten gilt auch beim Lesen', async () => {
+  /*
+   * Ein Pfad aus dem Browser ist eine Behauptung. Ohne diese Prüfung wäre das
+   * Feld ein Leseknopf für jede Datei, die das Konto erreicht, unter dem Unikom
+   * läuft — die Lieferung des nächsten Kunden eingeschlossen.
+   */
+  const b = await probenbühne();
+  const datei = path.join(b.fremd, 'geheim.csv');
+
+  await fs.writeFile(datei, `a;b${UMBRUCH}`);
+
+  const probe = await b.dienst.leseProbe({ tenantId: 'kunde-a', datei });
+
+  assert.equal(probe.ok, false);
+  assert.match(probe.message, /außerhalb des Verzeichnisses/);
+  assert.equal(probe.text, undefined, 'trotz Ablehnung kam Inhalt zurück');
+});
+
+test('eine Excel-Mappe wird beim Namen genannt', async () => {
+  // „Das ist keine Textdatei" ist richtig und hilft niemandem weiter. Wer eine
+  // Mappe ausgesucht hat, soll erfahren, was stattdessen geht.
+  const b = await probenbühne();
+  const datei = path.join(b.kunde, 'umsatz.xlsx');
+
+  await fs.writeFile(datei, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00]));
+
+  const probe = await b.dienst.leseProbe({ tenantId: 'kunde-a', datei });
+
+  assert.equal(probe.ok, false);
+  assert.match(probe.message, /Excel/);
+  assert.match(probe.message, /CSV/);
+});
+
+test('ein Verzeichnis ist keine Beispieldatei', async () => {
+  const b = await probenbühne();
+
+  const probe = await b.dienst.leseProbe({ tenantId: 'kunde-a', datei: b.kunde });
+
+  assert.equal(probe.ok, false);
+  assert.match(probe.message, /Verzeichnis und keine Datei/);
+});
+
+test('eine leere Datei sagt, dass sie leer ist', async () => {
+  // Sonst käme eine gelungene Probe ohne Text zurück, und die Erkennung sagte
+  // danach „kein Datenblock gefunden" — richtig, aber am falschen Ende.
+  const b = await probenbühne();
+  const datei = path.join(b.kunde, 'nichts.csv');
+
+  await fs.writeFile(datei, '');
+
+  const probe = await b.dienst.leseProbe({ tenantId: 'kunde-a', datei });
+
+  assert.equal(probe.ok, false);
+  assert.match(probe.message, /leer/);
+});
+
+test('eine Datei, die es nicht gibt, sagt genau das', async () => {
+  const b = await probenbühne();
+
+  const probe = await b.dienst.leseProbe({ tenantId: 'kunde-a', datei: path.join(b.kunde, 'fort.csv') });
+
+  assert.equal(probe.ok, false);
+  assert.match(probe.message, /gibt es nicht/);
+});
+
+test('ohne Angabe wird nichts gelesen', async () => {
+  const b = await probenbühne();
+
+  const probe = await b.dienst.leseProbe({ tenantId: 'kunde-a', datei: '   ' });
+
+  assert.equal(probe.ok, false);
+  assert.match(probe.message, /keine Datei ausgewählt/);
+});

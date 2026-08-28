@@ -771,6 +771,29 @@ export interface RemoteDirectoryResult {
   files?: RemoteDirectoryEntry[];
 }
 
+/**
+ * Der angesehene Anfang einer Beispieldatei.
+ *
+ * Dieselbe Form wie eine Verzeichnisantwort: `ok` und `message` zuerst. Ein
+ * Misserfolg — ein PDF, eine Datei beim falschen Mandanten — ist hier ein
+ * gewöhnlicher Ausgang und traegt seinen Satz mit sich.
+ */
+export interface Dateiprobe {
+  ok: boolean;
+  message: string;
+  /** Der bloße Name, ohne Pfad. */
+  name?: string;
+  pfad?: string;
+  text?: string;
+  kodierung?: string;
+  /** Wie groß die Datei ist. */
+  groesse?: number;
+  /** Wie viel davon angesehen wurde. */
+  gelesen?: number;
+  /** Ob die Datei größer ist als das, was hereinkam. */
+  gekuerzt?: boolean;
+}
+
 export interface DirectoryCheckResult {
   ok: boolean;
   message: string;

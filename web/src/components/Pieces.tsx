@@ -286,6 +286,38 @@ export function formatMoment(iso?: string): string {
   });
 }
 
+/**
+ * Eine Byte-Zahl, wie ein Mensch sie liest.
+ *
+ * Bis tausend Bytes die Zahl selbst — „847 B" sagt mehr als „0,8 kB". Darüber
+ * eine Stelle hinter dem Komma: Ob eine Lieferung 12,4 oder 12,7 MB hat, ist
+ * eine Auskunft; die dritte Nachkommastelle ist keine mehr.
+ *
+ * Hier und nicht im Laufbildschirm, wo sie herkommt: Es gibt inzwischen einen
+ * zweiten Ort, der Dateigrößen anzeigt, und zwei Fassungen würden sich früher
+ * oder später darin uneins, wo das Komma steht.
+ */
+export function formatSize(bytes?: number): string {
+  if (bytes === undefined) {
+    return '—';
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  const units = ['kB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let unit = 0;
+
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+
+  return `${value.toFixed(1)} ${units[unit]}`;
+}
+
 export function formatDuration(milliseconds?: number): string {
   if (milliseconds === undefined) {
     return '—';
@@ -538,7 +570,7 @@ export function Memofeld({
       }
     >
       <input
-        className="memo__zeile"
+        className="input--waehlbar"
         readOnly
         aria-label={label}
         value={vorschau}

@@ -7,6 +7,7 @@ import {
   Empty,
   formatDuration,
   formatMoment,
+  formatSize,
   HeaderAction,
   Loading,
   Notice,
@@ -52,27 +53,6 @@ const LEVEL_TONE: Record<LogLevel, string> = {
 };
 
 const LEVELS: LogLevel[] = ['DEBUG', 'INFO', 'WARNING', 'ERROR'];
-
-function formatSize(bytes?: number): string {
-  if (bytes === undefined) {
-    return '—';
-  }
-
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  const units = ['kB', 'MB', 'GB', 'TB'];
-  let value = bytes / 1024;
-  let unit = 0;
-
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-
-  return `${value.toFixed(1)} ${units[unit]}`;
-}
 
 interface Props {
   runId: string;

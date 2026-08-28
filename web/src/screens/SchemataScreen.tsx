@@ -47,12 +47,17 @@ import { LOCALES } from './regions.js';
  * und Bedingungen über mehrere Felder. Beides war gebaut, getestet und
  * **unerreichbar**. Das ist die Stelle, an der man hinkommt.
  *
- * ## Ein Schema entsteht aus einer Datei
+ * ## Ein Schema entsteht aus Beispieldaten
  *
- * Angelegt wird ein Profil weiterhin dort, wo eine Beispieldatei gelesen und
- * ihre Struktur erkannt wird — ein Profil entsteht daraus, dass ein Mensch eine
- * erkannte Struktur **bestätigt**, und nicht daraus, dass er sie tippt. Hier
- * wird nachgearbeitet: benennen, einschränken, Regeln geben.
+ * Angelegt wird ein Profil weiterhin dort, wo Beispieldaten gelesen und ihre
+ * Struktur erkannt wird: unter **Daten konsolidieren › Daten finden**. Ein Profil
+ * entsteht daraus, dass ein Mensch eine erkannte Struktur **bestätigt**, und
+ * nicht daraus, dass er sie tippt. Hier wird nachgearbeitet: benennen,
+ * einschränken, Regeln geben.
+ *
+ * Der Weg dorthin stand hier lange nicht dabei — und „aus einer Beispieldatei"
+ * schickte jemanden eine Dateiauswahl suchen, die es nicht gab. Beides ist
+ * behoben: Der Ort steht jetzt da, und die Datei gibt es.
  *
  * ## Fünf Reiter und nicht fünf Klappflächen
  *
@@ -156,8 +161,9 @@ export function SchemataScreen() {
         </p>
 
         <p className="muted">
-          Angelegt wird ein Schema aus einer <strong>Beispieldatei</strong>: Unikom erkennt Aufbau und Typen, ein
-          Mensch bestätigt sie. Hier wird nachgearbeitet.
+          Angelegt wird ein Schema aus <strong>Beispieldaten</strong> — eingefügt oder aus einer Datei auf dem
+          Server. Unikom erkennt Aufbau und Typen, ein Mensch bestätigt sie. Das geschieht unter{' '}
+          <strong>Daten konsolidieren › Daten finden</strong>; hier wird nachgearbeitet.
         </p>
 
         <div className="row">
@@ -182,7 +188,9 @@ export function SchemataScreen() {
 
         {profile.data && profile.data.length === 0 && (
           <Empty>
-            Für diesen Mandanten gibt es noch kein Schema. Eines entsteht bei der Erkennung einer Beispieldatei.
+            Für diesen Mandanten gibt es noch kein Schema. Eines entsteht unter{' '}
+            <strong>Daten konsolidieren › Daten finden</strong>: Beispieldaten einfügen oder eine Datei auf dem
+            Server aussuchen, erkennen lassen, bestätigen.
           </Empty>
         )}
 
@@ -587,8 +595,32 @@ function Spalten({
         ihre Regeln nicht versehentlich mit.
       </p>
 
+      {/*
+        * Der Fall, den eine Lieferung ohne Kopfzeile erzeugt.
+        *
+        * Die Erkennung nimmt Spaltennamen aus der Zeile über den Daten. Gibt es
+        * keine, sind alle Spalten namenlos — und dann steht hier eine Tabelle mit
+        * fünf leeren Namensfeldern und fünf abgeblendeten Knopfen, ohne dass zu
+        * sehen wäre, warum. Der Satz sagt es, und er sagt es nur dort, wo es
+        * zutrifft.
+        *
+        * Er ist auch die Anleitung für den Lauf: Was hier eingetragen wird, legt
+        * Unikom später über jede Lieferung, die selbst keine Kopfzeile mitbringt.
+        * Ohne diese Namen prüft eine Regel für „kdnr" stillschweigend nichts.
+        */}
+      {spalten.length > 0 && spalten.some((spalte) => !spalte.name) && (
+        <p className="muted">
+          Einige Spalten haben <strong>keinen Namen</strong>: Die Beispieldaten trugen keine Kopfzeile, und geraten
+          wird sie nicht. Tragen Sie die Namen hier ein — erst dann lassen sich Regeln daran hängen, und der Lauf
+          legt sie über jede Lieferung, die selbst keine Kopfzeile mitbringt.
+        </p>
+      )}
+
       {spalten.length === 0 && (
-        <Empty>Dieses Schema kennt noch keine Spalten. Sie entstehen bei der Erkennung einer Beispieldatei.</Empty>
+        <Empty>
+          Dieses Schema kennt noch keine Spalten. Sie entstehen bei der Erkennung unter{' '}
+          <strong>Daten konsolidieren › Daten finden</strong>.
+        </Empty>
       )}
 
       {spalten.length > 0 && (

@@ -11,6 +11,7 @@ import { ApiServer, CSRF_HEADER } from './ApiServer.js';
 import { createInMemoryApplication, type UnikomApplication } from '../../application/runtime/UnikomApplication.js';
 import { StaticFeatureSet } from '../../domain/licensing/Feature.js';
 import { createTransferJob } from '../../testing/TransferJobFixture.js';
+import { discoveryRoutes } from './routes/DiscoveryRoutes.js';
 import { jobRoutes } from './routes/JobRoutes.js';
 import type { Role } from '../../domain/users/User.js';
 import { MAX_FUNDE, type Bestand } from '../../domain/privacy/DataStore.js';
@@ -3004,4 +3005,85 @@ test('der Hintergrundbetrieb verlangt eine Anmeldung', async (t) => {
 
   assert.equal((await client.request('GET', '/api/background/processes')).status, 401);
   assert.equal((await client.request('GET', '/api/notifications?tenantId=default')).status, 401);
+});
+
+test('eine Beispieldatei wird auf dem Server gelesen und geht durch dieselbe Erkennung', async (t) => {
+  /*
+   * Der ganze Weg an einem Stück: Datei auf dem Server → gelesener Anfang →
+   * Erkennung → Schema. Vorher gab es dafür nur die Textfläche, und der
+   * Bildschirm daneben sprach trotzdem von einer „Beispieldatei".
+   */
+  const client = await harness(t);
+  await withUser(client, 'dora', 'ADMIN');
+  await client.login('dora');
+
+  const ordner = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-beispiel-'));
+  const datei = path.join(ordner, 'bestellungen.csv');
+  const umbruch = String.fromCharCode(10);
+
+  await fs.writeFile(
+    datei,
+    ['Artikelnummer;Bezeichnung;Menge', '4711;Schraube M8;500', '4712;Mutter M8;250'].join(umbruch)
+  );
+
+  const gelesen = await client.request('POST', '/api/discovery/read-file', {
+    body: { tenantId: 'default', path: datei },
+  });
+
+  assert.equal(gelesen.status, 200);
+  assert.equal(gelesen.body.ok, true, gelesen.body.message);
+  assert.equal(gelesen.body.name, 'bestellungen.csv');
+  assert.match(gelesen.body.text, /Schraube M8/);
+
+  // Und der gelesene Anfang ist gewöhnlicher Inhalt für die Analyse.
+  const erkannt = await client.request('POST', '/api/discovery/analyse', {
+    body: { tenantId: 'default', content: gelesen.body.text },
+  });
+
+  assert.equal(erkannt.status, 200);
+  assert.deepEqual(
+    erkannt.body.blocks[0].columns.map((spalte: any) => spalte.name),
+    ['Artikelnummer', 'Bezeichnung', 'Menge']
+  );
+});
+
+test('was keine Textdatei ist, kommt als Antwort zurück und nicht als Fehler', async (t) => {
+  /*
+   * „Das ist eine Excel-Mappe" ist das Ergebnis des Hinsehens und keine
+   * Störung. Als 400er müsste die Oberfläche denselben Satz aus einem anderen
+   * Kanal holen und an anderer Stelle zeigen — für einen Ausgang, der beim
+   * Aussuchen einer Datei zu den häufigen gehört.
+   */
+  const client = await harness(t);
+  await withUser(client, 'egon', 'ADMIN');
+  await client.login('egon');
+
+  const ordner = await fs.mkdtemp(path.join(os.tmpdir(), 'unikom-mappe-'));
+  const datei = path.join(ordner, 'umsatz.xlsx');
+
+  await fs.writeFile(datei, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00]));
+
+  const antwort = await client.request('POST', '/api/discovery/read-file', {
+    body: { tenantId: 'default', path: datei },
+  });
+
+  assert.equal(antwort.status, 200);
+  assert.equal(antwort.body.ok, false);
+  assert.match(antwort.body.message, /Excel/);
+  assert.equal(antwort.body.text, undefined);
+});
+
+test('das Lesen einer Beispieldatei verlangt dasselbe Recht wie das Blättern', async (t) => {
+  /*
+   * Sie greift auf denselben Dienst und dieselben Pfade zu wie der
+   * Verzeichnis-Browser; eine schwächere Schranke davor wäre eine Tür neben der
+   * verschlossenen.
+   */
+  const client = await harness(t);
+  const route = discoveryRoutes(client.application).find(
+    (eintrag) => eintrag.pattern === '/api/discovery/read-file' && eintrag.method === 'POST'
+  );
+
+  assert.ok(route, '/api/discovery/read-file gibt es nicht mehr');
+  assert.equal(route.authorization, 'MANAGE_JOBS');
 });

@@ -2245,6 +2245,19 @@ option:checked {
   margin-top: 0.45rem;
 }
 
+/*
+ * Ein Hinweis, der nicht gut ausging — „das ist ein PDF", „die Datei gibt es
+ * nicht".
+ *
+ * Nur die Farbe: Größe, Schrift und Abstand trägt der Hinweis schon. Und kein
+ * eigenes Fenster: Der Satz gehört zu diesem Feld, gilt nur bis zur nächsten
+ * Auswahl und verschwindet mit ihr — ein Fenster müsste erst weggeklickt werden,
+ * bevor man es noch einmal versuchen darf.
+ */
+.field__hint .schlecht {
+  color: rgb(var(--alarm));
+}
+
 /* ---------- Workflow-Editor ---------- */
 
 /*
@@ -2669,17 +2682,18 @@ svg.icon--strich {
 }
 
 /*
- * Die Zeile, die eine mehrzeilige Angabe zeigt — siehe `Memofeld`.
+ * Ein Feld, das nur zeigt und beim Anklicken sein Fenster öffnet.
  *
- * Sie nimmt keine Eingabe an, deshalb der Zeiger einer Schaltfläche: Was sich
- * anklicken lässt, soll aussehen, als ließe es sich anklicken.
+ * Zwei Stellen bisher: die Zeile eines Memos (`Memofeld`) und der Pfad einer
+ * Beispieldatei. Beide nehmen keine Eingabe an — was darin steht, kommt aus
+ * einem Fenster —, und beide sollen aussehen, als ließen sie sich anklicken.
  *
- * `text-overflow` kürzt, was in der Breite nicht hineinpasst, und setzt dafür
- * dasselbe Zeichen wie die Kürzung nach der ersten Zeile. Wer die Zeile ansieht,
- * sieht deshalb nur „hier steht mehr" — und nicht zwei verschiedene Sorten von
- * „mehr".
+ * `text-overflow` kürzt, was in der Breite nicht hineinpasst. Beim Memo trifft
+ * das auf die Kürzung nach der ersten Zeile, und beide setzen dasselbe Zeichen:
+ * Wer die Zeile ansieht, soll nur „hier steht mehr" lesen und nicht zwei
+ * verschiedene Sorten davon unterscheiden müssen.
  */
-.memo__zeile {
+.input--waehlbar {
   cursor: pointer;
   text-overflow: ellipsis;
 }

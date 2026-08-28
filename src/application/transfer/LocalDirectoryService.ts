@@ -4,6 +4,13 @@ import path from 'node:path';
 import { assertWithinTenant, TenantBoundaryError } from '../../domain/tenants/TenantContainment.js';
 import type { Tenant, TenantRepository } from '../../domain/tenants/Tenant.js';
 import { checkDirectory, type DirectoryCheckResult } from '../../infrastructure/filesystem/DirectoryCheck.js';
+import {
+  PROBE_BYTES,
+  istText,
+  probeAus,
+  signaturVon,
+  warumKeinText,
+} from '../../infrastructure/formats/Dateiprobe.js';
 import type { RemoteDirectoryResult } from './RemoteDirectoryService.js';
 
 /**
@@ -42,6 +49,31 @@ export interface LocalDirectoryRequest {
    * Oberfläche öffnet, und sind genau die Orte, an denen dieser Kunde arbeitet.
    */
   known?: string[];
+}
+
+/**
+ * Was beim Ansehen einer Beispieldatei herauskommt.
+ *
+ * Dieselbe Form wie die Antwort des Verzeichnisbrowsers: `ok` und `message`
+ * zuerst, alles Weitere freiwillig. Ein Misserfolg ist hier ein gewöhnlicher
+ * Ausgang und kein Ausnahmefall — die Datei ist ein PDF, sie steht beim
+ * falschen Mandanten, sie ist fort. Jeder dieser Fälle hat einen Satz, und der
+ * gehört in die Antwort und nicht in einen Fehler.
+ */
+export interface Dateiprobenergebnis {
+  ok: boolean;
+  message: string;
+  /** Der bloße Name, ohne Pfad — er steht in der Auskunft über der Textfläche. */
+  name?: string;
+  pfad?: string;
+  text?: string;
+  kodierung?: string;
+  /** Wie groß die Datei ist. */
+  groesse?: number;
+  /** Wie viel davon angesehen wurde. */
+  gelesen?: number;
+  /** Ob die Datei größer ist als das, was hereinkam. */
+  gekuerzt?: boolean;
 }
 
 export class LocalDirectoryService {
@@ -121,6 +153,106 @@ export class LocalDirectoryService {
     }
 
     return checkDirectory(resolved);
+  }
+
+  /**
+   * Den Anfang einer Datei ansehen — für die Erkennung einer Beispieldatei.
+   *
+   * ## Warum hier und nicht in der Erkennung
+   *
+   * Weil hier die Grenze des Mandanten steht. Ein Pfad, der aus dem Browser
+   * kommt, ist eine Behauptung: Er kann auf `C:\Windows\win.ini` zeigen oder auf
+   * das Verzeichnis des nächsten Kunden. Dieselbe Prüfung, die beim Blättern
+   * gilt, muss beim Lesen gelten — und sie steht in dieser Klasse, damit es sie
+   * nur einmal gibt. Eine zweite Fassung an anderer Stelle wäre die, die beim
+   * nächsten Eingriff vergessen wird.
+   *
+   * ## Warum nur der Anfang
+   *
+   * Eine Lieferung hat zweihundert Megabyte, und die Frage ist nach hundert
+   * Zeilen beantwortet. Gelesen wird deshalb mit `read` an Position 0 und nicht
+   * mit `readFile`: Der Unterschied ist, ob der Server 64 Kilobyte oder die
+   * ganze Datei in den Speicher nimmt — bei einem Nachtlauf daneben ist das
+   * kein Feinschliff.
+   */
+  async leseProbe(request: { tenantId?: string; datei: string }): Promise<Dateiprobenergebnis> {
+    const angabe = request.datei.trim();
+
+    if (angabe === '') {
+      return { ok: false, message: 'Es ist keine Datei ausgewählt' };
+    }
+
+    const tenant = request.tenantId ? await this.tenants?.getById(request.tenantId) : undefined;
+    const resolved = path.resolve(angabe);
+
+    if (tenant) {
+      try {
+        assertWithinTenant(tenant, resolved, 'Diese Datei');
+      } catch (error) {
+        return { ok: false, message: error instanceof TenantBoundaryError ? error.message : String(error) };
+      }
+    }
+
+    let stats;
+    try {
+      stats = await fs.stat(resolved);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+
+      return {
+        ok: false,
+        message:
+          code === 'ENOENT'
+            ? `${resolved} gibt es nicht.`
+            : code === 'EACCES' || code === 'EPERM'
+              ? `Keine Berechtigung für ${resolved}. Das Konto, unter dem Unikom läuft, darf dort nicht lesen.`
+              : `${resolved} lässt sich nicht lesen: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+
+    if (!stats.isFile()) {
+      return {
+        ok: false,
+        message: stats.isDirectory()
+          ? `${resolved} ist ein Verzeichnis und keine Datei.`
+          : `${resolved} ist keine gewöhnliche Datei.`,
+      };
+    }
+
+    if (stats.size === 0) {
+      return { ok: false, message: `„${path.basename(resolved)}" ist leer — darin ist nichts zu erkennen.` };
+    }
+
+    const gekuerzt = stats.size > PROBE_BYTES;
+    const puffer = new Uint8Array(Math.min(stats.size, PROBE_BYTES));
+    const griff = await fs.open(resolved, 'r');
+    let gelesen = 0;
+
+    try {
+      gelesen = (await griff.read(puffer, 0, puffer.length, 0)).bytesRead;
+    } finally {
+      await griff.close();
+    }
+
+    const angesehen = puffer.subarray(0, gelesen);
+
+    if (!istText(angesehen)) {
+      return { ok: false, message: warumKeinText(signaturVon(angesehen), path.basename(resolved)) };
+    }
+
+    const probe = probeAus(angesehen, gekuerzt);
+
+    return {
+      ok: true,
+      message: `„${path.basename(resolved)}" gelesen`,
+      name: path.basename(resolved),
+      pfad: resolved,
+      text: probe.text,
+      kodierung: probe.kodierung,
+      groesse: stats.size,
+      gelesen: probe.bytes,
+      gekuerzt,
+    };
   }
 
   /**

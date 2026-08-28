@@ -5,16 +5,28 @@ import { messageOf, useResource } from '../api/useResource.js';
 import type {
   Befund,
   DataBlock,
+  Dateiprobe,
   DiscoveryAnswer,
   Ebene,
   Erkennungsmodus,
   Herkunft,
   Qualitaetsbericht,
+  RemoteDirectoryResult,
   Schwere,
   Snapshot,
   Tenant,
 } from '../api/types.js';
-import { Empty, Field, Loading, Notice } from '../components/Pieces.js';
+import {
+  Empty,
+  Field,
+  FieldButton,
+  FolderIcon,
+  formatSize,
+  Loading,
+  Notice,
+  titelBeiUeberlauf,
+} from '../components/Pieces.js';
+import { Verzeichnisfenster, verzeichnisTeil } from '../components/Verzeichniswahl.js';
 
 const MODUS_LABELS: Record<Erkennungsmodus, string> = {
   AUTOMATIK: 'Automatisch',
@@ -89,6 +101,17 @@ export function DiscoveryScreen() {
   const [strukturName, setStrukturName] = useState('');
   const [gemerkt, setGemerkt] = useState<string>();
   const [dateiName, setDateiName] = useState('');
+  /*
+   * Die ausgesuchte Beispieldatei und was beim Ansehen herauskam.
+   *
+   * Zwei Stücke, weil sie Verschiedenes sagen: Der Pfad steht im Feld, das
+   * Ergebnis darunter — und ein Misserfolg („das ist ein PDF") hat einen Pfad,
+   * aber keinen Text. Ein gemeinsamer Zustand müsste beim Fehlschlag entscheiden,
+   * ob er den Pfad behalten oder verwerfen soll, und beides wäre falsch.
+   */
+  const [beispielpfad, setBeispielpfad] = useState('');
+  const [probe, setProbe] = useState<Dateiprobe>();
+  const [dateiwahlOffen, setDateiwahlOffen] = useState(false);
   const [zielformat, setZielformat] = useState<Zielformat>('CSV');
   const [geschrieben, setGeschrieben] = useState<{ file: string; rows: number; notes?: string[] }>();
   const [bericht, setBericht] = useState<Qualitaetsbericht>();
@@ -102,6 +125,60 @@ export function DiscoveryScreen() {
   }
 
   const mandant = tenantId ?? tenants.data[0]?.id;
+
+  /*
+   * Durchgesehen wird auf dem Server — dieselbe Route wie im Workflow-Editor.
+   *
+   * Ein Dateidialog im Browser nennt den Pfad des Rechners, an dem jemand sitzt.
+   * Die Lieferung liegt aber dort, wo Unikom läuft, und genau die soll erkannt
+   * werden — nicht eine Abschrift, die vorher jemand auf seinen Arbeitsplatz
+   * kopiert hat.
+   */
+  const durchsehen = (pfad: string): Promise<RemoteDirectoryResult> =>
+    api.post<RemoteDirectoryResult>('/api/jobs/browse-local', {
+      name: 'Beispieldatei',
+      tenantId: mandant,
+      directory: pfad,
+      known: [],
+      sourceType: 'LOCAL',
+    });
+
+  /**
+   * Den Anfang der ausgesuchten Datei holen und in die Textfläche stellen.
+   *
+   * Nicht gleich analysieren: Dann bekäme man ein Ergebnis über etwas, das man
+   * nie gesehen hat. Das Versprechen dieses Bildschirms ist das Gegenteil —
+   * gespeichert wird, was ein Mensch bestätigt. Der gelesene Anfang steht deshalb
+   * sichtbar da und läuft danach durch dieselbe Erkennung wie eingefügter Text.
+   */
+  async function beispielLesen(pfad: string): Promise<void> {
+    setBusy(true);
+    setFehler(undefined);
+
+    try {
+      const gelesen = await api.post<Dateiprobe>('/api/discovery/read-file', { tenantId: mandant, path: pfad });
+
+      setBeispielpfad(pfad);
+      setProbe(gelesen);
+
+      if (gelesen.ok && gelesen.text !== undefined) {
+        setInhalt(gelesen.text);
+        /*
+         * Was zum vorigen Inhalt gehörte, gehört nicht zu diesem. Ein
+         * Erkennungsergebnis, das neben einer anderen Datei stehen bleibt, ist
+         * die Sorte Anzeige, die man für aktuell hält.
+         */
+        setAntwort(undefined);
+        setBericht(undefined);
+        setGemerkt(undefined);
+        setGeschrieben(undefined);
+      }
+    } catch (error) {
+      setFehler(messageOf(error, 'Die Datei ließ sich nicht lesen'));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function analysieren(): Promise<void> {
     setBusy(true);
@@ -202,7 +279,82 @@ export function DiscoveryScreen() {
       {fehler && <Notice kind="error">{fehler}</Notice>}
 
       <section className="card">
-        <h2>Text einfügen</h2>
+        {/*
+          * „Beispieldaten" und nicht mehr „Text einfügen": Es gibt jetzt zwei Wege
+          * herein — eingefügt oder aus einer Datei auf dem Server —, und die
+          * Überschrift soll nicht einen davon zum Ganzen erklären.
+          */}
+        <h2>Beispieldaten</h2>
+
+        {/*
+          * Die Datei steht über der Textfläche, weil sie sie füllt.
+          *
+          * Das Feld nimmt keine Eingabe an. Ein Pfad, den man hier tippt, wäre
+          * fast immer der des eigenen Arbeitsplatzes — genau die Verwechslung, wegen
+          * der der Server und nicht der Browser blättert. Ausgesucht wird deshalb
+          * im Fenster, und ein Klick auf die Zeile öffnet es ebenfalls.
+          */}
+        <Field
+          label="Datei auf dem Server"
+          explain={
+            <>
+              <p>
+                Eine Beispieldatei dort, wo Unikom läuft — nicht auf Ihrem Arbeitsplatz. Gelesen wird nur
+                ihr <strong>Anfang</strong>: Aufbau und Typen stehen nach ein paar hundert Zeilen fest, und eine
+                Lieferung von zweihundert Megabyte gehört in keine Textfläche.
+              </p>
+              <p>
+                Text, CSV, JSON, XML. Eine Excel-Mappe liest Unikom im Lauf, hier noch nicht — speichern Sie
+                das Blatt dafür als CSV.
+              </p>
+            </>
+          }
+          hint={
+            probe && (
+              probe.ok ? (
+                <>
+                  „{probe.name}" —{' '}
+                  {probe.gekuerzt
+                    ? `die ersten ${formatSize(probe.gelesen)} von ${formatSize(probe.groesse)}`
+                    : `ganz gelesen, ${formatSize(probe.groesse)}`}
+                  , {probe.kodierung}.
+                </>
+              ) : (
+                <span className="schlecht">{probe.message}</span>
+              )
+            )
+          }
+          action={
+            <FieldButton title="Beispieldatei aussuchen" disabled={busy} onClick={() => setDateiwahlOffen(true)}>
+              <FolderIcon />
+            </FieldButton>
+          }
+        >
+          <input
+            className="input--derived input--waehlbar"
+            readOnly
+            aria-label="Datei auf dem Server"
+            value={beispielpfad}
+            placeholder="keine — oder unten einfügen"
+            {...titelBeiUeberlauf()}
+            onClick={() => setDateiwahlOffen(true)}
+          />
+        </Field>
+
+        {dateiwahlOffen && (
+          <Verzeichnisfenster
+            titel="Beispieldatei auf dem Server aussuchen"
+            /* Im Ordner der bisherigen Datei — ihr voller Pfad wäre keiner. */
+            start={verzeichnisTeil(beispielpfad)}
+            waehle="DATEI"
+            lies={durchsehen}
+            onWaehlen={(wahl) => {
+              setDateiwahlOffen(false);
+              void beispielLesen(wahl.pfad);
+            }}
+            onClose={() => setDateiwahlOffen(false)}
+          />
+        )}
 
         <Field label="Inhalt" explain="Bestellung aus einer E-Mail, ein Ausschnitt aus einer Tabelle, eine Liste — Unikom sucht darin die Daten.">
           <textarea

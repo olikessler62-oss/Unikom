@@ -865,7 +865,7 @@ export function Dateifeld({
 }
 
 /** Der Ordner, in dem ein Pfad liegt — mit beiden Trennzeichen, die vorkommen. */
-function verzeichnisTeil(pfad: string): string {
+export function verzeichnisTeil(pfad: string): string {
   const trenner = Math.max(pfad.lastIndexOf('/'), pfad.lastIndexOf(String.fromCharCode(92)));
 
   return trenner === -1 ? '' : pfad.slice(0, trenner);

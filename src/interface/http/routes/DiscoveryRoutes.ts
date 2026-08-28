@@ -169,6 +169,60 @@ export function discoveryRoutes(application: UnikomApplication): Route[] {
     },
     {
       /*
+       * Eine Beispieldatei ansehen — der Anfang davon, als Text.
+       *
+       * ## Warum der Server sie liest und nicht der Browser
+       *
+       * Dieselbe Antwort wie beim Verzeichnisbrowser, und sie gilt hier noch
+       * stärker: Eine Datei, die der Browser öffnet, liegt auf dem Rechner, an
+       * dem jemand sitzt. Die Lieferung liegt aber dort, wo Unikom läuft — und
+       * genau die soll erkannt werden, nicht eine Abschrift davon, die jemand
+       * vorher auf seinen Arbeitsplatz kopiert hat.
+       *
+       * ## Warum das Ergebnis in die Textfläche geht
+       *
+       * Es könnte auch gleich analysiert werden. Dann bekäme man ein Ergebnis
+       * über etwas, das man nie gesehen hat — und das Versprechen dieses
+       * Bildschirms ist das Gegenteil: „Gespeichert wird, was Sie hier
+       * bestätigen." Der gelesene Anfang steht deshalb sichtbar da, und die
+       * Erkennung läuft darüber wie über eingefügten Text.
+       *
+       * ## Warum kein eigener Größenwall
+       *
+       * Der Dienst liest höchstens `PROBE_BYTES`. Was hier ankommt, ist damit
+       * immer kleiner als die Grenze der Analyse — eine zweite Zahl daneben
+       * wäre eine, die eines Tages der ersten widerspricht.
+       */
+      method: 'POST',
+      pattern: '/api/discovery/read-file',
+      authorization: 'MANAGE_JOBS',
+      handle: async ({ body }) => {
+        const input = requireObject(body, 'Die Datei');
+        const tenantId = requireString(input, 'tenantId');
+
+        if (!(await application.tenantService.getById(tenantId))) {
+          throw new ApiError(404, `Den Mandanten „${tenantId}“ gibt es nicht`);
+        }
+
+        const ergebnis = await application.localDirectories.leseProbe({
+          tenantId,
+          datei: requireString(input, 'path'),
+        });
+
+        /*
+         * Ein Misserfolg kommt als Antwort und nicht als Fehler.
+         *
+         * „Das ist ein PDF" ist keine Störung, sondern das Ergebnis des
+         * Hinsehens — genauso wie beim Blättern, wo ein Verzeichnis ohne
+         * Leserecht `ok: false` mit einem Satz zurückgibt. Die Oberfläche zeigt
+         * beides an derselben Stelle; ein 400er zwänge sie, denselben Satz noch
+         * einmal aus einem anderen Kanal zu holen.
+         */
+        return ok(ergebnis);
+      },
+    },
+    {
+      /*
        * Aus dem erkannten Block eine Datei machen.
        *
        * Damit endet der Weg nicht bei der Ansicht: Was hier entsteht, ist ein
