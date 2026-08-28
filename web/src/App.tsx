@@ -14,8 +14,6 @@ import { JobEditorScreen } from './screens/job/JobEditorScreen.js';
 import { LoginScreen } from './screens/LoginScreen.js';
 import { PrivacyScreen } from './screens/PrivacyScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
-import { ArchivScreen } from './screens/ArchivScreen.js';
-import { SchemataScreen } from './screens/SchemataScreen.js';
 import { TenantsScreen } from './screens/TenantsScreen.js';
 import { UsersScreen } from './screens/UsersScreen.js';
 import { DataEnquiryScreen } from './screens/DataEnquiryScreen.js';
@@ -58,23 +56,20 @@ const BLOCKS: Area[][] = [
     { id: 'workflows', label: 'nav.workflows', permission: 'VIEW' },
     { id: 'consolidation', label: 'nav.consolidation', permission: 'MANAGE_JOBS' },
   ],
-  [
-    { id: 'tenants', label: 'nav.tenants', permission: 'VIEW' },
-    /*
-     * Die Schemata stehen beim Mandanten und nicht bei der laufenden Arbeit.
-     *
-     * Ein Schema beschreibt eine Eingangsquelle — was von dort kommt und was
-     * dort ein gültiger Wert ist. Das gilt für alle Workflows dieses Kunden und
-     * ändert sich im Takt seiner Lieferanten, nicht im Takt einzelner Aufträge.
-     */
-    { id: 'schemata', label: 'nav.schemata', permission: 'MANAGE_JOBS' },
-    /*
-     * Das Archiv steht beim Mandanten und nicht bei der laufenden Arbeit: Wer
-     * hier nachsieht, sucht eine Lieferung von vorletzter Woche — nicht das,
-     * was heute Nacht passiert ist.
-     */
-    { id: 'archiv', label: 'nav.archive', permission: 'MANAGE_JOBS' },
-  ],
+  /*
+   * Ein einziger Punkt für den Kunden — und alles, was ihn betrifft, darin.
+   *
+   * Hier standen einmal drei: Mandanten, Schemata, Archiv. Dazu im Block darüber
+   * „Daten konsolidieren" mit vier weiteren Bildschirmen. Alle sieben fragten
+   * als Erstes „für welchen Kunden?" — und das ist der Beweis, dass sie zu ihm
+   * gehören und nicht neben ihn: Was zuerst nach einem Kunden fragt, ist ein
+   * Bildschirm dieses Kunden.
+   *
+   * Das Menü war nach **Modulen** gegliedert, also danach, was auf der Rechnung
+   * steht. Ein Modul ist aber eine Position im Preisverzeichnis und kein Ort im
+   * Haus. Sie stehen jetzt als Reiter am Mandanten — siehe `TenantsScreen`.
+   */
+  [{ id: 'tenants', label: 'nav.tenants', permission: 'VIEW' }],
   [
     { id: 'users', label: 'nav.users', permission: 'MANAGE_USERS' },
     { id: 'enquiry', label: 'nav.enquiry', permission: 'MANAGE_USERS' },
@@ -324,10 +319,6 @@ export function App() {
             <ConsolidationScreen />
           ) : current?.id === 'history' ? (
             <HistoryScreen key={view.historyJob ?? 'all'} initialJobId={view.historyJob} />
-          ) : current?.id === 'schemata' ? (
-            <SchemataScreen />
-          ) : current?.id === 'archiv' ? (
-            <ArchivScreen />
           ) : current?.id === 'tenants' ? (
             <TenantsScreen canManage={canManageCredentials} />
           ) : current?.id === 'users' ? (

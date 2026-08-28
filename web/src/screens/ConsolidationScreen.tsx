@@ -1,58 +1,55 @@
 import { useState } from 'react';
 
-import { DiscoveryScreen } from './DiscoveryScreen.js';
-import { MappingScreen } from './MappingScreen.js';
 import { ConflictScreen } from './ConflictScreen.js';
-import { MergeScreen } from './MergeScreen.js';
-import { ReferenceScreen } from './ReferenceScreen.js';
 import { ResultScreen } from './ResultScreen.js';
+import { Reiter } from '../components/Pieces.js';
 
 /**
- * Der Bereich „Daten konsolidieren".
+ * Der Bereich „Daten konsolidieren" — das, was davon täglich zu tun ist.
  *
- * Er ist das Modul, nicht eine seiner Funktionen. „Daten finden" und
- * „Zuordnungen" standen eine Weile als eigene Menüpunkte daneben — und damit
- * stand im Menü dreimal dasselbe Modul, ohne dass zu sehen war, dass es
- * zusammengehört. Wer die Konsolidierung nicht gekauft hat, soll einen Punkt
- * vermissen und nicht drei.
+ * ## Was hier stand und warum es fort ist
  *
- * Die Teile stehen als Reiter darin. Die Reihenfolge ist die der Arbeit:
- * erst sehen, was in den Daten steckt, dann festlegen, wohin es gehört. Was
- * mit den Etappen dazukommt — Konflikte, Referenzdaten, die Freigabe — reiht
- * sich hier ein und bekommt keinen eigenen Menüpunkt.
+ * Er hatte einmal sechs Reiter: Daten finden, Zuordnungen, Referenzen,
+ * Zusammenführen, Konflikte, Ergebnis. Vier davon sind **Einrichtung** — man
+ * macht sie einmal, wenn ein Kunde dazukommt: beschreiben, was er liefert,
+ * festlegen, wohin die Felder gehören, Referenzlisten hinterlegen, einmal zur
+ * Probe rechnen lassen. Alle vier fragten als Erstes „für welchen Kunden?", und
+ * genau das war der Hinweis: Sie stehen jetzt als Reiter beim Mandanten.
+ *
+ * ## Was geblieben ist
+ *
+ * Zwei Bildschirme, und beide sind Arbeit von heute:
+ *
+ * ```text
+ * Konflikte   ein Fall entsteht nachts, ein Mensch entscheidet ihn morgens
+ * Freigaben   darf dieses Ergebnis hinaus?
+ * ```
+ *
+ * Sie tragen ihre Mandantenwahl weiter — aber als **Filter** und nicht als
+ * Identität. Wer acht Kunden betreut, arbeitet morgens eine Liste ab und will
+ * dafür nicht achtmal einen Kunden aussuchen müssen. Deshalb stehen sie hier
+ * und nicht beim Mandanten: Ein offener Konflikt ist keine Einstellung.
+ *
+ * ## Warum sie unter einem Punkt bleiben
+ *
+ * Weil sie zusammen das Modul sind, das man kauft. Zwei Menüpunkte für zwei
+ * Bildschirme desselben Moduls wären wieder das, was hier schon einmal stand:
+ * dasselbe Ding, mehrfach im Menü.
  */
-type Teil = 'finden' | 'zuordnen' | 'referenzen' | 'zusammenfuehren' | 'konflikte' | 'ergebnis';
+type Teil = 'konflikte' | 'ergebnis';
 
-const TEILE: { id: Teil; label: string }[] = [
-  { id: 'finden', label: 'Daten finden' },
-  { id: 'zuordnen', label: 'Zuordnungen' },
-  { id: 'referenzen', label: 'Referenzen' },
-  { id: 'zusammenfuehren', label: 'Zusammenführen' },
-  { id: 'konflikte', label: 'Konflikte' },
-  { id: 'ergebnis', label: 'Ergebnis' },
+const TEILE: readonly { id: Teil; text: string }[] = [
+  { id: 'konflikte', text: 'Konflikte' },
+  { id: 'ergebnis', text: 'Freigaben' },
 ];
 
 export function ConsolidationScreen() {
-  const [teil, setTeil] = useState<Teil>('finden');
+  const [teil, setTeil] = useState<Teil>('konflikte');
 
   return (
     <>
-      <div className="subnav">
-        {TEILE.map((eintrag) => (
-          <button
-            key={eintrag.id}
-            className={teil === eintrag.id ? 'subnav__tab subnav__tab--active' : 'subnav__tab'}
-            onClick={() => setTeil(eintrag.id)}
-          >
-            {eintrag.label}
-          </button>
-        ))}
-      </div>
+      <Reiter<Teil> stil="pille" reiter={TEILE} offen={teil} onOeffnen={setTeil} />
 
-      {teil === 'finden' && <DiscoveryScreen />}
-      {teil === 'zuordnen' && <MappingScreen />}
-      {teil === 'referenzen' && <ReferenceScreen />}
-      {teil === 'zusammenfuehren' && <MergeScreen />}
       {teil === 'konflikte' && <ConflictScreen />}
       {teil === 'ergebnis' && <ResultScreen />}
     </>

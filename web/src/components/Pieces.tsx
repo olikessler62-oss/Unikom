@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -1136,10 +1137,25 @@ export function listentasten(event: Tastenereignis<HTMLElement>): void {
 export function Reiter<T extends string>({
   reiter,
   offen,
+  stil = 'blatt',
   onOeffnen,
 }: {
-  reiter: readonly { id: T; text: string }[];
+  reiter: readonly { id: T; text: string; trennerDavor?: boolean }[];
   offen: T;
+  /**
+   * Wie die Zeile aussieht — beide sind Reiter, nur an verschiedenen Ebenen.
+   *
+   * ```text
+   * pille   ─ über einem ganzen Bildschirm: Mandant, Konsolidierung, Auskunft
+   * blatt   ─ innerhalb eines Formulars: die fünf Blätter eines Schemas
+   * ```
+   *
+   * Zwei Aussehen und ein Bauteil. Die Pillenzeile stand vorher zweimal von
+   * Hand da — einmal in der Konsolidierung, einmal in der Auskunft —, und
+   * beide Male ohne Tastatur: Die Pfeiltasten gab es nur bei den Blättern,
+   * obwohl es dieselbe Bedienung ist.
+   */
+  stil?: 'blatt' | 'pille';
   onOeffnen(id: T): void;
 }) {
   function tasten(event: Tastenereignis<HTMLDivElement>): void {
@@ -1168,25 +1184,45 @@ export function Reiter<T extends string>({
     }
   }
 
+  const pille = stil === 'pille';
+
   return (
-    <div className="reiter" role="tablist" onKeyDown={tasten}>
+    <div className={pille ? 'subnav' : 'reiter'} role="tablist" onKeyDown={tasten}>
       {reiter.map((einer) => (
-        <button
-          key={einer.id}
-          type="button"
-          role="tab"
-          aria-selected={einer.id === offen}
-          /*
-           * Nur der offene Reiter ist mit der Tabulatortaste erreichbar; die
-           * übrigen über die Pfeiltasten. So sind es aus dem Formular heraus
-           * ein Sprung zurück zur Reiterzeile und nicht fünf.
-           */
-          tabIndex={einer.id === offen ? 0 : -1}
-          className={einer.id === offen ? 'reiter__blatt reiter__blatt--offen' : 'reiter__blatt'}
-          onClick={() => onOeffnen(einer.id)}
-        >
-          {einer.text}
-        </button>
+        <Fragment key={einer.id}>
+          {/*
+            * Ein Strich zwischen zwei Gruppen derselben Zeile.
+            *
+            * Beim Mandanten trennt er, wer er **ist**, von dem, was er
+            * **liefert**. Zwei Zeilen daraus zu machen wäre die falsche
+            * Antwort: Es ist eine Ebene, und zwei Zeilen sähen aus wie zwei.
+            */}
+          {einer.trennerDavor && <span className="subnav__trenner" aria-hidden="true" />}
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={einer.id === offen}
+            /*
+             * Nur der offene Reiter ist mit der Tabulatortaste erreichbar; die
+             * übrigen über die Pfeiltasten. So sind es aus dem Formular heraus
+             * ein Sprung zurück zur Reiterzeile und nicht fünf.
+             */
+            tabIndex={einer.id === offen ? 0 : -1}
+            className={
+              pille
+                ? einer.id === offen
+                  ? 'subnav__tab subnav__tab--active'
+                  : 'subnav__tab'
+                : einer.id === offen
+                  ? 'reiter__blatt reiter__blatt--offen'
+                  : 'reiter__blatt'
+            }
+            onClick={() => onOeffnen(einer.id)}
+          >
+            {einer.text}
+          </button>
+        </Fragment>
       ))}
     </div>
   );

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
-import type { Job, KonsolidierungConfig, Tenant } from '../api/types.js';
+import type { Job, KonsolidierungConfig } from '../api/types.js';
 import { Empty, Field, Loading, Notice } from '../components/Pieces.js';
 
 /**
@@ -69,19 +69,21 @@ interface Inhalt {
   dateien: { name: string; groesse: number }[];
 }
 
-export function ArchivScreen() {
-  const tenants = useResource<Tenant[]>('/api/tenants');
+/**
+ * Der Mandant kommt von außen und wird nicht mehr hier gewählt — siehe
+ * `TenantsScreen`. Ein Archiv ist die Ablage **dieses** Kunden; die Frage
+ * „wessen Archiv?" gehört nicht auf den Bildschirm, sondern darüber.
+ */
+export function ArchivScreen({ mandant }: { mandant: string }) {
   const jobs = useResource<Job[]>('/api/jobs');
 
-  const [tenantId, setTenantId] = useState<string>();
   const [ort, setOrt] = useState<string>();
   const [pakete, setPakete] = useState<Paket[]>();
   const [inhalt, setInhalt] = useState<Inhalt>();
   const [fehler, setFehler] = useState<string>();
   const [busy, setBusy] = useState(false);
 
-  const mandant = tenantId ?? tenants.data?.[0]?.id;
-  const orte = mandant && jobs.data ? archivorte(jobs.data, mandant) : [];
+  const orte = jobs.data ? archivorte(jobs.data, mandant) : [];
   const gewaehlt = ort && orte.some((eintrag) => eintrag.verzeichnis === ort) ? ort : orte[0]?.verzeichnis;
 
   useEffect(() => {
@@ -155,7 +157,7 @@ export function ArchivScreen() {
     }
   }
 
-  if (tenants.loading || jobs.loading) {
+  if (jobs.loading) {
     return <Loading />;
   }
 
@@ -166,23 +168,6 @@ export function ArchivScreen() {
         <p className="muted">
           Die Eingangsdateien, wie sie ankamen — verschlüsselt abgelegt, bevor der Lauf sie angefasst hat.
         </p>
-
-        <Field label="Mandant">
-          <select
-            className="input--wahl"
-            value={mandant ?? ''}
-            onChange={(event) => {
-              setTenantId(event.target.value);
-              setOrt(undefined);
-            }}
-          >
-            {(tenants.data ?? []).map((eintrag) => (
-              <option key={eintrag.id} value={eintrag.id}>
-                {eintrag.name}
-              </option>
-            ))}
-          </select>
-        </Field>
 
         {orte.length === 0 ? (
           <Notice kind="info">

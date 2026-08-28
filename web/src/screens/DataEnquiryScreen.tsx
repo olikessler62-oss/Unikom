@@ -11,7 +11,14 @@ import type {
   PrivacyReport,
   Tenant,
 } from '../api/types.js';
-import { Empty, Field, formatMoment, Loading, Modal, Notice } from '../components/Pieces.js';
+import { Empty, Field, formatMoment, Loading, Modal, Notice, Reiter } from '../components/Pieces.js';
+
+type Teil = 'suche' | 'bogen';
+
+const TEILE: readonly { id: Teil; text: string }[] = [
+  { id: 'suche', text: 'Auskunft und Löschung' },
+  { id: 'bogen', text: 'Was diese Installation speichert' },
+];
 
 /**
  * Auskunft, Löschauftrag und die Auskunftsseite (FR_009, Abschnitte 5, 6 und 9).
@@ -118,7 +125,7 @@ function Fristenliste({ fristen }: { fristen: Frist[] }) {
 export function DataEnquiryScreen() {
   const tenants = useResource<Tenant[]>('/api/tenants');
   const bogen = useResource<PrivacyReport>('/api/privacy/report');
-  const [teil, setTeil] = useState<'suche' | 'bogen'>('suche');
+  const [teil, setTeil] = useState<Teil>('suche');
   const [begriff, setBegriff] = useState('');
   const [tenantId, setTenantId] = useState('');
   const [auskunft, setAuskunft] = useState<Auskunft>();
@@ -191,20 +198,8 @@ export function DataEnquiryScreen() {
     <>
       {fehler && <Notice kind="error">{fehler}</Notice>}
 
-      <div className="subnav">
-        <button
-          className={teil === 'suche' ? 'subnav__tab subnav__tab--active' : 'subnav__tab'}
-          onClick={() => setTeil('suche')}
-        >
-          Auskunft und Löschung
-        </button>
-        <button
-          className={teil === 'bogen' ? 'subnav__tab subnav__tab--active' : 'subnav__tab'}
-          onClick={() => setTeil('bogen')}
-        >
-          Was diese Installation speichert
-        </button>
-      </div>
+      {/* Dieselbe Reiterzeile wie überall — sie stand hier von Hand und ohne Tastatur. */}
+      <Reiter<Teil> stil="pille" reiter={TEILE} offen={teil} onOeffnen={setTeil} />
 
       {teil === 'suche' ? (
         <>

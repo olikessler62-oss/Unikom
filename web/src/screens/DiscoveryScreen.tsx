@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { api } from '../api/client.js';
-import { messageOf, useResource } from '../api/useResource.js';
+import { messageOf } from '../api/useResource.js';
 import type {
   Befund,
   DataBlock,
@@ -14,7 +14,6 @@ import type {
   RemoteDirectoryResult,
   Schwere,
   Snapshot,
-  Tenant,
 } from '../api/types.js';
 import {
   Empty,
@@ -22,7 +21,6 @@ import {
   FieldButton,
   FolderIcon,
   formatSize,
-  Loading,
   Notice,
   titelBeiUeberlauf,
 } from '../components/Pieces.js';
@@ -88,10 +86,14 @@ Artikelnummer   Bezeichnung        Menge   Preis
 
 Mit freundlichen Grüßen`;
 
-export function DiscoveryScreen() {
-  const tenants = useResource<Tenant[]>('/api/tenants');
+/**
+ * Der Mandant kommt von außen und wird nicht mehr hier gewählt — siehe
+ * `TenantsScreen`. Er entscheidet, wie Zahlen und Datumsangaben gelesen werden;
+ * eine Beispieldatei ohne die Region ihres Kunden ergibt eine Erkennung, die
+ * für niemanden stimmt.
+ */
+export function DiscoveryScreen({ mandant }: { mandant: string }) {
   const [inhalt, setInhalt] = useState('');
-  const [tenantId, setTenantId] = useState<string>();
   const [modus, setModus] = useState<Erkennungsmodus>('AUTOMATIK');
   const [art, setArt] = useState<Art>('TEXT');
   const [antwort, setAntwort] = useState<DiscoveryAnswer>();
@@ -115,16 +117,6 @@ export function DiscoveryScreen() {
   const [zielformat, setZielformat] = useState<Zielformat>('CSV');
   const [geschrieben, setGeschrieben] = useState<{ file: string; rows: number; notes?: string[] }>();
   const [bericht, setBericht] = useState<Qualitaetsbericht>();
-
-  if (tenants.error) {
-    return <Notice kind="error">{tenants.error}</Notice>;
-  }
-
-  if (!tenants.data) {
-    return <Loading />;
-  }
-
-  const mandant = tenantId ?? tenants.data[0]?.id;
 
   /*
    * Durchgesehen wird auf dem Server — dieselbe Route wie im Workflow-Editor.
@@ -370,16 +362,6 @@ export function DiscoveryScreen() {
             {Object.entries(ART_LABELS).map(([wert, label]) => (
               <option key={wert} value={wert}>
                 {label}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Mandant" explain="Entscheidet, wie Zahlen und Datumsangaben gelesen werden.">
-          <select value={mandant} onChange={(event) => setTenantId(event.target.value)}>
-            {tenants.data.map((tenant) => (
-              <option key={tenant.id} value={tenant.id}>
-                {tenant.name}
               </option>
             ))}
           </select>

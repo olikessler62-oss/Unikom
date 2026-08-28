@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
-import type { Mappingliste, Mappingregel, Tenant } from '../api/types.js';
+import type { Mappingliste, Mappingregel } from '../api/types.js';
 import { Empty, Field, formatMoment, Loading, Notice, RowButton, TrashIcon } from '../components/Pieces.js';
 
 /**
@@ -65,28 +65,31 @@ function Zustand({ regel }: { regel: Mappingregel }) {
   return <span className="badge badge--good">wirkt</span>;
 }
 
-export function MappingScreen() {
-  const tenants = useResource<Tenant[]>('/api/tenants');
-  const [tenantId, setTenantId] = useState('');
+/**
+ * Der Mandant kommt von außen und wird nicht mehr hier gewählt.
+ *
+ * Dieser Bildschirm fragte als Erstes „für welchen Kunden?" — und genau das
+ * war der Hinweis darauf, wohin er gehört: Was zuerst nach einem Kunden fragt,
+ * ist ein Bildschirm dieses Kunden. Er steht jetzt als Reiter beim Mandanten,
+ * und der Mandant steht einmal darüber statt auf jedem Reiter neu.
+ */
+export function MappingScreen({ mandant }: { mandant: string }) {
   const [art, setArt] = useState('');
   const [suche, setSuche] = useState('');
   const [meldung, setMeldung] = useState<{ kind: 'info' | 'error'; text: string }>();
   const [busy, setBusy] = useState(false);
 
-  const mandant = tenantId || tenants.data?.[0]?.id;
-  const abfrage = mandant
-    ? `/api/mappings?tenantId=${encodeURIComponent(mandant)}` +
+  const liste = useResource<Mappingliste>(
+    `/api/mappings?tenantId=${encodeURIComponent(mandant)}` +
       (art ? `&art=${art}` : '') +
       (suche.trim() ? `&q=${encodeURIComponent(suche.trim())}` : '')
-    : undefined;
+  );
 
-  const liste = useResource<Mappingliste>(abfrage);
-
-  if (tenants.error || liste.error) {
-    return <Notice kind="error">{tenants.error ?? liste.error}</Notice>;
+  if (liste.error) {
+    return <Notice kind="error">{liste.error}</Notice>;
   }
 
-  if (!tenants.data || !liste.data) {
+  if (!liste.data) {
     return <Loading />;
   }
 
@@ -133,17 +136,6 @@ export function MappingScreen() {
         </div>
 
         <div className="filters">
-          <div className="filters__field">
-            <Field label="Mandant">
-              <select value={mandant} onChange={(event) => setTenantId(event.target.value)}>
-                {tenants.data.map((tenant) => (
-                  <option key={tenant.id} value={tenant.id}>
-                    {tenant.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
           <div className="filters__field">
             <Field label="Art">
               <select value={art} onChange={(event) => setArt(event.target.value)}>

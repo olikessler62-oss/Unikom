@@ -2,8 +2,8 @@ import { useState } from 'react';
 
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
-import type { Referenzquelle, RemoteDirectoryResult, Tenant } from '../api/types.js';
-import { Empty, Field, Loading, Notice } from '../components/Pieces.js';
+import type { Referenzquelle, RemoteDirectoryResult } from '../api/types.js';
+import { Empty, Field, Notice } from '../components/Pieces.js';
 import { Dateifeld, Verzeichnisfeld } from '../components/Verzeichniswahl.js';
 
 /**
@@ -56,13 +56,14 @@ function nurName(pfad: string, verzeichnis: string): string {
   return pfad;
 }
 
-export function ReferenceScreen() {
-  const tenants = useResource<Tenant[]>('/api/tenants');
-  const [tenantId, setTenantId] = useState<string>();
-  const mandant = tenantId ?? tenants.data?.[0]?.id;
-
+/**
+ * Der Mandant kommt von außen und wird nicht mehr hier gewählt — siehe
+ * `TenantsScreen`: Was zuerst nach einem Kunden fragt, ist ein Bildschirm
+ * dieses Kunden.
+ */
+export function ReferenceScreen({ mandant }: { mandant: string }) {
   const quellen = useResource<Referenzquelle[]>(
-    mandant ? `/api/reference-sources?tenantId=${encodeURIComponent(mandant)}` : undefined
+    `/api/reference-sources?tenantId=${encodeURIComponent(mandant)}`
   );
 
   const [entwurf, setEntwurf] = useState(LEER);
@@ -144,14 +145,6 @@ export function ReferenceScreen() {
     }
   }
 
-  if (tenants.error) {
-    return <Notice kind="error">{tenants.error}</Notice>;
-  }
-
-  if (!tenants.data || !mandant) {
-    return <Loading />;
-  }
-
   return (
     <>
       {fehler && <Notice kind="error">{fehler}</Notice>}
@@ -166,18 +159,6 @@ export function ReferenceScreen() {
           wo sie ist, und wird zum Lauf gelesen. <strong>Referenzdaten werden dabei nur gelesen</strong> und nie
           verändert.
         </p>
-
-        <div className="row">
-          <Field label="Mandant">
-            <select value={mandant} onChange={(event) => setTenantId(event.target.value)}>
-              {tenants.data.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
 
         {quellen.error && <Notice kind="warn">{quellen.error}</Notice>}
 

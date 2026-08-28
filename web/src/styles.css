@@ -800,8 +800,27 @@ code {
 .subnav {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.35rem;
   margin-bottom: 1.4rem;
+}
+
+/*
+ * Ein Strich zwischen zwei Gruppen derselben Reiterzeile.
+ *
+ * Beim Mandanten steht links, wer er **ist**, rechts, was er **liefert**. Das
+ * sind zwei Fragen und eine Ebene — zwei Zeilen daraus zu machen sähe aus wie
+ * zwei Ebenen, und dann suchte man die zweite unter der ersten.
+ *
+ * Er ist niedriger als die Pillen daneben: Ein Strich, der so hoch ist wie sie,
+ * liest sich als leerer Reiter.
+ */
+.subnav__trenner {
+  flex: none;
+  width: 1px;
+  height: 1.1rem;
+  margin: 0 0.5rem;
+  background: var(--rule-strong);
 }
 
 .subnav__tab {

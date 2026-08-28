@@ -44,8 +44,6 @@ export const TEXTS = {
   'nav.history': { de: 'Historie', en: 'History', es: 'Historial' },
   'nav.workflows': { de: 'Workflows', en: 'Workflows', es: 'Flujos' },
   'nav.consolidation': { de: 'Daten konsolidieren', en: 'Consolidate data', es: 'Consolidar datos' },
-  'nav.schemata': { de: 'Schemata', en: 'Schemas', es: 'Esquemas' },
-  'nav.archive': { de: 'Archiv', en: 'Archive', es: 'Archivo' },
   'nav.tenants': { de: 'Mandanten', en: 'Clients', es: 'Clientes' },
   'nav.users': { de: 'Benutzer', en: 'Users', es: 'Usuarios' },
   'nav.settings': { de: 'Einstellungen', en: 'Settings', es: 'Ajustes' },

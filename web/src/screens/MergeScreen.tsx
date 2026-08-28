@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { api } from '../api/client.js';
-import { messageOf, useResource } from '../api/useResource.js';
+import { messageOf } from '../api/useResource.js';
 import type {
   Betriebsart,
   Dublettenauswahl,
@@ -10,9 +10,8 @@ import type {
   Konsolidierungsbericht,
   Mehrfachtreffer,
   OhneHauptsatz,
-  Tenant,
 } from '../api/types.js';
-import { Empty, Field, Loading, Notice, RowButton, TrashIcon } from '../components/Pieces.js';
+import { Empty, Field, Notice, RowButton, TrashIcon } from '../components/Pieces.js';
 
 /**
  * Der Prüflauf über mehrere Quellen (SPEC-06, Abschnitt 11).
@@ -95,9 +94,13 @@ const BEISPIEL: Quelleneingabe[] = [
   },
 ];
 
-export function MergeScreen() {
-  const tenants = useResource<Tenant[]>('/api/tenants');
-  const [tenantId, setTenantId] = useState<string>();
+/**
+ * Der Mandant kommt von außen und wird nicht mehr hier gewählt — siehe
+ * `TenantsScreen`. Er entscheidet hier mehr als anderswo: wie Zahlen und
+ * Datumsangaben gelesen werden und ab welcher Sicherheit Unikom selbst
+ * entscheiden darf.
+ */
+export function MergeScreen({ mandant }: { mandant: string }) {
   const [quellen, setQuellen] = useState<Quelleneingabe[]>([
     { id: 'quelle1', name: '', text: '' },
     { id: 'quelle2', name: '', text: '' },
@@ -118,15 +121,6 @@ export function MergeScreen() {
   const [fehler, setFehler] = useState<string>();
   const [busy, setBusy] = useState(false);
 
-  if (tenants.error) {
-    return <Notice kind="error">{tenants.error}</Notice>;
-  }
-
-  if (!tenants.data) {
-    return <Loading />;
-  }
-
-  const mandant = tenantId ?? tenants.data[0]?.id;
   const gefuellt = quellen.filter((quelle) => quelle.text.trim() !== '');
 
   function aendere(stelle: number, teil: Partial<Quelleneingabe>): void {
@@ -243,16 +237,6 @@ export function MergeScreen() {
 
       <section className="card">
         <h2>Wie zusammengeführt wird</h2>
-
-        <Field label="Mandant" explain="Entscheidet, wie Zahlen und Datumsangaben gelesen werden — und ab welcher Sicherheit Unikom selbst entscheiden darf.">
-          <select value={mandant} onChange={(event) => setTenantId(event.target.value)}>
-            {tenants.data.map((tenant) => (
-              <option key={tenant.id} value={tenant.id}>
-                {tenant.name}
-              </option>
-            ))}
-          </select>
-        </Field>
 
         <Field label="Betriebsart" explain={BETRIEBSART_HINTS[betriebsart]}>
           <select value={betriebsart} onChange={(event) => setBetriebsart(event.target.value as Betriebsart)}>

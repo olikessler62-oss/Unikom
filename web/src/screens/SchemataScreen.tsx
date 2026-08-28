@@ -11,7 +11,6 @@ import type {
   Schwere,
   Spaltenvorgabe,
   Strukturvorgabe,
-  Tenant,
   Verbindlichkeit,
 } from '../api/types.js';
 import {
@@ -19,7 +18,6 @@ import {
   Field,
   FieldButton,
   Hint,
-  Loading,
   Modal,
   Notice,
   PlusIcon,
@@ -109,11 +107,16 @@ const FALTUNGEN: readonly { name: keyof NonNullable<Schluessel['vergleich']>; te
   { name: 'satzzeichenEgal', text: 'Punkt, Komma und Bindestrich fallen fort' },
 ];
 
-export function SchemataScreen() {
-  const tenants = useResource<Tenant[]>('/api/tenants');
-  const [tenantId, setTenantId] = useState<string>();
-  const mandant = tenantId ?? tenants.data?.[0]?.id;
-
+/**
+ * Der Mandant kommt von außen und wird nicht mehr hier gewählt.
+ *
+ * Dieser Bildschirm stand einmal als eigener Punkt im Hauptmenü und fragte
+ * deshalb als Erstes „für welchen Kunden?". Genau das war der Fehler: Was
+ * zuerst nach einem Kunden fragt, gehört zu ihm. Er steht jetzt als Reiter beim
+ * Mandanten, und der Mandant steht über ihm — einmal, statt auf jedem Reiter
+ * neu.
+ */
+export function SchemataScreen({ mandant }: { mandant: string }) {
   const profile = useResource<Eingangsprofil[]>(
     mandant ? `/api/profiles?tenantId=${encodeURIComponent(mandant)}` : undefined
   );
@@ -138,59 +141,33 @@ export function SchemataScreen() {
     }
   }
 
-  if (tenants.error) {
-    return <Notice kind="error">{tenants.error}</Notice>;
-  }
-
-  if (!tenants.data || !mandant) {
-    return <Loading />;
-  }
-
   return (
     <>
       {fehler && <Notice kind="error">{fehler}</Notice>}
       {meldung && <Notice kind="info">{meldung}</Notice>}
 
       <section className="card">
-        <h2>Schemata</h2>
+        <h2>Eingangsquellen</h2>
 
         <p className="muted">
-          Was Unikom über eine Eingangsquelle schon weiß: welche Spalten kommen, wie sie zu lesen sind, was ein
-          gültiger Wert ist und woran ein Datensatz zu erkennen ist. Ein Schema gehört zum{' '}
-          <strong>Mandanten</strong> und nicht zu einem einzelnen Workflow — dieselbe Quelle liefert für mehrere.
+          Was Unikom über eine Eingangsquelle dieses Mandanten schon weiß: welche Spalten kommen, wie sie zu
+          lesen sind, was ein gültiger Wert ist und woran ein Datensatz zu erkennen ist. Eine Quelle gehört dem
+          Mandanten und nicht einem einzelnen Workflow — dieselbe Quelle liefert für mehrere.
         </p>
 
         <p className="muted">
-          Angelegt wird ein Schema aus <strong>Beispieldaten</strong> — eingefügt oder aus einer Datei auf dem
-          Server. Unikom erkennt Aufbau und Typen, ein Mensch bestätigt sie. Das geschieht unter{' '}
-          <strong>Daten konsolidieren › Daten finden</strong>; hier wird nachgearbeitet.
+          Beschrieben wird sie aus <strong>Beispieldaten</strong> — eingefügt oder aus einer Datei auf dem Server.
+          Unikom erkennt Aufbau und Typen, ein Mensch bestätigt sie. Das geschieht nebenan unter{' '}
+          <strong>Beispiel einlesen</strong>; hier wird nachgearbeitet.
         </p>
-
-        <div className="row">
-          <Field label="Mandant">
-            <select
-              value={mandant}
-              onChange={(event) => {
-                setTenantId(event.target.value);
-                setOffen(undefined);
-              }}
-            >
-              {tenants.data.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
 
         {profile.error && <Notice kind="warn">{profile.error}</Notice>}
 
         {profile.data && profile.data.length === 0 && (
           <Empty>
-            Für diesen Mandanten gibt es noch kein Schema. Eines entsteht unter{' '}
-            <strong>Daten konsolidieren › Daten finden</strong>: Beispieldaten einfügen oder eine Datei auf dem
-            Server aussuchen, erkennen lassen, bestätigen.
+            Für diesen Mandanten ist noch keine Eingangsquelle beschrieben. Eine entsteht nebenan unter{' '}
+            <strong>Beispiel einlesen</strong>: Beispieldaten einfügen oder eine Datei auf dem Server aussuchen,
+            erkennen lassen, bestätigen.
           </Empty>
         )}
 
@@ -618,8 +595,8 @@ function Spalten({
 
       {spalten.length === 0 && (
         <Empty>
-          Dieses Schema kennt noch keine Spalten. Sie entstehen bei der Erkennung unter{' '}
-          <strong>Daten konsolidieren › Daten finden</strong>.
+          Diese Quelle kennt noch keine Spalten. Sie entstehen bei der Erkennung unter{' '}
+          <strong>Beispiel einlesen</strong>.
         </Empty>
       )}
 

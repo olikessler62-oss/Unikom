@@ -14,8 +14,15 @@ import {
   Memofeld,
   Modal,
   Notice,
+  Reiter,
   titelBeiUeberlaufWahl,
 } from '../components/Pieces.js';
+import { ArchivScreen } from './ArchivScreen.js';
+import { DiscoveryScreen } from './DiscoveryScreen.js';
+import { MappingScreen } from './MappingScreen.js';
+import { MergeScreen } from './MergeScreen.js';
+import { ReferenceScreen } from './ReferenceScreen.js';
+import { SchemataScreen } from './SchemataScreen.js';
 import { LOCALES, previewOf, timeZones } from './regions.js';
 
 interface Draft {
@@ -119,6 +126,74 @@ const EMPTY: Draft = {
  */
 const ZONEN_BREITE = `calc(${Math.max(...timeZones().map((zone) => zone.length))}ch + 3.2rem)`;
 
+/**
+ * Die Blätter eines Mandanten.
+ *
+ * ```text
+ * wer er ist        Grunddaten │ Einstellungen │ Benachrichtigung
+ * was er liefert    Eingangsquellen │ Beispiel einlesen │ Zuordnungen │
+ *                   Referenzen │ Probe │ Archiv
+ * ```
+ *
+ * ## Warum das überhaupt Reiter geworden sind
+ *
+ * Die letzten sechs standen als eigene Punkte im Hauptmenü — unter „Schemata",
+ * „Archiv" und den Unterpunkten von „Daten konsolidieren". Jeder von ihnen fragte
+ * als Erstes „für welchen Kunden?", und genau darin lag der Fehler: Was zuerst
+ * nach einem Kunden fragt, gehört zu ihm und nicht neben ihn.
+ *
+ * Das Menü war nach den **Modulen** gegliedert — danach, was auf der Rechnung
+ * steht. Ein Modul ist aber eine Position im Preisverzeichnis und kein Ort im
+ * Haus. Gegliedert wird jetzt danach, wonach man sucht: erst der Kunde, dann
+ * das, was ihn betrifft.
+ *
+ * ## Warum nicht alles auf eine Fläche
+ *
+ * Weil es nicht daraufpasst — auch heute nicht. Drei Karten untereinander sind
+ * auf einem gewöhnlichen Bildschirm schon anderthalb Seiten; mit sechs weiteren
+ * Bündeln wäre es ein Dutzend. Ein Reiter zeigt eine Sache ganz, statt neun
+ * halb.
+ *
+ * ## Warum ein Strich und keine zweite Zeile
+ *
+ * Links steht, wer der Kunde **ist**, rechts, was er **liefert**. Das sind zwei
+ * Fragen auf einer Ebene. Zwei Zeilen sähen aus wie zwei Ebenen — und dann
+ * suchte man die untere unter der oberen.
+ */
+type Blatt =
+  | 'grunddaten'
+  | 'einstellungen'
+  | 'benachrichtigung'
+  | 'quellen'
+  | 'einlesen'
+  | 'zuordnungen'
+  | 'referenzen'
+  | 'probe'
+  | 'archiv';
+
+/** Was am Mandanten selbst steht — auch bei einem, den es noch nicht gibt. */
+const STAMMBLAETTER: readonly { id: Blatt; text: string }[] = [
+  { id: 'grunddaten', text: 'Grunddaten' },
+  { id: 'einstellungen', text: 'Einstellungen' },
+  { id: 'benachrichtigung', text: 'Benachrichtigung' },
+];
+
+/**
+ * Was an seinen Daten hängt — erst, wenn es ihn gibt.
+ *
+ * Eine Eingangsquelle gehört einem Mandanten, und einem Mandanten ohne Kennung
+ * kann nichts gehören. Diese Blätter beim Anlegen zu zeigen hieße, eine Liste
+ * anzubieten, die beim ersten Klick ins Leere greift.
+ */
+const DATENBLAETTER: readonly { id: Blatt; text: string; trennerDavor?: boolean }[] = [
+  { id: 'quellen', text: 'Eingangsquellen', trennerDavor: true },
+  { id: 'einlesen', text: 'Beispiel einlesen' },
+  { id: 'zuordnungen', text: 'Zuordnungen' },
+  { id: 'referenzen', text: 'Referenzen' },
+  { id: 'probe', text: 'Probe' },
+  { id: 'archiv', text: 'Archiv' },
+];
+
 interface Props {
   canManage: boolean;
 }
@@ -132,6 +207,14 @@ export function TenantsScreen({ canManage }: Props) {
   const [saving, setSaving] = useState(false);
   /** Die Erklärung zum Root-Verzeichnis, auf Wunsch statt dauerhaft. */
   const [explaining, setExplaining] = useState(false);
+  /*
+   * Welches Blatt offen steht.
+   *
+   * Es gehört hierher und nicht in den Entwurf: Welchen Reiter jemand ansieht,
+   * ist eine Sache des Hinsehens und keine Angabe des Mandanten — gespeichert
+   * würde daraus eine Einstellung, die zwei Leute gegeneinander verstellen.
+   */
+  const [blatt, setBlatt] = useState<Blatt>('grunddaten');
 
   async function save(): Promise<void> {
     if (!draft) {
@@ -199,6 +282,7 @@ export function TenantsScreen({ canManage }: Props) {
       }
 
       setDraft(undefined);
+      setBlatt('grunddaten');
       await tenants.reload();
     } catch (failure) {
       // Overlapping directories and jobs left outside are reported by the
@@ -251,12 +335,31 @@ export function TenantsScreen({ canManage }: Props) {
       {draft ? (
         <>
           {/*
-            * Drei Flächen und nicht eine — sie beantworten drei Fragen:
+            * Das Anfangs-Panel: wer bearbeitet wird, und was an ihm dranhängt.
+            *
+            * Der Name steht darüber und nicht in einem der Blätter. Wer auf dem
+            * Reiter „Archiv" steht, sieht sonst eine Dateiliste ohne die Auskunft,
+            * wessen Dateien das sind — und die war vorher immer da, weil jeder
+            * dieser Bildschirme seine eigene Mandantenwahl trug.
+            */}
+          <section className="card">
+            <h2>{draft.id ? draft.name.trim() || 'Mandant ohne Namen' : 'Neuer Mandant'}</h2>
+
+            <Reiter<Blatt>
+              stil="pille"
+              reiter={draft.id ? [...STAMMBLAETTER, ...DATENBLAETTER] : STAMMBLAETTER}
+              offen={blatt}
+              onOeffnen={setBlatt}
+            />
+          </section>
+
+          {/*
+            * Drei Blätter für den Mandanten selbst — sie beantworten drei Fragen:
             *
             * ```text
-            * Mandant bearbeiten   wer er ist, und ob er läuft
-            * Einstellungen        wie er rechnet und wie lange er aufbewahrt
-            * Benachrichtigung     wer davon erfährt
+            * Grunddaten         wer er ist, und ob er läuft
+            * Einstellungen      wie er rechnet und wie lange er aufbewahrt
+            * Benachrichtigung   wer davon erfährt
             * ```
             *
             * Name, Beschreibung und Region trägt jeder Mandant, und sie sind
@@ -264,217 +367,243 @@ export function TenantsScreen({ canManage }: Props) {
             * gehört dazu: Ob dieser Mandant überhaupt läuft, ist eine Aussage
             * über ihn und keine Einstellung.
             *
-            * Alles in der zweiten Fläche hat eine Voreinstellung, wird selten
-            * geändert, und wer einen Mandanten nur umbenennen will, soll nicht
-            * daran vorbeiscrollen müssen. Das Root-Verzeichnis steht dort an
-            * erster Stelle: Es beschreibt nicht den Kunden, sondern begrenzt
-            * ihn — und ist die folgenreichste Angabe der ganzen Fläche.
+            * Alles im zweiten Blatt hat eine Voreinstellung und wird selten
+            * geändert. Das Root-Verzeichnis steht dort an erster Stelle: Es
+            * beschreibt nicht den Kunden, sondern begrenzt ihn — und ist die
+            * folgenreichste Angabe des ganzen Blattes.
             */}
-          <section className="card">
-            <h2>{draft.id ? 'Mandant bearbeiten' : 'Neuer Mandant'}</h2>
+          {blatt === 'grunddaten' && (
+            <section className="card">
+              <h2>Grunddaten</h2>
 
-            <div className="field-paar field-paar--namen">
-              <Field label="Mandanten-Name">
-                <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} autoFocus />
-              </Field>
+              <div className="field-paar field-paar--namen">
+                <Field label="Mandanten-Name">
+                  <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} autoFocus />
+                </Field>
+
+                {/*
+                  * Die Beschreibung darf mehr sein als eine Zeile.
+                  *
+                  * Sie ist die einzige Stelle am Mandanten, an der etwas stehen
+                  * darf, das Unikom nicht auswertet: der Ansprechpartner, die
+                  * Abrechnungsart, warum dieser Kunde eine eigene Region hat. Ein
+                  * Feld, das eine Zeile fasst, hätte all das auf eine Zeile
+                  * gezwungen — und wer es trotzdem hineinschriebe, verlöre den
+                  * Rest beim nächsten Anfassen.
+                  *
+                  * In der Zeile steht deshalb nur ihr Anfang; geschrieben wird im
+                  * Fenster hinter dem Stift.
+                  */}
+                <Memofeld
+                  label="Mandanten-Beschreibung"
+                  value={draft.description}
+                  onChange={(description) => setDraft((jetzt) => (jetzt ? { ...jetzt, description } : jetzt))}
+                />
+              </div>
 
               {/*
-                * Die Beschreibung darf mehr sein als eine Zeile.
+                * Die Region entscheidet, wie Datums- und Zeitangaben dieses
+                * Mandanten gelesen werden. Sie steht hier und nicht in den
+                * Einstellungen: Ein Dienstleister holt Daten für mehrere eigene
+                * Kunden, und `04/03/2026` ist beim einen der 4. März und beim
+                * anderen der 3. April — beide Lesarten gelingen, keine meldet einen
+                * Fehler.
                 *
-                * Sie ist die einzige Stelle am Mandanten, an der etwas stehen
-                * darf, das Unikom nicht auswertet: der Ansprechpartner, die
-                * Abrechnungsart, warum dieser Kunde eine eigene Region hat. Ein
-                * Feld, das eine Zeile fasst, hätte all das auf eine Zeile
-                * gezwungen — und wer es trotzdem hineinschriebe, verlöre den
-                * Rest beim nächsten Anfassen.
-                *
-                * In der Zeile steht deshalb nur ihr Anfang; geschrieben wird im
-                * Fenster hinter dem Stift.
+                * Die Zeitzone steht daneben, weil sie dieselbe Frage
+                * weiterbeantwortet: Beide zusammen sagen, wie ein Zeitpunkt aus
+                * diesem Haus zu lesen ist.
                 */}
-              <Memofeld
-                label="Mandanten-Beschreibung"
-                value={draft.description}
-                onChange={(description) => setDraft((jetzt) => (jetzt ? { ...jetzt, description } : jetzt))}
-              />
-            </div>
-
-            {/*
-              * Die Region entscheidet, wie Datums- und Zeitangaben dieses
-              * Mandanten gelesen werden. Sie steht hier und nicht in den
-              * Einstellungen: Ein Dienstleister holt Daten für mehrere eigene
-              * Kunden, und `04/03/2026` ist beim einen der 4. März und beim
-              * anderen der 3. April — beide Lesarten gelingen, keine meldet einen
-              * Fehler.
-              *
-              * Die Zeitzone steht daneben, weil sie dieselbe Frage
-              * weiterbeantwortet: Beide zusammen sagen, wie ein Zeitpunkt aus
-              * diesem Haus zu lesen ist.
-              */}
-            <div className="field-paar field-paar--rechts-fest">
-              <Field
-                label="Region"
-                explain={`So schreibt dieser Mandant den 3. April 2026: ${previewOf(draft.locale, draft.timeZone).sample} — ${previewOf(draft.locale, draft.timeZone).order}.`}
-              >
-                <select
-                  className="input--wahl-lang"
-                  value={draft.locale}
-                  {...titelBeiUeberlaufWahl()}
-                  onChange={(event) => setDraft({ ...draft, locale: event.target.value })}
+              <div className="field-paar field-paar--rechts-fest">
+                <Field
+                  label="Region"
+                  explain={`So schreibt dieser Mandant den 3. April 2026: ${previewOf(draft.locale, draft.timeZone).sample} — ${previewOf(draft.locale, draft.timeZone).order}.`}
                 >
-                  {/* Was am Mandanten steht, bleibt wählbar — auch wenn es nicht in der Liste steht. */}
-                  {!LOCALES.some((eintrag) => eintrag.value === draft.locale) && (
-                    <option value={draft.locale}>{draft.locale}</option>
-                  )}
-                  {LOCALES.map((eintrag) => (
-                    <option key={eintrag.value} value={eintrag.value}>
-                      {eintrag.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+                  <select
+                    className="input--wahl-lang"
+                    value={draft.locale}
+                    {...titelBeiUeberlaufWahl()}
+                    onChange={(event) => setDraft({ ...draft, locale: event.target.value })}
+                  >
+                    {/* Was am Mandanten steht, bleibt wählbar — auch wenn es nicht in der Liste steht. */}
+                    {!LOCALES.some((eintrag) => eintrag.value === draft.locale) && (
+                      <option value={draft.locale}>{draft.locale}</option>
+                    )}
+                    {LOCALES.map((eintrag) => (
+                      <option key={eintrag.value} value={eintrag.value}>
+                        {eintrag.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
 
-              <Field label="Zeitzone" explain="Für Zeitangaben ohne eigene Zeitzone. Sommer- und Winterzeit stecken darin.">
-                <select
-                  className="input--wahl"
-                  style={{ minWidth: ZONEN_BREITE }}
-                  value={draft.timeZone}
-                  onChange={(event) => setDraft({ ...draft, timeZone: event.target.value })}
-                >
-                  {!timeZones().includes(draft.timeZone) && <option value={draft.timeZone}>{draft.timeZone}</option>}
-                  {timeZones().map((zone) => (
-                    <option key={zone} value={zone}>
-                      {zone}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-
-            {/*
-              * Ob dieser Mandant überhaupt läuft, gehört zu ihm und nicht zu
-              * seinen Einstellungen. Er stand am Ende der zweiten Fläche,
-              * hinter Fristen, Konfliktumgang und Meldewegen — die
-              * folgenreichste Angabe des Mandanten an der Stelle, die man
-              * zuletzt liest.
-              */}
-            <CheckField
-              label="Mandant ist aktiv"
-              checked={draft.enabled}
-              onChange={(enabled) => setDraft({ ...draft, enabled })}
-            />
-          </section>
-
-          <section className="card">
-            <h2>Einstellungen</h2>
-
-            <Field label="Root-Verzeichnis">
-              <div className="field__row">
-                <input
-                  value={draft.rootDirectory}
-                  placeholder="D:\Daten\Kunde A"
-                  onChange={(event) => setDraft({ ...draft, rootDirectory: event.target.value })}
-                />
-                <InfoButton label="Wozu dient das Root-Verzeichnis?" onClick={() => setExplaining(true)} />
+                <Field label="Zeitzone" explain="Für Zeitangaben ohne eigene Zeitzone. Sommer- und Winterzeit stecken darin.">
+                  <select
+                    className="input--wahl"
+                    style={{ minWidth: ZONEN_BREITE }}
+                    value={draft.timeZone}
+                    onChange={(event) => setDraft({ ...draft, timeZone: event.target.value })}
+                  >
+                    {!timeZones().includes(draft.timeZone) && <option value={draft.timeZone}>{draft.timeZone}</option>}
+                    {timeZones().map((zone) => (
+                      <option key={zone} value={zone}>
+                        {zone}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
               </div>
-            </Field>
 
-            <Konsolidierungseinstellungen
-              draft={draft}
-              voreinstellungen={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.voreinstellungen}
-              onChange={setDraft}
-            />
+              {/*
+                * Ob dieser Mandant überhaupt läuft, gehört zu ihm und nicht zu
+                * seinen Einstellungen. Er stand am Ende der zweiten Fläche,
+                * hinter Fristen, Konfliktumgang und Meldewegen — die
+                * folgenreichste Angabe des Mandanten an der Stelle, die man
+                * zuletzt liest.
+                */}
+              <CheckField
+                label="Mandant ist aktiv"
+                checked={draft.enabled}
+                onChange={(enabled) => setDraft({ ...draft, enabled })}
+              />
+            </section>
+          )}
 
-            {/*
-              * Zwei Fristen nebeneinander, weil sie zusammen gelesen werden: Wer
-              * die eine einstellt, will die andere daneben sehen. Und weil beide
-              * dieselbe Null bedeuten — abgeschaltet —, wäre es die schlechteste
-              * Stelle, sie auseinanderzuziehen.
-              */}
-            <div className="field-paar">
-              <Field
-                label="Ausleitungen aufbewahren (Tage)"
-                explain="Konflikt- und Konfliktzieldateien. Leer heißt 30 Tage; 0 heißt: nie forträumen. Fälle, Entscheidungen und Historie bleiben immer."
-              >
-                <input
-                  type="number"
-                  min={0}
-                  value={draft.ausleitungenTage}
-                  placeholder="30"
-                  onChange={(event) => setDraft({ ...draft, ausleitungenTage: event.target.value })}
-                />
+          {blatt === 'einstellungen' && (
+            <section className="card">
+              <h2>Einstellungen</h2>
+
+              <Field label="Root-Verzeichnis">
+                <div className="field__row">
+                  <input
+                    value={draft.rootDirectory}
+                    placeholder="D:\Daten\Kunde A"
+                    onChange={(event) => setDraft({ ...draft, rootDirectory: event.target.value })}
+                  />
+                  <InfoButton label="Wozu dient das Root-Verzeichnis?" onClick={() => setExplaining(true)} />
+                </div>
               </Field>
 
-              <Field
-                label="Archiv aufbewahren (Tage)"
-                explain={
-                  <>
-                    <p>
-                      Die Eingangsdateien im Original, verschlüsselt — das, was der Lieferant geschickt hat. Leer
-                      heißt 90 Tage; <strong>0 heißt: nie forträumen</strong>, dieselbe Bedeutung wie nebenan.
-                    </p>
-                    <p>
-                      Länger voreingestellt als die Ausleitungen, weil es etwas anderes ist: Eine Ausleitung ist
-                      eine Abschrift zum Bearbeiten, das Archiv ist das Original.
-                    </p>
-                    <p className="muted">
-                      Beides bedenken: Ein Archiv hält Kundendaten, und je länger es das tut, desto größer ist
-                      der Schaden, wenn jemand hineinkommt. Zu kurz gesetzt fehlt die Antwort auf „was kam damals
-                      eigentlich herein".
-                    </p>
-                  </>
-                }
-              >
-                <input
-                  type="number"
-                  min={0}
-                  value={draft.archivTage}
-                  placeholder="90"
-                  onChange={(event) => setDraft({ ...draft, archivTage: event.target.value })}
-                />
-              </Field>
-            </div>
+              <Konsolidierungseinstellungen
+                draft={draft}
+                voreinstellungen={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.voreinstellungen}
+                onChange={setDraft}
+              />
 
-            <Konfliktumgang
-              draft={draft}
-              voreinstellung={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.konflikteVoreinstellung}
-              onChange={setDraft}
-            />
-          </section>
+              {/*
+                * Zwei Fristen nebeneinander, weil sie zusammen gelesen werden: Wer
+                * die eine einstellt, will die andere daneben sehen. Und weil beide
+                * dieselbe Null bedeuten — abgeschaltet —, wäre es die schlechteste
+                * Stelle, sie auseinanderzuziehen.
+                */}
+              <div className="field-paar">
+                <Field
+                  label="Ausleitungen aufbewahren (Tage)"
+                  explain="Konflikt- und Konfliktzieldateien. Leer heißt 30 Tage; 0 heißt: nie forträumen. Fälle, Entscheidungen und Historie bleiben immer."
+                >
+                  <input
+                    type="number"
+                    min={0}
+                    value={draft.ausleitungenTage}
+                    placeholder="30"
+                    onChange={(event) => setDraft({ ...draft, ausleitungenTage: event.target.value })}
+                  />
+                </Field>
+
+                <Field
+                  label="Archiv aufbewahren (Tage)"
+                  explain={
+                    <>
+                      <p>
+                        Die Eingangsdateien im Original, verschlüsselt — das, was der Lieferant geschickt hat. Leer
+                        heißt 90 Tage; <strong>0 heißt: nie forträumen</strong>, dieselbe Bedeutung wie nebenan.
+                      </p>
+                      <p>
+                        Länger voreingestellt als die Ausleitungen, weil es etwas anderes ist: Eine Ausleitung ist
+                        eine Abschrift zum Bearbeiten, das Archiv ist das Original.
+                      </p>
+                      <p className="muted">
+                        Beides bedenken: Ein Archiv hält Kundendaten, und je länger es das tut, desto größer ist
+                        der Schaden, wenn jemand hineinkommt. Zu kurz gesetzt fehlt die Antwort auf „was kam damals
+                        eigentlich herein".
+                      </p>
+                    </>
+                  }
+                >
+                  <input
+                    type="number"
+                    min={0}
+                    value={draft.archivTage}
+                    placeholder="90"
+                    onChange={(event) => setDraft({ ...draft, archivTage: event.target.value })}
+                  />
+                </Field>
+              </div>
+
+              <Konfliktumgang
+                draft={draft}
+                voreinstellung={tenants.data?.find((eintrag) => eintrag.id === draft.id)?.konflikteVoreinstellung}
+                onChange={setDraft}
+              />
+            </section>
+          )}
 
           {/*
-            * Eine eigene Fläche für die Meldungen.
+            * Ein eigenes Blatt für die Meldungen.
             *
-            * Sie beantwortet eine Frage, die mit den übrigen Einstellungen
+            * Sie beantworten eine Frage, die mit den übrigen Einstellungen
             * nichts zu tun hat: **wer erfährt davon.** Zwischen
-            * Aufbewahrungsfristen und Konfliktumgang stand sie da wie ein
-            * Nachtrag — dabei ist sie das Einzige auf dieser Fläche, das nach
-            * draußen wirkt.
-            *
-            * Und sie ist lang: Empfänger, Server, Verschlüsselung, Absender,
-            * Zugang. Am Ende einer ohnehin hohen Fläche fand sie niemand.
+            * Aufbewahrungsfristen und Konfliktumgang standen sie da wie ein
+            * Nachtrag — dabei sind sie das Einzige daran, das nach draußen wirkt.
             */}
-          <section className="card">
-            <h2>Benachrichtigung</h2>
+          {blatt === 'benachrichtigung' && (
+            <section className="card">
+              <h2>Benachrichtigung</h2>
 
-            <Meldewege draft={draft} credentials={credentials.data ?? []} onChange={setDraft} />
-          </section>
+              <Meldewege draft={draft} credentials={credentials.data ?? []} onChange={setDraft} />
+            </section>
+          )}
 
           {/*
-            * Die Knöpfe stehen unter allen Flächen und in keiner: Sie speichern
-            * den ganzen Mandanten. In einer der Karten sähen sie aus, als
-            * träfen sie nur deren Angaben.
+            * Was dieser Kunde liefert — sechs Blätter, die vorher als eigene
+            * Punkte im Hauptmenü standen.
             *
-            * Und sie stehen im Fuß des Rahmens, außerhalb des rollenden
-            * Kastens. Drei Flächen sind höher als ein Bildschirm; am Ende des
-            * Inhalts standen sie hinter allem, was man vorher ausfüllt. Wer
-            * oben den Namen geändert hatte, musste erst an Einstellungen und
-            * Benachrichtigung vorbei, um es festzuhalten.
+            * Sie brauchen alle dasselbe: die Kennung des Mandanten. Vorher holte
+            * sich jeder von ihnen die Mandantenliste und eine eigene Auswahl
+            * darüber — sechsmal dieselbe Frage, sechsmal einzeln zu beantworten.
+            * Jetzt steht die Antwort einmal oben.
+            *
+            * `draft.id` steht hier ohne Prüfung: Diese Blätter erscheinen nur,
+            * wenn es ihn gibt — siehe `DATENBLAETTER`.
+            */}
+          {blatt === 'quellen' && <SchemataScreen mandant={draft.id as string} />}
+          {blatt === 'einlesen' && <DiscoveryScreen mandant={draft.id as string} />}
+          {blatt === 'zuordnungen' && <MappingScreen mandant={draft.id as string} />}
+          {blatt === 'referenzen' && <ReferenceScreen mandant={draft.id as string} />}
+          {blatt === 'probe' && <MergeScreen mandant={draft.id as string} />}
+          {blatt === 'archiv' && <ArchivScreen mandant={draft.id as string} />}
+
+          {/*
+            * Die Knöpfe stehen unter allen Blättern und in keinem: Sie speichern
+            * den **Mandanten** — Name, Einstellungen, Meldewege. Was auf den
+            * übrigen Blättern steht, sind eigene Bestände mit eigenen Knöpfen;
+            * eine Eingangsquelle ist gespeichert, sobald man sie speichert.
+            *
+            * Sie bleiben trotzdem auf jedem Blatt stehen. Ein Fuß, der beim
+            * Reiterwechsel verschwände, warf die Frage auf, was aus dem
+            * wird, was man oben getippt hat — der Entwurf überlebt den Wechsel, und
+            * der Fuß sagt genau das.
             */}
           <FooterAction>
             <button disabled={saving || !draft.name} onClick={() => void save()}>
               {saving ? 'Wird gespeichert …' : 'Speichern'}
             </button>
-            <button className="secondary" onClick={() => setDraft(undefined)}>
+            <button
+              className="secondary"
+              onClick={() => {
+                setDraft(undefined);
+                setBlatt('grunddaten');
+              }}
+            >
               Abbrechen
             </button>
           </FooterAction>
@@ -546,7 +675,8 @@ export function TenantsScreen({ canManage }: Props) {
                           <div className="row" style={{ justifyContent: 'flex-end' }}>
                             <button
                               className="secondary"
-                              onClick={() =>
+                              onClick={() => {
+                                setBlatt('grunddaten');
                                 setDraft({
                                   id: tenant.id,
                                   name: tenant.name,
@@ -564,8 +694,8 @@ export function TenantsScreen({ canManage }: Props) {
                                   ...konflikteAus(tenant),
                                   ...meldewegeAus(tenant),
                                   ...einstellungenAus(tenant),
-                                })
-                              }
+                                });
+                              }}
                             >
                               Bearbeiten
                             </button>
