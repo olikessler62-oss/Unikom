@@ -36,8 +36,10 @@
     "vite": "^8.2.1"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "basic-ftp": "^6.2.0",
     "ssh2": "^1.17.0",
-    "ssh2-sftp-client": "^12.1.1"
+    "ssh2-sftp-client": "^12.1.1",
+    "tailwindcss": "^4.3.3"
   }
 }

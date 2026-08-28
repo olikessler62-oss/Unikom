@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -31,7 +32,14 @@ const BUILD_STAMP = new Date().toLocaleString('de-DE', {
  */
 export default defineConfig({
   root: 'web',
-  plugins: [react()],
+  /*
+   * Tailwind läuft als Vite-Plugin und nicht über PostCSS.
+   *
+   * Es gibt keine `tailwind.config.*`: Fassung 4 ist CSS-first, und alle Marken
+   * stehen in `styles.css` im `@theme`-Block. Eine zweite Datei, in der Farben
+   * stehen könnten, wäre genau die zweite Fundstelle, die wir nicht wollen.
+   */
+  plugins: [tailwindcss(), react()],
   define: {
     __UNIKOM_BUILD__: JSON.stringify(BUILD_STAMP),
   },

@@ -21,6 +21,90 @@
  * Unterstützung nichts verschwindet.
  */
 
+/* ===================================================================
+ * Die Reihenfolge der Ebenen - und warum sie hier steht
+ *
+ * Tailwind bringt drei Ebenen mit: `theme` (die Marken), `base` (Preflight,
+ * das Zurücksetzen der Browservorgaben) und `utilities` (die Klassen). Eine
+ * vierte kommt von uns: `legacy`, der gewachsene Bestand dieser Datei.
+ *
+ * Sie steht zwischen `base` und `utilities`, und das ist die ganze Bedingung
+ * dafür, dass sich diese Oberfläche überhaupt schrittweise umstellen lässt:
+ *
+ *   base      < legacy      Preflight räumt nicht weg, was hier gebaut ist
+ *   legacy    < utilities   eine Klasse im Markup schlägt die alte Regel
+ *
+ * Ohne die Erklärung stünde der Altbestand außerhalb jeder Ebene - und
+ * ungeschichtetes CSS schlägt **jede** Ebene, auch `utilities`. Dann wäre jede
+ * neue Klasse wirkungslos, und zwar lautlos.
+ *
+ * Die Einfuhren stehen einzeln statt als `@import "tailwindcss"`, weil nur so
+ * eine eigene Ebene dazwischenpasst.
+ * =================================================================== */
+@layer theme, base, legacy, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* ===================================================================
+ * Die Marken (FR-011 §1a)
+ *
+ * Aus diesem Block baut Tailwind seine Klassen: `bg-surface`, `text-muted`,
+ * `border-border`, `rounded-[var(--radius-control)]`. Die Namen sind die der
+ * Spec und bewusst allgemein gehalten - was schichtwerk-eigen war (Logo,
+ * Markenverläufe), steht nicht hier.
+ *
+ * Dies ist die eine Stelle, an der eine Farbe steht. Der Altbestand darunter
+ * benutzt weiterhin seine eigenen Namen, aber die sind seit diesem Schritt
+ * **Verweise** hierher und keine zweiten Werte: `--g-3` *ist* `--color-surface`.
+ * Damit gibt es während der ganzen Umstellung genau eine Wahrheit, und die
+ * alten Namen sterben mit der letzten Regel, die sie benutzt.
+ * =================================================================== */
+@theme {
+  /* Primär / Akzent */
+  --color-primary: #0f3558;
+  --color-primary-light: #4a7294;
+  --color-primary-dark: #0a2844;
+  --color-primary-foreground: #ffffff;
+
+  /* Flächen & Text */
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-foreground: #0f172a;
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+  --color-subtle: #f1f5f9;
+  --color-hover: #fafafa;
+
+  /* Semantische Status */
+  --color-success: #ecfdf5;
+  --color-success-foreground: #065f46;
+  --color-danger: #fef2f2;
+  --color-danger-foreground: #b91c1c;
+  --color-info: #e9eef3;
+  --color-info-foreground: #0f3558;
+
+  /* Der Anstrich des aktiven Menüpunkts. */
+  --color-nav-active: color-mix(in srgb, var(--color-primary) 10%, transparent);
+
+  /*
+   * 10 Pixel - NUR Eingabefelder, Auswahlfelder und Hinweise.
+   *
+   * Die Spec fügt Ecken bewusst uneinheitlich: 5 an Flächen und Fenstern, 6 an
+   * Knöpfen, 10 hier. Diese Oberfläche rundet bisher alles mit 5. Die Marke
+   * steht, damit die Rezepte der Spec anschlagen; welcher Wert am Ende gilt,
+   * entscheidet `--radius-control` und sonst nichts.
+   */
+  --radius-control: 5px;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Die Bildlaufleiste in einem Fenster. */
+  --modal-scrollbar-thumb: var(--color-primary-light);
+  --modal-scrollbar-track: var(--color-border);
+}
+
 /*
  * Ein Erscheinungsbild, ein Regelwerk.
  *
@@ -134,17 +218,18 @@
    * Die beiden obersten Stufen kehren die Richtung um: Was man anfassen kann,
    * bekommt wieder etwas Grau, denn Weiß auf Weiß hätte keine Kante.
    */
-  --g-ground: #f8fafc;
+  --g-ground: var(--color-background);
   --g-1: #f3f6fa;
   --g-2: #f9fbfc;
-  --g-3: #ffffff;
+  --g-3: var(--color-surface);
   /* Bedienelement in Ruhe und beim Überfahren. */
-  --g-4: #f1f5f9;
-  --g-5: #e2e8f0;
+  --g-4: var(--color-subtle);
+  --g-5: var(--color-border);
 
-  --text: #0f172a;
+  --text: var(--color-foreground);
+  /* Zwischen Schrift und Gedämpftem - die Spec kennt diese Stufe nicht. */
   --text-soft: #475569;
-  --text-faint: #64748b;
+  --text-faint: var(--color-muted);
   /* Text auf einer Fläche in der Akzentfarbe. */
   --text-loud: #ffffff;
 
@@ -155,7 +240,7 @@
    * Weiß sieht es anders aus als auf dem Grund, und beide Male anders als auf
    * einer Kopfleiste. Eine Linie soll überall dieselbe Linie sein.
    */
-  --rule: #e2e8f0;
+  --rule: var(--color-border);
   --rule-strong: rgba(15, 23, 42, 0.18);
   /*
    * Die Farbe, aus der Kanten und Griffe gemacht sind.
@@ -246,6 +331,19 @@
     --bandhoehe: 4.75rem;
   }
 }
+
+/* ===================================================================
+ * Der Altbestand
+ *
+ * Alles ab hier ist gewachsen und wird bildschirmweise durch Klassen im Markup
+ * abgelöst. Die Ebene `legacy` sagt dem Browser, wo er das einordnen soll:
+ * über Preflight, unter den Klassen.
+ *
+ * Sie ist nicht eingerückt. Fünftausend Zeilen um zwei Leerzeichen zu
+ * verschieben hieße, jede davon in der Geschichte als geändert zu führen - und
+ * dann findet niemand mehr, wann eine Regel wirklich anders wurde.
+ * =================================================================== */
+@layer legacy {
 
 * {
   box-sizing: border-box;
@@ -5029,4 +5127,34 @@ button.secondary::after {
   height: 1px;
   margin: 0.5rem 0.7rem;
   background: var(--rule);
+}
+
+/* ===================================================================
+ * Was Preflight abräumt und diese Oberfläche noch braucht
+ *
+ * Preflight nimmt Absätzen ihren Abstand und Listen ihre Punkte. Für eine
+ * Oberfläche, die ganz aus Klassen gebaut ist, ist das richtig - hier stehen
+ * aber noch Fließtexte, die sich auf die Vorgabe des Browsers verlassen.
+ *
+ * `revert` und keine eigene Zahl: Es holt genau die Vorgabe zurück, die vorher
+ * galt. Eine Zahl hier wäre eine Behauptung darüber, was der Browser getan
+ * hätte - und beim nächsten Baustein stünde sie neben der Wahrheit.
+ *
+ * Der Block verschwindet mit dem letzten Bildschirm, der noch so gebaut ist.
+ * =================================================================== */
+p {
+  margin: revert;
+}
+
+.steps,
+.prose ul,
+.prose ol,
+ul.prose,
+ol.prose,
+ul.muted {
+  margin: revert;
+  padding-left: revert;
+  list-style: revert;
+}
+
 }
