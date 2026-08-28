@@ -762,29 +762,21 @@ code {
 /*
  * Die Sprache steht oben rechts, im Band.
  *
- * Ein Auswahlfeld ohne Fläche: Es trägt seinen Wert und das Zeichen daneben,
- * sonst nichts. Eine gerahmte Fläche neben der Glocke wäre ein zweites
- * Bedienelement mit eigenem Gewicht - und die Sprache stellt man einmal ein und
- * danach selten wieder. Erst wenn der Zeiger darauf steht, bekommt sie eine.
+ * Sie ist ein gewöhnliches Auswahlfeld und sieht auch so aus: helle Fläche,
+ * schwarze Schrift, derselbe Rahmen wie jedes andere. Hier stand zuerst eine
+ * Fassung ohne Fläche - weiße Schrift auf dem Blau, wie in der Kopfleiste des
+ * Vorbilds. Das war der Fehler: Aufgeklappt steht die Liste schwarz auf weiß
+ * da, zugeklappt stand dasselbe Wort weiß auf Blau. Ein Bedienelement, das
+ * seine Farben wechselt, sobald man es benutzt, liest sich als zwei.
  *
- * Die aufgeklappte Liste bleibt hell: Ihre Einträge tragen ihre Farbe selbst
- * (`select option`), sie erben sie nicht vom Band.
+ * Es bleibt nur schmaler und etwas flacher als eines in einem Formular: Es
+ * steht in einer Leiste neben einem Symbol und nicht in einer Spalte neben
+ * seinesgleichen.
  */
 .sprachwahl select {
   width: auto;
   padding: 0.35rem 0.55rem;
-  border-color: transparent;
-  background: transparent;
-  color: #ffffff;
   font-size: 0.88rem;
-}
-
-.sprachwahl select:hover,
-.sprachwahl select:focus,
-.sprachwahl select:focus-visible {
-  border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
 }
 
 /*
