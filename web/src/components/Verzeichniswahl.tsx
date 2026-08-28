@@ -724,7 +724,24 @@ export function Verzeichnisfenster({
                         <li key={datei.path}>
                           <button
                             type="button"
-                            className={chosen?.path === datei.path ? 'tree__name tree__row--chosen' : 'tree__name'}
+                            /*
+                              * Eigene Klassen und nicht die des Baums.
+                              *
+                              * Hier stand `tree__name tree__row--chosen` — die
+                              * Auszeichnung einer Baumzeile an einer Zeile, die
+                              * kein Baum ist. Das ging zweimal schief: `--chosen`
+                              * gehört im Baum an die **Zeile**, und die Regel für
+                              * den Namen darin (`.tree__row--chosen .tree__name`)
+                              * traf hier nie, weil beide Klassen an demselben
+                              * Element hingen. Und in Spring färbt sich ein
+                              * `tree__name` beim Überfahren fast weiß, weil eine
+                              * Baumzeile dort fast schwarz wird — auf dem hellen
+                              * Grund dieser Liste heißt das unsichtbar.
+                              *
+                              * `.browse li > button` gibt der Zeile ohnehin alles,
+                              * was sie braucht: Form, Ruhe und Hervorhebung.
+                              */
+                            className={chosen?.path === datei.path ? 'browse__gewaehlt' : undefined}
                             onClick={() => setChosen({ path: datei.path, relativePath: datei.relativePath })}
                           >
                             {datei.name}

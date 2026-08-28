@@ -3050,6 +3050,7 @@ svg.icon--strich {
   box-shadow: none;
   font-family: var(--mono);
   font-size: 0.85rem;
+  font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
   text-align: left;
@@ -3304,7 +3305,17 @@ svg.icon--strich {
 .tree__row--chosen,
 .tree__row--chosen:hover,
 .browse li > button.pick__row--an,
-.browse li > button.pick__row--an:hover {
+.browse li > button.pick__row--an:hover,
+/*
+ * Die gewählte Datei in der Dateiliste.
+ *
+ * Sie trug eine Weile `tree__row--chosen` — die Auszeichnung einer Baumzeile an
+ * einer Zeile, die kein Baum ist. Der Grund kam davon durch, die Schrift nicht:
+ * Die Regel dafür heißt `.tree__row--chosen .tree__name` und verlangt zwei
+ * Elemente, hier hingen beide Klassen an einem.
+ */
+.browse li > button.browse__gewaehlt,
+.browse li > button.browse__gewaehlt:hover {
   background: linear-gradient(
     90deg,
     rgba(var(--accent), 0.16) 0%,
@@ -4463,13 +4474,26 @@ button.secondary::after {
  *
  * Deshalb hier hell — Schrift und Ordnerzeichen zusammen. Nur beim Überfahren:
  * Die ruhende Zeile steht auf hellem Grund und braucht ihre schwarze Schrift.
+ *
+ * ## Nur **im Baum**, und das ist der Punkt
+ *
+ * Die Regel hing lange an `.tree__name` allein. Ein `tree__name` gibt es aber
+ * auch außerhalb eines Baums — die Dateiliste im selben Fenster trug ihn —, und
+ * dort ist der Grund beim Überfahren `--g-2`. Das ist in Spring `#e8eaec`, also
+ * genau diese Farbe: Schrift gleich Grund, die Zeile verschwand in dem Moment,
+ * in dem man auf sie zeigte.
+ *
+ * Die Zeile darunter mit `color` zu heilen half nicht — `.browse li > button
+ * :hover` bringt zwei Klassen weniger mit und verliert. Geheilt wird deshalb
+ * hier: Die Aufhellung gilt, wo der dunkle Grund gilt, und nirgends sonst. Im
+ * Baum steht jeder Name in einer `.tree__row`; anderswo nicht.
  */
 :where([data-theme='spring']) .tree__toggle:hover:not(:disabled),
-:where([data-theme='spring']) .tree__name:hover:not(:disabled) {
+:where([data-theme='spring']) .tree__row:hover .tree__name:not(:disabled) {
   color: #e8eaec;
 }
 
-:where([data-theme='spring']) .tree__name:hover:not(:disabled) svg {
+:where([data-theme='spring']) .tree__row:hover .tree__name:not(:disabled) svg {
   fill: #e8eaec;
 }
 
