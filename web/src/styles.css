@@ -681,6 +681,16 @@ code {
  * bleibt beim Hellen und holt sich nur seine Schriftfarbe zurück.
  */
 .main__header {
+  /*
+   * Die Höhe der Bedienelemente im Band.
+   *
+   * Als Marke, weil zwei Regeln sie brauchen - die Glocke und die
+   * Sprachauswahl. Eine Zahl an zwei Stellen läuft beim ersten Anfassen
+   * auseinander, und dann stehen zwei Kästen nebeneinander, die sich um drei
+   * Pixel unterscheiden. Das sieht man, ohne sagen zu können, was es ist.
+   */
+  --band-knopf: 2.2rem;
+
   flex: none;
   box-sizing: border-box;
   display: flex;
@@ -726,25 +736,44 @@ code {
   color: #ffffff;
 }
 
-.main__header .bell__button {
-  border-color: rgba(255, 255, 255, 0.28);
-  color: #ffffff;
+/*
+ * Die zwei Bedienelemente im Band: die Glocke und die Sprache.
+ *
+ * Sie stehen nebeneinander, also sehen sie gleich aus - dieselbe Höhe, dieselbe
+ * Fläche, derselbe Rahmen, dieselbe Schrift. Und sie sehen aus wie überall
+ * sonst in der Anwendung: Ein Bedienelement wird nicht dadurch ein anderes,
+ * dass der Grund hinter ihm blau ist.
+ *
+ * Hier standen zuerst zwei Fassungen nebeneinander - die Glocke als bloßes
+ * weißes Zeichen, die Sprache als helles Feld. Das las sich als zwei
+ * verschiedene Sachen, und die Höhen gingen auseinander.
+ */
+.main__header .bell__button,
+.main__header .sprachwahl select {
+  box-sizing: border-box;
+  height: var(--band-knopf);
+  min-height: var(--band-knopf);
+  border: 1px solid var(--rule-strong);
+  background: var(--g-1);
+  color: var(--text);
 }
 
+/* Beim Überfahren tritt der Rahmen hervor - wie an jedem anderen Feld auch. */
 .main__header .bell__button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(var(--sheen), 0.3);
 }
 
 /*
- * Die drängende Glocke im Band.
+ * Die drängende Glocke behält ihre Farbe auch im Band.
  *
- * Das Alarmrot ist für hellen Grund gemischt und säuft auf dem Blau ab. Es wird
- * deshalb aufgehellt und nicht ausgetauscht: Die Farbe bleibt dieselbe Marke,
- * sie bekommt nur so viel Weiß, wie der dunkle Grund verlangt.
+ * Die Regel darüber wiegt zwei Klassen und schlüge sonst die Regel des
+ * Zustands, die nur eine wiegt - der Alarm wäre genau dort verschwunden, wo er
+ * hingehört, und zwar lautlos. Die beiden Zeilen stehen deshalb ein zweites
+ * Mal da; die Farbe selbst steht weiterhin nur an einer Stelle, in `--alarm`.
  */
 .main__header .bell__button--urgent {
-  border-color: color-mix(in srgb, rgb(var(--alarm)) 60%, white);
-  color: color-mix(in srgb, rgb(var(--alarm)) 45%, white);
+  border-color: rgba(var(--alarm), 0.55);
+  color: rgb(var(--alarm));
 }
 
 /*
@@ -775,7 +804,7 @@ code {
  */
 .sprachwahl select {
   width: auto;
-  padding: 0.35rem 0.55rem;
+  padding: 0 0.55rem;
   font-size: 0.88rem;
 }
 
