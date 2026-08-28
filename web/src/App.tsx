@@ -211,7 +211,16 @@ function navItemClass(aktiv: boolean): string {
   const basis =
     'sw-nav-hl block h-auto w-full min-w-0 rounded-none border-0 border-l-2 py-2 pl-[calc(0.75rem-2px)] pr-3' +
     ' text-left text-sm font-medium normal-case leading-snug tracking-normal shadow-none font-sans' +
-    ' bg-transparent transition-colors';
+    /*
+     * `[background:none]` und nicht `bg-transparent`.
+     *
+     * Das ist der Unterschied zwischen der Kurzform und der Einzelangabe: Die
+     * Altregel für `button` malt einen Verlauf über `background`, und
+     * `bg-transparent` setzt nur `background-color`. Ein Verlaufsbild bleibt
+     * davon unberührt - jeder Menüpunkt trug einen Verlauf von Weiß nach
+     * Dunkelblau, und man sah es sofort.
+     */
+    ' [background:none] transition-colors';
 
   return aktiv
     ? `${basis} sw-nav-hl-active border-l-white text-white`

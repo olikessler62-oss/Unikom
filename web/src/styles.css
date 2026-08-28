@@ -340,6 +340,144 @@
 }
 
 /* ===================================================================
+ * Dunkel - und es ist das einzige Erscheinungsbild (FR-011 §1c)
+ *
+ * Der Haken `data-sw-modern` steht fest am Dokument und wird nirgends
+ * umgeschaltet. Zwei Gründe, ihn trotzdem zu tragen:
+ *
+ *   1. Jedes Rezept der Spec, das mit `html[data-sw-modern="on"]` beginnt,
+ *      lässt sich unverändert einsetzen.
+ *   2. Der helle Satz darüber bleibt lesbar stehen. Er ist die Grundlage, von
+ *      der hier abgewichen wird - wer wissen will, was `--color-surface`
+ *      *bedeutet*, findet es oben und nicht in einer Kette von Überschreibungen.
+ *
+ * Die Spec setzt das Dunkle nur in zwei Bereichen: in der Inhaltsspalte und in
+ * portalen Fenstern. Das reicht dort, weil alles aus Klassen gebaut ist. Hier
+ * greifen 4000 Zeilen Altbestand über eigene Marken auf die Farben zu, und die
+ * müssen an der Wurzel stimmen - sonst wäre die Umstellung ein Flickenteppich
+ * aus Bereichen, die schon dunkel sind, und Bereichen, die noch nicht wissen,
+ * dass sie es sein sollen.
+ * =================================================================== */
+html[data-sw-modern='on'] {
+  color-scheme: dark;
+
+  /*
+   * Der Rahmen wird Stahlgrau statt Blau.
+   *
+   * Das Blau war für einen hellen Inhalt gemischt: ein farbiger Rahmen um eine
+   * weiße Fläche. Auf dunklem Grund ist der Rahmen nicht mehr die Ausnahme,
+   * sondern die Regel - und ein kräftiges Blau daneben wäre der einzige bunte
+   * Fleck auf dem Bildschirm.
+   */
+  --app-shell-header-panel-color: #434f5f;
+
+  /* Flächen & Text */
+  --color-background: #131922;
+  --color-surface: #1b232d;
+  --color-foreground: #e9eff7;
+  --color-muted: #a6bad0;
+  --color-border: rgba(255, 255, 255, 0.14);
+  --color-subtle: rgba(255, 255, 255, 0.06);
+  --color-hover: rgba(255, 255, 255, 0.07);
+
+  /*
+   * Der Akzent wird heller.
+   *
+   * `#0f3558` ist ein Blau, das auf Weiß trägt. Auf dunklem Grund ist es kaum
+   * vom Grund zu unterscheiden - ein Knopf in dieser Farbe wäre ein Loch. Die
+   * Spec remappt ihn deshalb in `.sw-dark-modal`; hier gilt dasselbe überall.
+   */
+  --color-primary: #6ea8e0;
+  --color-primary-light: #9cc6ec;
+  --color-primary-dark: #4a7db5;
+  --color-primary-foreground: #10202f;
+
+  /*
+   * Die Stufen des Altbestands.
+   *
+   * `--g-3` und die anderen sind Verweise auf die Marken darüber und gehen von
+   * selbst mit. Hier stehen nur die, die eine eigene Zahl tragen mussten.
+   */
+  --g-1: #1f2732;
+  --g-2: #202832;
+
+  --text-soft: #b9c7d8;
+  /*
+   * Text auf einer Fläche in der Akzent- oder Alarmfarbe - und der ist jetzt
+   * dunkel.
+   *
+   * Auf hellem Grund waren beide Farben dunkel gemischt und trugen weiße
+   * Schrift. Hier sind sie hell, damit sie sich vom Grund abheben - und weiße
+   * Schrift auf hellem Blau ist genau so unlesbar wie schwarze auf dunklem.
+   * Es sind die zwei Stellen, an denen das gilt: der Hauptknopf und die Zahl an
+   * der Glocke.
+   */
+  --text-loud: #10202f;
+  --rule-strong: rgba(255, 255, 255, 0.22);
+
+  /*
+   * Die Farbe, aus der Kanten und Griffe gemacht sind - auf dunklem Grund
+   * wieder Weiß. Eine Fläche hebt sich hier, indem sie Licht fängt.
+   */
+  --sheen: 255, 255, 255;
+
+  --accent: 110, 168, 224;
+  --accent-deep: 74, 125, 181;
+  --accent-light: 156, 198, 236;
+
+  /* Die aufgeklappte Liste einer Combobox. */
+  --pick: #2f4d6d;
+  --pick-text: #ffffff;
+  --option-text: #e9eff7;
+  --picker-fill: #1b232d;
+  --picker-edge: rgba(255, 255, 255, 0.14);
+  --picker-shadow: 0 20px 46px -20px rgba(0, 0, 0, 0.85);
+
+  /*
+   * Meldefarben, aufgehellt.
+   *
+   * Grün, Gelb und Rot sind für weißen Grund gemischt und dort dunkel gehalten,
+   * damit sie lesbar bleiben. Auf dunklem Grund kehrt sich das um: Dieselben
+   * Töne müssen hell sein, sonst verschwinden sie im Grund.
+   */
+  --live: 52, 199, 148;
+  --dot-gut: 54, 214, 116;
+  --caution: 234, 179, 8;
+  --alarm: 248, 113, 113;
+
+  --draft-name: #a6b6c9;
+
+  /* Der Kopf einer Fläche: kein helles Band mehr, sondern ein dunkler Stahl. */
+  --panel-kopf-hell: #3f4a59;
+  --panel-kopf-dunkel: #282f38;
+
+  --shade: 0, 0, 0;
+}
+
+/*
+ * Der Grund der Seite.
+ *
+ * Er steht hier und nicht bei `body` weiter unten: `body` holt sich seine Farbe
+ * aus `--g-ground`, und die kommt aus den Marken. Diese Zeile sagt nur, dass es
+ * auch außerhalb der Anwendung dunkel ist - hinter dem letzten Element, beim
+ * Überrollen am Rand, im Vollbild.
+ */
+html[data-sw-modern='on'] body {
+  background-color: var(--color-background);
+}
+
+/*
+ * Das Menü ist fast schwarz - dunkler als die Leiste, in der es steht.
+ *
+ * Die Spec setzt dafür `#090b0f`. Es ist die dunkelste Fläche der ganzen
+ * Oberfläche, und das ist Absicht: Was man am häufigsten benutzt, soll am
+ * ruhigsten sein.
+ */
+html[data-sw-modern='on'] .app-shell-sidebar-nav-menu::before {
+  background: #090b0f;
+}
+
+/* ===================================================================
  * Der Altbestand
  *
  * Alles ab hier ist gewachsen und wird bildschirmweise durch Klassen im Markup
@@ -705,6 +843,18 @@ code {
  * dieselbe Fläche tragen und sich nur in der Stärke unterscheiden. Die Kante
  * links kommt als Klasse dazu - sie ist Geometrie.
  */
+/*
+ * Der Lichtstreifen der Grundregel gehört nicht auf einen Menüpunkt.
+ *
+ * Er wandert beim Überfahren durch die Fläche eines Knopfes, der selbst
+ * leuchtet. Ein Menüpunkt hat keine Fläche - dort wäre es ein weißer Wisch über
+ * dem Wort. Als Regel und nicht als Klasse, weil ein erzeugtes Element sich
+ * nicht am Element abschalten lässt.
+ */
+.sw-nav-hl::after {
+  display: none;
+}
+
 .sw-nav-hl:hover:not(:disabled) {
   background-color: rgba(255, 255, 255, 0.12);
 }
