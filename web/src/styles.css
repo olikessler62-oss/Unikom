@@ -37,7 +37,16 @@
  * bei jeder neuen Fläche an beide zu denken. Geblieben ist eines.
  */
 :root {
-  --sans: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+  /*
+   * Inter steht vorn, wird aber nicht mitgeliefert - genau wie im Vorbild.
+   *
+   * Eine Schrift von einem fremden Rechner nachzuladen fiele genau dann aus,
+   * wenn es darauf ankommt: Das hier läuft auf dem Server des Kunden, oft ohne
+   * Verbindung nach außen. Wer Inter installiert hat, sieht Inter; alle anderen
+   * sehen, was die Maschine sonst hergibt.
+   */
+  --sans: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', -apple-system, system-ui, 'Helvetica Neue',
+    sans-serif;
   --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', 'Liberation Mono', monospace;
 
   --step: 1.5rem;
@@ -51,8 +60,45 @@
    * gemeinsamen Ecke denselben Ton tragen und als ein Stück gelesen werden.
    */
   --rahmen: #14476e;
-  --rahmen-dunkel: #0b2c47;
-  --rahmen-hell: #2a6ea6;
+  /*
+   * Die beiden Enden des Verlaufs werden aus der Grundfarbe gemischt und nicht
+   * daneben eingetragen.
+   *
+   * Vorher standen hier zwei abgeschriebene Werte. Sie sahen richtig aus,
+   * hingen aber an nichts: Wer die Grundfarbe ändert, ändert die Mitte des
+   * Verlaufs und lässt seine Enden stehen - und merkt es erst, wenn das Band
+   * an einem Ende die falsche Familie trägt.
+   *
+   * 78 % zu Schwarz und 82 % zu Weiß sind die Mischungen des Vorbilds
+   * (FR-011 §1b).
+   */
+  --rahmen-dunkel: color-mix(in srgb, var(--rahmen) 78%, #000);
+  --rahmen-hell: color-mix(in srgb, var(--rahmen) 82%, #fff);
+
+  /*
+   * Die Breite der Seitenleiste (FR-011 §1b: 15rem).
+   *
+   * Als Marke, weil sie zweimal gebraucht wird: von der Spalte selbst und von
+   * allem, was sich neben ihr ausrichtet - ein Fenster, das links neben der
+   * Leiste beginnt, muss wissen, wo sie aufhört.
+   */
+  --sidebar-breite: 15rem;
+
+  /*
+   * Der Kopf einer Fläche: Modalkopf, Listenkopf, Tabellenkopf.
+   *
+   * Ein Verlauf von oben nach unten, von einem grauen Blau ins Helle. Er hat
+   * seine eigenen zwei Marken und nicht die des Rahmens: Der Rahmen ist die
+   * Farbe der Anwendung, dies ist die Farbe einer Überschrift *in* ihr - und
+   * die soll sich absetzen, ohne dieselbe Stimme zu haben.
+   */
+  --panel-kopf-hell: #c7d4e5;
+  --panel-kopf-dunkel: color-mix(in srgb, #c7d4e5 58%, #92a4b8);
+  --panel-kopf: linear-gradient(180deg, var(--panel-kopf-dunkel) 0%, var(--panel-kopf-hell) 100%);
+
+  /* Die Maße der Bildlaufleisten (FR-011 §1b). */
+  --leiste-breit: 12px;
+  --leiste-schmal: 8px;
 
   /*
    * Die Höhe des Kopfbands.
@@ -62,7 +108,7 @@
    * haben, liegt die Kante darunter über die ganze Breite auf einer Linie -
    * und erst dann liest man die beiden als ein Band statt als zwei Kästen.
    */
-  --bandhoehe: 4.75rem;
+  --bandhoehe: 5.75rem;
 
   /*
    * Die Höhe jedes Bedienelements: Eingabefeld, Auswahlfeld, Knopf.
@@ -88,7 +134,7 @@
    * Die beiden obersten Stufen kehren die Richtung um: Was man anfassen kann,
    * bekommt wieder etwas Grau, denn Weiß auf Weiß hätte keine Kante.
    */
-  --g-ground: #eaeff4;
+  --g-ground: #f8fafc;
   --g-1: #f3f6fa;
   --g-2: #f9fbfc;
   --g-3: #ffffff;
@@ -102,7 +148,14 @@
   /* Text auf einer Fläche in der Akzentfarbe. */
   --text-loud: #ffffff;
 
-  --rule: rgba(15, 23, 42, 0.1);
+  /*
+   * Die Linie zwischen zwei Flächen - eine deckende Farbe, kein Schleier.
+   *
+   * Ein durchscheinendes Grau nimmt die Farbe dessen an, worauf es liegt: Auf
+   * Weiß sieht es anders aus als auf dem Grund, und beide Male anders als auf
+   * einer Kopfleiste. Eine Linie soll überall dieselbe Linie sein.
+   */
+  --rule: #e2e8f0;
   --rule-strong: rgba(15, 23, 42, 0.18);
   /*
    * Die Farbe, aus der Kanten und Griffe gemacht sind.
@@ -133,7 +186,7 @@
   --picker-edge: rgba(15, 23, 42, 0.12);
   --picker-shadow: 0 20px 46px -20px rgba(15, 23, 42, 0.35);
 
-  --live: 5, 150, 105;
+  --live: 6, 95, 70;
   /*
    * Das Grün des Statuspunktes - kräftiger als `--live`.
    *
@@ -180,6 +233,20 @@
   color-scheme: light;
 }
 
+/*
+ * Auf einem breiten Bildschirm wird das Band flacher.
+ *
+ * Auf einem schmalen trägt es dieselben Dinge in weniger Breite und braucht die
+ * Höhe; auf einem breiten stünde sie als leerer Streifen über allem. Die Marke
+ * steht deshalb zweimal, und alles, was aus ihr rechnet - Schriftzug und
+ * Kopfleiste -, geht von selbst mit.
+ */
+@media (min-width: 768px) {
+  :root {
+    --bandhoehe: 4.75rem;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -215,8 +282,8 @@
 }
 
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: var(--leiste-breit);
+  height: var(--leiste-breit);
 }
 
 ::-webkit-scrollbar-track,
@@ -415,7 +482,7 @@ code {
  */
 .shell {
   display: grid;
-  grid-template-columns: 244px 1fr;
+  grid-template-columns: var(--sidebar-breite) 1fr;
   height: 100vh;
   overflow: hidden;
 }
