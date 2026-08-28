@@ -570,6 +570,140 @@ code {
   box-shadow: 0 0 11px rgba(var(--accent), 0.9);
 }
 
+/* ---------- Untermenüs ---------- */
+
+/*
+ * Eine Gruppe im Menü: der Punkt und darunter, was zu ihm gehört.
+ *
+ * Der Abstand steht hier und nicht am Menü: Die Gruppe ist für das Menü *ein*
+ * Kind, ihre Teile stehen enger beieinander als zwei Menüpunkte. Ohne das läge
+ * zwischen „Mandanten" und „Übersicht" derselbe Abstand wie zwischen zwei
+ * Bereichen - und dann sähe der Unterpunkt aus wie ein weiterer Bereich.
+ */
+.sidebar__gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/*
+ * Der Pfeil am Zeilenende. Er dreht sich, statt zu wechseln: Ein Zeichen, das
+ * sich dreht, ist erkennbar dasselbe - zwei verschiedene Zeichen wären zwei
+ * Aussagen, und man muss sich merken, welche welche ist.
+ */
+.sidebar__pfeil {
+  margin-left: auto;
+  display: inline-flex;
+  opacity: 0.65;
+  transition: transform 200ms ease;
+}
+
+.sidebar__pfeil svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.sidebar__pfeil--offen {
+  transform: rotate(90deg);
+}
+
+/*
+ * Das Aufklappen läuft über die Zeilenhöhe des Rasters.
+ *
+ * Eine Höhe von `auto` lässt sich nicht überblenden - der Browser kennt das
+ * Ziel nicht, also springt es. `0fr` nach `1fr` kennt er, und der Inhalt behält
+ * dabei seine eigene Höhe und wird nur abgeschnitten. Das Abschneiden besorgt
+ * der innere Kasten; stünde `overflow` außen, wäre der Rahmen des offenen
+ * Unterpunkts an seiner Kante gekappt.
+ */
+.sidebar__unter {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms ease;
+}
+
+.sidebar__unter--offen {
+  grid-template-rows: 1fr;
+}
+
+.sidebar__unter__inhalt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  overflow: hidden;
+}
+
+/*
+ * Ein Unterpunkt.
+ *
+ * Er ist eingerückt bis unter das Wort des Punktes darüber, nicht bis unter
+ * dessen Symbol: So bilden die Wörter eine Kante, und das Symbol steht allein
+ * davor - daran sieht man, welche Ebene welche ist.
+ *
+ * Kleinere Schrift und gewöhnliche Schreibung statt Versalien: zwei Ebenen, zwei
+ * Handschriften. Der Punkt darüber trägt Versalien und ein Symbol, der
+ * Unterpunkt weder noch.
+ */
+.sidebar__unterlink {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0.34rem 0.85rem 0.34rem 2.15rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-align: left;
+  text-transform: none;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+
+.sidebar__unterlink:hover {
+  color: var(--text);
+  background: var(--g-3);
+}
+
+.sidebar__unterlink--active,
+.sidebar__unterlink--active:hover {
+  color: var(--text-loud);
+  font-weight: 600;
+  background: var(--g-4);
+}
+
+/*
+ * Dieselbe Kante wie am aktiven Menüpunkt, nur schmaler und weiter innen.
+ * Sie steht auf der Höhe der Einrückung: Der Strich sagt „hier", und er sagt es
+ * an der Linie, an der die Unterpunkte beginnen.
+ */
+.sidebar__unterlink--active::before {
+  content: '';
+  position: absolute;
+  left: 1.15rem;
+  top: 25%;
+  bottom: 25%;
+  width: 2px;
+  border-radius: 2px;
+  background: rgb(var(--accent));
+}
+
+/*
+ * Eine Linie zwischen zwei Arten von Blättern - nicht zwischen zwei Punkten.
+ *
+ * Sie beginnt erst bei der Einrückung. Über die volle Breite gezogen sähe sie
+ * aus wie der Schnitt zwischen zwei Bereichen, und der ist eine Ebene höher.
+ */
+.sidebar__unter__trenner {
+  height: 1px;
+  margin: 0.4rem 0.85rem 0.4rem 2.15rem;
+  background: var(--rule);
+}
+
 /* Ein Atemzug innerhalb eines Bereichs — er trennt, ohne einen Schnitt zu machen. */
 .sidebar__space {
   height: 0.55rem;
@@ -3748,6 +3882,7 @@ button {
  * trägt ihn hier ein.
  */
 .sidebar__link,
+.sidebar__unterlink,
 .subnav__tab,
 .reiter__blatt,
 .chain__step,

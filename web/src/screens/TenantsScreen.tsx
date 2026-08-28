@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
@@ -14,7 +14,6 @@ import {
   Memofeld,
   Modal,
   Notice,
-  Reiter,
   titelBeiUeberlaufWahl,
 } from '../components/Pieces.js';
 import { ArchivScreen } from './ArchivScreen.js';
@@ -127,40 +126,46 @@ const EMPTY: Draft = {
 const ZONEN_BREITE = `calc(${Math.max(...timeZones().map((zone) => zone.length))}ch + 3.2rem)`;
 
 /**
- * Die Blätter eines Mandanten.
+ * Die Blätter eines Mandanten - und damit sein Untermenü.
  *
  * ```text
- * wer er ist        Grunddaten │ Einstellungen │ Benachrichtigung
- * was er liefert    Eingangsquellen │ Beispiel einlesen │ Zuordnungen │
- *                   Referenzen │ Probe │ Archiv
+ * wer er ist        Grunddaten, Einstellungen, Benachrichtigung
+ * was er liefert    Eingangsquellen, Beispiel einlesen, Zuordnungen,
+ *                   Referenzen, Probe, Archiv
  * ```
  *
- * ## Warum das überhaupt Reiter geworden sind
+ * ## Warum sie unter den Mandanten gehören
  *
- * Die letzten sechs standen als eigene Punkte im Hauptmenü — unter „Schemata",
- * „Archiv" und den Unterpunkten von „Daten konsolidieren". Jeder von ihnen fragte
- * als Erstes „für welchen Kunden?", und genau darin lag der Fehler: Was zuerst
- * nach einem Kunden fragt, gehört zu ihm und nicht neben ihn.
+ * Die letzten sechs standen als eigene Punkte im Hauptmenü - unter „Schemata",
+ * „Archiv" und den Unterpunkten von „Daten konsolidieren". Jeder von ihnen
+ * fragte als Erstes „für welchen Kunden?", und genau darin lag der Fehler: Was
+ * zuerst nach einem Kunden fragt, gehört zu ihm und nicht neben ihn.
  *
- * Das Menü war nach den **Modulen** gegliedert — danach, was auf der Rechnung
+ * Das Menü war nach den **Modulen** gegliedert - danach, was auf der Rechnung
  * steht. Ein Modul ist aber eine Position im Preisverzeichnis und kein Ort im
  * Haus. Gegliedert wird jetzt danach, wonach man sucht: erst der Kunde, dann
  * das, was ihn betrifft.
  *
  * ## Warum nicht alles auf eine Fläche
  *
- * Weil es nicht daraufpasst — auch heute nicht. Drei Karten untereinander sind
+ * Weil es nicht daraufpasst - auch heute nicht. Drei Karten untereinander sind
  * auf einem gewöhnlichen Bildschirm schon anderthalb Seiten; mit sechs weiteren
- * Bündeln wäre es ein Dutzend. Ein Reiter zeigt eine Sache ganz, statt neun
+ * Bündeln wäre es ein Dutzend. Ein Blatt zeigt eine Sache ganz, statt neun
  * halb.
  *
- * ## Warum ein Strich und keine zweite Zeile
+ * ## Warum im Menü und nicht als Reiterstreifen
  *
- * Links steht, wer der Kunde **ist**, rechts, was er **liefert**. Das sind zwei
- * Fragen auf einer Ebene. Zwei Zeilen sähen aus wie zwei Ebenen — und dann
- * suchte man die untere unter der oberen.
+ * Sie waren zuerst ein Streifen aus neun Reitern über dem Formular. Das war
+ * eine zweite Navigation neben der ersten: Links das Menü, oben die Reiter, und
+ * beide sagten, wo man ist. Wer neun Namen an zwei Orten führt, führt sie
+ * irgendwann verschieden.
+ *
+ * Die Liste steht deshalb nur noch hier, und die Seitenleiste liest sie. `App`
+ * baut daraus die Unterpunkte - dieselbe Reihenfolge, derselbe Strich zwischen
+ * den beiden Gruppen, dieselbe Regel, dass die letzten sechs erst erscheinen,
+ * wenn es den Mandanten gibt.
  */
-type Blatt =
+export type Blatt =
   | 'grunddaten'
   | 'einstellungen'
   | 'benachrichtigung'
@@ -171,8 +176,19 @@ type Blatt =
   | 'probe'
   | 'archiv';
 
+/**
+ * Ein Blatt in der Liste: seine Kennung, sein Name, und ob eine Linie davor
+ * steht. Dieselbe Form für beide Gruppen - so lassen sie sich aneinanderhängen,
+ * ohne dass unterwegs zwei Formen entstehen.
+ */
+export interface Blattpunkt {
+  id: Blatt;
+  text: string;
+  trennerDavor?: boolean;
+}
+
 /** Was am Mandanten selbst steht — auch bei einem, den es noch nicht gibt. */
-const STAMMBLAETTER: readonly { id: Blatt; text: string }[] = [
+export const STAMMBLAETTER: readonly Blattpunkt[] = [
   { id: 'grunddaten', text: 'Grunddaten' },
   { id: 'einstellungen', text: 'Einstellungen' },
   { id: 'benachrichtigung', text: 'Benachrichtigung' },
@@ -185,7 +201,7 @@ const STAMMBLAETTER: readonly { id: Blatt; text: string }[] = [
  * kann nichts gehören. Diese Blätter beim Anlegen zu zeigen hieße, eine Liste
  * anzubieten, die beim ersten Klick ins Leere greift.
  */
-const DATENBLAETTER: readonly { id: Blatt; text: string; trennerDavor?: boolean }[] = [
+export const DATENBLAETTER: readonly Blattpunkt[] = [
   { id: 'quellen', text: 'Eingangsquellen', trennerDavor: true },
   { id: 'einlesen', text: 'Beispiel einlesen' },
   { id: 'zuordnungen', text: 'Zuordnungen' },
@@ -194,11 +210,61 @@ const DATENBLAETTER: readonly { id: Blatt; text: string; trennerDavor?: boolean 
   { id: 'archiv', text: 'Archiv' },
 ];
 
-interface Props {
-  canManage: boolean;
+/**
+ * Die Kennung für „ein Mandant, den es noch nicht gibt".
+ *
+ * Sie steht hier und wird nach außen gereicht, weil das Menü sie mitspricht:
+ * Wer „Neuer Mandant" wählt, wählt einen Zustand, den auch die Seitenleiste
+ * kennen muss - sonst stünde dort kein Unterpunkt, während rechts ein Formular
+ * offen ist.
+ */
+export const NEUER_MANDANT = 'neu';
+
+/**
+ * Aus einem gespeicherten Mandanten wird die Eingabe, die man ändern kann.
+ *
+ * Das stand einmal im Klick auf „Bearbeiten". Dort war es nicht erreichbar für
+ * den zweiten Weg, der jetzt dazugekommen ist: die Wahl aus dem Menü. Zwei
+ * Umrechnungen für dieselbe Sache wären zwei Gelegenheiten, ein Feld zu
+ * vergessen - und vergessen hieße hier: still leer statt still falsch.
+ */
+function entwurfAus(tenant: Tenant): Draft {
+  return {
+    id: tenant.id,
+    name: tenant.name,
+    description: tenant.description ?? '',
+    rootDirectory: tenant.rootDirectory ?? '',
+    // Der Server schickt auch die Voreinstellung mit: Was gilt, soll dastehen
+    // und nicht erschlossen werden müssen.
+    locale: tenant.region?.locale ?? EMPTY.locale,
+    timeZone: tenant.region?.timeZone ?? EMPTY.timeZone,
+    enabled: tenant.enabled,
+    ausleitungenTage: tenant.ausleitungenTage === undefined ? '' : String(tenant.ausleitungenTage),
+    archivTage: tenant.archivTage === undefined ? '' : String(tenant.archivTage),
+    ...konflikteAus(tenant),
+    ...meldewegeAus(tenant),
+    ...einstellungenAus(tenant),
+  };
 }
 
-export function TenantsScreen({ canManage }: Props) {
+interface Props {
+  canManage: boolean;
+  /**
+   * Welcher Mandant offen ist - `undefined` heißt: die Übersicht.
+   *
+   * Die Wahl steht über diesem Bildschirm und nicht in ihm. Sie ist Navigation,
+   * und die Navigation steht in der Seitenleiste: Dort hängen die Unterpunkte
+   * dieses Mandanten, und die kann nur zeigen, wer weiß, ob überhaupt einer
+   * offen ist.
+   */
+  mandant?: string;
+  /** Welches Blatt offen steht - aus demselben Grund von außen. */
+  blatt: Blatt;
+  onMandant(id: string | undefined): void;
+  onBlatt(blatt: Blatt): void;
+}
+
+export function TenantsScreen({ canManage, mandant, blatt, onMandant, onBlatt }: Props) {
   const tenants = useResource<Tenant[]>('/api/tenants');
   /* Für den Postausgang: Das Kennwort steht in einem Zugang, nicht im Formular. */
   const credentials = useResource<Credential[]>('/api/credentials');
@@ -207,14 +273,49 @@ export function TenantsScreen({ canManage }: Props) {
   const [saving, setSaving] = useState(false);
   /** Die Erklärung zum Root-Verzeichnis, auf Wunsch statt dauerhaft. */
   const [explaining, setExplaining] = useState(false);
-  /*
-   * Welches Blatt offen steht.
+  /**
+   * Welche Wahl schon in einen Entwurf umgesetzt ist.
    *
-   * Es gehört hierher und nicht in den Entwurf: Welchen Reiter jemand ansieht,
-   * ist eine Sache des Hinsehens und keine Angabe des Mandanten — gespeichert
-   * würde daraus eine Einstellung, die zwei Leute gegeneinander verstellen.
+   * Ohne diese Merkstelle liefe der Effekt darunter auch dann noch einmal, wenn
+   * nur die Liste neu geladen wurde - und baute den Entwurf neu auf, während
+   * jemand darin tippt. Die Wahl ändert sich, wenn jemand etwas anderes
+   * anklickt; die Liste ändert sich, wenn der Server antwortet. Nur das Erste
+   * ist ein Grund, von vorn zu beginnen.
    */
-  const [blatt, setBlatt] = useState<Blatt>('grunddaten');
+  const umgesetzt = useRef<string>(undefined);
+
+  /*
+   * Aus der Wahl wird ein Entwurf.
+   *
+   * Der Entwurf bleibt hier: Er ist die halbfertige Eingabe eines Menschen und
+   * hat in der Navigation nichts zu suchen. Von außen kommt nur, *wer* gemeint
+   * ist.
+   */
+  useEffect(() => {
+    if (umgesetzt.current === mandant) {
+      return;
+    }
+
+    if (mandant === undefined) {
+      umgesetzt.current = undefined;
+      setDraft(undefined);
+      return;
+    }
+
+    if (mandant === NEUER_MANDANT) {
+      umgesetzt.current = mandant;
+      setDraft(EMPTY);
+      return;
+    }
+
+    const gewaehlt = tenants.data?.find((eintrag) => eintrag.id === mandant);
+
+    // Die Liste ist noch unterwegs: beim nächsten Durchlauf steht sie da.
+    if (gewaehlt) {
+      umgesetzt.current = mandant;
+      setDraft(entwurfAus(gewaehlt));
+    }
+  }, [mandant, tenants.data]);
 
   async function save(): Promise<void> {
     if (!draft) {
@@ -281,8 +382,8 @@ export function TenantsScreen({ canManage }: Props) {
         await api.post('/api/tenants', payload);
       }
 
-      setDraft(undefined);
-      setBlatt('grunddaten');
+      onMandant(undefined);
+      onBlatt('grunddaten');
       await tenants.reload();
     } catch (failure) {
       // Overlapping directories and jobs left outside are reported by the
@@ -335,22 +436,18 @@ export function TenantsScreen({ canManage }: Props) {
       {draft ? (
         <>
           {/*
-            * Das Anfangs-Panel: wer bearbeitet wird, und was an ihm dranhängt.
+            * Wer bearbeitet wird - der Name, und sonst nichts.
             *
-            * Der Name steht darüber und nicht in einem der Blätter. Wer auf dem
-            * Reiter „Archiv" steht, sieht sonst eine Dateiliste ohne die Auskunft,
-            * wessen Dateien das sind — und die war vorher immer da, weil jeder
-            * dieser Bildschirme seine eigene Mandantenwahl trug.
+            * Hier stand ein Streifen mit neun Reitern. Er steht jetzt als
+            * Untermenü in der Seitenleiste: Ein Reiterstreifen ist Navigation,
+            * und Navigation gehört an einen Ort. Beides nebeneinander hieße,
+            * dieselben neun Wörter zweimal auf einem Bildschirm zu haben.
+            *
+            * Der Name bleibt. Wer auf dem Blatt „Archiv" steht, sähe sonst eine
+            * Dateiliste ohne die Auskunft, wessen Dateien das sind.
             */}
           <section className="card">
             <h2>{draft.id ? draft.name.trim() || 'Mandant ohne Namen' : 'Neuer Mandant'}</h2>
-
-            <Reiter<Blatt>
-              stil="pille"
-              reiter={draft.id ? [...STAMMBLAETTER, ...DATENBLAETTER] : STAMMBLAETTER}
-              offen={blatt}
-              onOeffnen={setBlatt}
-            />
           </section>
 
           {/*
@@ -572,15 +669,27 @@ export function TenantsScreen({ canManage }: Props) {
             * darüber — sechsmal dieselbe Frage, sechsmal einzeln zu beantworten.
             * Jetzt steht die Antwort einmal oben.
             *
-            * `draft.id` steht hier ohne Prüfung: Diese Blätter erscheinen nur,
-            * wenn es ihn gibt — siehe `DATENBLAETTER`.
+            * `draft.id` wird geprüft, statt behauptet zu werden.
+            *
+            * Hier stand `draft.id as string` mit dem Hinweis, das Menü biete
+            * diese Blätter nur bei einem gespeicherten Mandanten an. Das stimmte,
+            * solange die Reiter danebenstanden und beim Öffnen zurückgesetzt
+            * wurden. Seit die Wahl in der Seitenleiste liegt, überdauert sie den
+            * Wechsel: Wer auf „Archiv" steht und dann „Neuer Mandant" wählt,
+            * käme mit `blatt === 'archiv'` an - und die Zusicherung wäre eine
+            * Behauptung über etwas, das inzwischen woanders entschieden wird.
+            *
+            * Mit `draft.id &&` prüft der Übersetzer mit, und die Zusicherung
+            * fällt fort. Eine Prüfung, die nichts kostet, ist besser als ein
+            * Kommentar, der eine Garantie beschreibt, die drei Dateien weiter
+            * gegeben wird.
             */}
-          {blatt === 'quellen' && <SchemataScreen mandant={draft.id as string} />}
-          {blatt === 'einlesen' && <DiscoveryScreen mandant={draft.id as string} />}
-          {blatt === 'zuordnungen' && <MappingScreen mandant={draft.id as string} />}
-          {blatt === 'referenzen' && <ReferenceScreen mandant={draft.id as string} />}
-          {blatt === 'probe' && <MergeScreen mandant={draft.id as string} />}
-          {blatt === 'archiv' && <ArchivScreen mandant={draft.id as string} />}
+          {draft.id && blatt === 'quellen' && <SchemataScreen mandant={draft.id} />}
+          {draft.id && blatt === 'einlesen' && <DiscoveryScreen mandant={draft.id} />}
+          {draft.id && blatt === 'zuordnungen' && <MappingScreen mandant={draft.id} />}
+          {draft.id && blatt === 'referenzen' && <ReferenceScreen mandant={draft.id} />}
+          {draft.id && blatt === 'probe' && <MergeScreen mandant={draft.id} />}
+          {draft.id && blatt === 'archiv' && <ArchivScreen mandant={draft.id} />}
 
           {/*
             * Die Knöpfe stehen unter allen Blättern und in keinem: Sie speichern
@@ -600,8 +709,8 @@ export function TenantsScreen({ canManage }: Props) {
             <button
               className="secondary"
               onClick={() => {
-                setDraft(undefined);
-                setBlatt('grunddaten');
+                onMandant(undefined);
+                onBlatt('grunddaten');
               }}
             >
               Abbrechen
@@ -623,7 +732,14 @@ export function TenantsScreen({ canManage }: Props) {
         <>
           {canManage && (
             <div className="row">
-              <button onClick={() => setDraft(EMPTY)}>Neuer Mandant</button>
+              <button
+                onClick={() => {
+                  onBlatt('grunddaten');
+                  onMandant(NEUER_MANDANT);
+                }}
+              >
+                Neuer Mandant
+              </button>
             </div>
           )}
 
@@ -676,25 +792,8 @@ export function TenantsScreen({ canManage }: Props) {
                             <button
                               className="secondary"
                               onClick={() => {
-                                setBlatt('grunddaten');
-                                setDraft({
-                                  id: tenant.id,
-                                  name: tenant.name,
-                                  description: tenant.description ?? '',
-                                  rootDirectory: tenant.rootDirectory ?? '',
-                                  // Der Server schickt auch die Voreinstellung mit:
-                                  // Was gilt, soll dastehen und nicht erschlossen
-                                  // werden müssen.
-                                  locale: tenant.region?.locale ?? EMPTY.locale,
-                                  timeZone: tenant.region?.timeZone ?? EMPTY.timeZone,
-                                  enabled: tenant.enabled,
-                                  ausleitungenTage:
-                                    tenant.ausleitungenTage === undefined ? '' : String(tenant.ausleitungenTage),
-                                  archivTage: tenant.archivTage === undefined ? '' : String(tenant.archivTage),
-                                  ...konflikteAus(tenant),
-                                  ...meldewegeAus(tenant),
-                                  ...einstellungenAus(tenant),
-                                });
+                                onBlatt('grunddaten');
+                                onMandant(tenant.id);
                               }}
                             >
                               Bearbeiten
