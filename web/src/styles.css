@@ -78,7 +78,7 @@
    * Nicht betroffen ist das Memo: Es ist mehrzeilig, und eine Zeilenhöhe wäre
    * dort keine Höhe, sondern das Ende seines Zwecks.
    */
-  --control-hoehe: 22px;
+  --control-hoehe: 28px;
 
   /*
    * Der Inhalt: sechs Stufen vom Grund bis zum Bedienelement.
