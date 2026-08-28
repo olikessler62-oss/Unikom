@@ -4,8 +4,6 @@ import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
 import type { Feature, Licence, LicenceState } from '../api/types.js';
 import { Field, Loading, Notice } from '../components/Pieces.js';
-import { useLanguage } from '../i18n/useText.js';
-import { LANGUAGES } from '../settings/preferences.js';
 import { locale } from '../i18n/texts.js';
 
 const FEATURE_LABELS: Record<Feature, string> = {
@@ -72,8 +70,12 @@ export function SettingsScreen({ canManage, onLicenceChanged }: Props) {
     <>
       {message && <Notice kind={message.kind}>{message.text}</Notice>}
 
-      <AppearanceCard />
-
+      {/*
+        * Hier stand die Wahl von Erscheinungsbild und Sprache. Das
+        * Erscheinungsbild gibt es nur noch einmal, und die Sprache steht im
+        * Kopfband - dort, wo man sie sucht, und erreichbar auch für den, der
+        * diesen Bildschirm gar nicht öffnen darf.
+        */}
       <section className="card">
         <h2>Lizenz</h2>
 
@@ -158,39 +160,4 @@ function formatDay(iso?: string): string {
   }
 
   return new Date(iso).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-/**
- * Die Sprache.
- *
- * Kacheln zum Anklicken und keine Auswahlliste: Die drei stehen nebeneinander
- * und sind mit einem Griff erreichbar. Die Wirkung tritt sofort ein - es gibt
- * nichts zu speichern, was man vergessen könnte.
- *
- * Hier stand daneben einmal die Wahl des Erscheinungsbilds. Es gibt nur noch
- * eines, und damit nichts mehr zu wählen.
- */
-function AppearanceCard() {
-  const { language, setLanguage, t } = useLanguage();
-
-  return (
-    <section className="card">
-      <h2>{t('settings.language')}</h2>
-
-      <Field label={t('settings.language')}>
-        <div className="choices">
-          {LANGUAGES.map((entry) => (
-            <button
-              key={entry}
-              type="button"
-              className={`choice choice--narrow${entry === language ? ' choice--picked' : ''}`}
-              onClick={() => setLanguage(entry)}
-            >
-              <span className="choice__name">{t(`settings.language.${entry}`)}</span>
-            </button>
-          ))}
-        </div>
-      </Field>
-    </section>
-  );
 }

@@ -21,6 +21,7 @@ import { UsersScreen } from './screens/UsersScreen.js';
 import { DataEnquiryScreen } from './screens/DataEnquiryScreen.js';
 import { ConsolidationScreen } from './screens/ConsolidationScreen.js';
 import { WorkflowsScreen } from './screens/WorkflowsScreen.js';
+import { Sprachwahl } from './components/Sprachwahl.js';
 import { useSession } from './session/useSession.js';
 import { FOOTER_ACTIONS, HEADER_ACTIONS, Notice } from './components/Pieces.js';
 import type { Handlungsbedarf, Licence, Permission } from './api/types.js';
@@ -46,14 +47,6 @@ interface Area {
   label: TextKey;
   /** Hidden without it. The server refuses regardless; this only tidies up. */
   permission: Permission;
-  /**
-   * Ob hinter dem Namen die Zahl des Ausstehenden steht.
-   *
-   * Nur an einer Stelle, und das ist Absicht: Eine Zahl an jedem Punkt wäre
-   * eine Anzeigetafel, an der man nichts mehr unterscheidet. Sie steht dort,
-   * wo etwas auf einen Menschen wartet — und nirgends sonst.
-   */
-  bedarf?: boolean;
 }
 
 /**
@@ -86,7 +79,7 @@ const BLOCKS: Area[][] = [
      * Workflow-Schritt. Der Punkt erscheint, **weil** das Modul gekauft ist;
      * heißen muss er deswegen nicht so.
      */
-    { id: 'consolidation', label: 'nav.consolidation', permission: 'MANAGE_JOBS', bedarf: true },
+    { id: 'consolidation', label: 'nav.consolidation', permission: 'MANAGE_JOBS' },
   ],
   /*
    * Ein einziger Punkt für den Kunden — und alles, was ihn betrifft, darin.
@@ -274,17 +267,13 @@ export function App() {
                 >
                   <MenuIcon name={entry.id} />
                   {/*
-                    * Die Zahl steht in Klammern hinter dem Namen und nicht als
-                    * Punkt am Rand: Sie gehört zum Wort. „Handlungsbedarf (3)"
-                    * liest sich als ein Stück — ein Abzeichen daneben wäre eine
-                    * zweite Sache, die man erst zuordnen muss.
-                    *
-                    * Bei null steht keine Klammer. „(0)" sagt dasselbe wie
-                    * nichts, nimmt aber Aufmerksamkeit — und die soll die Zahl
-                    * nur dann bekommen, wenn sie etwas will.
+                    * Hier stand einmal die Zahl des Ausstehenden in Klammern
+                    * hinter dem Wort. Sie steht jetzt an der Glocke im Kopfband,
+                    * zusammen mit den Meldungen: Zwei Zähler für dieselbe Sache
+                    * an zwei Orten sind einer zu viel - und der eine, den jemand
+                    * später zu ändern vergisst, widerspricht dann dem anderen.
                     */}
                   {t(entry.label)}
-                  {entry.bedarf && bedarf && bedarf.gesamt > 0 && ` (${bedarf.gesamt})`}
                 </button>
               ))}
             </Fragment>
@@ -328,25 +317,41 @@ export function App() {
         * zu enden.
         */}
       <main className={view.editingJob ? 'main main--fills' : 'main'}>
-        {/* Der Editor bringt seinen eigenen Kopf mit — Titel, Mandant und die
-            Kette der Schritte gehören dort zusammen. */}
-        {!view.editingJob && (
-          <div className="main__header">
-            <h1>{current ? t(current.label) : 'Unikom'}</h1>
+        {/*
+          * Das Kopfband steht auf jedem Bildschirm, auch im Editor.
+          *
+          * Es war einmal der Kopf einer Ansicht und fiel deshalb fort, sobald
+          * der Editor seinen eigenen mitbrachte. Ein Band, das an einer Stelle
+          * fehlt, ist aber kein Rahmen mehr - und mit ihm verschwänden Glocke
+          * und Sprache genau dort, wo man am längsten sitzt. Der Kopf des
+          * Editors steht jetzt darunter; er nennt den Workflow und die Kette
+          * der Schritte, und das ist etwas anderes als der Name des Bereichs.
+          */}
+        <div className="main__header">
+          <h1>{current ? t(current.label) : 'Unikom'}</h1>
+          {/*
+           * Der Platz für Knöpfe, die zur Überschrift gehören. Er steht immer
+           * hier und ist meistens leer; die Ansichten hängen sich mit
+           * `HeaderAction` hinein.
+           */}
+          <div id={HEADER_ACTIONS} className="main__header__actions" />
+
+          <div className="main__header__ende">
             {/*
-             * Der Platz für Knöpfe, die zur Überschrift gehören. Er steht immer
-             * hier und ist meistens leer; die Ansichten hängen sich mit
-             * `HeaderAction` hinein.
-             */}
-            <div id={HEADER_ACTIONS} className="main__header__actions" />
-            {/*
-              * Die Glocke steht im Kopf und nicht in einer Ansicht: Eine
+              * Die Glocke steht im Band und nicht in einer Ansicht: Eine
               * Meldung, die nur sieht, wer zufällig auf dem richtigen
-              * Bildschirm ist, hat ihren Zweck verfehlt.
+              * Bildschirm ist, hat ihren Zweck verfehlt. Sie trägt jetzt auch,
+              * was auf eine Entscheidung wartet.
               */}
-            <Meldungen tenantId="default" bereich={area} />
+            <Meldungen
+              tenantId="default"
+              bereich={area}
+              bedarf={bedarf}
+              onZumBedarf={() => setArea('consolidation')}
+            />
+            <Sprachwahl />
           </div>
-        )}
+        </div>
 
         {/*
          * Der scrollende Teil — und nur er.

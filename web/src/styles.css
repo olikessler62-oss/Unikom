@@ -55,6 +55,16 @@
   --rahmen-hell: #2a6ea6;
 
   /*
+   * Die Höhe des Kopfbands.
+   *
+   * Sie steht als Marke, weil zwei Bauteile sie tragen: der Schriftzug in der
+   * Seitenleiste und die Kopfleiste im Inhalt. Nur wenn beide dieselbe Höhe
+   * haben, liegt die Kante darunter über die ganze Breite auf einer Linie -
+   * und erst dann liest man die beiden als ein Band statt als zwei Kästen.
+   */
+  --bandhoehe: 4.75rem;
+
+  /*
    * Der Inhalt: sechs Stufen vom Grund bis zum Bedienelement.
    *
    * Auf hellem Grund hebt sich eine Fläche nicht durch mehr Licht, sondern
@@ -424,7 +434,7 @@ code {
   --g-4: rgba(255, 255, 255, 0.16);
 
   position: relative;
-  padding: 1.9rem 0 1.25rem;
+  padding: 0 0 1.25rem;
   display: flex;
   flex-direction: column;
   background: linear-gradient(
@@ -450,30 +460,37 @@ code {
   background: rgba(255, 255, 255, 0.12);
 }
 
+/*
+ * Der Schriftzug ist die linke Hälfte des Kopfbands.
+ *
+ * Er holt seine Höhe aus derselben Marke wie die Kopfleiste rechts daneben.
+ * Darunter liegt eine Linie: in der Leiste eine helle Kante, rechts die Kante
+ * zwischen Blau und Inhalt. Dieselbe Höhe, eine Linie.
+ *
+ * Hier stand einmal ein kurzer Leuchtstrich unter dem Wort. Er war die
+ * Abgrenzung, solange es kein Band gab; jetzt grenzt das Band selbst ab, und
+ * zwei Striche übereinander wären einer zu viel.
+ */
 .sidebar__brand {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: var(--bandhoehe);
+  min-height: var(--bandhoehe);
+  padding: 0 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 1.3rem;
   font-weight: 600;
   letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--brand);
-  padding: 0 1.5rem;
-}
-
-.sidebar__brand::after {
-  content: '';
-  display: block;
-  width: 74px;
-  height: 1px;
-  margin-top: 0.85rem;
-  background: linear-gradient(90deg, rgb(var(--accent)) 0%, rgba(var(--accent), 0.25) 62%, transparent 100%);
-  box-shadow: 0 0 10px rgba(var(--accent), 0.55);
 }
 
 .sidebar__nav {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  margin-top: 1.9rem;
+  margin-top: 1.4rem;
   padding: 0 0.85rem;
 }
 
@@ -557,20 +574,33 @@ code {
  * scrollt nicht — er teilt die Höhe zwischen beiden auf und schneidet ab, was
  * darüber hinausgeht.
  */
+/*
+ * Der Bereich trägt selbst keinen Innenabstand mehr.
+ *
+ * Er hatte einmal einen, und der Kopf saß darin. Das Kopfband soll aber bis an
+ * beide Ränder laufen - es ist der Rahmen und nicht der Inhalt. Den Abstand
+ * tragen jetzt die Teile, die ihn brauchen: der rollende Kasten und der Fuß.
+ */
 .main {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 2.1rem 2.75rem 2.1rem;
+  min-width: 0;
 }
 
 /*
- * Die Lesebreite bleibt begrenzt. Sie sitzt an den beiden Kindern — Kopf und
- * scrollender Kasten — und nicht am Bereich selbst, damit der Kopf auf einem
- * sehr breiten Bildschirm über dem Inhalt steht und nicht über dem Fenster.
+ * Die Lesebreite bleibt begrenzt - für das, was gelesen wird. Für das Band
+ * nicht: Ein Kopf, der auf einem breiten Bildschirm mitten im Fenster aufhört,
+ * wäre kein Rahmen mehr, sondern eine Fläche mit einem Rest daneben.
+ *
+ * Der Innenabstand zählt zur Breite - `box-sizing: border-box` gilt überall -,
+ * deshalb steht er in der Rechnung mit drin. Die Lesebreite bleibt dieselbe.
  */
-.main > * {
-  max-width: 1180px;
+.main > .main__body,
+.main > .main__footer {
+  max-width: calc(1180px + 5.5rem);
+  padding-left: 2.75rem;
+  padding-right: 2.75rem;
 }
 
 /*
@@ -594,6 +624,8 @@ code {
 .main > .main__body {
   flex: 1 1 auto;
   min-height: 0;
+  padding-top: 1.6rem;
+  padding-bottom: 2.1rem;
   overflow-y: auto;
 }
 
@@ -621,25 +653,138 @@ code {
  * Der Editor teilt sich die Höhe selbst ein und bringt seinen Bildlauf mit.
  * Hier wird deshalb nicht gescrollt, sondern nur Platz gemacht.
  */
-.main--fills {
-  padding-bottom: 1.5rem;
-}
-
 .main--fills > .main__body {
+  padding-bottom: 1.5rem;
   overflow: hidden;
 }
 
+/*
+ * Das Kopfband - die rechte Hälfte, über dem Inhalt.
+ *
+ * Es ist so hoch wie der Schriftzug in der Seitenleiste, und das ist keine
+ * Kosmetik: Beide holen ihre Höhe aus `--bandhoehe`, damit die Kante darunter
+ * über die ganze Breite auf einer Linie liegt.
+ *
+ * Der Verlauf läuft waagerecht und beginnt dunkel - der senkrechte in der
+ * Leiste ebenso. An der Ecke, an der die beiden zusammenstoßen, tragen sie
+ * deshalb denselben Ton, und aus zwei Flächen wird ein Band.
+ *
+ * ## Warum hier keine Marken umgeschlagen werden
+ *
+ * Die Seitenleiste dreht ihre Farbmarken um und färbt damit alles ein, was in
+ * ihr steht - ein Griff für viele Bausteine. Hier trägt derselbe Griff nicht:
+ * Aus dem Band klappen Listen heraus, die der Meldungen und die der Sprachen,
+ * und die hängen über dem hellen Inhalt. Sie nähmen die umgeschlagenen Marken
+ * mit und stünden weiß auf weiß da.
+ *
+ * Das Band trägt drei Dinge, also stehen hier drei Regeln. Was herausklappt,
+ * bleibt beim Hellen und holt sich nur seine Schriftfarbe zurück.
+ */
 .main__header {
-  /* Für die Linie darunter, die sich an seiner Unterkante festmacht. */
-  position: relative;
   flex: none;
+  box-sizing: border-box;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--step);
-  padding: 0.95rem 0 0.9rem;
-  margin-bottom: 1.6rem;
-  background: var(--g-ground);
+  align-items: center;
+  gap: 0.9rem;
+  height: var(--bandhoehe);
+  min-height: var(--bandhoehe);
+  padding: 0 1.6rem 0 2.75rem;
+  background: linear-gradient(
+    90deg,
+    var(--rahmen-dunkel) 0%,
+    var(--rahmen) 60%,
+    var(--rahmen-hell) 100%
+  );
+  color: #ffffff;
+}
+
+.main__header h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+}
+
+/* Rechts im Band: die Glocke und die Sprache. */
+.main__header__ende {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-left: auto;
+}
+
+/* Ein Knopf im Band ist hell umrandet. Ein blauer Knopf auf Blau wäre keiner. */
+.main__header button.secondary {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.main__header button.secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+}
+
+.main__header .bell__button {
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+.main__header .bell__button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/*
+ * Die drängende Glocke im Band.
+ *
+ * Das Alarmrot ist für hellen Grund gemischt und säuft auf dem Blau ab. Es wird
+ * deshalb aufgehellt und nicht ausgetauscht: Die Farbe bleibt dieselbe Marke,
+ * sie bekommt nur so viel Weiß, wie der dunkle Grund verlangt.
+ */
+.main__header .bell__button--urgent {
+  border-color: color-mix(in srgb, rgb(var(--alarm)) 60%, white);
+  color: color-mix(in srgb, rgb(var(--alarm)) 45%, white);
+}
+
+/*
+ * Was aus dem Band herausklappt, hängt über dem hellen Inhalt.
+ *
+ * Seine Fläche kommt ohnehin aus den Marken und ist hell; nur die Schriftfarbe
+ * erbt es vom Band und wäre weiß. Eine Zeile, die genau dann verschwindet, wenn
+ * man sie aufklappt.
+ */
+.main__header .bell__panel,
+.main__header .modal {
+  color: var(--text);
+}
+
+/*
+ * Die Sprache steht oben rechts, im Band.
+ *
+ * Ein Auswahlfeld ohne Fläche: Es trägt seinen Wert und das Zeichen daneben,
+ * sonst nichts. Eine gerahmte Fläche neben der Glocke wäre ein zweites
+ * Bedienelement mit eigenem Gewicht - und die Sprache stellt man einmal ein und
+ * danach selten wieder. Erst wenn der Zeiger darauf steht, bekommt sie eine.
+ *
+ * Die aufgeklappte Liste bleibt hell: Ihre Einträge tragen ihre Farbe selbst
+ * (`select option`), sie erben sie nicht vom Band.
+ */
+.sprachwahl select {
+  width: auto;
+  padding: 0.35rem 0.55rem;
+  border-color: transparent;
+  background: transparent;
+  color: #ffffff;
+  font-size: 0.88rem;
+}
+
+.sprachwahl select:hover,
+.sprachwahl select:focus,
+.sprachwahl select:focus-visible {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
 }
 
 /*
@@ -651,16 +796,6 @@ code {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-}
-
-.main__header::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(var(--accent), 0.8) 0%, var(--rule-strong) 28%, transparent 88%);
 }
 
 /*
@@ -1347,6 +1482,28 @@ code {
   border-radius: var(--radius);
   background: linear-gradient(168deg, var(--g-3) 0%, var(--g-2) 55%, var(--g-1) 100%);
   box-shadow: 0 28px 60px -30px rgba(var(--shade), 0.95);
+}
+
+/*
+ * Der Abschnitt in der Glocke, der sagt, was auf eine Entscheidung wartet.
+ *
+ * Er steht über den Meldungen und ist durch eine Linie darunter von ihnen
+ * getrennt - nicht durch eine eigene Fläche. Zwei Flächen übereinander in einem
+ * Fenster, das selbst eine Fläche ist, sind eine Schachtel zu viel; die Linie
+ * sagt dasselbe.
+ */
+.bell__bedarf {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Der Knopf trägt die ganze Breite: Er ist der Weg dorthin, kein Nebenweg. */
+.bell__bedarf button {
+  width: 100%;
 }
 
 .bell__list {

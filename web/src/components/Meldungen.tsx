@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client.js';
 import { Modal } from './Pieces.js';
-import type { Benachrichtigung, Meldestand, Meldungsantwort } from '../api/types.js';
+import type {
+  Benachrichtigung,
+  Handlungsbedarf,
+  Meldestand,
+  Meldungsantwort,
+} from '../api/types.js';
 
 /**
  * Das Benachrichtigungscenter (SPEC-01, Abschnitt 19 bis 22).
@@ -28,7 +33,28 @@ import type { Benachrichtigung, Meldestand, Meldungsantwort } from '../api/types
  */
 const OFFEN_HOLEN_ALLE_MS = 30_000;
 
-export function Meldungen({ tenantId, bereich }: { tenantId: string; bereich: string }) {
+export function Meldungen({
+  tenantId,
+  bereich,
+  bedarf,
+  onZumBedarf,
+}: {
+  tenantId: string;
+  bereich: string;
+  /**
+   * Was auf eine Entscheidung wartet - über alle Mandanten.
+   *
+   * Es kommt von außen und wird hier nicht geholt: Die Zahl gilt für die ganze
+   * Installation, die Meldungen daneben gelten für einen Mandanten. Zwei
+   * Abfragen mit verschiedenem Umfang gehören nicht in dasselbe Bauteil.
+   *
+   * Fehlt sie, ist sie nicht null, sondern unbekannt - dann steht hier nichts.
+   * Eine Null zu zeigen hieße zu behaupten, es liege nichts an, und das ist die
+   * eine Auskunft, die niemand nachprüft.
+   */
+  bedarf?: Handlungsbedarf;
+  onZumBedarf?(): void;
+}) {
   const [antwort, setAntwort] = useState<Meldungsantwort>();
   const [offen, setOffen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -123,6 +149,19 @@ export function Meldungen({ tenantId, bereich }: { tenantId: string; bereich: st
   }, [tenantId]);
 
   const stand: Meldestand = antwort?.stand ?? { offen: 0, draengend: 0 };
+  /*
+   * Eine Glocke, eine Zahl.
+   *
+   * Der Handlungsbedarf stand einmal als „(3)" am Menüpunkt. Beides zugleich
+   * wären zwei Zähler für dieselbe Sache an zwei Orten - und der eine, den
+   * jemand später zu ändern vergisst, widerspricht dann dem anderen.
+   *
+   * Die Alarmfarbe bekommt er nicht. Sie ist dem vorbehalten, was nicht warten
+   * kann; ein Konflikt liegt womöglich seit gestern und darf das auch. Eine
+   * Glocke, die dauerhaft rot ist, ist eine Glocke, die niemand mehr ansieht.
+   */
+  const wartet = bedarf?.gesamt ?? 0;
+  const zahl = stand.offen + wartet;
   const meldungen = antwort?.meldungen ?? [];
 
   async function bestaetigen(id: string): Promise<void> {
@@ -206,9 +245,9 @@ export function Meldungen({ tenantId, bereich }: { tenantId: string; bereich: st
         type="button"
         className={stand.draengend > 0 ? 'bell__button bell__button--urgent' : 'bell__button'}
         title={
-          stand.offen === 0
-            ? 'Keine offenen Meldungen'
-            : `${stand.offen} offen, davon ${stand.draengend} dringend`
+          zahl === 0
+            ? 'Nichts liegt an'
+            : `${stand.offen} Meldungen offen, davon ${stand.draengend} dringend; ${wartet} wartet auf eine Entscheidung`
         }
         aria-label="Benachrichtigungen"
         onClick={umschalten}
@@ -217,11 +256,34 @@ export function Meldungen({ tenantId, bereich }: { tenantId: string; bereich: st
           <path d="M12 3a5.5 5.5 0 0 0-5.5 5.5c0 3.5-1 5-2 6.2-.4.5 0 1.3.7 1.3h13.6c.7 0 1.1-.8.7-1.3-1-1.2-2-2.7-2-6.2A5.5 5.5 0 0 0 12 3z" />
           <path d="M10 19a2 2 0 0 0 4 0" />
         </svg>
-        {stand.offen > 0 && <span className="bell__count">{stand.offen}</span>}
+        {zahl > 0 && <span className="bell__count">{zahl}</span>}
       </button>
 
       {offen && (
         <div className="bell__panel">
+          {/*
+            * Was auf eine Entscheidung wartet, steht oben - vor den Meldungen.
+            *
+            * Eine Meldung sagt, dass etwas geschehen ist; hier steht, dass etwas
+            * geschehen soll. Das Zweite hat Vorrang, und deshalb steht es zuerst.
+            *
+            * Der Abschnitt fehlt ganz, wenn nichts wartet. Eine Überschrift mit
+            * zwei Nullen darunter ist eine Zeile, die man ab dem zweiten Mal
+            * überliest - und dann auch dann, wenn dort keine Null mehr steht.
+            */}
+          {bedarf && bedarf.gesamt > 0 && (
+            <div className="bell__bedarf">
+              <div className="row row--between">
+                <strong>Handlungsbedarf</strong>
+                <span className="muted">{bedarf.gesamt} offen</span>
+              </div>
+
+              <button className="secondary" onClick={() => { setOffen(false); onZumBedarf?.(); }}>
+                {bedarf.konflikte} Konflikte, {bedarf.freigaben} Freigaben
+              </button>
+            </div>
+          )}
+
           <div className="row row--between">
             <strong>Benachrichtigungen</strong>
             <span className="muted">{stand.offen} offen</span>
