@@ -5,7 +5,7 @@ import { ResultScreen } from './ResultScreen.js';
 import { Reiter } from '../components/Pieces.js';
 
 /**
- * Der Bereich „Daten konsolidieren" — das, was davon täglich zu tun ist.
+ * Der Bereich „Handlungsbedarf" — was vom Konsolidieren täglich zu tun bleibt.
  *
  * ## Was hier stand und warum es fort ist
  *

@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 
+import { api } from './api/client.js';
+
 import { useAuswahlschliesser } from './components/Auswahlschliesser.js';
 import { Meldungen } from './components/Meldungen.js';
 import { MenuIcon } from './components/MenuIcon.js';
@@ -21,7 +23,17 @@ import { ConsolidationScreen } from './screens/ConsolidationScreen.js';
 import { WorkflowsScreen } from './screens/WorkflowsScreen.js';
 import { useSession } from './session/useSession.js';
 import { FOOTER_ACTIONS, HEADER_ACTIONS, Notice } from './components/Pieces.js';
-import type { Licence, Permission } from './api/types.js';
+import type { Handlungsbedarf, Licence, Permission } from './api/types.js';
+
+/**
+ * Wie oft die Zahl neben „Handlungsbedarf" nachgeholt wird.
+ *
+ * Zwei Minuten: Ein Konflikt entsteht im Lauf, und Läufe laufen nachts oder
+ * stundenweise — sekundengenau muss die Zahl nicht sein. Sie soll nur nicht
+ * eine halbe Stunde lang etwas anderes behaupten, als der Bildschirm dahinter
+ * zeigt.
+ */
+const BEDARF_HOLEN_ALLE_MS = 120_000;
 
 /** Alles außer „gilt" und „wird nicht geprüft" gehört auf den Bildschirm. */
 function needsAttention(licence: Licence): boolean {
@@ -34,6 +46,14 @@ interface Area {
   label: TextKey;
   /** Hidden without it. The server refuses regardless; this only tidies up. */
   permission: Permission;
+  /**
+   * Ob hinter dem Namen die Zahl des Ausstehenden steht.
+   *
+   * Nur an einer Stelle, und das ist Absicht: Eine Zahl an jedem Punkt wäre
+   * eine Anzeigetafel, an der man nichts mehr unterscheidet. Sie steht dort,
+   * wo etwas auf einen Menschen wartet — und nirgends sonst.
+   */
+  bedarf?: boolean;
 }
 
 /**
@@ -54,7 +74,19 @@ const BLOCKS: Area[][] = [
     { id: 'jobs', label: 'nav.jobs', permission: 'VIEW' },
     { id: 'history', label: 'nav.history', permission: 'VIEW' },
     { id: 'workflows', label: 'nav.workflows', permission: 'VIEW' },
-    { id: 'consolidation', label: 'nav.consolidation', permission: 'MANAGE_JOBS' },
+    /*
+     * „Handlungsbedarf" und nicht „Daten konsolidieren".
+     *
+     * Der Modulname benennt die Tätigkeit, die schon vorbei ist — konsolidiert
+     * wurde nachts, ohne Zuschauer. Was hier liegt, ist das, was die Maschine
+     * **nicht** entscheiden durfte: ein Konflikt, den ein Mensch entscheidet,
+     * und ein Ergebnis, das ein Mensch freigibt.
+     *
+     * Der Modulname steht deshalb, wo er hingehört: auf der Lizenzseite und am
+     * Workflow-Schritt. Der Punkt erscheint, **weil** das Modul gekauft ist;
+     * heißen muss er deswegen nicht so.
+     */
+    { id: 'consolidation', label: 'nav.consolidation', permission: 'MANAGE_JOBS', bedarf: true },
   ],
   /*
    * Ein einziger Punkt für den Kunden — und alles, was ihn betrifft, darin.
@@ -127,6 +159,43 @@ function useOverflowing(reference: React.RefObject<HTMLElement | null>): boolean
   return overflowing;
 }
 
+/**
+ * Die Zahl neben „Handlungsbedarf" — über alle Mandanten.
+ *
+ * Sie kommt aus einer eigenen Route und nicht aus den Bildschirmen dahinter:
+ * Die liefern ganze Listen samt Datensätzen und kennen je einen Mandanten. Für
+ * eine Zahl, die alle zwei Minuten neu geholt wird, wäre das die falsche Menge
+ * über die Leitung — und die Schleife über die Mandanten stünde im Browser.
+ *
+ * Ein Fehlschlag bleibt still. Wenn die Zahl nicht zu holen ist, ist die
+ * richtige Anzeige **keine** Zahl — eine Null zu zeigen hieße zu behaupten, es
+ * liege nichts an, und das wäre die eine Auskunft, die niemand nachprüft.
+ */
+function useHandlungsbedarf(): Handlungsbedarf | undefined {
+  const [bedarf, setBedarf] = useState<Handlungsbedarf>();
+
+  useEffect(() => {
+    let gilt = true;
+
+    const holen = (): void => {
+      void api
+        .get<Handlungsbedarf>('/api/handlungsbedarf')
+        .then((antwort) => gilt && setBedarf(antwort))
+        .catch(() => gilt && setBedarf(undefined));
+    };
+
+    holen();
+    const takt = setInterval(holen, BEDARF_HOLEN_ALLE_MS);
+
+    return () => {
+      gilt = false;
+      clearInterval(takt);
+    };
+  }, []);
+
+  return bedarf;
+}
+
 /** Which screen is open. Deliberately plain state, not a routing library. */
 type View = { area: string; editingJob?: string; historyJob?: string };
 
@@ -144,6 +213,7 @@ export function App() {
   const [view, setView] = useState<View>({ area: 'dashboard' });
   const body = useRef<HTMLDivElement>(null);
   const bodyScrolls = useOverflowing(body);
+  const bedarf = useHandlungsbedarf();
   const area = view.area;
   const setArea = (next: string): void => setView({ area: next });
 
@@ -203,7 +273,18 @@ export function App() {
                   onClick={() => setArea(entry.id)}
                 >
                   <MenuIcon name={entry.id} />
+                  {/*
+                    * Die Zahl steht in Klammern hinter dem Namen und nicht als
+                    * Punkt am Rand: Sie gehört zum Wort. „Handlungsbedarf (3)"
+                    * liest sich als ein Stück — ein Abzeichen daneben wäre eine
+                    * zweite Sache, die man erst zuordnen muss.
+                    *
+                    * Bei null steht keine Klammer. „(0)" sagt dasselbe wie
+                    * nichts, nimmt aber Aufmerksamkeit — und die soll die Zahl
+                    * nur dann bekommen, wenn sie etwas will.
+                    */}
                   {t(entry.label)}
+                  {entry.bedarf && bedarf && bedarf.gesamt > 0 && ` (${bedarf.gesamt})`}
                 </button>
               ))}
             </Fragment>

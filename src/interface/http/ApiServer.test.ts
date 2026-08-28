@@ -11,6 +11,7 @@ import { ApiServer, CSRF_HEADER } from './ApiServer.js';
 import { createInMemoryApplication, type UnikomApplication } from '../../application/runtime/UnikomApplication.js';
 import { StaticFeatureSet } from '../../domain/licensing/Feature.js';
 import { createTransferJob } from '../../testing/TransferJobFixture.js';
+import { backgroundRoutes } from './routes/BackgroundRoutes.js';
 import { discoveryRoutes } from './routes/DiscoveryRoutes.js';
 import { jobRoutes } from './routes/JobRoutes.js';
 import type { Role } from '../../domain/users/User.js';
@@ -3071,6 +3072,66 @@ test('was keine Textdatei ist, kommt als Antwort zurück und nicht als Fehler', 
   assert.equal(antwort.body.ok, false);
   assert.match(antwort.body.message, /Excel/);
   assert.equal(antwort.body.text, undefined);
+});
+
+test('der Handlungsbedarf zählt über alle Mandanten und nur, was ansteht', async (t) => {
+  /*
+   * Die Zahl neben dem Menüpunkt. Sie steht über allen Kunden: Wer acht
+   * betreut, will morgens einmal hinsehen und nicht achtmal — wessen Fall es
+   * ist, steht im Bildschirm dahinter.
+   */
+  const client = await harness(t);
+  await withUser(client, 'gerda', 'ADMIN');
+  await client.login('gerda');
+
+  const leer = await client.request('GET', '/api/handlungsbedarf');
+
+  assert.equal(leer.status, 200);
+  assert.deepEqual(leer.body, { konflikte: 0, freigaben: 0, gesamt: 0 });
+
+  const zeitpunkt = '2026-08-28T02:00:00.000Z';
+  const fall = (id: string, status: 'OFFEN' | 'ZURUECKGESTELLT') => ({
+    id,
+    tenantId: 'default',
+    laufId: 'lauf-1',
+    datensatz: '4711',
+    art: 'WERTKONFLIKT',
+    kritikalitaet: 'KONFLIKT' as const,
+    status,
+    ursache: 'Zwei Quellen, zwei Werte',
+    erwartet: 'ein Ort',
+    vorgefunden: 'Bonn und Köln',
+    naechsteSchritte: 'Einen der beiden wählen',
+    quellen: ['nord.csv'],
+    felder: [],
+    entstanden: zeitpunkt,
+    geaendert: zeitpunkt,
+    fassung: 1,
+  });
+
+  await client.application.conflictRepository.save(fall('fall-1', 'OFFEN'));
+  await client.application.conflictRepository.save(fall('fall-2', 'ZURUECKGESTELLT'));
+
+  const danach = await client.request('GET', '/api/handlungsbedarf');
+
+  // Der zurückgestellte zählt nicht: Jemand hat ihn angesehen und vertagt.
+  assert.deepEqual(danach.body, { konflikte: 1, freigaben: 0, gesamt: 1 });
+});
+
+test('die Zahl im Menü verlangt nur das Recht zu sehen', async (t) => {
+  /*
+   * Sie steht neben einem Punkt, den auch sieht, wer nichts verwalten darf.
+   * Eine Zahl, die für die Hälfte der Leute fehlt, wäre schlechter als keine:
+   * Dann hieße „keine Klammer" für die einen „nichts liegt an" und für die
+   * anderen „ich darf es nicht wissen".
+   */
+  const client = await harness(t);
+  const route = backgroundRoutes(client.application).find(
+    (eintrag) => eintrag.pattern === '/api/handlungsbedarf' && eintrag.method === 'GET'
+  );
+
+  assert.ok(route, '/api/handlungsbedarf gibt es nicht mehr');
+  assert.equal(route.authorization, 'VIEW');
 });
 
 test('das Lesen einer Beispieldatei verlangt dasselbe Recht wie das Blättern', async (t) => {

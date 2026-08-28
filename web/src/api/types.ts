@@ -794,6 +794,13 @@ export interface Dateiprobe {
   gekuerzt?: boolean;
 }
 
+/** Was auf einen Menschen wartet — die Zahl neben „Handlungsbedarf". */
+export interface Handlungsbedarf {
+  konflikte: number;
+  freigaben: number;
+  gesamt: number;
+}
+
 export interface DirectoryCheckResult {
   ok: boolean;
   message: string;

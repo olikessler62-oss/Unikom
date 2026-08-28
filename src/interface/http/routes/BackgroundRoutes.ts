@@ -1,6 +1,7 @@
 import type { UnikomApplication } from '../../../application/runtime/UnikomApplication.js';
 import type { AuthenticatedSession } from '../../../application/users/SessionService.js';
 import { KANAELE } from '../../../domain/background/Benachrichtigung.js';
+import { handlungsbedarf, zusammen } from '../../../domain/background/Handlungsbedarf.js';
 import { verhaltenVon } from '../../../domain/conflicts/Konfliktverhalten.js';
 import { ApiError, ok, type Route } from '../Http.js';
 
@@ -23,6 +24,50 @@ export function backgroundRoutes(application: UnikomApplication): Route[] {
       pattern: '/api/background/processes',
       authorization: 'VIEW',
       handle: async () => ok(await application.backgroundService.prozesse()),
+    },
+    {
+      /*
+       * Was auf einen Menschen wartet — die Zahl neben dem Menüpunkt.
+       *
+       * ## Über alle Mandanten
+       *
+       * Das Menü steht über allen Kunden und nicht in einem. Wer acht betreut,
+       * will morgens **eine** Zahl sehen; wessen Fall es ist, steht im
+       * Bildschirm dahinter.
+       *
+       * ## Warum eine eigene Route und nicht zweimal die vorhandenen
+       *
+       * `/api/conflicts` und `/api/results` liefern beide ganze Listen samt
+       * Datensätzen — für eine Zahl im Menü, die im Takt weniger Minuten neu
+       * geholt wird, ist das die falsche Menge über die Leitung. Und sie kennen
+       * je einen Mandanten; die Schleife darüber stünde sonst im Browser, der
+       * dafür erst alle Mandanten laden müsste.
+       *
+       * ## Eine Abfrage je Mandant
+       *
+       * Die Bestände fragen nach Mandant, nicht über alle. Bei den Zahlen, um
+       * die es hier geht — ein Haus mit einer Handvoll Kunden — ist das in
+       * Ordnung. Würde daraus einmal ein Dienstleister mit dreihundert, gehört
+       * die Zählung in die Datenbank statt in diese Schleife; die Stelle dafür
+       * ist dann `Konfliktbestand` und `Ergebnisbestand`, nicht diese Route.
+       */
+      method: 'GET',
+      pattern: '/api/handlungsbedarf',
+      authorization: 'VIEW',
+      handle: async () => {
+        const mandanten = await application.tenantService.list();
+
+        const je = await Promise.all(
+          mandanten.map(async (mandant) =>
+            handlungsbedarf(
+              await application.conflictRepository.list(mandant.id),
+              await application.resultRepository.list(mandant.id)
+            )
+          )
+        );
+
+        return ok(zusammen(je));
+      },
     },
     {
       method: 'GET',

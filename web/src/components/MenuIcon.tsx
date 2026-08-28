@@ -23,12 +23,19 @@ const PATHS: Record<string, string> = {
   // Ein Haus mit Etagen — der Mandant.
   tenants: 'M4 20V7l8-4 8 4v13M9 20v-5h6v5M8 10h.01M12 10h.01M16 10h.01',
   /*
-   * Drei Zuflüsse, die zu einem werden — das ist Konsolidierung, und es ist
-   * das Bild, das der Kunde im Kopf hat, wenn er das Modul kauft. Ein Pfeil
-   * allein hieße „irgendwohin", zwei Spalten hießen „zuordnen" — und das ist
-   * nur einer der Teile darin.
+   * Ein Kasten mit einem Häkchen, das über seinen Rand hinausführt — etwas, das
+   * abzuhaken ist.
+   *
+   * Hier standen einmal drei Zuflüsse, die zu einem werden: das Bild der
+   * Konsolidierung. Der Punkt heißt aber nicht mehr so, und er meint auch nicht
+   * mehr das: Konsolidiert wird nachts, ohne Zuschauer. Was hier liegt, ist eine
+   * Liste, die jemand abarbeitet.
+   *
+   * Kein Ausrufezeichen und kein Warndreieck: Beides hieße „da ist etwas
+   * schiefgegangen". Ein offener Konflikt ist aber kein Fehler, sondern eine
+   * Frage — der Lauf hat sie richtigerweise nicht selbst beantwortet.
    */
-  consolidation: 'M3 6h4c2.2 0 4 1.8 4 4v2M3 12h8M3 18h4c2.2 0 4-1.8 4-4v-2M11 12h7M15 9l3 3-3 3',
+  consolidation: 'M20 11v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9M9 11l3 3 8-8',
   // Person mit Schultern.
   users: 'M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM5 20a7 7 0 0 1 14 0',
   // Zahnrad, auf die Linien reduziert.
