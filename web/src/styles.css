@@ -2646,20 +2646,25 @@ input[type='checkbox'] {
   padding: 1.1rem 1.4rem;
 }
 
+/*
+ * Hinweis und Knopfleiste folgen der Liste in gleichbleibendem Abstand.
+ *
+ * Sie hingen einmal am unteren Rand des Fensters. Bei einer kurzen Liste stand
+ * die Knopfleiste dann allein am Fuß, durch eine handbreite Leere von dem
+ * getrennt, worauf sie sich bezieht.
+ */
 .schiebefenster__hinweis {
-  flex: none;
-  margin: 0;
-  padding: 0 1.4rem 0.9rem;
+  margin: 0.9rem 0 0;
   font-size: var(--schrift);
   color: var(--text-soft);
 }
 
 .schiebefenster__fuss {
-  flex: none;
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.9rem 1.4rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
   border-top: 1px solid var(--rule);
 }
 
@@ -2709,9 +2714,38 @@ input[type='checkbox'] {
   color: var(--text);
 }
 
+/*
+ * Zwanzig Zeilen, dann rollt sie.
+ *
+ * Die Maße stehen als Marken daneben, weil die Rechnung sonst nicht
+ * nachvollziehbar wäre: 2,4rem ist die Höhe einer Zeile - zweimal 0,5rem
+ * Innenabstand und eine Zeile Text von 0,88rem bei 1,55facher Zeilenhöhe.
+ * Ändert sich eines davon, ändert sich die Zahl hier mit.
+ *
+ * Ohne Deckel wüchse die Liste bei hundert Workflows über den Bildschirm
+ * hinaus, und die Knopfleiste, die ihr jetzt folgt, wäre nur noch durch Rollen
+ * zu erreichen.
+ */
 .listenpanel__liste {
+  --listenzeile: 2.4rem;
+  --listenkopf: 2.5rem;
+
   min-height: 14rem;
-  overflow-x: auto;
+  max-height: calc(20 * var(--listenzeile) + var(--listenkopf));
+  overflow: auto;
+}
+
+/*
+ * Die Spaltenköpfe bleiben stehen, während darunter gerollt wird.
+ *
+ * Ihr Grund muss dafür deckend sein: Die 5 Prozent Weiß liegen sonst auf dem,
+ * was gerade daruntergerollt ist, und die Beschriftung stünde in den Zeilen.
+ */
+.listenpanel thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: color-mix(in srgb, #ffffff 5%, var(--color-surface));
 }
 
 /* ---------- Die Tabelle darin ---------- */

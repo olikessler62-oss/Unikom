@@ -32,13 +32,11 @@ interface Props {
   unterzeile?: string;
   /** Der Hinweis über der Knopfleiste. */
   hinweis?: string;
-  /** Was links in der Knopfleiste steht - „Öffnen" und was dazugehört. */
-  fuss?: ReactNode;
   onSchliessen(): void;
   children: ReactNode;
 }
 
-export function Schiebefenster({ titel, unterzeile, hinweis, fuss, onSchliessen, children }: Props) {
+export function Schiebefenster({ titel, unterzeile, hinweis, onSchliessen, children }: Props) {
   /**
    * Ob es an seinem Platz steht.
    *
@@ -101,22 +99,28 @@ export function Schiebefenster({ titel, unterzeile, hinweis, fuss, onSchliessen,
         </button>
       </header>
 
-      <div className="schiebefenster__koerper">{children}</div>
-
-      {hinweis && <p className="schiebefenster__hinweis">{hinweis}</p>}
-
       {/*
-        * Rechtsbündig, und was schließt, steht ganz rechts. Was links steht,
-        * ist die Handlung, wegen der das Fenster offen ist.
+        * Hinweis und Knopfleiste stehen **im** Körper, nicht darunter.
+        *
+        * Sie waren einmal am unteren Rand festgemacht, wie es ein Fenster
+        * gewohnt ist. Bei einer kurzen Liste stand die Knopfleiste dann allein
+        * am Fuß, durch eine handbreite Leere von dem getrennt, worauf sie sich
+        * bezieht. Jetzt folgen sie der Liste in gleichbleibendem Abstand und
+        * wandern mit ihr nach unten, wenn sie wächst.
         */}
-      <footer className="schiebefenster__fuss">
-        {fuss}
-        <span className="schiebefenster__luecke" />
-        <button type="button" className="secondary" onClick={schliesse}>
-          <KreuzStrich />
-          Schließen
-        </button>
-      </footer>
+      <div className="schiebefenster__koerper">
+        {children}
+
+        {hinweis && <p className="schiebefenster__hinweis">{hinweis}</p>}
+
+        <footer className="schiebefenster__fuss">
+          <span className="schiebefenster__luecke" />
+          <button type="button" onClick={schliesse}>
+            <KreuzStrich />
+            Schließen
+          </button>
+        </footer>
+      </div>
     </aside>
   );
 }

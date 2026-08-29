@@ -68,11 +68,6 @@ export function WorkflowsSchiebefenster({ canManage, onSchliessen, onOeffnen }: 
       titel="Workflows"
       unterzeile="Zeile wählen — Öffnen, Anlegen und Löschen gelten für den ausgesuchten Workflow."
       hinweis="Mandant in der Combobox wählen oder Zeile auswählen — Doppelklick zum Öffnen."
-      fuss={
-        <button type="button" disabled={!zeile} onClick={() => zeile && onOeffnen(zeile.id)}>
-          Öffnen
-        </button>
-      }
       onSchliessen={onSchliessen}
     >
       {meldung && <Notice kind={meldung.kind}>{meldung.text}</Notice>}
