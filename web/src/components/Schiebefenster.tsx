@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 
 /**
  * Ein Fenster, das unter der Seitenleiste hervorfährt (FR-011 §9).
@@ -11,9 +10,10 @@ import { createPortal } from 'react-dom';
  * Mitte erscheint, hat keinen Ort; eines, das unter der Leiste hervorkommt,
  * zeigt, woher es stammt - und wohin es wieder verschwindet.
  *
- * Der Rang liegt deshalb **unter** dem des Rahmens: Während es fährt, liegt es
- * hinter der Seitenleiste. Läge es darüber, schöbe es sich über das Menü und
- * käme aus dem Nichts.
+ * Sein Rang liegt deshalb **unter** der Seitenleiste und **über** dem Kopfband:
+ * Während es fährt, liegt es hinter der Leiste, und am Ziel deckt es das Band
+ * zu. Läge es über der Leiste, schöbe es sich über das Menü und käme aus dem
+ * Nichts; läge es unter dem Band, stünde sein eigener Kopf dahinter.
  *
  * ## Warum es sein Verschwinden selbst zu Ende bringt
  *
@@ -65,7 +65,20 @@ export function Schiebefenster({ titel, unterzeile, hinweis, fuss, onSchliessen,
     window.setTimeout(onSchliessen, FAHRZEIT_MS);
   }
 
-  return createPortal(
+  /*
+   * Kein Portal.
+   *
+   * Es lag zuerst am Ende des Dokuments, wie die Spec es für Fenster verlangt.
+   * Damit war sein Rang aber wertlos: Die Shell macht mit `isolate` eine eigene
+   * Ebene auf, und alles darin - auch die Seitenleiste mit ihrem hohen Rang -
+   * liegt zusammen auf deren Höhe. Ein Element daneben mit irgendeinem Rang
+   * darüber liegt über allem. Das Fenster fuhr über die Leiste statt darunter.
+   *
+   * Es steht deshalb in der Shell, wo sein Rang mit dem der Leiste und dem des
+   * Bandes verglichen wird. `position: fixed` bleibt davon unberührt - kein
+   * Vorfahre trägt eine Verschiebung, die daraus etwas anderes machte.
+   */
+  return (
     <aside
       className={drin ? 'schiebefenster schiebefenster--drin' : 'schiebefenster'}
       role="dialog"
@@ -104,8 +117,7 @@ export function Schiebefenster({ titel, unterzeile, hinweis, fuss, onSchliessen,
           Schließen
         </button>
       </footer>
-    </aside>,
-    document.body,
+    </aside>
   );
 }
 

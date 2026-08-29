@@ -328,7 +328,7 @@ export function App() {
 
   return (
     <div className="app-shell-root relative isolate flex min-h-dvh w-full max-w-full flex-col overflow-x-clip overflow-y-auto md:h-dvh md:min-h-0 md:flex-row md:overflow-hidden">
-      <div className="app-shell-sidebar relative z-[var(--z-rahmen)] flex w-full shrink-0 flex-col overflow-visible border-b md:h-full md:min-h-0 md:w-[var(--app-shell-sidebar-width)] md:overflow-hidden md:border-b-0">
+      <div className="app-shell-sidebar relative z-[var(--z-leiste)] flex w-full shrink-0 flex-col overflow-visible border-b md:h-full md:min-h-0 md:w-[var(--app-shell-sidebar-width)] md:overflow-hidden md:border-b-0">
         {/*
           * Das Logo-Band. Es ist die linke Hälfte der Kopfzeile und holt seine
           * Höhe aus derselben Marke wie die Kopfleiste rechts daneben - nur so
@@ -450,7 +450,7 @@ export function App() {
           * Editors steht jetzt darunter; er nennt den Workflow und die Kette
           * der Schritte, und das ist etwas anderes als der Name des Bereichs.
           */}
-        <header className="app-page-toolbar-header relative z-[var(--z-rahmen)] flex h-[var(--app-shell-brand-band-height)] max-h-[var(--app-shell-brand-band-height)] min-h-[var(--app-shell-brand-band-height)] w-full min-w-0 shrink-0 flex-row items-stretch px-0">
+        <header className="app-page-toolbar-header relative z-[var(--z-band)] flex h-[var(--app-shell-brand-band-height)] max-h-[var(--app-shell-brand-band-height)] min-h-[var(--app-shell-brand-band-height)] w-full min-w-0 shrink-0 flex-row items-stretch px-0">
           {/*
             * Eine Zeile in Segmenten, getrennt durch Linien über die volle
             * Bandhöhe. Sie ist so breit wie ihr Inhalt und mindestens so breit

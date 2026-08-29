@@ -256,24 +256,25 @@
    * kein Rang, das ist ein Zufall, der sich beim nächsten Umbau umdreht.
    *
    *   30  Was an einem Feld aufklappt - Memo, Meldung
-   *   40  Das Schiebefenster
-   *   45  Der Rahmen: Seitenleiste, Schriftzug, Kopfband
+   *   44  Das Kopfband
+   *   45  Das Schiebefenster
+   *   46  Die Seitenleiste samt Schriftzug
    *   50  Fenster
    *   60  Die Liste eines Auswahlfelds
    *
-   * Der Rahmen liegt über dem Inhalt und allem, was aus ihm aufklappt, und
-   * unter den Fenstern. Die drei Teile tragen denselben Rang: Sie sind
-   * *eine* Ebene, auch wenn sie verschieden gefärbt sind - und eine Ebene wirft
-   * keinen Schatten auf sich selbst.
+   * Der Rahmen liegt über dem Inhalt und allem, was aus ihm aufklappt, und unter
+   * den Fenstern. Seine drei Teile sind *eine* Fläche - gleiche Sprache,
+   * verschiedene Farben - aber sie tragen zwei Ränge, und dazwischen passt genau
+   * eines: das Schiebefenster. Es fährt unter der Leiste hervor und über das
+   * Kopfband. Ohne den Spalt ginge nur beides oder keines.
+   *
+   * Dass eine Ebene keinen Schatten auf sich selbst wirft, gilt weiter - der
+   * Schatten der Leiste beginnt deshalb erst unterhalb des Bandes.
    * =================================================================== */
   --z-feld-ausklapp: 30;
-  /*
-   * Unter dem Rahmen, und das ist der Sinn der Sache: Das Schiebefenster kommt
-   * unter der Seitenleiste hervor. Läge es darüber, schöbe es sich über das
-   * Menü und käme aus dem Nichts.
-   */
-  --z-schiebefenster: 40;
-  --z-rahmen: 45;
+  --z-band: 44;
+  --z-schiebefenster: 45;
+  --z-leiste: 46;
   --z-fenster: 50;
   /*
    * Über den Fenstern, und das muss so sein: Ein Auswahlfeld steht oft in einem
@@ -867,24 +868,29 @@ code {
   background: var(--app-shell-header-panel-gradient-vertical);
   color: var(--text);
 
-  /*
-   * Der Schatten fällt nach rechts - und nur auf den Inhalt.
-   *
-   * Er läuft über die volle Höhe der Leiste und liefe damit auch über das
-   * Kopfband, das rechts daneben beginnt. Das wäre falsch: Leiste, Schriftzug
-   * und Band sind eine Ebene, und eine Ebene wirft keinen Schatten auf sich
-   * selbst - nur auf das, was darunter liegt.
-   *
-   * Verhindert wird das nicht durch Zuschneiden, sondern durch die
-   * Reihenfolge: Beide tragen denselben Rang (`--z-rahmen`), und bei gleichem
-   * Rang malt, was im Dokument später steht. Das Band steht später und deckt
-   * den Schatten auf seiner Höhe zu. Unterhalb des Bandes ist nichts mehr, was
-   * ihn zudeckt - dort wirkt er.
-   *
-   * Wer die Leiste einmal hinter die Inhaltsspalte schreibt, bekommt den
-   * Schatten zurück aufs Band. Deshalb steht es hier.
-   */
+}
+
+/*
+ * Der Schatten der Leiste - und er beginnt erst unter dem Kopfband.
+ *
+ * Er hängt an einem Streifen an der rechten Kante und nicht an der Leiste
+ * selbst. Der Grund ist der Rang: Die Leiste liegt jetzt über dem Band, damit
+ * das Schiebefenster dazwischen passt - und ein Schatten an der Leiste selbst
+ * liefe damit wieder quer über das Band. Leiste, Schriftzug und Band sind eine
+ * Fläche, und eine Fläche wirft keinen Schatten auf sich selbst.
+ *
+ * Der Streifen beginnt deshalb genau dort, wo das Band endet. Was rechts davon
+ * liegt - der Inhalt oder ein hervorgefahrenes Fenster -, bekommt ihn.
+ */
+.app-shell-sidebar::after {
+  content: '';
+  position: absolute;
+  top: var(--app-shell-brand-band-height);
+  right: 0;
+  bottom: 0;
+  width: 1px;
   box-shadow: 12px 0 18px -10px rgb(2 6 23 / 0.5);
+  pointer-events: none;
 }
 
 /*
@@ -2463,7 +2469,11 @@ input[type='checkbox'] {
   position: fixed;
   z-index: var(--z-schiebefenster);
   left: var(--app-shell-sidebar-width);
-  top: var(--app-shell-brand-band-height);
+  /*
+   * Oben am Fensterrand und nicht unter dem Kopfband: Das Fenster legt sich
+   * über das Band. Sein eigener Kopf samt Schließen-Kreuz stünde sonst dahinter.
+   */
+  top: 0;
   bottom: 0;
   width: min(64rem, calc(100vw - var(--app-shell-sidebar-width)));
   display: flex;
