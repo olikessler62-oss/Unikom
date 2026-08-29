@@ -535,6 +535,18 @@ html[data-sw-modern='on'] {
    */
   --menue-gewaehlt: #2d353f;
   --menue-ueber: #3a4552;
+
+  /*
+   * Die Kante eines Fensters, das an eine andere Fläche stößt.
+   *
+   * Deutlich heller als `--rule-strong`. Der Unterschied ist ein Unterschied
+   * der Aufgabe: `--rule` und `--rule-strong` gliedern eine Fläche, hier stoßen
+   * zwei aneinander. Mit 22 Prozent Weiß war die Linie zwischen Seitenleiste
+   * und Schiebefenster nicht zu sehen - die Leiste ist an dieser Stelle selbst
+   * schon aufgehellt, und beides zusammen ergab keine Kante, sondern einen
+   * Übergang.
+   */
+  --kante-fenster: rgba(255, 255, 255, 0.45);
   --option-text: #ffffff;
   --picker-fill: #1b232d;
   --picker-edge: rgba(255, 255, 255, 0.14);
@@ -2489,8 +2501,8 @@ input[type='checkbox'] {
    * liefe es an beiden Seiten in seine Umgebung aus. Kräftiger als die Linien
    * *im* Fenster: Diese hier trennen zwei Flächen, jene gliedern eine.
    */
-  border-left: 1px solid var(--rule-strong);
-  border-right: 1px solid var(--rule-strong);
+  border-left: 1px solid var(--kante-fenster);
+  border-right: 1px solid var(--kante-fenster);
   box-shadow: 24px 0 48px -28px rgba(0, 0, 0, 0.9);
 
   /*
