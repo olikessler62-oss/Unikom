@@ -190,7 +190,7 @@ export function WorkflowsSchiebefenster({ canManage, features, onSchliessen }: P
                     >
                       <td>
                         <span className="listenpanel__punkt" aria-hidden="true" />
-                        <strong>{job.name}</strong>
+                        {job.name}
                       </td>
                       <td>{mandantName(job.tenantId)}</td>
                       <td>

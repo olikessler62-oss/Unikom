@@ -622,6 +622,22 @@ html[data-sw-modern='on'] {
   --panel-kopf-hell: #3f4a59;
   --panel-kopf-dunkel: #1e242c;
 
+  /*
+   * Der Grund einer Liste und die Schrift darin.
+   *
+   * Eigene Marken und nicht die der Fläche: Eine Liste ist die tiefste Ebene -
+   * ein Fenster steht auf dem Grund der Seite, eine Fläche auf dem des
+   * Fensters, und die Liste liegt noch darunter. Ihr Grund ist deshalb etwas
+   * dunkler als der Grund der Fläche, die sie trägt.
+   *
+   * Die Schrift ist gedämpft und mager. In einer Liste stehen Dutzende Zeilen
+   * untereinander; wäre jede davon so hell und so kräftig wie eine Überschrift,
+   * bliebe das Auge an keiner hängen. Was hervorgehoben ist - die überfahrene
+   * und die ausgesuchte Zeile -, steht dann umso deutlicher da.
+   */
+  --listen-grund: #191e24;
+  --listen-text: #b1c1cd;
+
   --shade: 0, 0, 0;
 }
 
@@ -2924,6 +2940,7 @@ input[type='checkbox'] {
   min-height: 14rem;
   max-height: calc(20 * var(--listenzeile) + var(--listenkopf));
   overflow: auto;
+  background: var(--listen-grund);
 }
 
 /*
@@ -2936,7 +2953,7 @@ input[type='checkbox'] {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: color-mix(in srgb, #ffffff 5%, var(--color-surface));
+  background: color-mix(in srgb, #ffffff 5%, var(--listen-grund));
 }
 
 /* ---------- Die Tabelle darin ---------- */
@@ -2956,8 +2973,9 @@ input[type='checkbox'] {
  *
  * Die Grundregel für `th` macht daraus Versalien in Festbreitenschrift mit
  * gesperrten Buchstaben - eine Beschriftung, die lauter ist als das, was sie
- * beschriftet. Hier steht dieselbe Schrift wie in den Zeilen darunter, nur
- * halbfett und gedämpft.
+ * beschriftet. Hier steht dieselbe Schrift wie in den Zeilen darunter: gleiche
+ * Farbe, gleiche Stärke. Was den Kopf von den Zeilen trennt, ist die Linie
+ * darunter und der etwas hellere Grund - dafür braucht es keinen zweiten Ton.
  */
 .listenpanel th {
   padding: 0.55rem 0.9rem;
@@ -2965,18 +2983,19 @@ input[type='checkbox'] {
   background: rgba(var(--sheen), 0.05);
   font-family: var(--sans);
   font-size: var(--schrift);
-  font-weight: 600;
+  font-weight: 400;
   text-align: left;
   text-transform: none;
   letter-spacing: 0;
-  color: var(--text-soft);
+  color: var(--listen-text);
   white-space: nowrap;
 }
 
 .listenpanel td {
   padding: 0.5rem 0.9rem;
   border-bottom: 1px solid rgba(var(--sheen), 0.06);
-  color: var(--text);
+  color: var(--listen-text);
+  font-weight: 400;
   vertical-align: middle;
   white-space: nowrap;
 }
