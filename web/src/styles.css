@@ -2495,6 +2495,67 @@ input[type='checkbox'] {
 }
 
 /* ===================================================================
+ * Ein Fenster über dem Inhaltsbereich - nicht über dem Bildschirm
+ *
+ * Es deckt genau das ab, was rechts der Leiste und unter dem Band liegt. Ein
+ * gewöhnliches Fenster legt sich über alles; hier bleibt der Rahmen sichtbar,
+ * und man sieht, wo man ist.
+ *
+ * Sein Rang ist der der Fenster und liegt damit über dem Schiebefenster: Es
+ * geht aus ihm hervor, und was aus etwas hervorgeht, liegt darüber. Das
+ * Schiebefenster bleibt offen dahinter stehen - wer den Editor schließt, ist
+ * wieder in der Liste, aus der er kam.
+ * =================================================================== */
+.bereichsfenster {
+  position: fixed;
+  z-index: var(--z-fenster);
+  left: var(--app-shell-sidebar-width);
+  top: var(--app-shell-brand-band-height);
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 9, 11, 0.72);
+}
+
+/*
+ * Vier Fünftel des Bereichs, in der Mitte.
+ *
+ * In Prozent und nicht in rem: Der Kasten soll mit dem Bereich wachsen, in dem
+ * er steht. Ein festes Maß wäre auf einem kleinen Bildschirm zu groß und auf
+ * einem großen verloren.
+ */
+.bereichsfenster__kasten {
+  display: flex;
+  flex-direction: column;
+  width: 80%;
+  height: 80%;
+  min-height: 0;
+  padding: 1.2rem 1.4rem;
+  border: 1px solid var(--kante-fenster);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.95);
+  overflow: hidden;
+}
+
+/* Auf einem schmalen Bildschirm nimmt es alles - vier Fünftel wären zu wenig. */
+@media (max-width: 767px) {
+  .bereichsfenster {
+    left: 0;
+    top: 0;
+  }
+
+  .bereichsfenster__kasten {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+/* ===================================================================
  * Das Schiebefenster (FR-011 §9) und seine Liste (§8)
  *
  * Es steht fest am Fensterrand und nicht im Fluss der Seite: Es beginnt an der

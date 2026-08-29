@@ -629,16 +629,8 @@ export function App() {
       {schieber === 'workflows' && (
         <WorkflowsSchiebefenster
           canManage={session.may('MANAGE_JOBS')}
+          features={identity.features ?? []}
           onSchliessen={() => setSchieber(undefined)}
-          onOeffnen={(jobId) => {
-            /*
-             * Der Editor steht in der Fläche und nicht im Fenster: Er füllt
-             * einen ganzen Bildschirm, und ein Fenster, das den ganzen
-             * Bildschirm füllt, ist keins mehr.
-             */
-            setSchieber(undefined);
-            setView({ area: 'workflows', editingJob: jobId });
-          }}
         />
       )}
     </div>
