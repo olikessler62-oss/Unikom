@@ -698,10 +698,21 @@ export function RowButton({
  */
 
 /** Stift — etwas ändern. */
+/**
+ * Stift — bearbeiten.
+ *
+ * Ein Umriss mit Spitze, dazu die Linie darunter, auf der geschrieben wird.
+ *
+ * Er war vorher ein Viereck: unten eine waagerechte Kante von vier Einheiten
+ * statt einer Spitze, und der Strich für die Zwinge lag außerhalb des Körpers.
+ * Bei siebzehn Pixeln sah man davon einen Balken und einen losen Strich daneben.
+ */
 export function PencilIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="icon--strich">
-      <path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />
+      <path d="M17.2 3.6a2.2 2.2 0 0 1 3.2 3.2L8.6 18.6l-4.2 1.2 1.2-4.2z" />
+      <path d="M14.9 5.9l3.2 3.2" />
+      <path d="M4 21.6h9" />
     </svg>
   );
 }
