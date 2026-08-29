@@ -2525,11 +2525,18 @@ input[type='checkbox'] {
 }
 
 /* ===================================================================
- * Ein Fenster über dem Inhaltsbereich - nicht über dem Bildschirm
+ * Ein Fenster im Inhaltsbereich - abgedunkelt ist aber alles
  *
- * Es deckt genau das ab, was rechts der Leiste und unter dem Band liegt. Ein
- * gewöhnliches Fenster legt sich über alles; hier bleibt der Rahmen sichtbar,
- * und man sieht, wo man ist.
+ * Zwei Flächen, und das ist der Kern:
+ *
+ *   1. Der **Grund** liegt über dem ganzen Fenster des Browsers. Was jetzt
+ *      gilt, ist das Fenster; alles andere - Leiste, Schriftzug, Kopfband -
+ *      tritt zurück, auch wenn es sichtbar bleibt.
+ *   2. Der **Bereich** darin deckt nur ab, was rechts der Leiste und unter dem
+ *      Band liegt. Er trägt keine Farbe; er sagt nur, wo der Kasten steht.
+ *
+ * Getrennt, weil es zwei verschiedene Aussagen sind: „alles andere zählt
+ * gerade nicht" und „hier gehört das Fenster hin".
  *
  * Sein Rang ist der der Fenster und liegt damit über dem Schiebefenster: Es
  * geht aus ihm hervor, und was aus etwas hervorgeht, liegt darüber. Das
@@ -2539,6 +2546,12 @@ input[type='checkbox'] {
 .bereichsfenster {
   position: fixed;
   z-index: var(--z-fenster);
+  inset: 0;
+  background: rgba(8, 9, 11, 0.72);
+}
+
+.bereichsfenster__bereich {
+  position: absolute;
   left: var(--app-shell-sidebar-width);
   top: var(--app-shell-brand-band-height);
   right: 0;
@@ -2546,7 +2559,6 @@ input[type='checkbox'] {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 9, 11, 0.72);
 }
 
 /*
@@ -2601,7 +2613,7 @@ input[type='checkbox'] {
 
 /* Auf einem schmalen Bildschirm nimmt es alles - vier Fünftel wären zu wenig. */
 @media (max-width: 767px) {
-  .bereichsfenster {
+  .bereichsfenster__bereich {
     left: 0;
     top: 0;
   }

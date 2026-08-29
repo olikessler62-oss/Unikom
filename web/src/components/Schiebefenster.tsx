@@ -165,18 +165,25 @@ export function Bereichsfenster({
 }) {
   return (
     <div className="bereichsfenster" role="dialog" aria-modal="true" aria-label={titel}>
-      <div
-        className="bereichsfenster__kasten fensterrahmen"
-        onKeyDown={(ereignis) => {
-          if (ereignis.key === 'Escape') {
-            ereignis.stopPropagation();
-            onSchliessen();
-          }
-        }}
-      >
-        <Fensterkopf titel={titel} unterzeile={unterzeile} onSchliessen={onSchliessen} />
+      {/*
+        * Der abgedunkelte Grund liegt über allem, der Kasten steht im
+        * Inhaltsbereich. Zwei Flächen für zwei Aussagen - siehe das
+        * Erscheinungsbild.
+        */}
+      <div className="bereichsfenster__bereich">
+        <div
+          className="bereichsfenster__kasten fensterrahmen"
+          onKeyDown={(ereignis) => {
+            if (ereignis.key === 'Escape') {
+              ereignis.stopPropagation();
+              onSchliessen();
+            }
+          }}
+        >
+          <Fensterkopf titel={titel} unterzeile={unterzeile} onSchliessen={onSchliessen} />
 
-        <div className="fensterrahmen__koerper">{children}</div>
+          <div className="fensterrahmen__koerper">{children}</div>
+        </div>
       </div>
     </div>
   );
