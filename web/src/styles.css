@@ -546,7 +546,7 @@ html[data-sw-modern='on'] {
    * schon aufgehellt, und beides zusammen ergab keine Kante, sondern einen
    * Übergang.
    */
-  --kante-fenster: rgba(255, 255, 255, 0.45);
+  --kante-fenster: rgba(255, 255, 255, 0.7);
   --option-text: #ffffff;
   --picker-fill: #1b232d;
   --picker-edge: rgba(255, 255, 255, 0.14);
