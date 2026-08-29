@@ -221,6 +221,52 @@
   --control-hoehe: 28px;
 
   /*
+   * Die eine Schriftgröße der Anwendung.
+   *
+   * Sie stand an über zwanzig Stellen in sechs verschiedenen Werten - 0.85,
+   * 0.86, 0.88, 0.9, 0.94, 0.95 -, und keiner davon war eine Entscheidung:
+   * Jede Größe entstand dort, wo gerade jemand fand, dass es etwas kleiner
+   * aussehen müsse. Nebeneinander sieht man den Unterschied nicht, aber man
+   * sieht, dass etwas nicht stimmt.
+   *
+   * Jetzt gibt es eine. Was bewusst kleiner ist - Hinweise, Abzeichen,
+   * Beschriftungen in Versalien - trägt weiter seine eigene Größe; die
+   * Rangfolge ist gewollt und bleibt.
+   */
+  --schrift: 0.88rem;
+
+  /* ===================================================================
+   * Die Rangfolge der Ebenen (FR-011 §11)
+   *
+   * Sie stand bisher als Zahl an fünf Stellen im Stylesheet und einmal als
+   * Klasse im Markup. Zwei davon waren beide 50 - die Leiste und ein Fenster -,
+   * und was oben lag, entschied allein die Reihenfolge im Dokument. Das ist
+   * kein Rang, das ist ein Zufall, der sich beim nächsten Umbau umdreht.
+   *
+   *   30  Was an einem Feld aufklappt - Memo, Meldung
+   *   45  Der Rahmen: Seitenleiste, Schriftzug, Kopfband
+   *   50  Fenster
+   *
+   * Der Rahmen liegt über dem Inhalt und allem, was aus ihm aufklappt, und
+   * unter den Fenstern. Die drei Teile tragen denselben Rang: Sie sind
+   * *eine* Ebene, auch wenn sie verschieden gefärbt sind - und eine Ebene wirft
+   * keinen Schatten auf sich selbst.
+   * =================================================================== */
+  --z-feld-ausklapp: 30;
+  --z-rahmen: 45;
+  --z-fenster: 50;
+
+  /*
+   * Das Glockenfach hängt innerhalb des Kopfbands.
+   *
+   * Weil das Band eine eigene Ebene aufmacht, wird diese Zahl nur gegen andere
+   * Zahlen *im Band* verglichen - nach außen zählt der Rang des Rahmens. Sie
+   * steht trotzdem hier und nicht als nackte 40 in der Regel: Wer den Rang des
+   * Fachs sucht, sucht ihn bei den anderen.
+   */
+  --z-glocke: 40;
+
+  /*
    * Der Inhalt: sechs Stufen vom Grund bis zum Bedienelement.
    *
    * Auf hellem Grund hebt sich eine Fläche nicht durch mehr Licht, sondern
@@ -398,7 +444,7 @@ html[data-sw-modern='on'] {
    * `--g-3` und die anderen sind Verweise auf die Marken darüber und gehen von
    * selbst mit. Hier stehen nur die, die eine eigene Zahl tragen mussten.
    */
-  --g-1: #1f2732;
+  --g-1: #1b232d;
   --g-2: #202832;
 
   --text-soft: #b9c7d8;
@@ -425,10 +471,20 @@ html[data-sw-modern='on'] {
   --accent-deep: 74, 125, 181;
   --accent-light: 156, 198, 236;
 
-  /* Die aufgeklappte Liste einer Combobox. */
-  --pick: #2f4d6d;
+  /*
+   * Die Auswahlbox - vier Farben, für die ganze Anwendung festgelegt.
+   *
+   * Fläche und Hervorhebung stammen aus derselben Familie wie der Grund, nur
+   * eine Stufe heller: Die Hervorhebung soll zeigen, wo man steht, und nicht
+   * mit dem Akzent um Aufmerksamkeit streiten.
+   *
+   * Die Schrift ist reines Weiß und nicht die Grundfarbe `--text`. Auf der
+   * hervorgehobenen Zeile trägt sie einen dunkleren Grund als überall sonst;
+   * dort ist der letzte Rest Helligkeit kein Schmuck.
+   */
+  --pick: #3d4d65;
   --pick-text: #ffffff;
-  --option-text: #e9eff7;
+  --option-text: #ffffff;
   --picker-fill: #1b232d;
   --picker-edge: rgba(255, 255, 255, 0.14);
   --picker-shadow: 0 20px 46px -20px rgba(0, 0, 0, 0.85);
@@ -611,7 +667,7 @@ html[data-sw-modern='on'] .app-shell-sidebar-nav-menu::before {
   border: 0;
   background: none;
   font-family: var(--sans);
-  font-size: 0.94rem;
+  font-size: var(--schrift);
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
@@ -647,7 +703,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: var(--sans);
-  font-size: 15px;
+  font-size: var(--schrift);
   line-height: 1.55;
   color: var(--text);
   background-color: var(--g-ground);
@@ -761,6 +817,24 @@ code {
 
   background: var(--app-shell-header-panel-gradient-vertical);
   color: var(--text);
+
+  /*
+   * Der Schatten fällt nach rechts - und nur auf den Inhalt.
+   *
+   * Er läuft über die volle Höhe der Leiste und liefe damit auch über das
+   * Kopfband, das rechts daneben beginnt. Das wäre falsch: Leiste, Schriftzug
+   * und Band sind eine Ebene, und eine Ebene wirft keinen Schatten auf sich
+   * selbst - nur auf das, was darunter liegt.
+   *
+   * Verhindert wird das nicht durch Zuschneiden, sondern durch die
+   * Reihenfolge: Beide tragen denselben Rang (`--z-rahmen`), und bei gleichem
+   * Rang malt, was im Dokument später steht. Das Band steht später und deckt
+   * den Schatten auf seiner Höhe zu. Unterhalb des Bandes ist nichts mehr, was
+   * ihn zudeckt - dort wirkt er.
+   *
+   * Wer die Leiste einmal hinter die Inhaltsspalte schreibt, bekommt den
+   * Schatten zurück aufs Band. Deshalb steht es hier.
+   */
   box-shadow: 12px 0 18px -10px rgb(2 6 23 / 0.5);
 }
 
@@ -943,6 +1017,17 @@ code {
   min-height: var(--control-hoehe);
   border: 1px solid var(--rule-strong);
   background: var(--g-1);
+}
+
+/*
+ * Die Schrift steht getrennt, und zwar nur für die Glocke.
+ *
+ * Stünde sie in der Regel darüber, träfe sie auch die Sprachwahl - und schlüge
+ * dort mit zwei Klassen die eine Klasse der Auswahlbox-Regel. Das Feld im Band
+ * hätte dann eine andere Schriftfarbe als jedes andere Feld der Anwendung,
+ * ohne dass irgendwo stünde, warum.
+ */
+.app-page-toolbar-header .bell__button {
   color: var(--text);
 }
 
@@ -988,7 +1073,6 @@ code {
 .sprachwahl {
   width: auto;
   padding: 0 0.55rem;
-  font-size: 0.88rem;
 }
 
 /*
@@ -1630,7 +1714,7 @@ code {
   position: absolute;
   top: 2.6rem;
   right: 0;
-  z-index: 40;
+  z-index: var(--z-glocke);
   width: min(28rem, calc(100vw - 2rem));
   max-height: 60vh;
   overflow-y: auto;
@@ -1705,7 +1789,7 @@ code {
 
 .details dt {
   color: var(--text-soft);
-  font-size: 0.86rem;
+  font-size: var(--schrift);
 }
 
 .details dd {
@@ -1816,7 +1900,7 @@ td.numeric {
  * nicht die Schriftart.
  */
 .table--runs {
-  font-size: 0.9rem;
+  font-size: var(--schrift);
 }
 
 .table--runs td.numeric {
@@ -2045,7 +2129,7 @@ textarea {
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-small);
   font: inherit;
-  font-size: 0.94rem;
+  font-size: var(--schrift);
   color: var(--text);
   background: var(--g-1);
   transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
@@ -2069,6 +2153,19 @@ select {
 textarea {
   padding-top: 0.45rem;
   padding-bottom: 0.45rem;
+}
+
+/*
+ * Die Auswahlbox trägt geschlossen dieselbe Schrift wie aufgeklappt.
+ *
+ * Aufgeklappt steht dort `--option-text`, geschlossen käme aus der Regel oben
+ * `--text`. Der Unterschied ist klein, aber er sitzt an der auffälligsten
+ * Stelle: Wer die Liste schließt, sieht denselben Eintrag noch einmal - und
+ * eine Zeile, die beim Schließen die Farbe wechselt, ist ein Fehler, den man
+ * bemerkt, ohne ihn benennen zu können.
+ */
+select {
+  color: var(--option-text);
 }
 
 /*
@@ -3014,7 +3111,7 @@ svg.icon--strich {
   top: calc(100% + 0.4rem);
   left: 0;
   right: calc(var(--field-size) + var(--feld-luecke));
-  z-index: 30;
+  z-index: var(--z-feld-ausklapp);
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
@@ -3044,7 +3141,7 @@ svg.icon--strich {
 .memo__text {
   min-height: 9.5rem;
   font-family: inherit;
-  font-size: 0.94rem;
+  font-size: var(--schrift);
 }
 
 .memo__knoepfe {
@@ -3068,7 +3165,7 @@ svg.icon--strich {
   flex: none;
   width: 1.1rem;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: var(--schrift);
   line-height: 1;
   cursor: default;
 }
@@ -3297,7 +3394,7 @@ svg.icon--strich {
   background: none;
   box-shadow: none;
   font-family: var(--mono);
-  font-size: 0.85rem;
+  font-size: var(--schrift);
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
@@ -3353,7 +3450,7 @@ svg.icon--strich {
 
 .browse__empty {
   padding: 0.5rem 0.7rem;
-  font-size: 0.85rem;
+  font-size: var(--schrift);
   color: var(--text-faint);
 }
 
@@ -3363,7 +3460,7 @@ svg.icon--strich {
   align-items: baseline;
   gap: 0.5rem;
   margin-bottom: 0.7rem;
-  font-size: 0.9rem;
+  font-size: var(--schrift);
 }
 
 .browse__label {
@@ -3397,7 +3494,7 @@ svg.icon--strich {
   border-radius: var(--radius-small);
   font: inherit;
   font-family: var(--mono);
-  font-size: 0.85rem;
+  font-size: var(--schrift);
   color: var(--text);
   background: none;
   cursor: pointer;
@@ -3598,7 +3695,7 @@ svg.icon--strich {
   padding: 0.35rem 0.4rem;
   border: 0;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--schrift);
   text-align: left;
   color: var(--text);
   background: none;
@@ -3672,7 +3769,7 @@ svg.icon--strich {
 .suffix {
   flex: none;
   font-family: var(--mono);
-  font-size: 0.94rem;
+  font-size: var(--schrift);
   color: var(--text);
   white-space: nowrap;
 }
@@ -3716,7 +3813,7 @@ svg.icon--strich {
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: var(--z-fenster);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4199,7 +4296,7 @@ button.secondary::after {
   border: 1px dashed rgba(var(--caution), 0.45);
   border-radius: var(--radius-small);
   background: rgba(var(--caution), 0.07);
-  font-size: 0.86rem;
+  font-size: var(--schrift);
   color: rgb(var(--caution));
 }
 
@@ -4473,7 +4570,7 @@ button.secondary::after {
 }
 
 .choice__name {
-  font-size: 0.95rem;
+  font-size: var(--schrift);
   font-weight: 600;
 }
 
@@ -4587,7 +4684,7 @@ button.secondary::after {
     justify-content: space-between;
     gap: 0.5rem;
     font: inherit;
-    font-size: 0.94rem;
+    font-size: var(--schrift);
     text-align: left;
   }
 
@@ -4735,7 +4832,7 @@ button.secondary::after {
  */
 .table--compact td {
   padding: 0.42rem 0.9rem;
-  font-size: 0.86rem;
+  font-size: var(--schrift);
   vertical-align: middle;
   white-space: nowrap;
 }
@@ -4837,7 +4934,7 @@ button.secondary::after {
  */
 .feld-fehlt {
   color: rgb(var(--caution));
-  font-size: 0.9rem;
+  font-size: var(--schrift);
   align-self: center;
 }
 
