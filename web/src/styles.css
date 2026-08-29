@@ -258,6 +258,7 @@
    *   30  Was an einem Feld aufklappt - Memo, Meldung
    *   45  Der Rahmen: Seitenleiste, Schriftzug, Kopfband
    *   50  Fenster
+   *   60  Die Liste eines Auswahlfelds
    *
    * Der Rahmen liegt über dem Inhalt und allem, was aus ihm aufklappt, und
    * unter den Fenstern. Die drei Teile tragen denselben Rang: Sie sind
@@ -267,6 +268,12 @@
   --z-feld-ausklapp: 30;
   --z-rahmen: 45;
   --z-fenster: 50;
+  /*
+   * Über den Fenstern, und das muss so sein: Ein Auswahlfeld steht oft in einem
+   * Fenster, und seine Liste ragt darüber hinaus. Läge sie darunter, wäre sie
+   * genau dort abgeschnitten, wo man sie am häufigsten braucht.
+   */
+  --z-liste: 60;
 
   /*
    * Das Glockenfach hängt innerhalb des Kopfbands.
@@ -2474,6 +2481,123 @@ option:checked {
 option:hover {
   background: linear-gradient(var(--pick-hover), var(--pick-hover));
   color: var(--pick-text);
+}
+
+/* ===================================================================
+ * Das selbstgezeichnete Auswahlfeld
+ *
+ * Es sieht aus wie ein `<select>` und ist keins - siehe `Auswahlfeld.tsx`. Die
+ * Regeln hier wiederholen deshalb, was die Feldregel dem `<select>` gibt: Ein
+ * Knopf erbt sonst die Gestalt eines Knopfes, und das heißt in dieser Anwendung
+ * Versalien in Festbreitenschrift auf einem Verlauf.
+ * =================================================================== */
+.auswahlfeld {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  height: var(--control-hoehe);
+  min-height: var(--control-hoehe);
+  padding: 0 var(--feld-luft-x);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-small);
+  background: var(--picker-fill);
+  color: var(--option-text);
+  font: inherit;
+  font-size: var(--schrift);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: left;
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color 180ms ease;
+}
+
+/* Der Lichtstreifen der Knopfregel hat auf einem Feld nichts zu suchen. */
+.auswahlfeld::after {
+  display: none;
+}
+
+.auswahlfeld:hover:not(:disabled) {
+  background: var(--picker-fill);
+  border-color: rgba(var(--sheen), 0.3);
+  box-shadow: none;
+}
+
+.auswahlfeld:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 1px;
+}
+
+.auswahlfeld:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/*
+ * Der Wert nimmt den Platz, das Zeichen bleibt stehen.
+ *
+ * Ein langer Wert schöbe das Zeichen sonst aus dem Feld; abgeschnitten wird
+ * der Text und nicht der Hinweis, dass hier etwas aufklappt.
+ */
+.auswahlfeld__wert {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auswahlfeld__pfeil {
+  flex: none;
+  color: var(--text-soft);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+/*
+ * Die Liste hängt am Ende des Dokuments und steht auf gerechneten Maßen.
+ *
+ * `position: fixed`, weil die Maße aus `getBoundingClientRect` kommen - die
+ * zählen vom Fensterrand und nicht vom Anfang des Dokuments.
+ */
+.auswahlfeld__liste {
+  position: fixed;
+  z-index: var(--z-liste);
+  overflow-y: auto;
+  padding: 0.25rem 0;
+  border: 1px solid var(--picker-edge);
+  border-radius: var(--radius-small);
+  background: var(--picker-fill);
+  color: var(--option-text);
+  font-size: var(--schrift);
+  box-shadow: var(--picker-shadow);
+}
+
+.auswahlfeld__liste:focus {
+  outline: none;
+}
+
+.auswahlfeld__eintrag {
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.auswahlfeld__eintrag--gewaehlt {
+  background: var(--pick);
+  color: var(--pick-text);
+}
+
+/* Steht danach: Ist ein Eintrag beides, gilt der Zeiger. */
+.auswahlfeld__eintrag--zeiger {
+  background: var(--pick-hover);
+  color: var(--pick-text);
+}
+
+.auswahlfeld__eintrag[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .field {

@@ -1,3 +1,4 @@
+import { Auswahlfeld } from './Auswahlfeld.js';
 import { useLanguage } from '../i18n/useText.js';
 import { LANGUAGES, type Language } from '../settings/preferences.js';
 
@@ -33,7 +34,7 @@ export function Sprachwahl() {
    * `<label>` ohne Text hätte ohnehin keinen beigesteuert.
    */
   return (
-    <select
+    <Auswahlfeld
       className="sprachwahl"
       value={language}
       aria-label={t('settings.language')}
@@ -44,6 +45,6 @@ export function Sprachwahl() {
           {t(`settings.language.${entry}`)}
         </option>
       ))}
-    </select>
+    </Auswahlfeld>
   );
 }
