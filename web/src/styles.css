@@ -509,6 +509,17 @@ html[data-sw-modern='on'] {
   --pick-text: #ffffff;
   /* Die Zeile unter dem Zeiger ist heller als die eingestellte. */
   --pick-hover: #4f6485;
+
+  /*
+   * Die zwei Stufen des Menüs über seinem schwarzen Grund.
+   *
+   * Sie stehen hier als Marke, aber die Regel dazu steht am Element: Der
+   * Menüpunkt löscht seinen geerbten Verlauf mit einer Klasse, und Klassen
+   * liegen in einer späteren Ebene als dieses Stylesheet. Eine Regel von hier
+   * käme nie an - deshalb tragen die Punkte `[background:var(--menue-...)]`.
+   */
+  --menue-gewaehlt: #2d353f;
+  --menue-ueber: #3a4552;
   --option-text: #ffffff;
   --picker-fill: #1b232d;
   --picker-edge: rgba(255, 255, 255, 0.14);
@@ -960,25 +971,6 @@ code {
  */
 .sw-nav-hl::after {
   display: none;
-}
-
-/*
- * Der gewählte Punkt und der unter dem Zeiger - zwei Stufen über Schwarz.
- *
- * Feste Farben und keine Weißschleier: Der Grund des Menüs ist Schwarz, und
- * ein Schleier darauf ergäbe zwar dieselbe Fläche, aber nur solange der Grund
- * schwarz bleibt.
- *
- * Der Zeiger schlägt die Wahl. Er tut das von selbst - die Regel wiegt drei
- * Klassen, die andere eine -, und das ist gewollt: Wer über den gewählten Punkt
- * fährt, soll sehen, dass er ihn treffen würde.
- */
-.sw-nav-hl-active {
-  background-color: #2d353f;
-}
-
-.sw-nav-hl:hover:not(:disabled) {
-  background-color: #3a4552;
 }
 
 /*

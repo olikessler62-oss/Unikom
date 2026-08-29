@@ -211,22 +211,31 @@ function navItemClass(aktiv: boolean): string {
   const basis =
     'sw-nav-hl block h-auto w-full min-w-0 rounded-none border-0 border-l-2 py-2 pl-[calc(0.75rem-2px)] pr-3' +
     ' text-left text-sm font-medium normal-case leading-snug tracking-normal shadow-none font-sans' +
-    /*
-     * `[background:none]` und nicht `bg-transparent`.
-     *
-     * Das ist der Unterschied zwischen der Kurzform und der Einzelangabe: Die
-     * Altregel für `button` malt einen Verlauf über `background`, und
-     * `bg-transparent` setzt nur `background-color`. Ein Verlaufsbild bleibt
-     * davon unberührt - jeder Menüpunkt trug einen Verlauf von Weiß nach
-     * Dunkelblau, und man sah es sofort.
-     */
-    ' [background:none] transition-colors';
+    ' text-white transition-colors hover:[background:var(--menue-ueber)]';
 
-  // Weiß in beiden Fällen: Was den gewählten Punkt anzeigt, ist die Fläche und
-  // die Kante links - nicht eine gedämpfte Schrift bei allen anderen.
+  /*
+   * Die Fläche kommt als Klasse und nicht aus dem Stylesheet.
+   *
+   * `[background:...]` und nicht `bg-...`: Die Altregel für `button` malt einen
+   * Verlauf über die Kurzform `background`, und eine Angabe zu
+   * `background-color` lässt ein Verlaufsbild unberührt. Jeder Menüpunkt trug
+   * sonst einen Verlauf von Weiß nach Dunkelblau.
+   *
+   * Und deshalb müssen auch Wahl und Überfahren als Klassen kommen: Klassen
+   * liegen in `@layer utilities`, einer späteren Ebene als das Stylesheet. Eine
+   * Regel von dort erreicht den Punkt nicht mehr, gleich wie viele Klassen sie
+   * wiegt - genau daran waren die beiden Farben wirkungslos.
+   *
+   * Der Zeiger schlägt die Wahl: `hover:` bringt eine Pseudoklasse mit und wiegt
+   * damit mehr als die Fläche darunter. Wer über den gewählten Punkt fährt, soll
+   * sehen, dass er ihn treffen würde.
+   *
+   * Weiß in beiden Fällen: Was den gewählten Punkt anzeigt, ist die Fläche und
+   * die Kante links - nicht eine gedämpfte Schrift bei allen anderen.
+   */
   return aktiv
-    ? `${basis} sw-nav-hl-active border-l-white text-white`
-    : `${basis} border-l-transparent text-white`;
+    ? `${basis} [background:var(--menue-gewaehlt)] border-l-white`
+    : `${basis} [background:none] border-l-transparent`;
 }
 
 export function App() {
