@@ -2444,29 +2444,17 @@ option {
 }
 
 /*
- * Zwei Zustände, zwei Stärken.
+ * Überfahren und eingestellt sehen gleich aus - eine Fläche, eine Stärke.
  *
- * Der gewählte Eintrag beantwortet „was ist eingestellt", der überfahrene nur
- * „wohin zeige ich gerade". In derselben Farbe gezeichnet verschmelzen beide:
- * Wer die Liste aufklappt und mit der Maus darüberfährt, sieht zwei gleich
- * kräftige Balken und weiß nicht mehr, welcher der eingestellte war.
- *
- * Die schwächere Fläche wird gemischt und nicht danebengeschrieben: Ändert sich
- * `--pick`, folgt sie von selbst. Eine zweite Farbe als eigene Marke wäre die,
- * die beim nächsten Eingriff an der Palette stehen bleibt.
+ * Sie waren einmal zwei Stärken, damit man den eingestellten Eintrag vom
+ * überfahrenen unterscheiden kann. Die Regel sagt jetzt eine Farbe für beides:
+ * Was zählt, ist die Zeile unter dem Zeiger, und die ist es, die beim Loslassen
+ * eingestellt wird.
  *
  * Der Verlauf ist kein Schmuck: Für eine einfache Fläche nimmt der Browser an
  * dieser Stelle keine Farbe an.
  */
-option:hover {
-  background: linear-gradient(
-    color-mix(in srgb, var(--pick) 35%, var(--picker-fill)),
-    color-mix(in srgb, var(--pick) 35%, var(--picker-fill))
-  );
-  color: var(--text);
-}
-
-/* Nach dem Überfahren notiert: Ist ein Eintrag beides, gilt „eingestellt". */
+option:hover,
 option:checked {
   background: linear-gradient(var(--pick), var(--pick));
   color: var(--pick-text);
@@ -4754,18 +4742,14 @@ button.secondary::after {
   }
 
   /*
-   * Und hier ist das Blau endgültig weg.
+   * Überfahren, mit der Tastatur angesteuert, eingestellt: eine Fläche.
    *
-   * Überfahren und mit der Tastatur angesteuert sind derselbe Zustand — „hier
-   * zeige ich gerade hin" — und teilen sich deshalb die schwächere Fläche. Der
-   * eingestellte Eintrag steht darüber: Er ist die Antwort und nicht die Frage.
+   * Die drei sind Antworten auf dieselbe Frage - welche Zeile gilt gerade. Sie
+   * treten nacheinander auf und nie so nebeneinander, dass man sie
+   * auseinanderhalten müsste.
    */
   select option:hover,
-  select option:focus {
-    background: color-mix(in srgb, var(--pick) 35%, var(--picker-fill));
-    color: var(--text);
-  }
-
+  select option:focus,
   select option:checked {
     background: var(--pick);
     color: var(--pick-text);
