@@ -439,6 +439,15 @@ export function App() {
         * — sonst liefe der Inhalt unter der Knopfleiste durch, statt über ihr
         * zu enden.
         */}
+      {/*
+        * Der Schatten der Leiste steht als eigenes Element.
+        *
+        * Er beginnt unter dem Kopfband und fällt auf den Inhalt - siehe die
+        * Begründung im Erscheinungsbild. An der Leiste selbst liefe er quer
+        * über das Band.
+        */}
+      <div className="app-shell-sidebar-schatten" aria-hidden="true" />
+
       <div className="app-shell-content-column flex min-w-0 flex-col overflow-x-clip max-md:flex-none md:min-h-0 md:flex-1">
         {/*
           * Das Kopfband steht auf jedem Bildschirm, auch im Editor.

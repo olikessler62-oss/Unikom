@@ -256,6 +256,7 @@
    * kein Rang, das ist ein Zufall, der sich beim nächsten Umbau umdreht.
    *
    *   30  Was an einem Feld aufklappt - Memo, Meldung
+   *   43  Der Schatten der Seitenleiste
    *   44  Das Kopfband
    *   45  Das Schiebefenster
    *   46  Die Seitenleiste samt Schriftzug
@@ -272,6 +273,7 @@
    * Schatten der Leiste beginnt deshalb erst unterhalb des Bandes.
    * =================================================================== */
   --z-feld-ausklapp: 30;
+  --z-schatten: 43;
   --z-band: 44;
   --z-schiebefenster: 45;
   --z-leiste: 46;
@@ -883,26 +885,49 @@ code {
 }
 
 /*
- * Der Schatten der Leiste - und er beginnt erst unter dem Kopfband.
+ * Der Schatten der Leiste - ein eigenes Element und ein gemalter Verlauf.
  *
- * Er hängt an einem Streifen an der rechten Kante und nicht an der Leiste
- * selbst. Der Grund ist der Rang: Die Leiste liegt jetzt über dem Band, damit
- * das Schiebefenster dazwischen passt - und ein Schatten an der Leiste selbst
- * liefe damit wieder quer über das Band. Leiste, Schriftzug und Band sind eine
- * Fläche, und eine Fläche wirft keinen Schatten auf sich selbst.
+ * ## Warum nicht am Element der Leiste
  *
- * Der Streifen beginnt deshalb genau dort, wo das Band endet. Was rechts davon
- * liegt - der Inhalt oder ein hervorgefahrenes Fenster -, bekommt ihn.
+ * Die Leiste liegt über dem Kopfband, damit das Schiebefenster dazwischen
+ * passt. Ein Schatten an ihr selbst liefe damit quer über das Band - und
+ * Leiste, Schriftzug und Band sind eine Fläche, die keinen Schatten auf sich
+ * selbst wirft. Er muss also unterhalb des Bandes beginnen, und das kann eine
+ * Angabe am Element der Leiste nicht.
+ *
+ * ## Warum ein Verlauf und kein `box-shadow`
+ *
+ * Der Versuch davor war ein Streifen von einem Pixel Breite mit
+ * `box-shadow: 12px 0 18px -10px`. Der Radius von -10 schrumpft die
+ * Schattenfläche um zwanzig Pixel: Aus einem Pixel Breite wird eine negative,
+ * und dann malt der Browser nichts. Der Schatten war vollständig fort, ohne
+ * dass eine Regel gefehlt hätte.
+ *
+ * Ein Verlauf hat diese Rechnung nicht. Er steht da, wo er stehen soll, und ist
+ * so breit, wie er breit sein soll.
+ *
+ * ## Warum er unter dem Schiebefenster liegt
+ *
+ * Ein hervorgefahrenes Fenster hat eine eigene helle Kante. Läge der Schatten
+ * darüber, wäre sie an genau der Stelle wieder verwaschen, an der sie etwas
+ * sagt.
  */
-.app-shell-sidebar::after {
-  content: '';
-  position: absolute;
+.app-shell-sidebar-schatten {
+  position: fixed;
+  z-index: var(--z-schatten);
+  left: var(--app-shell-sidebar-width);
   top: var(--app-shell-brand-band-height);
-  right: 0;
   bottom: 0;
-  width: 1px;
-  box-shadow: 12px 0 18px -10px rgb(2 6 23 / 0.5);
+  width: 18px;
+  background: linear-gradient(90deg, rgb(2 6 23 / 0.55) 0%, rgb(2 6 23 / 0) 100%);
   pointer-events: none;
+}
+
+/* Auf einem schmalen Bildschirm steht die Leiste oben - dann wirft sie nichts. */
+@media (max-width: 767px) {
+  .app-shell-sidebar-schatten {
+    display: none;
+  }
 }
 
 /*
