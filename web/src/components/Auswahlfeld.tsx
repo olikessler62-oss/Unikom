@@ -101,6 +101,20 @@ const LUFT = 4;
 const RAND = 8;
 
 /**
+ * Wie hoch die Liste sein will - von Außenkante zu Außenkante.
+ *
+ * `scrollHeight` misst nur den Inhalt samt Innenabstand, nicht den Rahmen. Die
+ * Höhe, die wir setzen, zählt dagegen von außen (`box-sizing: border-box` gilt
+ * hier überall). Zwei Pixel Unterschied - und die Liste rollte, obwohl drei
+ * Einträge darin standen: eine Laufleiste, die sich um zwei Pixel bewegen lässt.
+ *
+ * `offsetHeight - clientHeight` ist genau dieser Rahmen.
+ */
+export function wunschhoehe(liste: { scrollHeight: number; offsetHeight: number; clientHeight: number }): number {
+  return liste.scrollHeight + (liste.offsetHeight - liste.clientHeight);
+}
+
+/**
  * Wohin die Liste gehört.
  *
  * Unter das Feld, solange sie dort ganz hineinpasst; sonst darüber, wenn oben
@@ -214,7 +228,7 @@ export function Auswahlfeld({ value, onChange, children, className, style, disab
 
     const feld = ausloeser.current.getBoundingClientRect();
 
-    setPlatz(platzierung(feld, fach.current.scrollHeight, window.innerHeight));
+    setPlatz(platzierung(feld, wunschhoehe(fach.current), window.innerHeight));
   }, [offen, eintraege.length]);
 
   /*

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { eintraegeAus, platzierung } from './Auswahlfeld.js';
+import { eintraegeAus, platzierung, wunschhoehe } from './Auswahlfeld.js';
 
 /**
  * Ein `<option>`, wie React es aus JSX macht - so viel davon, wie gelesen wird.
@@ -107,4 +107,20 @@ test('sie wird nie negativ hoch', () => {
   const platz = platzierung(feld(2000), 300, 800);
 
   assert.ok(platz.hoehe >= 0);
+});
+
+/* ---------- Wie hoch die Liste sein will ---------- */
+
+test('der Rahmen zählt mit', () => {
+  /*
+   * Drei Einträge zu 24 Pixeln, oben und unten vier Pixel Innenabstand, ein
+   * Pixel Rahmen ringsum: 80 innen, 82 außen. Ohne die zwei Pixel rollte die
+   * Liste bei drei Einträgen - eine Laufleiste, die sich kaum bewegen lässt.
+   */
+  assert.equal(wunschhoehe({ scrollHeight: 80, offsetHeight: 82, clientHeight: 80 }), 82);
+});
+
+test('rollt sie schon, ändert das nichts an der Rechnung', () => {
+  /* clientHeight ist dann die gestutzte Höhe; der Rahmen bleibt zwei Pixel. */
+  assert.equal(wunschhoehe({ scrollHeight: 400, offsetHeight: 202, clientHeight: 200 }), 402);
 });

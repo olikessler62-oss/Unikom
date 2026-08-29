@@ -2565,7 +2565,7 @@ option:hover {
   position: fixed;
   z-index: var(--z-liste);
   overflow-y: auto;
-  padding: 0.25rem 0;
+  padding: 0.3rem 0;
   border: 1px solid var(--picker-edge);
   border-radius: var(--radius-small);
   background: var(--picker-fill);
@@ -2578,8 +2578,16 @@ option:hover {
   outline: none;
 }
 
+/*
+ * Die Zeilen tragen mehr Luft als das Feld darüber.
+ *
+ * Die Liste ist nicht das Feld: Im Feld steht ein Wert und muss auf 28 Pixel
+ * passen, in der Liste stehen alle, und dort ist Platz das, was sie lesbar
+ * macht. Die Breite kommt daher - sie ist mindestens so breit wie das Feld und
+ * sonst so breit wie ihr längster Eintrag samt dieser Luft.
+ */
 .auswahlfeld__eintrag {
-  padding: 0.3rem 0.6rem;
+  padding: 0.4rem 1rem;
   cursor: pointer;
   white-space: nowrap;
 }
