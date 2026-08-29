@@ -4,7 +4,7 @@ import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
 import type { Job, Tenant } from '../api/types.js';
 import { Auswahlfeld } from '../components/Auswahlfeld.js';
-import { Empty, formatMoment, Loading, Notice } from '../components/Pieces.js';
+import { Empty, formatMoment, Loading, Notice, PencilIcon, PlusIcon, TrashIcon } from '../components/Pieces.js';
 import { Listenpanel, Schiebefenster } from '../components/Schiebefenster.js';
 
 const QUELLEN: Record<Job['sourceType'], string> = {
@@ -100,20 +100,44 @@ export function WorkflowsSchiebefenster({ canManage, onSchliessen, onOeffnen }: 
         werkzeuge={
           <>
             {canManage && (
-              <button type="button" className="secondary" onClick={() => onOeffnen('new')}>
-                + Neu
+              <button type="button" onClick={() => onOeffnen('new')}>
+                <PlusIcon />
+                Neu
               </button>
             )}
-            <button type="button" className="secondary" disabled={!zeile} onClick={() => zeile && onOeffnen(zeile.id)}>
-              Bearbeiten
+
+            {/*
+              * Bearbeiten trägt nur den Stift. Was es tut, steht im Tooltip -
+              * in einer Leiste, in der jeder Knopf ein Wort trägt, wird aus
+              * fünf Knöpfen eine Zeile Text.
+              */}
+            <button
+              type="button"
+              className="knopf--zeichen"
+              title="Bearbeiten"
+              aria-label="Bearbeiten"
+              disabled={!zeile}
+              onClick={() => zeile && onOeffnen(zeile.id)}
+            >
+              <PencilIcon />
             </button>
 
             <span className="listenpanel__luecke" />
 
             {canManage && (
-              <button type="button" className="secondary" disabled={!zeile} onClick={() => void loesche()}>
-                Löschen
-              </button>
+              <>
+                <span className="listenpanel__trenner" aria-hidden="true" />
+                <button
+                  type="button"
+                  className="knopf--zeichen"
+                  title="Löschen"
+                  aria-label="Löschen"
+                  disabled={!zeile}
+                  onClick={() => void loesche()}
+                >
+                  <TrashIcon />
+                </button>
+              </>
             )}
           </>
         }

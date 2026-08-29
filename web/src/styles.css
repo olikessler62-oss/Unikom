@@ -568,7 +568,7 @@ html[data-sw-modern='on'] {
 
   /* Der Kopf einer Fläche: kein helles Band mehr, sondern ein dunkler Stahl. */
   --panel-kopf-hell: #3f4a59;
-  --panel-kopf-dunkel: #282f38;
+  --panel-kopf-dunkel: #1e242c;
 
   --shade: 0, 0, 0;
 }
@@ -2666,7 +2666,14 @@ input[type='checkbox'] {
   gap: 1rem;
   padding: 0.65rem 0.9rem;
   border-bottom: 1px solid var(--rule);
-  background: linear-gradient(180deg, var(--panel-kopf-hell) 0%, var(--panel-kopf-dunkel) 100%);
+
+  /*
+   * Waagerecht und nicht senkrecht: Der Kopf ist ein breites, flaches Band, und
+   * ein senkrechter Verlauf darauf hat keinen Weg - er sähe aus wie eine
+   * ungleichmäßig ausgeleuchtete Fläche. Dieselbe Richtung wie im Kopfband der
+   * Seite, nur nicht ganz so dunkel am Anfang.
+   */
+  background: linear-gradient(90deg, var(--panel-kopf-dunkel) 0%, var(--panel-kopf-hell) 100%);
 }
 
 .listenpanel__titel {
@@ -2694,10 +2701,19 @@ input[type='checkbox'] {
  * Die Spaltenköpfe sind Beschriftung und keine Zeile: heller Grund, aber kein
  * Zeiger und keine Hervorhebung beim Überfahren.
  */
+/*
+ * Die Spaltenköpfe sind Schrift wie jede andere.
+ *
+ * Die Grundregel für `th` macht daraus Versalien in Festbreitenschrift mit
+ * gesperrten Buchstaben - eine Beschriftung, die lauter ist als das, was sie
+ * beschriftet. Hier steht dieselbe Schrift wie in den Zeilen darunter, nur
+ * halbfett und gedämpft.
+ */
 .listenpanel th {
-  padding: 0.5rem 0.9rem;
+  padding: 0.55rem 0.9rem;
   border-bottom: 1px solid var(--rule);
   background: rgba(var(--sheen), 0.05);
+  font-family: var(--sans);
   font-size: var(--schrift);
   font-weight: 600;
   text-align: left;
@@ -2759,6 +2775,90 @@ input[type='checkbox'] {
 
 .listenpanel__luecke {
   flex: 1 1 auto;
+}
+
+/*
+ * Ein senkrechter Strich in der Werkzeugleiste.
+ *
+ * Er trennt, was etwas anlegt oder ändert, von dem, was etwas wegnimmt. Löschen
+ * steht deshalb nicht nur rechts, sondern hinter einer Linie - die Hand, die
+ * zum Stift will, soll nicht am Papierkorb vorbeirutschen.
+ */
+.listenpanel__trenner {
+  align-self: stretch;
+  width: 1px;
+  margin: -0.2rem 0.2rem;
+  background: var(--rule);
+}
+
+/* ===================================================================
+ * Die Knöpfe im Schiebefenster
+ *
+ * Die Grundregel macht aus jedem Knopf ein Wort in Versalien, in
+ * Festbreitenschrift, auf einem blauen Verlauf, mit einem Lichtstreifen, der
+ * beim Überfahren hindurchwandert. Das ist die Sprache der Hauptaktion eines
+ * Bildschirms und nicht die einer Werkzeugleiste, in der fünf Knöpfe
+ * nebeneinanderstehen.
+ *
+ * Hier tragen sie dieselbe Schrift wie der Text daneben, eine ruhige Fläche und
+ * eine Kante - und ein Zeichen davor, wo eines etwas sagt.
+ * =================================================================== */
+.schiebefenster button {
+  gap: 0.45rem;
+  height: var(--control-hoehe);
+  padding: 0 0.85rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-small);
+  background: var(--g-2);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--schrift);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: none;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+/* Der Lichtstreifen der Grundregel wandert hier durch nichts hindurch. */
+.schiebefenster button::after {
+  display: none;
+}
+
+.schiebefenster button:hover:not(:disabled) {
+  background: var(--menue-ueber);
+  border-color: rgba(var(--sheen), 0.34);
+  color: var(--text);
+  box-shadow: none;
+  filter: none;
+}
+
+.schiebefenster button:disabled {
+  opacity: 0.42;
+  box-shadow: none;
+}
+
+/* Ein Knopf, der nur ein Zeichen trägt, ist quadratisch. */
+.schiebefenster .knopf--zeichen {
+  width: var(--control-hoehe);
+  padding: 0;
+}
+
+.schiebefenster button svg {
+  width: 0.95em;
+  height: 0.95em;
+  flex: none;
+}
+
+/*
+ * Das Auswahlfeld im Kopf des Panels behält seine eigene Gestalt.
+ *
+ * Es steht auf dem hellen Band und nicht auf dem Grund des Fensters; ohne diese
+ * Zeile nähme es die Fläche der Knöpfe an und verschwände darin.
+ */
+.listenpanel__kopf .auswahlfeld {
+  min-width: 14rem;
+  background: var(--picker-fill);
 }
 
 /* ===================================================================
