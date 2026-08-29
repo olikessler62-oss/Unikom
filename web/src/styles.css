@@ -549,6 +549,15 @@ html[data-sw-modern='on'] {
    * Übergang.
    */
   --kante-fenster: rgba(255, 255, 255, 0.7);
+
+  /*
+   * Der Kopf eines Schiebefensters: außen dunkel, in der Mitte hell.
+   *
+   * Als Marken und nicht als Zahlen in der Regel, weil es eine Regel für alle
+   * Schiebefenster ist und nicht die Eigenschaft eines einzelnen.
+   */
+  --kopf-verlauf-aussen: #252b33;
+  --kopf-verlauf-mitte: #404a5a;
   --option-text: #ffffff;
   --picker-fill: #1b232d;
   --picker-edge: rgba(255, 255, 255, 0.14);
@@ -2631,6 +2640,18 @@ input[type='checkbox'] {
 
 /* ---------- Der Kopf ---------- */
 
+/*
+ * Der Kopf trägt einen Verlauf in drei Stufen: dunkel, hell, dunkel.
+ *
+ * Er läuft waagerecht über die ganze Breite und ist in der Mitte am hellsten.
+ * Anders als beim Kopfband der Seite, das von einer Kante zur anderen läuft:
+ * Das Band ist ein Streifen, der an beiden Enden an etwas anderes stößt; dieser
+ * Kopf steht für sich, und ein Verlauf, der von links nach rechts durchläuft,
+ * sähe darauf aus, als wäre er abgeschnitten.
+ *
+ * Die drei Farben stehen als Marken oben - dieselbe Regel gilt für jedes
+ * Schiebefenster, das noch dazukommt.
+ */
 .schiebefenster__kopf {
   flex: none;
   display: flex;
@@ -2639,6 +2660,12 @@ input[type='checkbox'] {
   gap: 1rem;
   padding: 1.1rem 1.4rem 1rem;
   border-bottom: 1px solid var(--rule);
+  background: linear-gradient(
+    90deg,
+    var(--kopf-verlauf-aussen) 0%,
+    var(--kopf-verlauf-mitte) 50%,
+    var(--kopf-verlauf-aussen) 100%
+  );
 }
 
 .schiebefenster__titelblock {
