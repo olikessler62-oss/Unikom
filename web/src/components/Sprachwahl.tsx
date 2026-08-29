@@ -20,19 +20,30 @@ import { LANGUAGES, type Language } from '../settings/preferences.js';
 export function Sprachwahl() {
   const { language, setLanguage, t } = useLanguage();
 
+  /*
+   * Das Auswahlfeld steht für sich, ohne Hülle.
+   *
+   * Es stand einmal in einem `<label>`. Das war gedacht als bloße Klammer für
+   * die Klasse - aber ein `<label>` ist in dieser Oberfläche ein Bauteil mit
+   * eigenem Aussehen: eine kleine helle Fläche mit Rahmen und runder Ecke, auf
+   * der sonst die Feldbeschriftung in Versalien steht. Hier stand keine drin,
+   * und so saß das Feld in einem leeren Kästchen.
+   *
+   * Es fehlt dabei nichts: Der Name des Feldes kommt aus `aria-label`. Ein
+   * `<label>` ohne Text hätte ohnehin keinen beigesteuert.
+   */
   return (
-    <label className="sprachwahl">
-      <select
-        value={language}
-        aria-label={t('settings.language')}
-        onChange={(event) => setLanguage(event.target.value as Language)}
-      >
-        {LANGUAGES.map((entry) => (
-          <option key={entry} value={entry}>
-            {t(`settings.language.${entry}`)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <select
+      className="sprachwahl"
+      value={language}
+      aria-label={t('settings.language')}
+      onChange={(event) => setLanguage(event.target.value as Language)}
+    >
+      {LANGUAGES.map((entry) => (
+        <option key={entry} value={entry}>
+          {t(`settings.language.${entry}`)}
+        </option>
+      ))}
+    </select>
   );
 }

@@ -937,7 +937,7 @@ code {
  * spätere Entscheidung: helle Fläche, schwarze Schrift.
  */
 .app-page-toolbar-header .bell__button,
-.app-page-toolbar-header .sprachwahl select {
+.app-page-toolbar-header .sprachwahl {
   box-sizing: border-box;
   height: var(--control-hoehe);
   min-height: var(--control-hoehe);
@@ -980,8 +980,12 @@ code {
  *
  * Ein gewöhnliches Auswahlfeld, nur schmaler und flacher: Es steht in einer
  * Leiste neben einem Symbol und nicht in einer Spalte neben seinesgleichen.
+ *
+ * Die Klasse sitzt am Feld selbst. Sie hing einmal an einem `<label>` darum
+ * herum - und ein `<label>` ist hier kein neutraler Kasten, sondern trägt
+ * Fläche, Rahmen und runde Ecke.
  */
-.sprachwahl select {
+.sprachwahl {
   width: auto;
   padding: 0 0.55rem;
   font-size: 0.88rem;
