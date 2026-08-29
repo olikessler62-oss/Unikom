@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * Eine offene Auswahlliste schließt sich, wenn der Mauszeiger fortgeht.
@@ -83,6 +83,36 @@ export function alsRechteck(kasten: { left: number; top: number; right: number; 
 }
 
 /**
+ * Was gemessen werden kann.
+ *
+ * Nicht `Element`, sondern nur die eine Fähigkeit, auf die es ankommt. So lässt
+ * sich die Rechnung prüfen, ohne einen Browser zu starten - und der Prüfling
+ * ist dann die Rechnung und nicht die Fähigkeit des Testrahmens, ein Fenster
+ * nachzustellen.
+ */
+export interface Messbar {
+  getBoundingClientRect(): { left: number; top: number; right: number; bottom: number; width: number; height: number };
+}
+
+/**
+ * Der Rahmen um mehrere Teile, die zusammen ein Aufklappendes bilden.
+ *
+ * Teile ohne Ausdehnung fallen heraus. Das ist der Aus-Zustand: Ein Fach, das
+ * nicht im Dokument steht, meldet ein Rechteck von null mal null an der Stelle
+ * 0,0 - nähme man es mit, spannte sich der Rahmen bis in die linke obere Ecke
+ * des Bildschirms, und der Zeiger wäre nie weit genug fort.
+ */
+export function rahmenUm(teile: readonly (Messbar | null | undefined)[]): Rechteck | undefined {
+  const kaesten = teile
+    .filter((teil): teil is Messbar => teil !== null && teil !== undefined)
+    .map((teil) => teil.getBoundingClientRect())
+    .filter((kasten) => kasten.width > 0 && kasten.height > 0)
+    .map(alsRechteck);
+
+  return umschliesst(kaesten);
+}
+
+/**
  * Wie viel Platz ein offenes Auswahlfeld einnimmt: Feld **und** Liste.
  *
  * Die Liste ist ein Pseudo-Element (`::picker(select)`) und lässt sich nicht
@@ -96,12 +126,7 @@ export function alsRechteck(kasten: { left: number; top: number; right: number; 
  * selbst schlösse die Liste, die er gerade geöffnet hat.
  */
 export function rahmenVon(feld: HTMLSelectElement): Rechteck | undefined {
-  const kaesten = [feld, ...feld.querySelectorAll('option')]
-    .map((teil) => teil.getBoundingClientRect())
-    .filter((kasten) => kasten.width > 0 && kasten.height > 0)
-    .map(alsRechteck);
-
-  return umschliesst(kaesten);
+  return rahmenUm([feld, ...feld.querySelectorAll('option')]);
 }
 
 /**
@@ -151,4 +176,66 @@ export function useAuswahlschliesser(abstand = ABSTAND): void {
 
     return () => document.removeEventListener('pointermove', bewegt);
   }, [abstand]);
+}
+
+/**
+ * Dieselbe Regel für alles andere, was aufklappt.
+ *
+ * Fächer, Kontextmenüs, Vorschlagslisten - alles, was über der Fläche hängt und
+ * verdeckt, was darunter steht. Der Zeiger sagt bereits, dass es nicht mehr
+ * gebraucht wird; ein Klick daneben wäre beim ersten Mal ein Klick auf etwas
+ * anderes.
+ *
+ * ## Warum mehrere Teile und nicht das Fach allein
+ *
+ * Ein Fach hängt an einem Knopf, und der Knopf gehört dazu. Sonst läge die
+ * Grenze mitten auf ihm, sobald das Fach darunter aufklappt - und der Zeiger,
+ * der noch auf dem Knopf steht, schlösse, was er gerade geöffnet hat.
+ *
+ * Der Rahmen wird bei **jeder Bewegung** neu gemessen und nicht einmal beim
+ * Öffnen. Ein Fach wächst, während man es benutzt: Ein Abschnitt klappt auf,
+ * eine Zeile kommt hinzu. Ein Rahmen von vorhin schlösse es dann, obwohl der
+ * Zeiger noch darin steht.
+ *
+ * ## Was hier **nicht** hineingehört
+ *
+ * Alles, worin etwas Ungesichertes steht. Das Memo an einem Feld sieht aus wie
+ * ein Fach, hält aber einen Entwurf und hat OK und Abbrechen - eine Regel, die
+ * am Zeiger hängt, würde dort Tippen verwerfen. Was der Benutzer geschrieben
+ * hat, verschwindet nicht, weil er die Maus bewegt.
+ */
+export function useSchliesstBeiAbstand(
+  offen: boolean,
+  schliessen: () => void,
+  teile: readonly { readonly current: Messbar | null }[],
+  abstand = ABSTAND,
+): void {
+  /*
+   * Beide Angaben liegen in einer Ref, und der Effekt hängt nur am Zustand.
+   *
+   * Sonst hinge er an einer Funktion und einem Feld, die beide bei jedem
+   * Rendern neu entstehen - der Zuhörer würde dutzendfach ab- und wieder
+   * angemeldet, für nichts. Refs bleiben dieselben; nur ihr Inhalt wechselt.
+   */
+  const stand = useRef({ schliessen, teile });
+
+  stand.current = { schliessen, teile };
+
+  useEffect(() => {
+    if (!offen) {
+      return;
+    }
+
+    const bewegt = (ereignis: PointerEvent): void => {
+      const rahmen = rahmenUm(stand.current.teile.map((teil) => teil.current));
+
+      if (rahmen && zuWeitFort(rahmen, { x: ereignis.clientX, y: ereignis.clientY }, abstand)) {
+        stand.current.schliessen();
+      }
+    };
+
+    document.addEventListener('pointermove', bewegt);
+
+    return () => document.removeEventListener('pointermove', bewegt);
+  }, [offen, abstand]);
 }

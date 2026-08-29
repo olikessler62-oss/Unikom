@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client.js';
+import { useSchliesstBeiAbstand } from './Auswahlschliesser.js';
 import { Modal } from './Pieces.js';
 import type {
   Benachrichtigung,
@@ -57,6 +58,22 @@ export function Meldungen({
 }) {
   const [antwort, setAntwort] = useState<Meldungsantwort>();
   const [offen, setOffen] = useState(false);
+  /*
+   * Knopf und Fach zusammen sind das Aufklappende.
+   *
+   * Der Knopf muss mitgemessen werden: Das Fach hängt unter ihm, und ohne ihn
+   * läge die Grenze mitten auf dem Knopf - der Zeiger, der ihn gerade gedrückt
+   * hat, schlösse das Fach im selben Moment wieder.
+   */
+  const knopf = useRef<HTMLButtonElement>(null);
+  const fach = useRef<HTMLDivElement>(null);
+
+  /*
+   * Das Fach schließt sich, wenn der Zeiger fortgeht - dieselbe Handbreit wie
+   * bei einer aufgeklappten Auswahlliste. Es steht nichts Ungesichertes darin:
+   * Was hier geschieht, geschieht auf Knopfdruck und ist dann bereits gesendet.
+   */
+  useSchliesstBeiAbstand(offen, () => setOffen(false), [knopf, fach]);
   const [busy, setBusy] = useState(false);
   /**
    * Die Meldung, die sich von selbst zeigt (SPEC-01, Abschnitt 20).
@@ -242,6 +259,7 @@ export function Meldungen({
       )}
 
       <button
+        ref={knopf}
         type="button"
         className={stand.draengend > 0 ? 'bell__button bell__button--urgent' : 'bell__button'}
         title={
@@ -260,7 +278,7 @@ export function Meldungen({
       </button>
 
       {offen && (
-        <div className="bell__panel">
+        <div ref={fach} className="bell__panel">
           {/*
             * Was auf eine Entscheidung wartet, steht oben - vor den Meldungen.
             *

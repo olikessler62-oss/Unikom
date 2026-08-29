@@ -417,8 +417,19 @@ html[data-sw-modern='on'] {
    */
   --app-shell-header-panel-color: #434f5f;
 
-  /* Flächen & Text */
-  --color-background: #131922;
+  /*
+   * Flächen & Text.
+   *
+   * `--color-background` ist der Grund des Inhaltsbereichs - alles rechts der
+   * Leiste und unter dem Band. Der Rahmen färbt sich selbst und ist davon
+   * nicht betroffen.
+   *
+   * `--color-surface` liegt eine knappe Stufe darüber. Der Abstand ist klein
+   * mit Absicht: Eine Fläche soll sich vom Grund abheben, ohne dass eine Seite
+   * mit vielen Flächen zu einem Flickenteppich wird. Was deutlicher trennt,
+   * ist die Kante, nicht der Sprung.
+   */
+  --color-background: #181e28;
   --color-surface: #1b232d;
   --color-foreground: #e9eff7;
   --color-muted: #a6bad0;

@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ABSTAND, alsRechteck, umschliesst, zuWeitFort, type Rechteck } from './Auswahlschliesser.js';
+import {
+  ABSTAND,
+  alsRechteck,
+  rahmenUm,
+  umschliesst,
+  zuWeitFort,
+  type Rechteck,
+} from './Auswahlschliesser.js';
 
 /** Ein Feld von 200 × 30, darunter eine Liste bis y = 300. */
 const RAHMEN: Rechteck = { links: 100, oben: 100, rechts: 300, unten: 300 };
@@ -104,4 +111,74 @@ test('ein Kasten des Browsers wird auf unsere Namen gebracht', () => {
     rechts: 3,
     unten: 4,
   });
+});
+
+/* ---------- Der Rahmen um ein Fach ---------- */
+
+/** Ein Teil, das sich messen lässt — so viel, wie die Rechnung braucht. */
+function teil(links: number, oben: number, rechts: number, unten: number) {
+  return {
+    getBoundingClientRect: () => ({
+      left: links,
+      top: oben,
+      right: rechts,
+      bottom: unten,
+      width: rechts - links,
+      height: unten - oben,
+    }),
+  };
+}
+
+test('der Rahmen spannt sich über Knopf und Fach', () => {
+  const knopf = teil(500, 20, 530, 48);
+  const fach = teil(300, 60, 730, 400);
+
+  assert.deepEqual(rahmenUm([knopf, fach]), { links: 300, oben: 20, rechts: 730, unten: 400 });
+});
+
+test('ein Teil, das nicht dasteht, zählt nicht mit', () => {
+  /*
+   * Das Fach steht nur im Dokument, solange es offen ist. Die Ref auf ein
+   * geschlossenes Fach ist leer — und ein leerer Platz darf den Rahmen nicht
+   * verändern.
+   */
+  const knopf = teil(500, 20, 530, 48);
+
+  assert.deepEqual(rahmenUm([knopf, null]), { links: 500, oben: 20, rechts: 530, unten: 48 });
+  assert.deepEqual(rahmenUm([knopf, undefined]), { links: 500, oben: 20, rechts: 530, unten: 48 });
+});
+
+test('ein Teil ohne Ausdehnung zieht den Rahmen nicht in die Ecke', () => {
+  /*
+   * Das ist die Falle. Ein Element, das im Dokument steht, aber nichts einnimmt,
+   * meldet ein Rechteck von null mal null an der Stelle 0,0. Nähme man es mit,
+   * spannte sich der Rahmen bis in die linke obere Ecke des Bildschirms — und
+   * der Zeiger wäre nie weit genug fort. Das Fach bliebe für immer offen.
+   */
+  const knopf = teil(500, 20, 530, 48);
+  const leer = teil(0, 0, 0, 0);
+
+  const rahmen = rahmenUm([knopf, leer]) as Rechteck;
+
+  assert.deepEqual(rahmen, { links: 500, oben: 20, rechts: 530, unten: 48 });
+  assert.equal(zuWeitFort(rahmen, { x: 100, y: 100 }), true);
+});
+
+test('ohne ein einziges dastehendes Teil gibt es keinen Rahmen', () => {
+  /*
+   * Kein Rahmen heißt: nichts zu schließen. Die Regel darf dann gar nichts tun
+   * — ein Rahmen von null wäre einer, von dem jeder Zeiger weit fort ist.
+   */
+  assert.equal(rahmenUm([]), undefined);
+  assert.equal(rahmenUm([null, undefined]), undefined);
+  assert.equal(rahmenUm([teil(0, 0, 0, 0)]), undefined);
+});
+
+test('die Handbreit gilt auch für ein Fach', () => {
+  const rahmen = rahmenUm([teil(500, 20, 530, 48), teil(300, 60, 730, 400)]) as Rechteck;
+
+  assert.equal(zuWeitFort(rahmen, { x: 280, y: 200 }), false, 'zwanzig links: bleibt');
+  assert.equal(zuWeitFort(rahmen, { x: 279, y: 200 }), true, 'einundzwanzig links: fort');
+  assert.equal(zuWeitFort(rahmen, { x: 500, y: 420 }), false, 'zwanzig unter dem Fach: bleibt');
+  assert.equal(zuWeitFort(rahmen, { x: 500, y: 421 }), true, 'einundzwanzig darunter: fort');
 });
