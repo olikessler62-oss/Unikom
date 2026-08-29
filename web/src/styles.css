@@ -863,6 +863,14 @@ code {
   box-shadow: 12px 0 18px -10px rgb(2 6 23 / 0.5);
 }
 
+/*
+ * Das Schriftzugfeld ist schwarz - dieselbe Farbe, mit der das Kopfband links
+ * beginnt. Die beiden stoßen dort aneinander, und aus zwei Flächen wird eine.
+ */
+.app-shell-brand-header {
+  background: var(--app-shell-header-panel-dunkel);
+}
+
 /* Die Kante zwischen Schriftzug und Inhalt - nur, wo sie nebeneinanderstehen. */
 @media (min-width: 768px) {
   .app-shell-brand-header {
