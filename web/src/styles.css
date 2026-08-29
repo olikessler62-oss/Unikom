@@ -162,11 +162,23 @@
     var(--app-shell-header-panel-color) 60%,
     color-mix(in srgb, var(--app-shell-header-panel-color) 82%, #fff) 100%
   );
+  /*
+   * Das Kopfband: von Schwarz links nach Stahl rechts.
+   *
+   * Zwei Farben und kein Zwischenhalt - der Verlauf läuft durch. Die Leiste
+   * darüber behält ihre drei Stufen: Sie ist hoch und schmal, dort trägt ein
+   * Mittelwert die Fläche; das Band ist breit und flach, dort führt derselbe
+   * Aufbau nur dazu, dass die rechten zwei Drittel gleich aussehen.
+   *
+   * Anders als bisher stimmt das Band an der linken Kante nicht mehr mit der
+   * Leiste überein - es beginnt zwei Stufen dunkler. Das ist gewollt: Die drei
+   * Teile sind eine Ebene, dürfen aber verschieden gefärbt sein.
+   */
+  --app-shell-header-panel-dunkel: #000000;
   --app-shell-header-panel-gradient-horizontal: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--app-shell-header-panel-color) 78%, #000) 0%,
-    var(--app-shell-header-panel-color) 60%,
-    color-mix(in srgb, var(--app-shell-header-panel-color) 82%, #fff) 100%
+    var(--app-shell-header-panel-dunkel) 0%,
+    var(--app-shell-header-panel-color) 100%
   );
 
   /*
