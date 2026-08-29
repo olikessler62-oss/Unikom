@@ -124,7 +124,7 @@ export function Schiebefenster({ titel, unterzeile, hinweis, fuss, onSchliessen,
 /** Das Kreuz - als Strichzeichnung und nicht als Buchstabe „x". */
 function KreuzStrich() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="kreuzstrich">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="kreuzstrich icon--strich">
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
