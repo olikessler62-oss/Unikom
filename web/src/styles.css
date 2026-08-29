@@ -507,6 +507,8 @@ html[data-sw-modern='on'] {
    */
   --pick: #3d4d65;
   --pick-text: #ffffff;
+  /* Die Zeile unter dem Zeiger ist heller als die eingestellte. */
+  --pick-hover: #4f6485;
   --option-text: #ffffff;
   --picker-fill: #1b232d;
   --picker-edge: rgba(255, 255, 255, 0.14);
@@ -2444,19 +2446,23 @@ option {
 }
 
 /*
- * Überfahren und eingestellt sehen gleich aus - eine Fläche, eine Stärke.
+ * Zwei Zustände, zwei Farben - beide voll, keine Mischung.
  *
- * Sie waren einmal zwei Stärken, damit man den eingestellten Eintrag vom
- * überfahrenen unterscheiden kann. Die Regel sagt jetzt eine Farbe für beides:
- * Was zählt, ist die Zeile unter dem Zeiger, und die ist es, die beim Loslassen
- * eingestellt wird.
+ * Die eingestellte Zeile sagt „das gilt", die überfahrene „das käme jetzt". Die
+ * hellere gehört dem Zeiger: Sie beantwortet die Frage, die gerade gestellt
+ * wird, und tritt hinter der anderen hervor.
  *
  * Der Verlauf ist kein Schmuck: Für eine einfache Fläche nimmt der Browser an
  * dieser Stelle keine Farbe an.
  */
-option:hover,
 option:checked {
   background: linear-gradient(var(--pick), var(--pick));
+  color: var(--pick-text);
+}
+
+/* Steht danach: Ist ein Eintrag beides, gilt der Zeiger. */
+option:hover {
+  background: linear-gradient(var(--pick-hover), var(--pick-hover));
   color: var(--pick-text);
 }
 
@@ -4741,17 +4747,20 @@ button.secondary::after {
     display: none;
   }
 
-  /*
-   * Überfahren, mit der Tastatur angesteuert, eingestellt: eine Fläche.
-   *
-   * Die drei sind Antworten auf dieselbe Frage - welche Zeile gilt gerade. Sie
-   * treten nacheinander auf und nie so nebeneinander, dass man sie
-   * auseinanderhalten müsste.
-   */
-  select option:hover,
-  select option:focus,
   select option:checked {
     background: var(--pick);
+    color: var(--pick-text);
+  }
+
+  /*
+   * Überfahren und mit der Tastatur angesteuert sind derselbe Zustand - „hier
+   * zeige ich gerade hin" - und tragen deshalb dieselbe hellere Fläche. Sie
+   * stehen nach der eingestellten Zeile: Ist ein Eintrag beides, gilt der
+   * Zeiger.
+   */
+  select option:hover,
+  select option:focus {
+    background: var(--pick-hover);
     color: var(--pick-text);
   }
 }
