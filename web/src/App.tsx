@@ -222,9 +222,11 @@ function navItemClass(aktiv: boolean): string {
      */
     ' [background:none] transition-colors';
 
+  // Weiß in beiden Fällen: Was den gewählten Punkt anzeigt, ist die Fläche und
+  // die Kante links - nicht eine gedämpfte Schrift bei allen anderen.
   return aktiv
     ? `${basis} sw-nav-hl-active border-l-white text-white`
-    : `${basis} border-l-transparent text-white/80 hover:text-white`;
+    : `${basis} border-l-transparent text-white`;
 }
 
 export function App() {

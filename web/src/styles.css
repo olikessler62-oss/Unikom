@@ -555,7 +555,7 @@ html[data-sw-modern='on'] body {
  * ruhigsten sein.
  */
 html[data-sw-modern='on'] .app-shell-sidebar-nav-menu::before {
-  background: #090b0f;
+  background: var(--app-shell-header-panel-dunkel);
 }
 
 /* ===================================================================
@@ -962,21 +962,31 @@ code {
   display: none;
 }
 
-.sw-nav-hl:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.12);
+/*
+ * Der gewählte Punkt und der unter dem Zeiger - zwei Stufen über Schwarz.
+ *
+ * Feste Farben und keine Weißschleier: Der Grund des Menüs ist Schwarz, und
+ * ein Schleier darauf ergäbe zwar dieselbe Fläche, aber nur solange der Grund
+ * schwarz bleibt.
+ *
+ * Der Zeiger schlägt die Wahl. Er tut das von selbst - die Regel wiegt drei
+ * Klassen, die andere eine -, und das ist gewollt: Wer über den gewählten Punkt
+ * fährt, soll sehen, dass er ihn treffen würde.
+ */
+.sw-nav-hl-active {
+  background-color: #2d353f;
 }
 
-.sw-nav-hl-active,
-.sw-nav-hl-active:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.16);
+.sw-nav-hl:hover:not(:disabled) {
+  background-color: #3a4552;
 }
 
 /*
  * Die Kopfleiste der Seite.
  *
- * Derselbe Verlauf wie die Leiste, nur waagerecht, und beide beginnen dunkel:
- * An der Ecke, an der sie zusammenstoßen, tragen sie denselben Ton, und aus
- * zwei Flächen wird ein Band.
+ * Sie beginnt links schwarz - dieselbe Farbe wie das Schriftzugfeld, an das sie
+ * stößt. Die Leiste darunter trägt ihren eigenen Verlauf; die drei sind eine
+ * Ebene, aber nicht eine Fläche.
  *
  * Sie rollt waagerecht, statt umzubrechen. Eine Leiste, die bei Platzmangel
  * zweizeilig wird, verschöbe alles darunter - und die Kante, die mit dem
