@@ -5,7 +5,7 @@ import { messageOf, useResource } from '../api/useResource.js';
 import type { Feature, Job, Tenant } from '../api/types.js';
 import { Auswahlfeld } from '../components/Auswahlfeld.js';
 import { Empty, formatMoment, Loading, Notice, PencilIcon, PlusIcon, TrashIcon } from '../components/Pieces.js';
-import { Bereichsfenster, Listenpanel, Schiebefenster } from '../components/Schiebefenster.js';
+import { WF_Bereichsfenster, Listenpanel, WF_Schiebefenster } from '../components/WF_Fenster.js';
 import { JobEditorScreen } from './job/JobEditorScreen.js';
 
 const QUELLEN: Record<Job['sourceType'], string> = {
@@ -85,7 +85,7 @@ export function WorkflowsSchiebefenster({ canManage, features, onSchliessen }: P
 
   return (
     <>
-      <Schiebefenster
+      <WF_Schiebefenster
         titel="Workflows"
         unterzeile="Zeile wählen — Öffnen, Anlegen und Löschen gelten für den ausgesuchten Workflow."
         hinweis="Mandant in der Combobox wählen oder Zeile auswählen — Doppelklick zum Öffnen."
@@ -206,7 +206,7 @@ export function WorkflowsSchiebefenster({ canManage, features, onSchliessen }: P
             </table>
           )}
         </Listenpanel>
-      </Schiebefenster>
+      </WF_Schiebefenster>
 
       {/*
         * Der Editor steht in einem Fenster über dem Schiebefenster und nicht an
@@ -214,13 +214,13 @@ export function WorkflowsSchiebefenster({ canManage, features, onSchliessen }: P
         * kam - ohne sie neu aufschlagen zu müssen.
         */}
       {editor && (
-        <Bereichsfenster
+        <WF_Bereichsfenster
           titel={editor === 'new' ? 'Neuer Workflow' : (alle.find((job) => job.id === editor)?.name ?? 'Workflow')}
           unterzeile="Angaben ändern und speichern — die Liste dahinter bleibt stehen."
           onSchliessen={() => void schliesseEditor()}
         >
           <JobEditorScreen jobId={editor} features={features} onDone={() => void schliesseEditor()} />
-        </Bereichsfenster>
+        </WF_Bereichsfenster>
       )}
     </>
   );

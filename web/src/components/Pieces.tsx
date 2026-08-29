@@ -73,9 +73,9 @@ export function Notice({ kind, children }: { kind: Tone; children: ReactNode }) 
   }
 
   return (
-    <Modal tone={kind} title={t(TONE_KEYS[kind])} onClose={() => setOpen(false)}>
+    <WF_Modal tone={kind} title={t(TONE_KEYS[kind])} onClose={() => setOpen(false)}>
       {children}
-    </Modal>
+    </WF_Modal>
   );
 }
 
@@ -114,9 +114,9 @@ export function Hint({
       </button>
 
       {open && (
-        <Modal tone={kind} title={heading} onClose={() => setOpen(false)}>
+        <WF_Modal tone={kind} title={heading} onClose={() => setOpen(false)}>
           {children}
-        </Modal>
+        </WF_Modal>
       )}
     </>
   );
@@ -144,7 +144,7 @@ export function InfoButton({ label, onClick }: { label: string; onClick(): void 
  * Ein Fenster über der Seite. Escape und ein Klick daneben schließen es — beides
  * erwartet man, und ein Fenster, das nur einen Knopf kennt, hält fest.
  */
-export function Modal({
+export function WF_Modal({
   title,
   tone,
   ownActions = false,

@@ -11,7 +11,7 @@ import {
   FolderOpenIcon,
   listentasten,
   Loading,
-  Modal,
+  WF_Modal,
   titelBeiUeberlauf,
 } from './Pieces.js';
 
@@ -573,7 +573,7 @@ export function Verzeichnisfenster({
 
   return (
 
-        <Modal
+        <WF_Modal
           title={titel}
           // Das Fenster bringt „Abbrechen" und „OK" mit; ein „Schließen"
           // daneben wäre ein dritter Knopf für das, was der erste schon tut.
@@ -817,7 +817,7 @@ export function Verzeichnisfenster({
               </div>
             </>
           )}
-        </Modal>
+        </WF_Modal>
   );
 }
 

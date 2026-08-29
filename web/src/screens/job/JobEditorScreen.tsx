@@ -56,7 +56,7 @@ import {
   Klappkarte,
   Hint,
   Loading,
-  Modal,
+  WF_Modal,
   Notice,
   TrashIcon,
 } from '../../components/Pieces.js';
@@ -616,7 +616,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
   return (
     <div className="editor">
       {adding && (
-        <Modal
+        <WF_Modal
           title={adding === 'ACCESS' ? 'Neuer Zugang' : 'Neuer Schlüssel'}
           // Das Formular bringt „Anlegen" und „Abbrechen" mit; ein „Schließen"
           // daneben wäre ein dritter Knopf für das, was der zweite schon tut.
@@ -644,7 +644,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
               void credentials.reload();
             }}
           />
-        </Modal>
+        </WF_Modal>
       )}
 
       {/*
@@ -2632,13 +2632,13 @@ function PublicKeyOf({ credential }: { credential?: Credential }) {
       </div>
 
       {state.open && (
-        <Modal title={`Öffentlicher Schlüssel - ${credential.name}`} onClose={() => setState({ open: false })}>
+        <WF_Modal title={`Öffentlicher Schlüssel - ${credential.name}`} onClose={() => setState({ open: false })}>
           {!state.publicKey && !state.problem ? (
             <Loading />
           ) : (
             <PublicKeyPanel publicKey={state.publicKey} problem={state.problem} />
           )}
-        </Modal>
+        </WF_Modal>
       )}
     </>
   );

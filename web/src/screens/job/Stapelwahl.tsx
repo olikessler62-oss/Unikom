@@ -10,7 +10,7 @@ import {
   FolderIcon,
   Hint,
   Klappkarte,
-  Modal,
+  WF_Modal,
   Notice,
   PlusIcon,
   titelBeiUeberlauf,
@@ -544,7 +544,7 @@ export function Stapelwahl({
         * weil beide dasselbe fragen — nur der Satz darin ist ein anderer.
         */}
       {frage && (
-        <Modal title="Bitte bestätigen" ownActions onClose={() => setFrage(undefined)}>
+        <WF_Modal title="Bitte bestätigen" ownActions onClose={() => setFrage(undefined)}>
           <p>{frage.text}</p>
 
           <div className="row modal__actions">
@@ -561,7 +561,7 @@ export function Stapelwahl({
               Nein
             </button>
           </div>
-        </Modal>
+        </WF_Modal>
       )}
     </Klappkarte>
   );
@@ -1000,7 +1000,7 @@ function Ablageorte({
     onAendern({ abholung: { ...wahl?.abholung, ...teile } });
 
   return (
-    <Modal title="Verzeichnisse" onClose={onClose}>
+    <WF_Modal title="Verzeichnisse" onClose={onClose}>
       <Verzeichnisfeld
         label="Archiv (Original)"
         pflicht={pflicht}
@@ -1081,7 +1081,7 @@ function Ablageorte({
         marke={<Schreibprobe verzeichnis={wahl?.abholung?.gescheitert} tenantId={tenantId} />}
         onChange={(pfad) => setze({ gescheitert: pfad || undefined })}
       />
-    </Modal>
+    </WF_Modal>
   );
 }
 

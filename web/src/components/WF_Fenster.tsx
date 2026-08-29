@@ -36,7 +36,7 @@ interface Props {
   children: ReactNode;
 }
 
-export function Schiebefenster({ titel, unterzeile, hinweis, onSchliessen, children }: Props) {
+export function WF_Schiebefenster({ titel, unterzeile, hinweis, onSchliessen, children }: Props) {
   /**
    * Ob es an seinem Platz steht.
    *
@@ -152,7 +152,7 @@ function Fensterfuss({ onSchliessen }: { onSchliessen(): void }) {
  * Es hat keine eigene Bewegung. Ein Fenster, das aus einer Liste hervorgeht,
  * soll dort sein, wo man hingesehen hat, und nicht erst irgendwoher kommen.
  */
-export function Bereichsfenster({
+export function WF_Bereichsfenster({
   titel,
   unterzeile,
   onSchliessen,

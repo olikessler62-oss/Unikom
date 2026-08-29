@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client.js';
 import { useSchliesstBeiAbstand } from './Auswahlschliesser.js';
-import { Modal } from './Pieces.js';
+import { WF_Modal } from './Pieces.js';
 import type {
   Benachrichtigung,
   Handlungsbedarf,
@@ -234,7 +234,7 @@ export function Meldungen({
   return (
     <div className="bell">
       {popup && (
-        <Modal title={popup.titel} onClose={() => void schliessePopup()}>
+        <WF_Modal title={popup.titel} onClose={() => void schliessePopup()}>
           <p>{popup.text}</p>
           <p className="muted">
             {STUFE_LABELS[popup.stufe]} · {popup.entstanden}
@@ -255,7 +255,7 @@ export function Meldungen({
               Später
             </button>
           </div>
-        </Modal>
+        </WF_Modal>
       )}
 
       <button

@@ -13,7 +13,7 @@ import {
   KreuzIcon,
   Loading,
   Memofeld,
-  Modal,
+  WF_Modal,
   Notice,
   titelBeiUeberlaufWahl,
 } from '../components/Pieces.js';
@@ -463,7 +463,7 @@ export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }:
         * ein Fenster mit OK und Abbrechen.
         */}
       {fenster.art === 'liste' && (
-        <Modal
+        <WF_Modal
           title="Mandanten"
           // Das Fenster bringt OK und Abbrechen mit; ein „Schließen" daneben
           // wäre ein dritter Knopf für das, was der zweite schon tut.
@@ -602,7 +602,7 @@ export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }:
               </button>
             </div>
           </div>
-        </Modal>
+        </WF_Modal>
       )}
 
       {/*
@@ -614,7 +614,7 @@ export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }:
         * höher, nur innerhalb des Fensters.
         */}
       {fenster.art === 'mandant' && draft && (
-        <Modal
+        <WF_Modal
           title={draft.id ? draft.name.trim() || 'Mandant ohne Namen' : 'Neuer Mandant'}
           ownActions
           geteilt
@@ -920,7 +920,7 @@ export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }:
               Abbrechen
             </button>
           </div>
-        </Modal>
+        </WF_Modal>
       )}
 
       {/*
@@ -933,7 +933,7 @@ export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }:
         * das hinter dem Fenster verschwindet.
         */}
       {explaining && (
-        <Modal title="Root-Verzeichnis" onClose={() => setExplaining(false)}>
+        <WF_Modal title="Root-Verzeichnis" onClose={() => setExplaining(false)}>
           <p>
             Jeder Job dieses Mandanten darf seine Dateien nur <strong>unterhalb dieses Ordners</strong> ablegen. Ein
             Zielverzeichnis außerhalb wird beim Speichern abgelehnt - so landen die Daten dieses Kunden auch bei einem
@@ -943,7 +943,7 @@ export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }:
             Leer lassen, wenn Sie nur eigene Daten verarbeiten. Dann gibt es niemanden, mit dem etwas verwechselt werden
             könnte.
           </p>
-        </Modal>
+        </WF_Modal>
       )}
     </>
   );

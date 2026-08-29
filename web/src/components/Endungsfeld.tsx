@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 
-import { Field, FieldButton, ListIcon, Modal, listentasten } from './Pieces.js';
+import { Field, FieldButton, ListIcon, WF_Modal, listentasten } from './Pieces.js';
 
 /**
  * Ein Feld für Dateiendungen — mit einer Liste zum Anhaken daneben.
@@ -68,7 +68,7 @@ export function Endungsfeld({
         * Bestätigungsknopf wäre ein Schritt, der nichts entscheidet.
         */}
       {offen && (
-        <Modal schmal title={label} onClose={() => setOffen(false)}>
+        <WF_Modal schmal title={label} onClose={() => setOffen(false)}>
           {/*
             * Die Pfeiltasten bewegen den Fokus, nicht die Seite. Eine Liste,
             * die nur mit der Maus zu bedienen ist, zwingt zum Wechseln der
@@ -100,7 +100,7 @@ export function Endungsfeld({
               );
             })}
           </ul>
-        </Modal>
+        </WF_Modal>
       )}
     </>
   );

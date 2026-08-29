@@ -11,7 +11,7 @@ import type {
   PrivacyReport,
   Tenant,
 } from '../api/types.js';
-import { Empty, Field, formatMoment, Loading, Modal, Notice, Reiter } from '../components/Pieces.js';
+import { Empty, Field, formatMoment, Loading, WF_Modal, Notice, Reiter } from '../components/Pieces.js';
 import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 type Teil = 'suche' | 'bogen';
@@ -342,7 +342,7 @@ export function DataEnquiryScreen() {
           )}
 
           {nachfrage && auskunft && (
-            <Modal title="Löschauftrag ausführen?" tone="warn" ownActions onClose={() => setNachfrage(false)}>
+            <WF_Modal title="Löschauftrag ausführen?" tone="warn" ownActions onClose={() => setNachfrage(false)}>
               <p>
                 Gelöscht wird nach dem Begriff <strong>„{auskunft.begriff}"</strong>
                 {mandant ? (
@@ -392,7 +392,7 @@ export function DataEnquiryScreen() {
                   Abbrechen
                 </button>
               </div>
-            </Modal>
+            </WF_Modal>
           )}
 
           {bericht && (

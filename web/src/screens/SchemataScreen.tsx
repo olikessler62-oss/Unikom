@@ -18,7 +18,7 @@ import {
   Field,
   FieldButton,
   Hint,
-  Modal,
+  WF_Modal,
   Notice,
   PlusIcon,
   Reiter,
@@ -240,7 +240,7 @@ export function SchemataScreen({ mandant }: { mandant: string }) {
       )}
 
       {frage && (
-        <Modal title="Nachfrage" tone="warn" ownActions onClose={() => setFrage(undefined)}>
+        <WF_Modal title="Nachfrage" tone="warn" ownActions onClose={() => setFrage(undefined)}>
           <p>{frage.text}</p>
 
           <div className="row modal__actions">
@@ -256,7 +256,7 @@ export function SchemataScreen({ mandant }: { mandant: string }) {
               Nein
             </button>
           </div>
-        </Modal>
+        </WF_Modal>
       )}
     </>
   );
@@ -752,7 +752,7 @@ function Regelfenster({
     (art !== 'AUS_LISTE' || werte.trim() !== '');
 
   return (
-    <Modal title={`Regel für „${feld}"`} ownActions onClose={onClose}>
+    <WF_Modal title={`Regel für „${feld}"`} ownActions onClose={onClose}>
       <Field label="Was geprüft wird">
         <Auswahlfeld className="input--wahl" value={art} onChange={(event) => setArt(event.target.value as Pruefung['art'])}>
           {PRUEFARTEN.map((eine) => (
@@ -866,7 +866,7 @@ function Regelfenster({
           Abbrechen
         </button>
       </div>
-    </Modal>
+    </WF_Modal>
   );
 }
 
