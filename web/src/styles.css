@@ -2480,7 +2480,17 @@ input[type='checkbox'] {
   flex-direction: column;
   min-height: 0;
   background: var(--color-background);
-  border-right: 1px solid var(--rule);
+
+  /*
+   * Eine helle Linie an beiden Kanten.
+   *
+   * Sie sagt, wo das Fenster anfängt und wo es aufhört. Links stößt es an die
+   * Seitenleiste, rechts an den Inhalt - beide sind dunkel, und ohne die Linien
+   * liefe es an beiden Seiten in seine Umgebung aus. Kräftiger als die Linien
+   * *im* Fenster: Diese hier trennen zwei Flächen, jene gliedern eine.
+   */
+  border-left: 1px solid var(--rule-strong);
+  border-right: 1px solid var(--rule-strong);
   box-shadow: 24px 0 48px -28px rgba(0, 0, 0, 0.9);
 
   /*
@@ -2516,6 +2526,7 @@ input[type='checkbox'] {
     left: 0;
     top: 0;
     width: 100vw;
+    border-left: 0;
     border-right: 0;
   }
 }
