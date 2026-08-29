@@ -4763,13 +4763,20 @@ button.secondary::after {
   }
 
   /*
-   * Überfahren und mit der Tastatur angesteuert sind derselbe Zustand - „hier
-   * zeige ich gerade hin" - und tragen deshalb dieselbe hellere Fläche. Sie
-   * stehen nach der eingestellten Zeile: Ist ein Eintrag beides, gilt der
-   * Zeiger.
+   * Nur der Zeiger, nicht der Fokus.
+   *
+   * `:focus` stand hier einmal mit dabei - „mit der Tastatur angesteuert" schien
+   * derselbe Zustand zu sein wie „überfahren". Ist es aber nicht: Beim Öffnen
+   * der Liste setzt der Browser den Fokus auf den eingestellten Eintrag. Der
+   * trug damit die Farbe des Zeigers, und da die Regel nach der eingestellten
+   * steht, gewann sie - die eingestellte Zeile und die überfahrene sahen gleich
+   * aus, sobald die Liste ein zweites Mal aufging.
+   *
+   * Es bleiben zwei Zustände und zwei Farben. Wer mit den Pfeiltasten durch die
+   * Liste geht, verstellt dabei den eingestellten Eintrag; die Rückmeldung
+   * darauf ist dessen eigene Farbe.
    */
-  select option:hover,
-  select option:focus {
+  select option:hover {
     background: var(--pick-hover);
     color: var(--pick-text);
   }
