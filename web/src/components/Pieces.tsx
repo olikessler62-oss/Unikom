@@ -760,11 +760,21 @@ export function PlusIcon() {
  * Die Angabe steht am Zeichen und nicht am Knopf: Ob ein Zeichen aus Flächen
  * oder aus Strichen besteht, weiß es selbst — der Knopf, in dem es sitzt, nicht.
  */
-/** Papierkorb — löschen. */
+/**
+ * Papierkorb — löschen.
+ *
+ * Deckel, Griff, Korb — und sonst nichts. Er trug einmal zwei senkrechte
+ * Striche darin, die Rillen andeuten sollten. Bei siebzehn Pixeln stehen die so
+ * eng, dass daraus ein Gitter wird und der Korb sein Inneres verliert; ein
+ * Zeichen dieser Größe verträgt drei Linien, nicht fünf.
+ *
+ * Der Korb verjüngt sich nach unten und ist unten gerundet. Ein Rechteck sähe
+ * aus wie eine Kiste.
+ */
 export function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="icon--strich">
-      <path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13M10 10.5v6M14 10.5v6" />
+      <path d="M5 7h14M10 7V5.4h4V7M6.6 7l.9 12.3a1.3 1.3 0 0 0 1.3 1.2h6.4a1.3 1.3 0 0 0 1.3-1.2L17.4 7" />
     </svg>
   );
 }
