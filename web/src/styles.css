@@ -558,6 +558,27 @@ html[data-sw-modern='on'] {
    */
   --kopf-verlauf-aussen: #252b33;
   --kopf-verlauf-mitte: #404a5a;
+
+  /*
+   * Der Rahmen eines Fensters über dem Inhaltsbereich - und jede Linie darin,
+   * die von Kante zu Kante läuft.
+   *
+   * Ein fester Ton und kein Weißschleier: Diese Linien liegen mal auf dem Grund
+   * des Fensters, mal auf einer Fläche darin, und ein Schleier sähe an jeder
+   * Stelle anders aus. Was von Kante zu Kante läuft, soll durchgehend gleich
+   * aussehen.
+   */
+  --kante-modal: #3b424b;
+
+  /*
+   * Der seitliche Abstand im Fenster.
+   *
+   * Als Marke, weil zwei Regeln sie brauchen: der Körper als Abstand und die
+   * Knopfleiste als negativer Rand, mit dem sie wieder bis an die Kante reicht.
+   * Zwei Zahlen liefen beim ersten Eingriff auseinander, und dann stünde die
+   * Linie um ein paar Pixel neben dem Rahmen.
+   */
+  --fenster-luft-x: 1.4rem;
   --option-text: #ffffff;
   --picker-fill: #1b232d;
   --picker-edge: rgba(255, 255, 255, 0.14);
@@ -2538,7 +2559,7 @@ input[type='checkbox'] {
 .bereichsfenster__kasten {
   width: 80%;
   height: 80%;
-  border: 1px solid var(--kante-fenster);
+  border: 1px solid var(--kante-modal);
   border-radius: var(--radius);
   background: var(--color-background);
   box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.95);
@@ -2562,6 +2583,20 @@ input[type='checkbox'] {
 
 .bereichsfenster .editor__title h1 {
   display: none;
+}
+
+/*
+ * Der Fuß des Editors ist im Fenster die Knopfleiste - und wird so behandelt.
+ *
+ * Dieselbe Rechnung wie bei `.fensterrahmen__fuss`: heraus mit einem negativen
+ * Rand, zurück mit dem Innenabstand. Der eigene Grund fällt weg; er war für die
+ * Fläche gedacht, auf der der Editor sonst steht.
+ */
+.bereichsfenster .editor__foot {
+  margin: 1.4rem calc(-1 * var(--fenster-luft-x)) 0;
+  padding: 0.9rem var(--fenster-luft-x) 0;
+  background: none;
+  border-top: 1px solid var(--kante-modal);
 }
 
 /* Auf einem schmalen Bildschirm nimmt es alles - vier Fünftel wären zu wenig. */
@@ -2759,7 +2794,7 @@ input[type='checkbox'] {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 1.1rem 1.4rem;
+  padding: 1.1rem var(--fenster-luft-x);
 }
 
 /*
@@ -2775,13 +2810,21 @@ input[type='checkbox'] {
   color: var(--text-soft);
 }
 
+/*
+ * Die Linie über der Knopfleiste läuft bis an den Rahmen.
+ *
+ * Der Körper hält seitlich Abstand; die Leiste zieht ihn mit einem negativen
+ * Rand wieder heraus und gibt ihn sich selbst als Innenabstand zurück. Damit
+ * steht der Inhalt weiter in der Flucht, aber die Linie reicht von Kante zu
+ * Kante. Eine Linie, die vorher aufhört, sieht aus wie ein vergessener Strich.
+ */
 .fensterrahmen__fuss {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 0.9rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--rule);
+  margin: 0.9rem calc(-1 * var(--fenster-luft-x)) 0;
+  padding: 0.9rem var(--fenster-luft-x) 0;
+  border-top: 1px solid var(--kante-modal);
 }
 
 .fensterrahmen__luecke {
