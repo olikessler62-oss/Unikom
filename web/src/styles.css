@@ -2818,15 +2818,22 @@ input[type='checkbox'] {
   text-transform: none;
 
   /*
-   * Zwei Schatten, und beide sind klein.
+   * Ein Schlagschatten aus drei Lagen - und eine helle Linie obendrauf.
    *
-   * Unten ein Schlagschatten, der den Knopf von der Fläche abhebt; oben eine
-   * helle Linie im Knopf, wie sie eine Kante bekommt, auf die Licht von oben
-   * fällt. Zusammen ergibt das einen Körper. Ohne sie ist es ein Rechteck mit
-   * einem Rahmen.
+   * Drei und nicht einer: Ein wirklicher Schatten ist am Fuß des Körpers hart
+   * und wird nach außen weich und weit. Eine einzelne Lage kann nur eines von
+   * beidem; nebeneinandergelegt ergeben enge, mittlere und weite Lage
+   * zusammen einen Körper, der auf der Fläche steht statt darauf zu kleben.
+   *
+   * Die helle Linie innen oben ist die Kante, auf die das Licht fällt. Sie
+   * kostet nichts und macht aus dem Rechteck erst einen Knopf.
    */
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(var(--sheen), 0.07);
-  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.34),
+    0 3px 6px -1px rgba(0, 0, 0, 0.42),
+    0 8px 16px -6px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(var(--sheen), 0.1);
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 /* Der Lichtstreifen der Grundregel wandert hier durch nichts hindurch. */
@@ -2834,22 +2841,38 @@ input[type='checkbox'] {
   display: none;
 }
 
+/* Beim Überfahren hebt er sich - der Schatten wird länger, nicht dunkler. */
 .schiebefenster button:hover:not(:disabled) {
   background: var(--menue-ueber);
   border-color: rgba(var(--sheen), 0.34);
   color: var(--text);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(var(--sheen), 0.1);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.34),
+    0 5px 10px -2px rgba(0, 0, 0, 0.46),
+    0 14px 24px -8px rgba(0, 0, 0, 0.66),
+    inset 0 1px 0 rgba(var(--sheen), 0.14);
   filter: none;
 }
 
-/* Gedrückt sinkt er ein: der Schlagschatten fällt weg, die helle Linie auch. */
+/*
+ * Gedrückt sinkt er ein.
+ *
+ * Der Schlagschatten fällt weg und der Schatten wandert nach innen: Was auf der
+ * Fläche aufliegt, wirft keinen mehr - es bekommt einen ab.
+ */
 .schiebefenster button:active:not(:disabled) {
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55);
+}
+
+/* Was nicht zu drücken ist, liegt flach auf der Fläche. */
+.schiebefenster button:disabled {
+  box-shadow: none;
 }
 
 .schiebefenster button:disabled {
   opacity: 0.42;
-  box-shadow: none;
 }
 
 /* Ein Knopf, der nur ein Zeichen trägt, ist quadratisch. */
