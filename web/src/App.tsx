@@ -366,11 +366,19 @@ export function App() {
             </div>
 
             {/*
-              * Der freie Platz zwischen Menü und Fuß. Er trägt den Verlauf von
-              * Schwarz in die helle Panelfarbe und wächst über das, was übrig
-              * ist - auf einem hohen Bildschirm lang, auf einem flachen kaum.
+              * Alles unterhalb des Menüs trägt **einen** Verlauf.
+              *
+              * Der Verlauf lag einmal auf dem freien Platz allein, und der Fuß
+              * trug seine eigene Farbe. Damit endete die Rampe an der Oberkante
+              * des Fußes statt am unteren Rand der Leiste - und wo sie endete,
+              * saß eine Kante, die niemand gezeichnet hatte.
+              *
+              * Jetzt spannt sich der Verlauf über beides: von Schwarz am Ende
+              * des Menüs bis zur hellen Panelfarbe ganz unten. Der freie Platz
+              * darin ist nur noch Platz, der Fuß nur noch Inhalt.
               */}
-            <div className="app-shell-sidebar-nav-underflow relative isolate min-h-0 flex-1" aria-hidden="true" />
+            <div className="app-shell-sidebar-nav-fuss relative isolate flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1" aria-hidden="true" />
 
             {/*
               * Datenschutz und Impressum sind Seiten und stehen am Fuß.
@@ -381,19 +389,20 @@ export function App() {
               * und ein Rechtliches, das zwischen den Arbeitsbereichen steht,
               * nimmt dort Platz, den es nicht braucht.
               */}
-            <div className="app-shell-sidebar-nav-legal relative isolate shrink-0 pb-2 pt-1">
-              {PAGES.map((page) => (
-                <button
-                  key={page.id}
-                  className={navItemClass(page.id === current?.id)}
-                  onClick={() => setArea(page.id)}
-                >
-                  {t(page.label)}
-                </button>
-              ))}
+              <div className="app-shell-sidebar-nav-legal relative shrink-0 pb-2 pt-1">
+                {PAGES.map((page) => (
+                  <button
+                    key={page.id}
+                    className={navItemClass(page.id === current?.id)}
+                    onClick={() => setArea(page.id)}
+                  >
+                    {t(page.label)}
+                  </button>
+                ))}
 
-              <div className="build-stamp">
-                {t('nav.build')} {__UNIKOM_BUILD__}
+                <div className="build-stamp">
+                  {t('nav.build')} {__UNIKOM_BUILD__}
+                </div>
               </div>
             </div>
           </nav>

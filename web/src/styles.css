@@ -920,8 +920,7 @@ code {
  * Leiste, ohne dass der Kasten selbst breiter wird als die Punkte darin.
  */
 .app-shell-sidebar-nav-menu::before,
-.app-shell-sidebar-nav-underflow::before,
-.app-shell-sidebar-nav-legal::before {
+.app-shell-sidebar-nav-fuss::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -937,20 +936,32 @@ code {
  * in die helle Panelfarbe. Er wächst über den freien Platz - auf einem hohen
  * Bildschirm ist er lang, auf einem flachen fast nicht da.
  */
-.app-shell-sidebar-nav-underflow::before {
+/*
+ * Eine Rampe vom Ende des Menüs bis zum unteren Rand der Leiste.
+ *
+ * Sie liegt auf dem gemeinsamen Kasten von freiem Platz und Fuß und nicht auf
+ * jedem für sich: Zwei Verläufe untereinander treffen sich an ihrer Naht nie
+ * genau, und wo sie sich nicht treffen, steht eine Kante, die niemand
+ * gezeichnet hat.
+ *
+ * Von Schwarz nach Stahl - dieselben zwei Farben wie im Kopfband, nur senkrecht.
+ * Wächst das Menü, schrumpft die Rampe; sie beginnt und endet immer dort, wo
+ * sie soll, weil der Kasten den übrigen Platz nimmt.
+ */
+.app-shell-sidebar-nav-fuss::before {
   background: linear-gradient(
     180deg,
-    #000 0%,
-    40%,
-    color-mix(in srgb, var(--app-shell-header-panel-color) 82%, #fff) 100%
+    var(--app-shell-header-panel-dunkel) 0%,
+    var(--app-shell-header-panel-color) 100%
   );
 }
 
 /* Der Fuß mit Datenschutz und Impressum - dunkler, mit einer Haarlinie oben. */
-.app-shell-sidebar-nav-legal::before {
-  background:
-    linear-gradient(180deg, rgb(0 0 0 / 0.32) 0%, rgb(0 0 0 / 0.4) 100%),
-    var(--app-shell-header-panel-color);
+/*
+ * Der Fuß trägt keine eigene Fläche mehr - nur den Strich, der ihn abtrennt.
+ * Die Farbe unter ihm ist das helle Ende der Rampe darüber.
+ */
+.app-shell-sidebar-nav-legal {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
