@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   ABSTAND,
   alsRechteck,
+  bleibtOffen,
   rahmenUm,
   umschliesst,
   zuWeitFort,
@@ -181,4 +182,60 @@ test('die Handbreit gilt auch für ein Fach', () => {
   assert.equal(zuWeitFort(rahmen, { x: 279, y: 200 }), true, 'einundzwanzig links: fort');
   assert.equal(zuWeitFort(rahmen, { x: 500, y: 420 }), false, 'zwanzig unter dem Fach: bleibt');
   assert.equal(zuWeitFort(rahmen, { x: 500, y: 421 }), true, 'einundzwanzig darunter: fort');
+});
+
+/* ---------- Fach und Auslöser ---------- */
+
+/** Ein Knopf oben rechts und ein Fach, das links darunter hängt. */
+const KNOPF: Rechteck = { links: 700, oben: 20, rechts: 730, unten: 48 };
+const FACH: Rechteck = { links: 300, oben: 60, rechts: 730, unten: 400 };
+
+test('im Fach bleibt es offen', () => {
+  assert.equal(bleibtOffen(FACH, KNOPF, { x: 500, y: 200 }), true);
+});
+
+test('eine Handbreit neben dem Fach bleibt es offen', () => {
+  assert.equal(bleibtOffen(FACH, KNOPF, { x: 280, y: 200 }), true);
+  assert.equal(bleibtOffen(FACH, KNOPF, { x: 279, y: 200 }), false);
+});
+
+test('im auslösenden Bedienelement bleibt es offen', () => {
+  /*
+   * Der Knopf steht über dem Fach und außerhalb seiner Handbreit — ohne diesen
+   * zweiten Grund schlösse der Zeiger das Fach, das er gerade geöffnet hat.
+   */
+  assert.equal(zuWeitFort(FACH, { x: 715, y: 30 }), true, 'vom Fach aus gesehen fort');
+  assert.equal(bleibtOffen(FACH, KNOPF, { x: 715, y: 30 }), true);
+});
+
+test('der Auslöser hat keine Handbreit', () => {
+  /*
+   * Er ist kein Teil des Fachs, sondern der Ort, an dem der Zeiger stand. Ein
+   * Rand ringsum machte aus ihm eine zweite Fläche, in der nichts steht und die
+   * trotzdem offen hält.
+   */
+  assert.equal(bleibtOffen(FACH, KNOPF, { x: 730, y: 48 }), true, 'auf der Kante: drin');
+  assert.equal(bleibtOffen(FACH, KNOPF, { x: 740, y: 30 }), false, 'zehn daneben: fort');
+});
+
+test('die Lücke zwischen Auslöser und Fach hält nicht offen', () => {
+  /*
+   * Das ist der Grund für zwei Messungen statt einer. Ein Rahmen um Knopf und
+   * Fach zusammen spannte sich von x=300 bis x=730 und von y=20 bis y=400 — und
+   * hielte damit die ganze Fläche links oben offen, in der weder das eine noch
+   * das andere ist.
+   */
+  const zeiger = { x: 350, y: 25 };
+
+  assert.equal(bleibtOffen(FACH, KNOPF, zeiger), false);
+  assert.equal(zuWeitFort(umschliesst([FACH, KNOPF]) as Rechteck, zeiger), false, 'ein Rahmen um beide hielte offen');
+});
+
+test('ohne Fach entscheidet allein der Auslöser', () => {
+  assert.equal(bleibtOffen(undefined, KNOPF, { x: 715, y: 30 }), true);
+  assert.equal(bleibtOffen(undefined, KNOPF, { x: 500, y: 200 }), false);
+});
+
+test('ohne beides bleibt nichts offen', () => {
+  assert.equal(bleibtOffen(undefined, undefined, { x: 0, y: 0 }), false);
 });

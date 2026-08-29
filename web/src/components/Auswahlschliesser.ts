@@ -63,6 +63,39 @@ export function zuWeitFort(rahmen: Rechteck, zeiger: { x: number; y: number }, a
   );
 }
 
+/**
+ * Ob das Aufklappende offen bleiben soll.
+ *
+ * Zwei Gründe, und einer reicht:
+ *
+ *   1. Der Zeiger ist nah am **Fach** - bis zu einer Handbreit über den Rand
+ *      hinaus.
+ *   2. Der Zeiger steht im **auslösenden Bedienelement** - dem Knopf, dem Feld,
+ *      der Zeile, aus der es aufgeklappt ist.
+ *
+ * Der zweite Grund kennt keine Handbreit. Der Auslöser ist kein Teil des Fachs;
+ * er ist der Ort, an dem der Zeiger stand, als es aufging, und dort darf er
+ * bleiben. Ein Rand ringsum machte aus ihm eine zweite Fläche, in der nichts
+ * steht und die trotzdem offen hält.
+ *
+ * Getrennt gemessen und nicht als ein Rahmen um beides: Fach und Auslöser
+ * liegen selten bündig übereinander. Ein Rahmen um beide schlösse die Lücke
+ * dazwischen ein - eine Fläche, in der weder das eine noch das andere ist und
+ * die das Fach offen hielte, obwohl der Zeiger daneben steht.
+ */
+export function bleibtOffen(
+  fach: Rechteck | undefined,
+  ausloeser: Rechteck | undefined,
+  zeiger: { x: number; y: number },
+  abstand = ABSTAND,
+): boolean {
+  if (fach && !zuWeitFort(fach, zeiger, abstand)) {
+    return true;
+  }
+
+  return ausloeser !== undefined && !zuWeitFort(ausloeser, zeiger, 0);
+}
+
 /** Der kleinste Rahmen, der alle diese Rechtecke enthält. */
 export function umschliesst(teile: readonly Rechteck[]): Rechteck | undefined {
   if (teile.length === 0) {
@@ -113,20 +146,19 @@ export function rahmenUm(teile: readonly (Messbar | null | undefined)[]): Rechte
 }
 
 /**
- * Wie viel Platz ein offenes Auswahlfeld einnimmt: Feld **und** Liste.
+ * Wo die aufgeklappte Liste eines Auswahlfelds steht - ohne das Feld.
  *
  * Die Liste ist ein Pseudo-Element (`::picker(select)`) und lässt sich nicht
  * messen. Ihre Einträge dagegen sind gewöhnliche `option`-Elemente mit eigener
- * Geometrie — und der Rahmen um sie herum ist die Liste. Ein leerer Rahmen
- * (kein Eintrag hat Ausdehnung) heißt: geschlossen, und dann gibt es nichts zu
+ * Geometrie — und der Rahmen um sie herum ist die Liste. Kein Rahmen (kein
+ * Eintrag hat Ausdehnung) heißt: geschlossen, und dann gibt es nichts zu
  * schließen.
  *
- * Das geschlossene Feld gehört mit dazu. Ohne es läge die Grenze mitten auf dem
- * Feld, sobald die Liste nach unten aufklappt, und ein Zeiger auf dem Feld
- * selbst schlösse die Liste, die er gerade geöffnet hat.
+ * Das Feld selbst ist der Auslöser und wird getrennt gemessen - siehe
+ * `bleibtOffen`.
  */
-export function rahmenVon(feld: HTMLSelectElement): Rechteck | undefined {
-  return rahmenUm([feld, ...feld.querySelectorAll('option')]);
+export function listeVon(feld: HTMLSelectElement): Rechteck | undefined {
+  return rahmenUm([...feld.querySelectorAll('option')]);
 }
 
 /**
@@ -160,9 +192,10 @@ export function useAuswahlschliesser(abstand = ABSTAND): void {
         return;
       }
 
-      const rahmen = rahmenVon(offen);
+      const zeiger = { x: ereignis.clientX, y: ereignis.clientY };
+      const liste = listeVon(offen);
 
-      if (rahmen && zuWeitFort(rahmen, { x: ereignis.clientX, y: ereignis.clientY }, abstand)) {
+      if (liste && !bleibtOffen(liste, alsRechteck(offen.getBoundingClientRect()), zeiger, abstand)) {
         /*
          * Es gibt keinen Weg, eine Auswahlliste zu schließen — nur einen, ihr
          * den Anlass zu nehmen. Das Bauteil schließt sich, wenn es den Fokus
@@ -186,11 +219,8 @@ export function useAuswahlschliesser(abstand = ABSTAND): void {
  * gebraucht wird; ein Klick daneben wäre beim ersten Mal ein Klick auf etwas
  * anderes.
  *
- * ## Warum mehrere Teile und nicht das Fach allein
- *
- * Ein Fach hängt an einem Knopf, und der Knopf gehört dazu. Sonst läge die
- * Grenze mitten auf ihm, sobald das Fach darunter aufklappt - und der Zeiger,
- * der noch auf dem Knopf steht, schlösse, was er gerade geöffnet hat.
+ * Zwei Teile, getrennt gemessen: das **Fach** mit einer Handbreit Rand ringsum
+ * und der **Auslöser** ohne Rand - siehe `bleibtOffen`.
  *
  * Der Rahmen wird bei **jeder Bewegung** neu gemessen und nicht einmal beim
  * Öffnen. Ein Fach wächst, während man es benutzt: Ein Abschnitt klappt auf,
@@ -207,19 +237,20 @@ export function useAuswahlschliesser(abstand = ABSTAND): void {
 export function useSchliesstBeiAbstand(
   offen: boolean,
   schliessen: () => void,
-  teile: readonly { readonly current: Messbar | null }[],
+  fach: { readonly current: Messbar | null },
+  ausloeser: { readonly current: Messbar | null },
   abstand = ABSTAND,
 ): void {
   /*
-   * Beide Angaben liegen in einer Ref, und der Effekt hängt nur am Zustand.
+   * Die Angaben liegen in einer Ref, und der Effekt hängt nur am Zustand.
    *
-   * Sonst hinge er an einer Funktion und einem Feld, die beide bei jedem
-   * Rendern neu entstehen - der Zuhörer würde dutzendfach ab- und wieder
-   * angemeldet, für nichts. Refs bleiben dieselben; nur ihr Inhalt wechselt.
+   * Sonst hinge er an einer Funktion, die bei jedem Rendern neu entsteht - der
+   * Zuhörer würde dutzendfach ab- und wieder angemeldet, für nichts. Refs
+   * bleiben dieselben; nur ihr Inhalt wechselt.
    */
-  const stand = useRef({ schliessen, teile });
+  const stand = useRef({ schliessen, fach, ausloeser });
 
-  stand.current = { schliessen, teile };
+  stand.current = { schliessen, fach, ausloeser };
 
   useEffect(() => {
     if (!offen) {
@@ -227,10 +258,11 @@ export function useSchliesstBeiAbstand(
     }
 
     const bewegt = (ereignis: PointerEvent): void => {
-      const rahmen = rahmenUm(stand.current.teile.map((teil) => teil.current));
+      const zeiger = { x: ereignis.clientX, y: ereignis.clientY };
+      const jetzt = stand.current;
 
-      if (rahmen && zuWeitFort(rahmen, { x: ereignis.clientX, y: ereignis.clientY }, abstand)) {
-        stand.current.schliessen();
+      if (!bleibtOffen(rahmenUm([jetzt.fach.current]), rahmenUm([jetzt.ausloeser.current]), zeiger, abstand)) {
+        jetzt.schliessen();
       }
     };
 

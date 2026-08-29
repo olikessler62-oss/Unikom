@@ -59,11 +59,11 @@ export function Meldungen({
   const [antwort, setAntwort] = useState<Meldungsantwort>();
   const [offen, setOffen] = useState(false);
   /*
-   * Knopf und Fach zusammen sind das Aufklappende.
+   * Das Fach und sein Auslöser - getrennt gemessen.
    *
-   * Der Knopf muss mitgemessen werden: Das Fach hängt unter ihm, und ohne ihn
-   * läge die Grenze mitten auf dem Knopf - der Zeiger, der ihn gerade gedrückt
-   * hat, schlösse das Fach im selben Moment wieder.
+   * Der Knopf muss mit hinein: Ohne ihn läge die Grenze mitten auf ihm, und der
+   * Zeiger, der ihn gerade gedrückt hat, schlösse das Fach im selben Moment
+   * wieder.
    */
   const knopf = useRef<HTMLButtonElement>(null);
   const fach = useRef<HTMLDivElement>(null);
@@ -73,7 +73,7 @@ export function Meldungen({
    * bei einer aufgeklappten Auswahlliste. Es steht nichts Ungesichertes darin:
    * Was hier geschieht, geschieht auf Knopfdruck und ist dann bereits gesendet.
    */
-  useSchliesstBeiAbstand(offen, () => setOffen(false), [knopf, fach]);
+  useSchliesstBeiAbstand(offen, () => setOffen(false), fach, knopf);
   const [busy, setBusy] = useState(false);
   /**
    * Die Meldung, die sich von selbst zeigt (SPEC-01, Abschnitt 20).
