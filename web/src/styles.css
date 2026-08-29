@@ -2536,17 +2536,32 @@ input[type='checkbox'] {
  * einem großen verloren.
  */
 .bereichsfenster__kasten {
-  display: flex;
-  flex-direction: column;
   width: 80%;
   height: 80%;
-  min-height: 0;
-  padding: 1.2rem 1.4rem;
   border: 1px solid var(--kante-fenster);
   border-radius: var(--radius);
   background: var(--color-background);
   box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.95);
   overflow: hidden;
+}
+
+/*
+ * Der Editor bringt seinen eigenen Kopf mit - im Fenster ist er einer zu viel.
+ *
+ * Der Name des Workflows steht schon im Titel des Fensters, und die Wahl des
+ * Mandanten gehört zu den Angaben und nicht über sie. Was der Kopf sonst noch
+ * trug - eine Überschrift und eine Trennlinie -, wiederholt hier den Kopf des
+ * Fensters zwei Zeilen darunter.
+ */
+.bereichsfenster .editor__head {
+  padding-bottom: 0;
+  margin-bottom: 0.6rem;
+  border-bottom: 0;
+  background: none;
+}
+
+.bereichsfenster .editor__title h1 {
+  display: none;
 }
 
 /* Auf einem schmalen Bildschirm nimmt es alles - vier Fünftel wären zu wenig. */
@@ -2583,9 +2598,6 @@ input[type='checkbox'] {
   top: 0;
   bottom: 0;
   width: min(64rem, calc(100vw - var(--app-shell-sidebar-width)));
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
   background: var(--color-background);
 
   /*
@@ -2652,7 +2664,23 @@ input[type='checkbox'] {
  * Die drei Farben stehen als Marken oben - dieselbe Regel gilt für jedes
  * Schiebefenster, das noch dazukommt.
  */
-.schiebefenster__kopf {
+/* ===================================================================
+ * Der Rahmen eines Fensters: Kopf, Körper, Knopfleiste
+ *
+ * Gemeinsam für das Schiebefenster und das Fenster über dem Inhaltsbereich.
+ * Beide sind Fenster - eines fährt herein, eines liegt auf -, und beide haben
+ * denselben Kopf, dieselbe Knopfleiste und dieselben Knöpfe darin. Zwei
+ * Abschriften derselben Regeln liefen beim ersten Eingriff auseinander.
+ *
+ * Was sie unterscheidet, steht bei ihnen selbst: Lage, Maße, Bewegung.
+ * =================================================================== */
+.fensterrahmen {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.fensterrahmen__kopf {
   flex: none;
   display: flex;
   align-items: flex-start;
@@ -2668,11 +2696,11 @@ input[type='checkbox'] {
   );
 }
 
-.schiebefenster__titelblock {
+.fensterrahmen__titelblock {
   min-width: 0;
 }
 
-.schiebefenster__titel {
+.fensterrahmen__titel {
   margin: 0;
   font-size: 1.35rem;
   font-weight: 600;
@@ -2682,13 +2710,13 @@ input[type='checkbox'] {
 }
 
 /* Was hier zu tun ist - nicht, was es ist. Der Titel sagt das schon. */
-.schiebefenster__unterzeile {
+.fensterrahmen__unterzeile {
   margin: 0.35rem 0 0;
   font-size: var(--schrift);
   color: var(--text-soft);
 }
 
-.schiebefenster__schliessen {
+.fensterrahmen__schliessen {
   flex: none;
   display: inline-grid;
   place-items: center;
@@ -2702,11 +2730,11 @@ input[type='checkbox'] {
   box-shadow: none;
 }
 
-.schiebefenster__schliessen::after {
+.fensterrahmen__schliessen::after {
   display: none;
 }
 
-.schiebefenster__schliessen:hover:not(:disabled) {
+.fensterrahmen__schliessen:hover:not(:disabled) {
   background: var(--g-4);
   color: var(--text);
   box-shadow: none;
@@ -2727,7 +2755,7 @@ input[type='checkbox'] {
  * Nur dieser Teil rollt. Kopf, Hinweis und Knopfleiste bleiben stehen - ein
  * Ausgang, den man erst suchen muss, ist keiner.
  */
-.schiebefenster__koerper {
+.fensterrahmen__koerper {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -2741,13 +2769,13 @@ input[type='checkbox'] {
  * die Knopfleiste dann allein am Fuß, durch eine handbreite Leere von dem
  * getrennt, worauf sie sich bezieht.
  */
-.schiebefenster__hinweis {
+.fensterrahmen__hinweis {
   margin: 0.9rem 0 0;
   font-size: var(--schrift);
   color: var(--text-soft);
 }
 
-.schiebefenster__fuss {
+.fensterrahmen__fuss {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -2756,7 +2784,7 @@ input[type='checkbox'] {
   border-top: 1px solid var(--rule);
 }
 
-.schiebefenster__luecke {
+.fensterrahmen__luecke {
   flex: 1 1 auto;
 }
 
@@ -2950,7 +2978,7 @@ input[type='checkbox'] {
  * Hier tragen sie dieselbe Schrift wie der Text daneben, eine ruhige Fläche und
  * eine Kante - und ein Zeichen davor, wo eines etwas sagt.
  * =================================================================== */
-.schiebefenster button {
+.fensterrahmen button {
   gap: 0.5rem;
   height: 2rem;
   padding: 0 0.9rem;
@@ -2984,12 +3012,12 @@ input[type='checkbox'] {
 }
 
 /* Der Lichtstreifen der Grundregel wandert hier durch nichts hindurch. */
-.schiebefenster button::after {
+.fensterrahmen button::after {
   display: none;
 }
 
 /* Beim Überfahren hebt er sich - der Schatten wird länger, nicht dunkler. */
-.schiebefenster button:hover:not(:disabled) {
+.fensterrahmen button:hover:not(:disabled) {
   background: var(--menue-ueber);
   border-color: rgba(var(--sheen), 0.34);
   color: var(--text);
@@ -3008,22 +3036,22 @@ input[type='checkbox'] {
  * Der Schlagschatten fällt weg und der Schatten wandert nach innen: Was auf der
  * Fläche aufliegt, wirft keinen mehr - es bekommt einen ab.
  */
-.schiebefenster button:active:not(:disabled) {
+.fensterrahmen button:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55);
 }
 
 /* Was nicht zu drücken ist, liegt flach auf der Fläche. */
-.schiebefenster button:disabled {
+.fensterrahmen button:disabled {
   box-shadow: none;
 }
 
-.schiebefenster button:disabled {
+.fensterrahmen button:disabled {
   opacity: 0.42;
 }
 
 /* Ein Knopf, der nur ein Zeichen trägt, ist quadratisch. */
-.schiebefenster .knopf--zeichen {
+.fensterrahmen .knopf--zeichen {
   width: 2rem;
   padding: 0;
 }
@@ -3036,7 +3064,7 @@ input[type='checkbox'] {
  * bleibt davon nicht einmal ein ganzer Pixel übrig. Siebzehn Pixel ist dasselbe
  * Maß, das die Knöpfe an den Feldern tragen.
  */
-.schiebefenster button svg {
+.fensterrahmen button svg {
   width: 17px;
   height: 17px;
   flex: none;
@@ -3051,7 +3079,7 @@ input[type='checkbox'] {
  * Die wären sonst ein Klecks, denn diese Regel wiegt mehr als die allgemeine für
  * Strichzeichen.
  */
-.schiebefenster button svg:not(.icon--strich) {
+.fensterrahmen button svg:not(.icon--strich) {
   fill: currentColor;
 }
 

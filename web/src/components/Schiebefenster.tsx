@@ -78,7 +78,7 @@ export function Schiebefenster({ titel, unterzeile, hinweis, onSchliessen, child
    */
   return (
     <aside
-      className={drin ? 'schiebefenster schiebefenster--drin' : 'schiebefenster'}
+      className={drin ? 'schiebefenster fensterrahmen schiebefenster--drin' : 'schiebefenster fensterrahmen'}
       role="dialog"
       aria-label={titel}
       onKeyDown={(ereignis) => {
@@ -88,16 +88,7 @@ export function Schiebefenster({ titel, unterzeile, hinweis, onSchliessen, child
         }
       }}
     >
-      <header className="schiebefenster__kopf">
-        <div className="schiebefenster__titelblock">
-          <h2 className="schiebefenster__titel">{titel}</h2>
-          {unterzeile && <p className="schiebefenster__unterzeile">{unterzeile}</p>}
-        </div>
-
-        <button type="button" className="schiebefenster__schliessen" aria-label="Schließen" onClick={schliesse}>
-          <KreuzStrich />
-        </button>
-      </header>
+      <Fensterkopf titel={titel} unterzeile={unterzeile} onSchliessen={schliesse} />
 
       {/*
         * Hinweis und Knopfleiste stehen **im** Körper, nicht darunter.
@@ -108,20 +99,86 @@ export function Schiebefenster({ titel, unterzeile, hinweis, onSchliessen, child
         * bezieht. Jetzt folgen sie der Liste in gleichbleibendem Abstand und
         * wandern mit ihr nach unten, wenn sie wächst.
         */}
-      <div className="schiebefenster__koerper">
+      <div className="fensterrahmen__koerper">
         {children}
 
-        {hinweis && <p className="schiebefenster__hinweis">{hinweis}</p>}
+        {hinweis && <p className="fensterrahmen__hinweis">{hinweis}</p>}
 
-        <footer className="schiebefenster__fuss">
-          <span className="schiebefenster__luecke" />
-          <button type="button" onClick={schliesse}>
-            <KreuzStrich />
-            Schließen
-          </button>
-        </footer>
+        <Fensterfuss onSchliessen={schliesse} />
       </div>
     </aside>
+  );
+}
+
+/** Kopfzeile eines Fensters: Titel, Unterzeile, Kreuz. */
+function Fensterkopf({ titel, unterzeile, onSchliessen }: { titel: string; unterzeile?: string; onSchliessen(): void }) {
+  return (
+    <header className="fensterrahmen__kopf">
+      <div className="fensterrahmen__titelblock">
+        <h2 className="fensterrahmen__titel">{titel}</h2>
+        {unterzeile && <p className="fensterrahmen__unterzeile">{unterzeile}</p>}
+      </div>
+
+      <button type="button" className="fensterrahmen__schliessen" aria-label="Schließen" onClick={onSchliessen}>
+        <KreuzStrich />
+      </button>
+    </header>
+  );
+}
+
+/* Rechtsbündig - was schließt, steht ganz rechts. */
+function Fensterfuss({ onSchliessen }: { onSchliessen(): void }) {
+  return (
+    <footer className="fensterrahmen__fuss">
+      <span className="fensterrahmen__luecke" />
+      <button type="button" onClick={onSchliessen}>
+        <KreuzStrich />
+        Schließen
+      </button>
+    </footer>
+  );
+}
+
+/**
+ * Ein Fenster über dem Inhaltsbereich (FR-011 §7).
+ *
+ * Es deckt genau ab, was rechts der Leiste und unter dem Band liegt - nicht den
+ * ganzen Bildschirm. Der Rahmen bleibt sichtbar, und man sieht, wo man ist.
+ *
+ * Derselbe Kopf und dieselbe Knopfleiste wie beim Schiebefenster: Beide sind
+ * Fenster, eines fährt herein und eines liegt auf. Was sie unterscheidet, ist
+ * ihre Lage - nicht ihre Gestalt.
+ *
+ * Es hat keine eigene Bewegung. Ein Fenster, das aus einer Liste hervorgeht,
+ * soll dort sein, wo man hingesehen hat, und nicht erst irgendwoher kommen.
+ */
+export function Bereichsfenster({
+  titel,
+  unterzeile,
+  onSchliessen,
+  children,
+}: {
+  titel: string;
+  unterzeile?: string;
+  onSchliessen(): void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="bereichsfenster" role="dialog" aria-modal="true" aria-label={titel}>
+      <div
+        className="bereichsfenster__kasten fensterrahmen"
+        onKeyDown={(ereignis) => {
+          if (ereignis.key === 'Escape') {
+            ereignis.stopPropagation();
+            onSchliessen();
+          }
+        }}
+      >
+        <Fensterkopf titel={titel} unterzeile={unterzeile} onSchliessen={onSchliessen} />
+
+        <div className="fensterrahmen__koerper">{children}</div>
+      </div>
+    </div>
   );
 }
 
