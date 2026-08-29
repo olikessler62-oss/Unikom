@@ -18,6 +18,7 @@ import { TenantsScreen, type Blatt, type Mandantenfenster } from './screens/Tena
 import { UsersScreen } from './screens/UsersScreen.js';
 import { DataEnquiryScreen } from './screens/DataEnquiryScreen.js';
 import { ConsolidationScreen } from './screens/ConsolidationScreen.js';
+import { WorkflowsSchiebefenster } from './screens/WorkflowsSchiebefenster.js';
 import { WorkflowsScreen } from './screens/WorkflowsScreen.js';
 import { Sprachwahl } from './components/Sprachwahl.js';
 import { useSession } from './session/useSession.js';
@@ -250,6 +251,14 @@ export function App() {
    */
   const [fenster, setFenster] = useState<Mandantenfenster>();
   const [blatt, setBlatt] = useState<Blatt>('grunddaten');
+  /**
+   * Welches Fenster unter der Seitenleiste hervorgefahren ist.
+   *
+   * Als Kennung des Menüpunkts und nicht als Wahrheitswert: Es wird nicht das
+   * einzige bleiben, und ein zweites `boolean` daneben wäre die Gelegenheit,
+   * beide zugleich wahr werden zu lassen.
+   */
+  const [schieber, setSchieber] = useState<string>();
   const body = useRef<HTMLDivElement>(null);
   const bodyScrolls = useOverflowing(body);
   const bedarf = useHandlungsbedarf();
@@ -298,9 +307,20 @@ export function App() {
    */
   const oeffnetFenster = (id: string): boolean => id === 'tenants';
 
+  /**
+   * Ob dieser Menüpunkt ein Fenster hervorfahren lässt.
+   *
+   * Getrennt von `oeffnetFenster`, weil es zwei verschiedene Dinge sind: Der
+   * Mandant klappt mitten in der Fläche auf, die Workflows fahren unter der
+   * Leiste hervor. Beide lassen den Bildschirm dahinter stehen.
+   */
+  const faehrtHervor = (id: string): boolean => id === 'workflows';
+
   const waehle = (id: string): void => {
     if (oeffnetFenster(id)) {
       setFenster({ art: 'liste' });
+    } else if (faehrtHervor(id)) {
+      setSchieber(id);
     } else {
       setArea(id);
     }
@@ -337,7 +357,11 @@ export function App() {
                   <Fragment key={entries[0].id}>
                     {index > 0 && <div className="app-shell-sidebar-nav-divider" aria-hidden="true" />}
                     {entries.map((entry) => {
-                      const aktiv = oeffnetFenster(entry.id) ? fenster !== undefined : entry.id === current?.id;
+                      const aktiv = oeffnetFenster(entry.id)
+                        ? fenster !== undefined
+                        : faehrtHervor(entry.id)
+                          ? schieber === entry.id
+                          : entry.id === current?.id;
 
                       return (
                         <button key={entry.id} className={navItemClass(aktiv)} onClick={() => waehle(entry.id)}>
@@ -590,6 +614,22 @@ export function App() {
           blatt={blatt}
           onFenster={setFenster}
           onBlatt={setBlatt}
+        />
+      )}
+
+      {schieber === 'workflows' && (
+        <WorkflowsSchiebefenster
+          canManage={session.may('MANAGE_JOBS')}
+          onSchliessen={() => setSchieber(undefined)}
+          onOeffnen={(jobId) => {
+            /*
+             * Der Editor steht in der Fläche und nicht im Fenster: Er füllt
+             * einen ganzen Bildschirm, und ein Fenster, das den ganzen
+             * Bildschirm füllt, ist keins mehr.
+             */
+            setSchieber(undefined);
+            setView({ area: 'workflows', editingJob: jobId });
+          }}
         />
       )}
     </div>

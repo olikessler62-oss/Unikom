@@ -256,6 +256,7 @@
    * kein Rang, das ist ein Zufall, der sich beim nächsten Umbau umdreht.
    *
    *   30  Was an einem Feld aufklappt - Memo, Meldung
+   *   40  Das Schiebefenster
    *   45  Der Rahmen: Seitenleiste, Schriftzug, Kopfband
    *   50  Fenster
    *   60  Die Liste eines Auswahlfelds
@@ -266,6 +267,12 @@
    * keinen Schatten auf sich selbst.
    * =================================================================== */
   --z-feld-ausklapp: 30;
+  /*
+   * Unter dem Rahmen, und das ist der Sinn der Sache: Das Schiebefenster kommt
+   * unter der Seitenleiste hervor. Läge es darüber, schöbe es sich über das
+   * Menü und käme aus dem Nichts.
+   */
+  --z-schiebefenster: 40;
   --z-rahmen: 45;
   --z-fenster: 50;
   /*
@@ -2442,6 +2449,283 @@ input[type='checkbox'] {
   height: 15px;
   padding: 0;
   accent-color: rgb(var(--accent));
+}
+
+/* ===================================================================
+ * Das Schiebefenster (FR-011 §9) und seine Liste (§8)
+ *
+ * Es steht fest am Fensterrand und nicht im Fluss der Seite: Es beginnt an der
+ * rechten Kante der Seitenleiste, endet unten und fährt von links herein. Alle
+ * vier Maße kommen aus den Marken des Rahmens - wächst die Leiste, wandert das
+ * Fenster mit.
+ * =================================================================== */
+.schiebefenster {
+  position: fixed;
+  z-index: var(--z-schiebefenster);
+  left: var(--app-shell-sidebar-width);
+  top: var(--app-shell-brand-band-height);
+  bottom: 0;
+  width: min(64rem, calc(100vw - var(--app-shell-sidebar-width)));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--color-background);
+  border-right: 1px solid var(--rule);
+  box-shadow: 24px 0 48px -28px rgba(0, 0, 0, 0.9);
+
+  /*
+   * Draußen heißt: um die eigene Breite nach links geschoben.
+   *
+   * Dort liegt die Seitenleiste, und die hat den höheren Rang - während der
+   * Fahrt ist das Fenster hinter ihr verborgen. Genau das soll es aussehen:
+   * als käme es darunter hervor.
+   */
+  transform: translateX(-100%);
+  transition: transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.schiebefenster--drin {
+  transform: translateX(0);
+}
+
+/*
+ * Wer keine Bewegung sehen will, sieht keine.
+ *
+ * Das Fenster steht dann sofort an seinem Platz - und nicht etwa gar nicht:
+ * Ein Übergang ist Schmuck, das Fenster ist der Inhalt.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .schiebefenster {
+    transition: none;
+  }
+}
+
+/* Auf einem schmalen Bildschirm steht die Leiste oben; das Fenster nimmt alles. */
+@media (max-width: 767px) {
+  .schiebefenster {
+    left: 0;
+    top: 0;
+    width: 100vw;
+    border-right: 0;
+  }
+}
+
+/* ---------- Der Kopf ---------- */
+
+.schiebefenster__kopf {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.4rem 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.schiebefenster__titelblock {
+  min-width: 0;
+}
+
+.schiebefenster__titel {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+/* Was hier zu tun ist - nicht, was es ist. Der Titel sagt das schon. */
+.schiebefenster__unterzeile {
+  margin: 0.35rem 0 0;
+  font-size: var(--schrift);
+  color: var(--text-soft);
+}
+
+.schiebefenster__schliessen {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-hoehe);
+  height: var(--control-hoehe);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: none;
+  color: var(--text-soft);
+  box-shadow: none;
+}
+
+.schiebefenster__schliessen::after {
+  display: none;
+}
+
+.schiebefenster__schliessen:hover:not(:disabled) {
+  background: var(--g-4);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.kreuzstrich {
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* ---------- Der Körper ---------- */
+
+/*
+ * Nur dieser Teil rollt. Kopf, Hinweis und Knopfleiste bleiben stehen - ein
+ * Ausgang, den man erst suchen muss, ist keiner.
+ */
+.schiebefenster__koerper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.1rem 1.4rem;
+}
+
+.schiebefenster__hinweis {
+  flex: none;
+  margin: 0;
+  padding: 0 1.4rem 0.9rem;
+  font-size: var(--schrift);
+  color: var(--text-soft);
+}
+
+.schiebefenster__fuss {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.4rem;
+  border-top: 1px solid var(--rule);
+}
+
+.schiebefenster__luecke {
+  flex: 1 1 auto;
+}
+
+/* ---------- Die Fläche mit der Liste (§8) ---------- */
+
+.listenpanel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+/*
+ * Der Kopf trägt einen Verlauf und ist damit als Kopf erkennbar, ohne dass eine
+ * zweite Linie nötig wäre. Die beiden Farben stehen seit dem Umbau als Marken
+ * bereit und haben hier ihren ersten Benutzer.
+ */
+.listenpanel__kopf {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(180deg, var(--panel-kopf-hell) 0%, var(--panel-kopf-dunkel) 100%);
+}
+
+.listenpanel__titel {
+  margin: 0;
+  font-size: var(--schrift);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+.listenpanel__liste {
+  min-height: 14rem;
+  overflow-x: auto;
+}
+
+/* ---------- Die Tabelle darin ---------- */
+
+.listenpanel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--schrift);
+}
+
+/*
+ * Die Spaltenköpfe sind Beschriftung und keine Zeile: heller Grund, aber kein
+ * Zeiger und keine Hervorhebung beim Überfahren.
+ */
+.listenpanel th {
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--rule);
+  background: rgba(var(--sheen), 0.05);
+  font-size: var(--schrift);
+  font-weight: 600;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.listenpanel td {
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid rgba(var(--sheen), 0.06);
+  color: var(--text);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.listenpanel tbody tr {
+  cursor: pointer;
+}
+
+.listenpanel tbody tr:hover > td {
+  background: var(--pick-hover);
+  color: var(--pick-text);
+}
+
+/*
+ * Die ausgesuchte Zeile steht nach dem Überfahren, damit der Zeiger gewinnt -
+ * dieselbe Rangfolge wie in der aufgeklappten Liste eines Auswahlfeldes.
+ */
+.listenpanel tbody tr[aria-selected='true'] > td {
+  background: var(--pick);
+  color: var(--pick-text);
+}
+
+.listenpanel tbody tr[aria-selected='true']:hover > td {
+  background: var(--pick-hover);
+}
+
+/* Der Punkt vor dem Namen: die Zeile, an der eine Gruppe beginnt. */
+.listenpanel__punkt {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  background: rgb(var(--accent));
+  vertical-align: baseline;
+}
+
+.listenpanel__werkzeuge {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-top: 1px solid var(--rule);
+}
+
+.listenpanel__luecke {
+  flex: 1 1 auto;
 }
 
 /* ===================================================================
