@@ -175,6 +175,7 @@ import {
   quelleStand,
   zielStand,
 } from './feldstand.js';
+import { Auswahlfeld } from '../../components/Auswahlfeld.js';
 
 /**
  * Ein Workflow ist eine Kette: Daten kommen herein, es geschieht etwas mit
@@ -718,7 +719,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
             */}
           <label className={job.tenantId ? 'editor__tenant' : 'editor__tenant editor__tenant--wanted'}>
             <span>Mandant</span>
-            <select
+            <Auswahlfeld
               value={job.tenantId}
               autoFocus={!job.tenantId}
               onChange={(event) => change({ tenantId: event.target.value })}
@@ -729,7 +730,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   {entry.name}
                 </option>
               ))}
-            </select>
+            </Auswahlfeld>
           </label>
         </div>
 
@@ -831,7 +832,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 * Vorschlag da: Diese Angabe gibt es nicht mehr, gelaufen wird
                 * nach der Voreinstellung, und hier soll dasselbe stehen.
                 */}
-              <select
+              <Auswahlfeld
                 className={chosenLogLevel(job) ? undefined : 'field__preset'}
                 value={chosenLogLevel(job) ?? DEFAULT_JOB_LOG_LEVEL}
                 onChange={(event) => change({ logLevel: event.target.value as Job['logLevel'] })}
@@ -839,7 +840,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 <option value="DEBUG">Jeder Schritt</option>
                 <option value="WARNING">Nur Warnungen und Konflikte</option>
                 <option value="ERROR">Nur Konflikte</option>
-              </select>
+              </Auswahlfeld>
             </Field>
 
             <CheckField
@@ -879,7 +880,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
             <Klappkarte titel="Quelle" stand={quelleStand(job)}>
 
               <Field label="Art">
-                <select
+                <Auswahlfeld
                   value={job.sourceType}
                   onChange={(event) => setJob(withSourceType(job, event.target.value as Job['sourceType']))}
                 >
@@ -887,7 +888,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   <option value="SHARE">Windows-Freigabe</option>
                   <option value="SFTP">SFTP</option>
                   <option value="FTPS">FTPS</option>
-                </select>
+                </Auswahlfeld>
               </Field>
 
               {(remote || share) && (
@@ -935,7 +936,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                         * Freigabe ohne Zugang wird beim Speichern abgewiesen,
                         * und das soll man vorher sehen und nicht erst danach.
                         */}
-                      <select
+                      <Auswahlfeld
                         className={share && !job.credentialId ? 'wanted' : undefined}
                         value={job.credentialId ?? ''}
                         onChange={(event) => change({ credentialId: event.target.value || undefined })}
@@ -949,7 +950,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                               {credential.tenantId === undefined ? ' (übergreifend)' : ''}
                             </option>
                           ))}
-                      </select>
+                      </Auswahlfeld>
                       <button type="button" className="secondary" onClick={() => setAdding('ACCESS')}>
                         Neu …
                       </button>
@@ -1172,7 +1173,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 <>
                   <Field label="Schlüssel der Quelle" explain="Mit ihm hat der Absender die Dateien verschlossen.">
                     <div className="field__row">
-                      <select
+                      <Auswahlfeld
                         className={job.sourceEncryption.keyCredentialId ? undefined : 'wanted'}
                         value={job.sourceEncryption.keyCredentialId ?? ''}
                         onChange={(event) =>
@@ -1193,7 +1194,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                               {credential.name}
                             </option>
                           ))}
-                      </select>
+                      </Auswahlfeld>
                       <button type="button" className="secondary" onClick={() => setAdding('SOURCE_KEY')}>
                         Neu …
                       </button>
@@ -1400,7 +1401,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
             <Klappkarte titel="Ziel" stand={zielStand(job)}>
 
               <Field label="Art">
-                <select
+                <Auswahlfeld
                   value={job.destinationType ?? 'LOCAL'}
                   onChange={(event) =>
                     setJob(withDestinationType(job, event.target.value as Job['sourceType']))
@@ -1410,7 +1411,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   <option value="SHARE">Windows-Freigabe</option>
                   <option value="SFTP">SFTP</option>
                   <option value="FTPS">FTPS</option>
-                </select>
+                </Auswahlfeld>
               </Field>
 
               {(remoteTarget || shareTarget) && (
@@ -1449,7 +1450,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     }
                   >
                     <div className="field__row">
-                      <select
+                      <Auswahlfeld
                         className={shareTarget && !job.destinationCredentialId ? 'wanted' : undefined}
                         value={job.destinationCredentialId ?? ''}
                         onChange={(event) =>
@@ -1465,7 +1466,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                               {credential.tenantId === undefined ? ' (übergreifend)' : ''}
                             </option>
                           ))}
-                      </select>
+                      </Auswahlfeld>
                       <button type="button" className="secondary" onClick={() => setAdding('ACCESS')}>
                         Neu …
                       </button>
@@ -1624,7 +1625,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   </>
                 }
               >
-                <select
+                <Auswahlfeld
                   value={job.conflictStrategy}
                   onChange={(event) => change({ conflictStrategy: event.target.value as Job['conflictStrategy'] })}
                 >
@@ -1632,7 +1633,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                   <option value="RENAME">Dateinamen mit Zeitstempel versehen</option>
                   <option value="NEW_NAME">Unter neuem Namen anlegen</option>
                   <option value="OVERWRITE">Überschreiben</option>
-                </select>
+                </Auswahlfeld>
               </Field>
 
               {/*
@@ -1733,7 +1734,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                       * Schlüssel holt der Lauf die Dateien und scheitert erst
                       * beim Verschließen — nachts, mit geleerter Quelle.
                       */}
-                    <select
+                    <Auswahlfeld
                       className={job.encryptionConfig.keyCredentialId ? undefined : 'wanted'}
                       value={job.encryptionConfig.keyCredentialId ?? ''}
                       onChange={(event) =>
@@ -1748,7 +1749,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                             {credential.name}
                           </option>
                         ))}
-                    </select>
+                    </Auswahlfeld>
                     <button type="button" className="secondary" onClick={() => setAdding('KEY')}>
                       Neu …
                     </button>
@@ -1763,14 +1764,14 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                 label="Was soll mit der Quelldatei geschehen?"
                 explain="Erst wenn die Datei gespeichert und registriert ist, wird die Quelle angefasst."
               >
-                <select
+                <Auswahlfeld
                   value={job.sourceSuccessAction}
                   onChange={(event) => change({ sourceSuccessAction: event.target.value as Job['sourceSuccessAction'] })}
                 >
                   <option value="KEEP">Nichts, sie soll dort liegen bleiben</option>
                   <option value="MOVE">In ein Archivverzeichnis verschieben</option>
                   <option value="DELETE">Löschen</option>
-                </select>
+                </Auswahlfeld>
               </Field>
 
               {job.sourceSuccessAction === 'MOVE' && (
@@ -1863,20 +1864,20 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
             <h2>Zeitplan</h2>
 
             <Field label="Ausführung">
-              <select
+              <Auswahlfeld
                 value={job.executionMode}
                 onChange={(event) => change({ executionMode: event.target.value as Job['executionMode'] })}
               >
                 <option value="MANUAL_AND_AUTOMATIC">Von Hand und nach Zeitplan</option>
                 <option value="AUTOMATIC">Nur nach Zeitplan</option>
                 <option value="MANUAL">Nur von Hand</option>
-              </select>
+              </Auswahlfeld>
             </Field>
 
             {job.executionMode !== 'MANUAL' && job.schedule && (
               <>
                 <Field label="Rhythmus">
-                  <select
+                  <Auswahlfeld
                     value={job.schedule.type}
                     onChange={(event) =>
                       change({ schedule: { ...job.schedule!, type: event.target.value as never } })
@@ -1886,7 +1887,7 @@ export function JobEditorScreen({ jobId, features, onDone }: Props) {
                     <option value="HOURLY">Stündlich</option>
                     <option value="DAILY">Täglich</option>
                     <option value="WEEKLY">Wöchentlich</option>
-                  </select>
+                  </Auswahlfeld>
                 </Field>
 
                 {job.schedule.type === 'INTERVAL' && (
@@ -2334,7 +2335,7 @@ function Konsolidierungsquelle({
           </>
         }
       >
-        <select
+        <Auswahlfeld
           value={preceding ? value.from : 'DIRECTORY'}
           onChange={(event) =>
             event.target.value === 'PRECEDING'
@@ -2350,7 +2351,7 @@ function Konsolidierungsquelle({
         >
           {preceding && <option value="PRECEDING">Übernimmt, was {preceding.label} ablegt</option>}
           <option value="DIRECTORY">Ein eigenes Verzeichnis</option>
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {preceding && value.from === 'PRECEDING' ? (
@@ -2375,7 +2376,7 @@ function Konsolidierungsquelle({
               </>
             }
           >
-            <select
+            <Auswahlfeld
               value={art}
               onChange={(event) =>
                 eigenesAendern({
@@ -2389,7 +2390,7 @@ function Konsolidierungsquelle({
             >
               <option value="LOCAL">Lokales Verzeichnis</option>
               <option value="SHARE">Windows-Freigabe</option>
-            </select>
+            </Auswahlfeld>
           </Field>
 
           {freigabe && (
@@ -2403,7 +2404,7 @@ function Konsolidierungsquelle({
                   * Zugang liest der Nachtlauf mit dem falschen Konto, und das
                   * soll man vorher sehen und nicht erst danach.
                   */}
-                <select
+                <Auswahlfeld
                   className={!zugang ? 'wanted' : undefined}
                   value={zugang ?? ''}
                   onChange={(event) => eigenesAendern({ credentialId: event.target.value || undefined })}
@@ -2417,7 +2418,7 @@ function Konsolidierungsquelle({
                         {credential.tenantId === undefined ? ' (übergreifend)' : ''}
                       </option>
                     ))}
-                </select>
+                </Auswahlfeld>
                 <button type="button" className="secondary" onClick={onNeuerZugang}>
                   Neu …
                 </button>
@@ -2520,7 +2521,7 @@ function StageSource({
       )}
 
       <Field label="Quelle">
-        <select
+        <Auswahlfeld
           value={preceding ? value.from : 'DIRECTORY'}
           onChange={(event) =>
             onChange(
@@ -2530,7 +2531,7 @@ function StageSource({
         >
           {preceding && <option value="PRECEDING">Übernimmt, was {preceding.label} ablegt</option>}
           <option value="DIRECTORY">Ein eigenes Verzeichnis</option>
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {preceding && value.from === 'PRECEDING' ? (
@@ -2571,7 +2572,7 @@ function StageDestination({
   return (
     <>
       <Field label="Ziel">
-        <select
+        <Auswahlfeld
           value={following ? value.to : 'DIRECTORY'}
           onChange={(event) =>
             onChange(event.target.value === 'FOLLOWING' ? { to: 'FOLLOWING' } : { to: 'DIRECTORY', directory: '' })
@@ -2579,7 +2580,7 @@ function StageDestination({
         >
           {following && <option value="FOLLOWING">Reicht weiter an {following}</option>}
           <option value="DIRECTORY">Legt in einem Verzeichnis ab</option>
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {(!following || value.to === 'DIRECTORY') && (
@@ -2724,7 +2725,7 @@ function Konsolidierungsregeln({
         label="Wie die Quellen zueinander stehen"
         explain="Beim Anreichern führt eine Datei und die übrigen ergänzen sie; beim Sammeln sind alle gleichwertig."
       >
-        <select
+        <Auswahlfeld
           value={regeln.betriebsart}
           onChange={(event) => {
             const betriebsart = event.target.value as Betriebsart;
@@ -2734,7 +2735,7 @@ function Konsolidierungsregeln({
         >
           <option value="SAMMELN">Sammeln - alle Quellen sind gleichwertig</option>
           <option value="ANREICHERN">Anreichern - eine Datei führt</option>
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {regeln.betriebsart === 'ANREICHERN' && (
@@ -2751,10 +2752,10 @@ function Konsolidierungsregeln({
       )}
 
       <Field label="Was mit den Datensätzen geschieht">
-        <select value={regeln.art} onChange={(event) => setzeRegeln({ art: event.target.value as Art })}>
+        <Auswahlfeld value={regeln.art} onChange={(event) => setzeRegeln({ art: event.target.value as Art })}>
           <option value="APPEND">Aneinander - die Datensätze stehen nebeneinander</option>
           <option value="MERGE">Ineinander - gleiche Datensätze werden verschmolzen</option>
-        </select>
+        </Auswahlfeld>
       </Field>
 
       <Field
@@ -2780,7 +2781,7 @@ function Konsolidierungsregeln({
           label="Doppelte Datensätze"
           explain="Was geschieht, wenn zwei Datensätze denselben Schlüssel tragen."
         >
-          <select
+          <Auswahlfeld
             value={regeln.dubletten?.auswahl ?? 'ENTSCHEIDEN'}
             onChange={(event) =>
               setzeRegeln({
@@ -2796,7 +2797,7 @@ function Konsolidierungsregeln({
             <option value="LETZTER">Den letzten behalten</option>
             <option value="ZUSAMMENFUEHREN">Zusammenführen</option>
             <option value="ALLE_BEHALTEN">Alle behalten</option>
-          </select>
+          </Auswahlfeld>
         </Field>
       )}
 
@@ -2805,14 +2806,14 @@ function Konsolidierungsregeln({
           label="Datensatz ohne Hauptsatz"
           explain="Ein Datensatz der Zusatzdatei, zu dem es in der führenden Datei keinen gibt."
         >
-          <select
+          <Auswahlfeld
             value={regeln.ohneHauptsatz ?? 'KONFLIKT'}
             onChange={(event) => setzeRegeln({ ohneHauptsatz: event.target.value as OhneHauptsatz })}
           >
             <option value="KONFLIKT">Als Konflikt melden</option>
             <option value="UEBERNEHMEN">Trotzdem übernehmen</option>
             <option value="UEBERSPRINGEN">Übergehen</option>
-          </select>
+          </Auswahlfeld>
         </Field>
       )}
 
@@ -2821,7 +2822,7 @@ function Konsolidierungsregeln({
           label="Mehrere passende Sätze in der Zusatzdatei"
           explain="Wenn zu einem Hauptsatz mehr als ein Satz der Zusatzdatei passt."
         >
-          <select
+          <Auswahlfeld
             value={regeln.mehrfachtreffer?.regel ?? 'KONFLIKT'}
             onChange={(event) => {
               const gewaehlt = event.target.value as Mehrfachtrefferregel['regel'];
@@ -2837,7 +2838,7 @@ function Konsolidierungsregeln({
             <option value="KONFLIKT">Als Konflikt melden - genau einer wird erwartet</option>
             <option value="ALLE">Alle übernehmen - aus einem Satz werden mehrere</option>
             <option value="FELD">Ein Feld entscheidet</option>
-          </select>
+          </Auswahlfeld>
         </Field>
       )}
 
@@ -2859,7 +2860,7 @@ function Konsolidierungsregeln({
           </Field>
 
           <Field label="Welcher Wert gewinnt">
-            <select
+            <Auswahlfeld
               value={nimmt(regeln)}
               onChange={(event) =>
                 setzeRegeln({
@@ -2873,7 +2874,7 @@ function Konsolidierungsregeln({
             >
               <option value="GROESSTER">Der größte - das jüngste Datum, die höchste Version</option>
               <option value="KLEINSTER">Der kleinste</option>
-            </select>
+            </Auswahlfeld>
           </Field>
         </>
       )}
@@ -2953,7 +2954,7 @@ function Referenzen({
           </div>
 
           <Field label="Referenzquelle">
-            <select
+            <Auswahlfeld
               value={verweis.quelleId}
               onChange={(event) =>
                 setze(ersetze(verweise, stelle, { ...verweis, quelleId: event.target.value }))
@@ -2966,7 +2967,7 @@ function Referenzen({
                   {quelle.version ? ` (${quelle.version})` : ''}
                 </option>
               ))}
-            </select>
+            </Auswahlfeld>
           </Field>
 
           <Field
@@ -3021,7 +3022,7 @@ function Referenzen({
           </Field>
 
           <Field label="Wenn nichts gefunden wird">
-            <select
+            <Auswahlfeld
               value={verweis.ohneTreffer ?? 'WARNUNG'}
               onChange={(event) =>
                 setze(
@@ -3035,7 +3036,7 @@ function Referenzen({
               <option value="WARNUNG">Warnen - der Datensatz läuft weiter</option>
               <option value="KONFLIKT">Als Prüffall vorlegen</option>
               <option value="IGNORIEREN">Nichts tun</option>
-            </select>
+            </Auswahlfeld>
           </Field>
         </section>
       ))}
@@ -3137,7 +3138,7 @@ function Ergebnisformat({
           </>
         }
       >
-        <select
+        <Auswahlfeld
           className="input--wahl"
           disabled={!schemata.data || schemata.data.length === 0}
           value={config.schema?.profil ?? ''}
@@ -3156,7 +3157,7 @@ function Ergebnisformat({
               {schema.name}
             </option>
           ))}
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {/*
@@ -3186,7 +3187,7 @@ function Ergebnisformat({
 
       {(config.schema?.datei || config.schema?.profil) && (
         <Field label="Wenn eine Datei nicht passt">
-          <select
+          <Auswahlfeld
             value={config.schema.bei ?? 'ABBRECHEN'}
             onChange={(event) =>
               onChange({
@@ -3199,20 +3200,20 @@ function Ergebnisformat({
           >
             <option value="ABBRECHEN">Nicht verarbeiten</option>
             <option value="WARNEN">Trotzdem verarbeiten und warnen</option>
-          </select>
+          </Auswahlfeld>
         </Field>
       )}
 
       <h4>Format der Ergebnisdatei</h4>
 
       <Field label="Geschrieben wird als">
-        <select
+        <Auswahlfeld
           value={config.format ?? 'CSV'}
           onChange={(event) => onChange({ format: event.target.value as ErgebnisformatTyp })}
         >
           <option value="CSV">CSV</option>
           <option value="FESTBREITEN">Feste Feldbreiten (TXT)</option>
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {config.format === 'FESTBREITEN' && (
@@ -3279,7 +3280,7 @@ function Ergebnisformat({
 
               <div className="row">
                 <Field label="Steht" explain="Rechtsbündig sind Zahlen, linksbündig ist Text.">
-                  <select
+                  <Auswahlfeld
                     value={feld.ausrichtung ?? 'LINKS'}
                     onChange={(event) =>
                       setzeFelder(
@@ -3292,7 +3293,7 @@ function Ergebnisformat({
                   >
                     <option value="LINKS">links</option>
                     <option value="RECHTS">rechts</option>
-                  </select>
+                  </Auswahlfeld>
                 </Field>
 
                 <Field label="Aufgefüllt mit" explain="Ein Zeichen. Leer heißt Leerzeichen.">
@@ -3426,7 +3427,7 @@ function WeitereDurchgaenge({
           </Field>
 
           <Field label="Liest">
-            <select
+            <Auswahlfeld
               value={durchgang.input.from}
               onChange={(event) =>
                 setze(
@@ -3442,7 +3443,7 @@ function WeitereDurchgaenge({
             >
               <option value="PRECEDING">Übernimmt vom Durchgang davor</option>
               <option value="DIRECTORY">Aus einem Verzeichnis</option>
-            </select>
+            </Auswahlfeld>
           </Field>
 
           {durchgang.input.from === 'DIRECTORY' && (
@@ -3694,14 +3695,14 @@ function Zuordnungszeile({
         {spalte.leer > 0 && <div>{spalte.leer} leer</div>}
       </td>
       <td>
-        <select value={gewaehlt} disabled={busy} onChange={(event) => onWahl(event.target.value)}>
+        <Auswahlfeld value={gewaehlt} disabled={busy} onChange={(event) => onWahl(event.target.value)}>
           <option value="">- keins -</option>
           {felder.map((feld) => (
             <option key={feld.intern} value={feld.intern}>
               {feld.label}
             </option>
           ))}
-        </select>
+        </Auswahlfeld>
         <details>
           <summary className="muted">Warum</summary>
           <ul>
@@ -4069,7 +4070,7 @@ function Feldputz({
       </Field>
 
       <Field label="Was damit geschieht">
-        <select
+        <Auswahlfeld
           value={art}
           onChange={(event) =>
             onChange({ ...eintrag, schritte: [{ art: event.target.value as 'TRIMMEN' }] })
@@ -4080,7 +4081,7 @@ function Feldputz({
               {schritt.label}
             </option>
           ))}
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {art === 'ANFANGSGROSS' && (
@@ -4150,13 +4151,13 @@ function Feldaufteilung({
         label="Wenn mehr Teile herauskommen als Zielfelder"
         explain="Abgeschnitten wird nie: Ein fehlender Namensteil sieht im Ergebnis aus wie ein Name."
       >
-        <select
+        <Auswahlfeld
           value={eintrag.ueberschuss ?? 'PRUEFFALL'}
           onChange={(event) => onChange({ ...eintrag, ueberschuss: event.target.value as Ueberschuss })}
         >
           <option value="PRUEFFALL">Als Prüffall vorlegen - nichts übernehmen</option>
           <option value="AN_LETZTES">Den Rest ans letzte Zielfeld</option>
-        </select>
+        </Auswahlfeld>
       </Field>
 
       <div className="row">
@@ -4451,7 +4452,7 @@ function Lieferzweig({
         label="Wohin"
         explain="Entweder, oder. Wer beides braucht, baut zwei Workflows - sonst wäre unklar, was gilt, wenn eines davon misslingt."
       >
-        <select
+        <Auswahlfeld
           value={ziel}
           onChange={(event) => {
             const gewaehlt = event.target.value as Lieferziel;
@@ -4468,7 +4469,7 @@ function Lieferzweig({
         >
           {kannImportieren && <option value="DATENBANK">In eine Datenbank importieren</option>}
           <option value="DATEI">Als Datei exportieren</option>
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {ziel === 'DATEI' && kannKonvertieren && (
@@ -4482,14 +4483,14 @@ function Lieferzweig({
 
           {config?.konvertieren && (
             <Field label="Format">
-              <select
+              <Auswahlfeld
                 value={config.konvertieren.format}
                 onChange={(event) => onChange({ konvertieren: { format: event.target.value as Lieferformat } })}
               >
                 <option value="CSV">CSV</option>
                 <option value="JSON">JSON</option>
                 <option value="XML">XML</option>
-              </select>
+              </Auswahlfeld>
             </Field>
           )}
         </>

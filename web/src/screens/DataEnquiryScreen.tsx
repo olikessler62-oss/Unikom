@@ -12,6 +12,7 @@ import type {
   Tenant,
 } from '../api/types.js';
 import { Empty, Field, formatMoment, Loading, Modal, Notice, Reiter } from '../components/Pieces.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 type Teil = 'suche' | 'bogen';
 
@@ -249,14 +250,14 @@ export function DataEnquiryScreen() {
                 </>
               }
             >
-              <select value={tenantId} onChange={(event) => setTenantId(event.target.value)}>
+              <Auswahlfeld value={tenantId} onChange={(event) => setTenantId(event.target.value)}>
                 <option value="">Alle Mandanten</option>
                 {tenants.data.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
                     {tenant.name}
                   </option>
                 ))}
-              </select>
+              </Auswahlfeld>
             </Field>
 
             <div className="row">

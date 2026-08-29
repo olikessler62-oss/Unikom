@@ -25,6 +25,7 @@ import type { Feldstand } from './feldstand.js';
  */
 import { ablagestand, nameVon } from '../../../../src/domain/transfer/Ablageorte.js';
 import { Verzeichnisfeld, Verzeichnisfenster } from '../../components/Verzeichniswahl.js';
+import { Auswahlfeld } from '../../components/Auswahlfeld.js';
 
 /**
  * Welche Dateien ein Konsolidierungsdurchgang nimmt — und wann er beginnt.
@@ -299,7 +300,7 @@ export function Stapelwahl({
             * Liste. Eine Auswahl, die den vorhandenen Wert nicht anbietet,
             * ändert ihn beim ersten Hinsehen still auf den ersten Eintrag.
             */}
-          <select
+          <Auswahlfeld
             className="input--wahl"
             /*
              * Auf dem Maß des Auswahlfeldes der Primär-Datei und nicht mehr auf
@@ -316,7 +317,7 @@ export function Stapelwahl({
                 {zahl}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </Field>
 
         {eigenesVerzeichnis && (
@@ -688,7 +689,7 @@ function Dateitypfeld({ wert, onWert }: { wert: string; onWert(next: string): vo
         * Wahl aus wenigen Wörtern, also steht beides gleich breit da — aus
         * derselben Rechnung, damit es das auch nach einer Übersetzung noch tut.
         */}
-      <select
+      <Auswahlfeld
         className="input--wahl"
         style={{ minWidth: ARTEN_BREITE }}
         value={wert}
@@ -701,7 +702,7 @@ function Dateitypfeld({ wert, onWert }: { wert: string; onWert(next: string): vo
             {endung}
           </option>
         ))}
-      </select>
+      </Auswahlfeld>
     </Field>
   );
 }
@@ -793,7 +794,7 @@ function Dateikennungszeile({
 
   return (
     <>
-      <select
+      <Auswahlfeld
         className="input--wahl"
         // Am Element und nicht im Erscheinungsbild: Hier stehen die Einträge.
         style={{ minWidth: ARTEN_BREITE }}
@@ -805,7 +806,7 @@ function Dateikennungszeile({
             {eine.text}
           </option>
         ))}
-      </select>
+      </Auswahlfeld>
 
       <input
         className="input--mittel"

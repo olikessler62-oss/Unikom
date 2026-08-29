@@ -15,6 +15,7 @@ import {
 } from '../../components/Pieces.js';
 import { locale } from '../../i18n/texts.js';
 import { useText } from '../../i18n/useText.js';
+import { Auswahlfeld } from '../../components/Auswahlfeld.js';
 
 const FILE_TONE: Record<FileStatus, string> = {
   PENDING: 'badge--muted',
@@ -168,7 +169,7 @@ export function RunDetailScreen({ runId, onBack }: Props) {
           >
             {saving ? 'Wird geholt …' : 'Protokoll speichern'}
           </button>
-          <select
+          <Auswahlfeld
             style={{ width: 'auto' }}
             value={level}
             onChange={(event) => setLevel(event.target.value as LogLevel)}
@@ -178,7 +179,7 @@ export function RunDetailScreen({ runId, onBack }: Props) {
                 {t(`detail.log.${entry}`)}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </div>
       </div>
 

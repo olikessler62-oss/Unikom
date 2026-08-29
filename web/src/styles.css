@@ -678,7 +678,7 @@ html[data-sw-modern='on'] .app-shell-sidebar-nav-menu::before {
  * Baustein, der einen anderen Zeiger braucht — ein abgeleitetes Feld, ein
  * gesperrter Knopf —, setzt ihn und gewinnt, ohne `!important`.
  */
-:where(button, select, summary, a[href], label.check, [role='button']),
+:where(button, summary, a[href], label.check, [role='button']),
 :where(input[type='checkbox'], input[type='radio'], input[type='file']) {
   cursor: pointer;
 }
@@ -689,7 +689,7 @@ html[data-sw-modern='on'] .app-shell-sidebar-nav-menu::before {
 }
 
 /* Was nicht bedienbar ist, sagt es auch. */
-:where(button, select, input, textarea):disabled {
+:where(button, input, textarea):disabled {
   cursor: not-allowed;
 }
 
@@ -768,7 +768,6 @@ body {
 /* Eingabefelder und Memos: hier gehört Markieren, Kopieren und Ersetzen dazu. */
 input,
 textarea,
-select,
 [contenteditable] {
   -webkit-user-select: text;
   -moz-user-select: text;
@@ -2164,7 +2163,6 @@ label {
 }
 
 input,
-select,
 textarea {
   width: 100%;
   padding: 0 var(--feld-luft-x);
@@ -2187,27 +2185,13 @@ textarea {
  * Das Memo steht bewusst nicht dabei. Es trägt mehrere Zeilen; eine feste
  * Zeilenhöhe nähme ihm genau das.
  */
-input,
-select {
+input {
   height: var(--control-hoehe);
 }
 
 textarea {
   padding-top: 0.45rem;
   padding-bottom: 0.45rem;
-}
-
-/*
- * Die Auswahlbox trägt geschlossen dieselbe Schrift wie aufgeklappt.
- *
- * Aufgeklappt steht dort `--option-text`, geschlossen käme aus der Regel oben
- * `--text`. Der Unterschied ist klein, aber er sitzt an der auffälligsten
- * Stelle: Wer die Liste schließt, sieht denselben Eintrag noch einmal - und
- * eine Zeile, die beim Schließen die Farbe wechselt, ist ein Fehler, den man
- * bemerkt, ohne ihn benennen zu können.
- */
-select {
-  color: var(--option-text);
 }
 
 /*
@@ -2313,7 +2297,7 @@ input[type='number'] {
  * sehen — an einer Rechnung, die nirgends steht, sucht niemand. Jetzt steht die
  * Breite dort, wo die Einträge stehen, und nur `width: auto` bleibt hier.
  */
-select.input--wahl {
+.auswahlfeld.input--wahl {
   width: auto;
 }
 
@@ -2336,13 +2320,13 @@ select.input--wahl {
  * `titelBeiUeberlaufWahl`. Abgeschnittener Text ohne diesen Ausweg wäre der
  * Fall, den die Breitenrechnung darüber gerade verhindern soll.
  */
-select.input--wahl-lang {
+.auswahlfeld.input--wahl-lang {
   width: auto;
   min-width: 0;
   overflow: hidden;
 }
 
-.field__row > select.input--wahl-lang {
+.field__row > .auswahlfeld.input--wahl-lang {
   flex: 1 1 0;
 }
 
@@ -2352,7 +2336,7 @@ select.input--wahl-lang {
  * Zeile bliebe die Regel darüber genau dort wirkungslos, wo es auffällt.
  */
 .field__row > input[type='number'],
-.field__row > select.input--wahl,
+.field__row > .auswahlfeld.input--wahl,
 .field__row > .input--mittel {
   flex: none;
 }
@@ -2372,7 +2356,7 @@ textarea {
 }
 
 input:hover,
-select:hover,
+.auswahlfeld:hover,
 textarea:hover {
   border-color: rgba(var(--sheen), 0.3);
 }
@@ -2423,7 +2407,7 @@ textarea.field__preset {
 }
 
 input:focus,
-select:focus,
+.auswahlfeld:focus-visible,
 textarea:focus {
   outline: none;
   border-color: rgba(var(--accent), 0.9);
@@ -2437,7 +2421,7 @@ textarea:focus {
  * weitergewandert ist.
  */
 input.wanted,
-select.wanted {
+.auswahlfeld.wanted {
   border-color: rgba(var(--accent), 0.75);
   box-shadow: 0 0 18px -8px rgba(var(--accent), 0.7);
 }
@@ -2447,40 +2431,6 @@ input[type='checkbox'] {
   height: 15px;
   padding: 0;
   accent-color: rgb(var(--accent));
-}
-
-/*
- * Aufklappbare Listen.
- *
- * Der hellblaue Balken auf dem markierten Eintrag kommt vom Betriebssystem,
- * nicht von der Seite — dort, wo der Browser die Liste selbst zeichnet, ist
- * er nicht zu erreichen. Deshalb zwei Stufen: die Grundfarben wirken überall,
- * die vollständige Gestaltung dort, wo der Browser sie zulässt.
- */
-option {
-  background-color: var(--picker-fill);
-  color: var(--option-text);
-}
-
-/*
- * Zwei Zustände, zwei Farben - beide voll, keine Mischung.
- *
- * Die eingestellte Zeile sagt „das gilt", die überfahrene „das käme jetzt". Die
- * hellere gehört dem Zeiger: Sie beantwortet die Frage, die gerade gestellt
- * wird, und tritt hinter der anderen hervor.
- *
- * Der Verlauf ist kein Schmuck: Für eine einfache Fläche nimmt der Browser an
- * dieser Stelle keine Farbe an.
- */
-option:checked {
-  background: linear-gradient(var(--pick), var(--pick));
-  color: var(--pick-text);
-}
-
-/* Steht danach: Ist ein Eintrag beides, gilt der Zeiger. */
-option:hover {
-  background: linear-gradient(var(--pick-hover), var(--pick-hover));
-  color: var(--pick-text);
 }
 
 /* ===================================================================
@@ -2751,7 +2701,7 @@ option:hover {
   align-items: flex-start;
 }
 
-.filters select {
+.filters .auswahlfeld {
   width: auto;
   min-width: 13rem;
 }
@@ -2908,7 +2858,7 @@ option:hover {
   color: rgba(var(--accent-light), 0.9);
 }
 
-.editor__tenant select {
+.editor__tenant .auswahlfeld {
   width: auto;
   min-width: 12rem;
   border-radius: 5px;
@@ -3117,7 +3067,7 @@ option:hover {
 }
 
 .field__row > input,
-.field__row > select {
+.field__row > .auswahlfeld {
   flex: 1;
   min-width: 0;
 }
@@ -3221,7 +3171,7 @@ svg.icon--strich {
   --field-size: var(--control-hoehe);
 }
 
-.card:has(.hint-button) .field > select {
+.card:has(.hint-button) .field > .auswahlfeld {
   max-width: calc(100% - var(--hint-gutter));
 }
 
@@ -4657,7 +4607,7 @@ button.secondary::after {
     width: 100%;
   }
 
-  .editor__tenant select {
+  .editor__tenant .auswahlfeld {
     flex: 1;
     min-width: 0;
   }
@@ -4808,111 +4758,14 @@ button.secondary::after {
   color: rgb(var(--alarm));
 }
 
-/* ===================================================================
- * Die aufgeklappte Liste einer Combobox
+/*
+ * Hier stand die Gestaltung der nativen Auswahlliste.
  *
- * Bei einem gewöhnlichen `<select>` zeichnet Windows die Liste, und es benutzt
- * dafür sein eigenes Blau. Keine Farbregel von hier erreicht sie.
- *
- * `appearance: base-select` holt das Bauteil in die Seite: Von da an gilt CSS —
- * für die Liste *und* für das geschlossene Feld. Genau daran ist mein erster
- * Versuch gescheitert: Ich hatte nur die Liste gestaltet, und das Feld bekam
- * die Grundform des neuen Bauteils, eine Pille mit großem Pfeil. Deshalb steht
- * hier beides.
- *
- * Farben stehen auch hier nicht: Sie kommen aus den Marken ganz oben.
- *
- * In `@supports` gekapselt. Wo es das nicht gibt, bleibt das Bauteil des
- * Systems samt seinem Blau — das ist die Grenze, und sie liegt nicht bei uns.
- * =================================================================== */
-
-@supports (appearance: base-select) {
-  select,
-  select::picker(select) {
-    appearance: base-select;
-  }
-
-  /*
-   * Das geschlossene Feld behält Fläche, Rahmen und Maß aus seinem
-   * Erscheinungsbild. Hier steht nur, was das neue Bauteil zusätzlich braucht:
-   * der Wert links, das Zeichen rechts, beides auf einer Linie.
-   */
-  select {
-    display: inline-flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    font: inherit;
-    font-size: var(--schrift);
-    text-align: left;
-  }
-
-  
-
-  /* Der Pfeil ist ein Zeichen, kein Bedienelement — klein und ruhig. */
-  select::picker-icon {
-    color: var(--text-soft);
-    font-size: 0.7rem;
-    transition: none;
-  }
-
-  /* Die Liste eines langen Auswahlfeldes richtet sich nach ihrem Inhalt. */
-  select.input--wahl-lang::picker(select) {
-    min-width: max-content;
-  }
-
-  select::picker(select) {
-    margin-top: 0.25rem;
-    padding: 0.25rem;
-    border: 1px solid var(--picker-edge);
-    border-radius: var(--radius-small);
-    background: var(--picker-fill);
-    box-shadow: var(--picker-shadow);
-  }
-
-  select option {
-    display: flex;
-    align-items: center;
-    min-height: 34px;
-    padding: 0 0.6rem;
-    border-radius: calc(var(--radius-small) - 2px);
-    background: var(--picker-fill);
-    color: var(--option-text);
-  }
-
-  /*
-   * Das Häkchen, das das neue Bauteil vor den gewählten Eintrag setzt. Es
-   * verschiebt den Text gegenüber den übrigen Zeilen — die Fläche sagt bereits,
-   * welcher gewählt ist.
-   */
-  select option::checkmark {
-    display: none;
-  }
-
-  select option:checked {
-    background: var(--pick);
-    color: var(--pick-text);
-  }
-
-  /*
-   * Nur der Zeiger, nicht der Fokus.
-   *
-   * `:focus` stand hier einmal mit dabei - „mit der Tastatur angesteuert" schien
-   * derselbe Zustand zu sein wie „überfahren". Ist es aber nicht: Beim Öffnen
-   * der Liste setzt der Browser den Fokus auf den eingestellten Eintrag. Der
-   * trug damit die Farbe des Zeigers, und da die Regel nach der eingestellten
-   * steht, gewann sie - die eingestellte Zeile und die überfahrene sahen gleich
-   * aus, sobald die Liste ein zweites Mal aufging.
-   *
-   * Es bleiben zwei Zustände und zwei Farben. Wer mit den Pfeiltasten durch die
-   * Liste geht, verstellt dabei den eingestellten Eintrag; die Rückmeldung
-   * darauf ist dessen eigene Farbe.
-   */
-  select option:hover {
-    background: var(--pick-hover);
-    color: var(--pick-text);
-  }
-}
+ * Sie ist fort, weil es kein `<select>` mehr gibt: Die Liste eines nativen
+ * Auswahlfeldes gehört dem Browser, lässt sich nicht schließen und nur so weit
+ * gestalten, wie er es zulässt. Was jetzt aufklappt, ist `Auswahlfeld` - ein
+ * eigenes Bauteil aus gewöhnlichem Markup, weiter oben in dieser Datei.
+ */
 
 /* ---------- Knöpfe in einer Tabellenzeile ---------- */
 

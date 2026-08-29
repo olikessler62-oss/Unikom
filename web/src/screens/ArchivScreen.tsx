@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
 import type { Job, KonsolidierungConfig } from '../api/types.js';
 import { Empty, Field, Loading, Notice } from '../components/Pieces.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 /**
  * Der Blick ins Archiv (FR_006, Runde 10).
@@ -179,14 +180,14 @@ export function ArchivScreen({ mandant }: { mandant: string }) {
             label="Archivverzeichnis"
             explain="Die Verzeichnisse, die an den Workflows dieses Mandanten stehen. Getippt wird hier nichts - ein Tippfehler führte in ein leeres Verzeichnis, ohne dass jemand merkt, dass er am falschen Ort sucht."
           >
-            <select className="input--wahl" value={gewaehlt ?? ''} onChange={(event) => setOrt(event.target.value)}>
+            <Auswahlfeld className="input--wahl" value={gewaehlt ?? ''} onChange={(event) => setOrt(event.target.value)}>
               {orte.map((eintrag) => (
                 <option key={eintrag.verzeichnis} value={eintrag.verzeichnis}>
                   {eintrag.verzeichnis} - {eintrag.workflow}
                   {eintrag.durchgang ? ` / ${eintrag.durchgang}` : ''}
                 </option>
               ))}
-            </select>
+            </Auswahlfeld>
           </Field>
         )}
       </section>

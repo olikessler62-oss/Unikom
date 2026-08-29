@@ -145,71 +145,15 @@ export function rahmenUm(teile: readonly (Messbar | null | undefined)[]): Rechte
   return umschliesst(kaesten);
 }
 
-/**
- * Wo die aufgeklappte Liste eines Auswahlfelds steht - ohne das Feld.
+/*
+ * Hier stand `useAuswahlschliesser` - die Regel für native Auswahlfelder.
  *
- * Die Liste ist ein Pseudo-Element (`::picker(select)`) und lässt sich nicht
- * messen. Ihre Einträge dagegen sind gewöhnliche `option`-Elemente mit eigener
- * Geometrie — und der Rahmen um sie herum ist die Liste. Kein Rahmen (kein
- * Eintrag hat Ausdehnung) heißt: geschlossen, und dann gibt es nichts zu
- * schließen.
- *
- * Das Feld selbst ist der Auslöser und wird getrennt gemessen - siehe
- * `bleibtOffen`.
+ * Sie ist fort, weil es keine mehr gibt. Und sie hat nie gewirkt: Chrome gibt
+ * keinen Weg her, sein Auswahl-Popup zu schließen. Gemessen über das
+ * DevTools-Protokoll - `blur()`, Fokus woandershin, `disabled`, `inert`,
+ * `appearance` zurücksetzen: Die Liste bleibt bei allen offen. Genau das war der
+ * Grund, `Auswahlfeld` zu bauen.
  */
-export function listeVon(feld: HTMLSelectElement): Rechteck | undefined {
-  return rahmenUm([...feld.querySelectorAll('option')]);
-}
-
-/**
- * Ob dieser Browser sagen kann, welche Liste offen ist.
- *
- * `:open` an einem Auswahlfeld gibt es erst mit dem neuen Bauteil. Wo es fehlt,
- * wirft `querySelector` — und eine Regel, die bei jeder Mausbewegung wirft,
- * legt die Oberfläche lahm. Gefragt wird deshalb einmal.
- */
-function kannOffeneFinden(): boolean {
-  return typeof CSS !== 'undefined' && CSS.supports?.('selector(select:open)') === true;
-}
-
-/**
- * Installiert die Regel für die ganze Anwendung.
- *
- * An einer Stelle und nicht an jedem Auswahlfeld: Es ist eine Regel über
- * Auswahlfelder und keine Eigenschaft eines einzelnen. Wer ein neues Feld
- * einbaut, soll nichts anhängen müssen — sonst gilt sie für neunzehn von zwanzig.
- */
-export function useAuswahlschliesser(abstand = ABSTAND): void {
-  useEffect(() => {
-    if (!kannOffeneFinden()) {
-      return;
-    }
-
-    const bewegt = (ereignis: PointerEvent): void => {
-      const offen = document.querySelector('select:open');
-
-      if (!(offen instanceof HTMLSelectElement)) {
-        return;
-      }
-
-      const zeiger = { x: ereignis.clientX, y: ereignis.clientY };
-      const liste = listeVon(offen);
-
-      if (liste && !bleibtOffen(liste, alsRechteck(offen.getBoundingClientRect()), zeiger, abstand)) {
-        /*
-         * Es gibt keinen Weg, eine Auswahlliste zu schließen — nur einen, ihr
-         * den Anlass zu nehmen. Das Bauteil schließt sich, wenn es den Fokus
-         * verliert.
-         */
-        offen.blur();
-      }
-    };
-
-    document.addEventListener('pointermove', bewegt);
-
-    return () => document.removeEventListener('pointermove', bewegt);
-  }, [abstand]);
-}
 
 /**
  * Dieselbe Regel für alles andere, was aufklappt.

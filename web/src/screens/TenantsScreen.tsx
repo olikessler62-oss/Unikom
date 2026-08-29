@@ -24,6 +24,7 @@ import { MergeScreen } from './MergeScreen.js';
 import { ReferenceScreen } from './ReferenceScreen.js';
 import { SchemataScreen } from './SchemataScreen.js';
 import { LOCALES, previewOf, timeZones } from './regions.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 interface Draft {
   id?: string;
@@ -716,7 +717,7 @@ export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }:
                   label="Region"
                   explain={`So schreibt dieser Mandant den 3. April 2026: ${previewOf(draft.locale, draft.timeZone).sample} - ${previewOf(draft.locale, draft.timeZone).order}.`}
                 >
-                  <select
+                  <Auswahlfeld
                     className="input--wahl-lang"
                     value={draft.locale}
                     {...titelBeiUeberlaufWahl()}
@@ -731,11 +732,11 @@ export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }:
                         {eintrag.label}
                       </option>
                     ))}
-                  </select>
+                  </Auswahlfeld>
                 </Field>
 
                 <Field label="Zeitzone" explain="Für Zeitangaben ohne eigene Zeitzone. Sommer- und Winterzeit stecken darin.">
-                  <select
+                  <Auswahlfeld
                     className="input--wahl"
                     style={{ minWidth: ZONEN_BREITE }}
                     value={draft.timeZone}
@@ -747,7 +748,7 @@ export function TenantsScreen({ canManage, fenster, blatt, onFenster, onBlatt }:
                         {zone}
                       </option>
                     ))}
-                  </select>
+                  </Auswahlfeld>
                 </Field>
               </div>
 
@@ -1000,7 +1001,7 @@ function Konfliktumgang({
             </>
           }
         >
-          <select
+          <Auswahlfeld
             className="input--wahl"
             value={draft.konfliktVorlage}
             onChange={(event) => onChange({ ...draft, konfliktVorlage: event.target.value as Vorlageart })}
@@ -1008,7 +1009,7 @@ function Konfliktumgang({
             <option value="EINMAL">Einmal zeigen</option>
             <option value="WIEDERVORLAGE">Wiedervorlage nach Frist</option>
             <option value="BEI_JEDEM_OEFFNEN">Bei jedem Öffnen zeigen</option>
-          </select>
+          </Auswahlfeld>
         </Field>
 
         {/* Nur, wo sie etwas bewirkt — die Zeile bleibt, die Hälfte wird leer. */}
@@ -1054,14 +1055,14 @@ function Konfliktumgang({
           </>
         }
       >
-        <select
+        <Auswahlfeld
           className="input--wahl"
           value={draft.auslieferung}
           onChange={(event) => onChange({ ...draft, auslieferung: event.target.value as Auslieferungsart })}
         >
           <option value="NUR_VOLLSTAENDIG">Ganz stehen lassen</option>
           <option value="IN_TEILEN">In Teile zerlegen</option>
-        </select>
+        </Auswahlfeld>
       </Field>
 
       <CheckField
@@ -1153,7 +1154,7 @@ function Meldewege({
             label="Verschlüsselung"
             explain="STARTTLS ist der Regelfall (Port 587). Implizit heißt: verschlüsselt ab dem ersten Byte (Port 465)."
           >
-            <select
+            <Auswahlfeld
               value={draft.mailVerschluesselung}
               onChange={(event) =>
                 onChange({ ...draft, mailVerschluesselung: event.target.value as Draft['mailVerschluesselung'] })
@@ -1162,7 +1163,7 @@ function Meldewege({
               <option value="STARTTLS">STARTTLS (Port 587)</option>
               <option value="IMPLIZIT">Implizit (Port 465)</option>
               <option value="KEINE">Keine - nur im eigenen Netz</option>
-            </select>
+            </Auswahlfeld>
           </Field>
 
           <Field label="Absender" explain="Was im Absenderfeld der Nachricht steht.">
@@ -1177,7 +1178,7 @@ function Meldewege({
             label="Zugang"
             explain="Benutzer und Kennwort stehen in den Zugängen, nicht hier. Ohne Zugang wird ohne Anmeldung versandt - das geht nur im eigenen Netz."
           >
-            <select
+            <Auswahlfeld
               value={draft.mailZugangId}
               onChange={(event) => onChange({ ...draft, mailZugangId: event.target.value })}
             >
@@ -1187,7 +1188,7 @@ function Meldewege({
                   {zugang.name}
                 </option>
               ))}
-            </select>
+            </Auswahlfeld>
           </Field>
         </>
       )}

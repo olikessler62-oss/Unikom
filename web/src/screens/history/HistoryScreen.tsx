@@ -6,6 +6,7 @@ import { Empty, formatDuration, formatMoment, Loading, Notice, RunBadge } from '
 import { fill, type TextKey } from '../../i18n/texts.js';
 import { useText } from '../../i18n/useText.js';
 import { RunDetailScreen } from './RunDetailScreen.js';
+import { Auswahlfeld } from '../../components/Auswahlfeld.js';
 
 interface Props {
   initialJobId?: string;
@@ -82,26 +83,26 @@ export function HistoryScreen({ initialJobId }: Props) {
       <div className="filters">
         <div className="filters__field">
           <label htmlFor="history-tenant">{t('history.tenant')}</label>
-          <select id="history-tenant" value={tenantId} onChange={(event) => setTenantId(event.target.value)}>
+          <Auswahlfeld id="history-tenant" value={tenantId} onChange={(event) => setTenantId(event.target.value)}>
             <option value="">{t('history.allTenants')}</option>
             {tenants.data?.map((tenant) => (
               <option key={tenant.id} value={tenant.id}>
                 {tenant.name}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </div>
 
         <div className="filters__field">
           <label htmlFor="history-subject">{t('history.subject')}</label>
-          <select id="history-subject" value={jobId} onChange={(event) => setJobId(event.target.value)}>
+          <Auswahlfeld id="history-subject" value={jobId} onChange={(event) => setJobId(event.target.value)}>
             <option value="">{t('history.allSubjects')}</option>
             {shown.map((job) => (
               <option key={job.id} value={job.id}>
                 {job.name}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </div>
 
         {/*

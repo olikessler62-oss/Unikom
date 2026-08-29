@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
 import type { Mappingliste, Mappingregel } from '../api/types.js';
 import { Empty, Field, formatMoment, Loading, Notice, RowButton, TrashIcon } from '../components/Pieces.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 /**
  * Die Mapping-Verwaltung (SPEC-02, Abschnitt 19).
@@ -138,11 +139,11 @@ export function MappingScreen({ mandant }: { mandant: string }) {
         <div className="filters">
           <div className="filters__field">
             <Field label="Art">
-              <select value={art} onChange={(event) => setArt(event.target.value)}>
+              <Auswahlfeld value={art} onChange={(event) => setArt(event.target.value)}>
                 <option value="">Alle</option>
                 <option value="WERT">Wertmappings</option>
                 <option value="FELD">Feldmappings</option>
-              </select>
+              </Auswahlfeld>
             </Field>
           </div>
           <div className="filters__field">

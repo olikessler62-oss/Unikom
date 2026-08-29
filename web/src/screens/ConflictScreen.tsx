@@ -18,6 +18,7 @@ import type {
   Ausleitung,
 } from '../api/types.js';
 import { Empty, Field, Loading, Notice } from '../components/Pieces.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 /**
  * Die Konfliktbearbeitung (SPEC-07).
@@ -388,13 +389,13 @@ export function ConflictScreen() {
 
         <div className="row">
           <Field label="Mandant">
-            <select value={mandant} onChange={(event) => setTenantId(event.target.value)}>
+            <Auswahlfeld value={mandant} onChange={(event) => setTenantId(event.target.value)}>
               {tenants.data.map((tenant) => (
                 <option key={tenant.id} value={tenant.id}>
                   {tenant.name}
                 </option>
               ))}
-            </select>
+            </Auswahlfeld>
           </Field>
 
           <Field label="Suche" explain="Über Ursache, Datensatz, Quelle und Werte.">
@@ -402,18 +403,18 @@ export function ConflictScreen() {
           </Field>
 
           <Field label="Status">
-            <select value={status} onChange={(event) => setStatus(event.target.value as Konfliktstatus | '')}>
+            <Auswahlfeld value={status} onChange={(event) => setStatus(event.target.value as Konfliktstatus | '')}>
               <option value="">alle</option>
               {Object.entries(STATUS_LABELS).map(([wert, label]) => (
                 <option key={wert} value={wert}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Auswahlfeld>
           </Field>
 
           <Field label="Dringlichkeit">
-            <select
+            <Auswahlfeld
               value={kritikalitaet}
               onChange={(event) => setKritikalitaet(event.target.value as Kritikalitaet | '')}
             >
@@ -423,7 +424,7 @@ export function ConflictScreen() {
                   {label}
                 </option>
               ))}
-            </select>
+            </Auswahlfeld>
           </Field>
         </div>
 
@@ -487,11 +488,11 @@ export function ConflictScreen() {
 
           <div className="row">
             <Field label="Entscheidung">
-              <select value={massenart} onChange={(event) => setMassenart(event.target.value as Entscheidungsart)}>
+              <Auswahlfeld value={massenart} onChange={(event) => setMassenart(event.target.value as Entscheidungsart)}>
                 {akzeptierenErlaubt && <option value="AKZEPTIEREN">{ENTSCHEIDUNG_LABELS.AKZEPTIEREN}</option>}
                 <option value="ZURUECKSTELLEN">{ENTSCHEIDUNG_LABELS.ZURUECKSTELLEN}</option>
                 <option value="NICHT_ZUSAMMENFUEHREN">{ENTSCHEIDUNG_LABELS.NICHT_ZUSAMMENFUEHREN}</option>
-              </select>
+              </Auswahlfeld>
             </Field>
 
             <button className="secondary" disabled={busy} onClick={() => void massenZeigen()}>
@@ -731,13 +732,13 @@ function Freigabe({
             */}
           {laeufe.length > 1 && (
             <Field label="Lauf">
-              <select value={lauf?.laufId ?? ''} onChange={(event) => setGewaehlt(event.target.value)}>
+              <Auswahlfeld value={lauf?.laufId ?? ''} onChange={(event) => setGewaehlt(event.target.value)}>
                 {laeufe.map((eintrag) => (
                   <option key={eintrag.laufId} value={eintrag.laufId}>
                     {eintrag.laufId} ({eintrag.faelle} bereinigt)
                   </option>
                 ))}
-              </select>
+              </Auswahlfeld>
             </Field>
           )}
 

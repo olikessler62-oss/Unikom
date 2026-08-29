@@ -25,6 +25,7 @@ import {
   titelBeiUeberlauf,
 } from '../components/Pieces.js';
 import { Verzeichnisfenster, verzeichnisTeil } from '../components/Verzeichniswahl.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 const MODUS_LABELS: Record<Erkennungsmodus, string> = {
   AUTOMATIK: 'Automatisch',
@@ -358,23 +359,23 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
         </Field>
 
         <Field label="Art des Inhalts" explain={ART_HINTS[art]}>
-          <select value={art} onChange={(event) => setArt(event.target.value as Art)}>
+          <Auswahlfeld value={art} onChange={(event) => setArt(event.target.value as Art)}>
             {Object.entries(ART_LABELS).map(([wert, label]) => (
               <option key={wert} value={wert}>
                 {label}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </Field>
 
         <Field label="Erkennung" explain={MODUS_HINTS[modus]}>
-          <select value={modus} onChange={(event) => setModus(event.target.value as Erkennungsmodus)}>
+          <Auswahlfeld value={modus} onChange={(event) => setModus(event.target.value as Erkennungsmodus)}>
             {Object.entries(MODUS_LABELS).map(([wert, label]) => (
               <option key={wert} value={wert}>
                 {label}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </Field>
 
         <div className="row">
@@ -553,13 +554,13 @@ export function DiscoveryScreen({ mandant }: { mandant: string }) {
               </>
             }
           >
-            <select value={zielformat} onChange={(event) => setZielformat(event.target.value as Zielformat)}>
+            <Auswahlfeld value={zielformat} onChange={(event) => setZielformat(event.target.value as Zielformat)}>
               {Object.entries(ZIEL_LABELS).map(([wert, label]) => (
                 <option key={wert} value={wert}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Auswahlfeld>
           </Field>
           <div className="row">
             <button disabled={busy || dateiName.trim() === ''} onClick={() => void uebernehmen()}>

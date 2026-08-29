@@ -139,12 +139,20 @@ export function platzierung(feld: { left: number; top: number; bottom: number; w
 }
 
 interface Props {
-  value: string;
+  /**
+   * Wie bei einem `<select>`: eine Zeichenkette, eine Zahl oder nichts.
+   *
+   * Verglichen wird als Zeichenkette, weil die Werte der Einträge welche sind.
+   * Ohne diese Angleichung fände ein Feld mit `value={3}` seinen eigenen
+   * Eintrag `value="3"` nicht wieder und stünde leer da.
+   */
+  value: string | number | undefined;
   onChange(ereignis: { target: { value: string } }): void;
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
   disabled?: boolean;
+  autoFocus?: boolean;
   id?: string;
   title?: string;
   'aria-label'?: string;
@@ -152,8 +160,9 @@ interface Props {
 }
 
 export function Auswahlfeld({ value, onChange, children, className, style, disabled, ...rest }: Props) {
+  const wert = value === undefined ? '' : String(value);
   const eintraege = eintraegeAus(children);
-  const gewaehlt = eintraege.find((eintrag) => eintrag.wert === value);
+  const gewaehlt = eintraege.find((eintrag) => eintrag.wert === wert);
 
   const [offen, setOffen] = useState(false);
   /**
@@ -193,7 +202,7 @@ export function Auswahlfeld({ value, onChange, children, className, style, disab
    */
   useEffect(() => {
     if (offen) {
-      const stelle = eintraege.findIndex((eintrag) => eintrag.wert === value);
+      const stelle = eintraege.findIndex((eintrag) => eintrag.wert === wert);
 
       setZeiger(stelle < 0 ? 0 : stelle);
     }
@@ -362,11 +371,11 @@ export function Auswahlfeld({ value, onChange, children, className, style, disab
               <div
                 key={eintrag.wert}
                 role="option"
-                aria-selected={eintrag.wert === value}
+                aria-selected={eintrag.wert === wert}
                 aria-disabled={eintrag.deaktiviert || undefined}
                 className={
                   'auswahlfeld__eintrag' +
-                  (eintrag.wert === value ? ' auswahlfeld__eintrag--gewaehlt' : '') +
+                  (eintrag.wert === wert ? ' auswahlfeld__eintrag--gewaehlt' : '') +
                   (stelle === zeiger ? ' auswahlfeld__eintrag--zeiger' : '')
                 }
                 onPointerEnter={() => setZeiger(stelle)}

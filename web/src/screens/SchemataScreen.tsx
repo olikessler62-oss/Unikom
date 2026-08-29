@@ -27,6 +27,7 @@ import {
   formatMoment,
 } from '../components/Pieces.js';
 import { LOCALES } from './regions.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 /**
  * Schemata eines Mandanten — die Eingangsprofile mit einer Oberfläche.
@@ -426,7 +427,7 @@ function Allgemein({
           </>
         }
       >
-        <select
+        <Auswahlfeld
           className="input--wahl"
           value={entwurf.vorgabe.verbindlichkeit}
           onChange={(event) =>
@@ -440,7 +441,7 @@ function Allgemein({
               {eine.text}
             </option>
           ))}
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {/*
@@ -628,7 +629,7 @@ function Spalten({
                       />
                     </td>
                     <td>
-                      <select
+                      <Auswahlfeld
                         className="input--wahl"
                         value={spalte.type ?? ''}
                         onChange={(event) =>
@@ -641,7 +642,7 @@ function Spalten({
                             {typ}
                           </option>
                         ))}
-                      </select>
+                      </Auswahlfeld>
                     </td>
                     <td>
                       {dazu.length === 0 && <span className="muted">keine</span>}
@@ -753,13 +754,13 @@ function Regelfenster({
   return (
     <Modal title={`Regel für „${feld}"`} ownActions onClose={onClose}>
       <Field label="Was geprüft wird">
-        <select className="input--wahl" value={art} onChange={(event) => setArt(event.target.value as Pruefung['art'])}>
+        <Auswahlfeld className="input--wahl" value={art} onChange={(event) => setArt(event.target.value as Pruefung['art'])}>
           {PRUEFARTEN.map((eine) => (
             <option key={eine.wert} value={eine.wert}>
               {eine.text}
             </option>
           ))}
-        </select>
+        </Auswahlfeld>
       </Field>
 
       {art === 'FORMAT' && (
@@ -808,13 +809,13 @@ function Regelfenster({
         label="Schweregrad"
         explain="Nicht jede Auffälligkeit hält eine Verarbeitung auf. Blockiert werden darf nur, wo eine sichere Verarbeitung nicht möglich ist."
       >
-        <select className="input--wahl" value={schwere} onChange={(event) => setSchwere(event.target.value as Schwere)}>
+        <Auswahlfeld className="input--wahl" value={schwere} onChange={(event) => setSchwere(event.target.value as Schwere)}>
           {SCHWEREGRADE.map((eine) => (
             <option key={eine.wert} value={eine.wert}>
               {eine.text}
             </option>
           ))}
-        </select>
+        </Auswahlfeld>
       </Field>
 
       <Field
@@ -902,7 +903,7 @@ function Werte({
         label="Sprache und Land"
         explain={'Entscheidet, wie Zahlen und Datumsangaben gelesen werden. „1.000,50" und „1,000.50" sind dieselbe Zahl in zwei Ländern.'}
       >
-        <select
+        <Auswahlfeld
           className="input--wahl"
           value={(einstellungen.locale as string) ?? ''}
           onChange={(event) => setze('locale', event.target.value || undefined)}
@@ -913,7 +914,7 @@ function Werte({
               {eine.label}
             </option>
           ))}
-        </select>
+        </Auswahlfeld>
       </Field>
 
       <Field

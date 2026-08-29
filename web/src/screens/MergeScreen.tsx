@@ -12,6 +12,7 @@ import type {
   OhneHauptsatz,
 } from '../api/types.js';
 import { Empty, Field, Notice, RowButton, TrashIcon } from '../components/Pieces.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 /**
  * Der Prüflauf über mehrere Quellen (SPEC-06, Abschnitt 11).
@@ -239,49 +240,49 @@ export function MergeScreen({ mandant }: { mandant: string }) {
         <h2>Wie zusammengeführt wird</h2>
 
         <Field label="Betriebsart" explain={BETRIEBSART_HINTS[betriebsart]}>
-          <select value={betriebsart} onChange={(event) => setBetriebsart(event.target.value as Betriebsart)}>
+          <Auswahlfeld value={betriebsart} onChange={(event) => setBetriebsart(event.target.value as Betriebsart)}>
             {Object.entries(BETRIEBSART_LABELS).map(([wert, label]) => (
               <option key={wert} value={wert}>
                 {label}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </Field>
 
         {betriebsart === 'ANREICHERN' && (
           <>
             <Field label="Hauptdatei" explain="Sie wird nicht erraten. Ohne diese Angabe läuft nichts.">
-              <select value={fuehrend} onChange={(event) => setFuehrend(event.target.value)}>
+              <Auswahlfeld value={fuehrend} onChange={(event) => setFuehrend(event.target.value)}>
                 <option value="">- bitte wählen -</option>
                 {gefuellt.map((quelle) => (
                   <option key={quelle.id} value={quelle.id}>
                     {quelle.name.trim() === '' ? quelle.id : quelle.name}
                   </option>
                 ))}
-              </select>
+              </Auswahlfeld>
             </Field>
 
             <Field
               label="Datensatz ohne Hauptdatensatz"
               explain="Standardmäßig ein Konflikt: Aus einer Zusatzdatei einen neuen Hauptdatensatz zu erzeugen, wäre eine Entscheidung über den Bestand."
             >
-              <select value={ohneHauptsatz} onChange={(event) => setOhneHauptsatz(event.target.value as OhneHauptsatz)}>
+              <Auswahlfeld value={ohneHauptsatz} onChange={(event) => setOhneHauptsatz(event.target.value as OhneHauptsatz)}>
                 {Object.entries(OHNE_HAUPTSATZ_LABELS).map(([wert, label]) => (
                   <option key={wert} value={wert}>
                     {label}
                   </option>
                 ))}
-              </select>
+              </Auswahlfeld>
             </Field>
 
             <Field label="Mehrere Treffer je Hauptdatensatz" explain={mehrfach === 'FELD' ? undefined : MEHRFACH_LABELS[mehrfach]}>
-              <select value={mehrfach} onChange={(event) => setMehrfach(event.target.value as Mehrfachtreffer)}>
+              <Auswahlfeld value={mehrfach} onChange={(event) => setMehrfach(event.target.value as Mehrfachtreffer)}>
                 {Object.entries(MEHRFACH_LABELS).map(([wert, label]) => (
                   <option key={wert} value={wert}>
                     {label}
                   </option>
                 ))}
-              </select>
+              </Auswahlfeld>
             </Field>
 
             {mehrfach === 'FELD' && (
@@ -297,13 +298,13 @@ export function MergeScreen({ mandant }: { mandant: string }) {
         )}
 
         <Field label="Art" explain={ART_HINTS[art]}>
-          <select value={art} onChange={(event) => setArt(event.target.value as Konsolidierungsart)}>
+          <Auswahlfeld value={art} onChange={(event) => setArt(event.target.value as Konsolidierungsart)}>
             {Object.entries(ART_LABELS).map(([wert, label]) => (
               <option key={wert} value={wert}>
                 {label}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </Field>
 
         <Field
@@ -318,13 +319,13 @@ export function MergeScreen({ mandant }: { mandant: string }) {
         </Field>
 
         <Field label="Bei doppelten Datensätzen">
-          <select value={auswahl} onChange={(event) => setAuswahl(event.target.value as Dublettenauswahl)}>
+          <Auswahlfeld value={auswahl} onChange={(event) => setAuswahl(event.target.value as Dublettenauswahl)}>
             {Object.entries(AUSWAHL_LABELS).map(([wert, label]) => (
               <option key={wert} value={wert}>
                 {label}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </Field>
 
         <label className="check">

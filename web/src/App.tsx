@@ -2,7 +2,6 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { api } from './api/client.js';
 
-import { useAuswahlschliesser } from './components/Auswahlschliesser.js';
 import { Meldungen } from './components/Meldungen.js';
 import { useText } from './i18n/useText.js';
 import type { TextKey } from './i18n/texts.js';
@@ -239,14 +238,6 @@ function navItemClass(aktiv: boolean): string {
 }
 
 export function App() {
-  /*
-   * Eine offene Auswahlliste schließt sich, sobald der Zeiger fortgeht — für
-   * die ganze Anwendung und nicht je Feld. Sie liegt über der Fläche und
-   * verdeckt, was darunter steht; wer woanders hinsieht, soll sie nicht erst
-   * wegklicken müssen.
-   */
-  useAuswahlschliesser();
-
   const session = useSession();
   const t = useText();
   const [view, setView] = useState<View>({ area: 'dashboard' });

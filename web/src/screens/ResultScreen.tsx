@@ -11,6 +11,7 @@ import type {
   Verarbeitungsstatus,
 } from '../api/types.js';
 import { Empty, Field, Loading, Notice } from '../components/Pieces.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 /**
  * Ergebnisse und ihre Freigabe (SPEC-08, Abschnitt 10 bis 13).
@@ -155,13 +156,13 @@ export function ResultScreen() {
         </p>
 
         <Field label="Mandant">
-          <select value={mandant} onChange={(event) => setTenantId(event.target.value)}>
+          <Auswahlfeld value={mandant} onChange={(event) => setTenantId(event.target.value)}>
             {tenants.data.map((tenant) => (
               <option key={tenant.id} value={tenant.id}>
                 {tenant.name}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </Field>
 
         {!staende ? (

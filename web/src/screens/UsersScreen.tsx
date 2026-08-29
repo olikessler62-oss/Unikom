@@ -17,6 +17,7 @@ import {
   TrashIcon,
   UnlockIcon,
 } from '../components/Pieces.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrator',
@@ -189,13 +190,13 @@ export function UsersScreen({ ownUserId }: Props) {
           </Field>
 
           <Field label="Berechtigung" explain={ROLE_HINTS[draft.role]}>
-            <select value={draft.role} onChange={(event) => setDraft({ ...draft, role: event.target.value as Role })}>
+            <Auswahlfeld value={draft.role} onChange={(event) => setDraft({ ...draft, role: event.target.value as Role })}>
               {Object.entries(ROLE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Auswahlfeld>
           </Field>
 
           <Field

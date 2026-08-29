@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import { messageOf, useResource } from '../api/useResource.js';
 import type { Job, Tenant } from '../api/types.js';
 import { Empty, formatMoment, Loading, Notice } from '../components/Pieces.js';
+import { Auswahlfeld } from '../components/Auswahlfeld.js';
 
 const SOURCE_LABELS: Record<Job['sourceType'], string> = {
   LOCAL: 'Lokal',
@@ -93,7 +94,7 @@ export function WorkflowsScreen({ canManage, canRun, onEdit, onShowHistory }: Pr
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: '1rem' }}>
         {/* Der Filter erscheint erst, wenn er etwas zu tun hat. */}
         {severalTenants ? (
-          <select
+          <Auswahlfeld
             style={{ width: 'auto' }}
             value={tenantFilter}
             onChange={(event) => setTenantFilter(event.target.value)}
@@ -104,7 +105,7 @@ export function WorkflowsScreen({ canManage, canRun, onEdit, onShowHistory }: Pr
                 {tenant.name}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         ) : (
           <span />
         )}
@@ -241,7 +242,7 @@ function RowActions({
   };
 
   return (
-    <select
+    <Auswahlfeld
       className="row-actions"
       value=""
       disabled={busy}
@@ -260,6 +261,6 @@ function RowActions({
       )}
       {canManage && <option value="toggle">{job.enabled ? 'Deaktivieren' : 'Aktivieren'}</option>}
       {canManage && <option value="remove">Löschen</option>}
-    </select>
+    </Auswahlfeld>
   );
 }

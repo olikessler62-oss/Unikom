@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import { messageOf } from '../api/useResource.js';
 import type { Credential, Tenant } from '../api/types.js';
 import { Field, Notice } from './Pieces.js';
+import { Auswahlfeld } from './Auswahlfeld.js';
 
 /**
  * Benannt nach dem Zweck, nicht nach der Technik. „Zugangsdaten" allein ließ
@@ -167,7 +168,7 @@ export function CredentialForm({
 
       {types.length > 1 && (
         <Field label="Art">
-          <select
+          <Auswahlfeld
             value={draft.type}
             onChange={(event) => setDraft({ ...draft, type: event.target.value as Credential['type'] })}
           >
@@ -176,20 +177,20 @@ export function CredentialForm({
                 {CREDENTIAL_TYPE_LABELS[type]}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </Field>
       )}
 
       {chooseTenant && (
         <Field label="Mandant" explain="Ohne Zuordnung steht der Eintrag allen Mandanten zur Verfügung.">
-          <select value={draft.tenantId} onChange={(event) => setDraft({ ...draft, tenantId: event.target.value })}>
+          <Auswahlfeld value={draft.tenantId} onChange={(event) => setDraft({ ...draft, tenantId: event.target.value })}>
             <option value="">Übergreifend</option>
             {tenants.map((tenant) => (
               <option key={tenant.id} value={tenant.id}>
                 {tenant.name}
               </option>
             ))}
-          </select>
+          </Auswahlfeld>
         </Field>
       )}
 
